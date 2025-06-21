@@ -1,0 +1,29 @@
+@PACKAGE_INIT@
+
+# libhmm CMake configuration file
+
+# Compute paths
+get_filename_component(LIBHMM_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+set(LIBHMM_INCLUDE_DIRS "@PACKAGE_INCLUDE_INSTALL_DIR@")
+
+# Our library dependencies (contains definitions for IMPORTED targets)
+if(NOT TARGET libhmm::hmm AND NOT libhmm_BINARY_DIR)
+  include("${LIBHMM_CMAKE_DIR}/libhmmTargets.cmake")
+endif()
+
+# Set library targets
+set(LIBHMM_LIBRARIES libhmm::hmm)
+
+# Check that all required components are available
+check_required_components(libhmm)
+
+# Find required dependencies
+find_dependency(Boost REQUIRED)
+
+# Set include directories
+if(NOT TARGET libhmm::hmm)
+  add_library(libhmm::hmm INTERFACE IMPORTED)
+  set_target_properties(libhmm::hmm PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${LIBHMM_INCLUDE_DIRS}"
+  )
+endif()

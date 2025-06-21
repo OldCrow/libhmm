@@ -1,0 +1,75 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+
+# Compiled Object files
+*.o
+*.obj
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+hmmtest
+basic_hmm_example
+test_*
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+build.log
+testrw
+
+# Package files
+*.tar.gz
+*.tgz
+*.zip
+
+# Documentation build
+docs/html/
+docs/latex/
+
+# Debug files
+*.dSYM/
+*.pdb
+*.idb
+
+# Backup files
+*.bak
+*.backup
