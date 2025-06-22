@@ -22,7 +22,14 @@ cmake-build-*/
 *.app
 hmmtest
 basic_hmm_example
-test_*
+# Test executables (but not source files)
+test_calculators
+test_common
+test_distributions
+test_hmm_core
+test_io
+test_training
+test_type_safety
 
 # CMake
 CMakeCache.txt
@@ -73,3 +80,6 @@ docs/latex/
 # Backup files
 *.bak
 *.backup
+
+# Github Setup documentation
+GITHUB_SETUP.md
