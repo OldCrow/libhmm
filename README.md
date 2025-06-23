@@ -3,12 +3,12 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.15%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.2.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Version](https://img.shields.io/badge/Version-2.2.1-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
 [![Tests](https://img.shields.io/badge/Tests-19/19_Passing-success.svg)](tests/)
 
 A modern, type-safe C++17 implementation of Hidden Markov Models with comprehensive training algorithms and probability distributions.
 
-**🎉 Latest Release v2.2.0**: Complete statistical modeling framework with 12 probability distributions, comprehensive unit test coverage (19/19 tests passing), enhanced numerical stability, and production-ready code quality.
+**🎉 Latest Release v2.2.1**: Complete statistical modeling framework with 12 probability distributions, comprehensive unit test coverage (19/19 tests passing), enhanced numerical stability, and 7 comprehensive real-world examples covering all major application domains.
 
 ## Features
 
