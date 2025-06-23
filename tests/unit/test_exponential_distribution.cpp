@@ -165,12 +165,12 @@ void testStringRepresentation() {
     ExponentialDistribution exponential(2.5);
     std::string str = exponential.toString();
     
-    // Should contain key information based on actual output format:
-    // "Exponential Distribution:\n      Rate parameter = 2.5\n"
+    // Should contain key information based on new format:
+    // "Exponential Distribution:\n      λ (rate parameter) = 2.5\n      Mean = 0.4\n"
     assert(str.find("Exponential") != std::string::npos);
     assert(str.find("Distribution") != std::string::npos);
     assert(str.find("2.5") != std::string::npos);
-    assert(str.find("Rate parameter") != std::string::npos);
+    assert(str.find("rate parameter") != std::string::npos);
     
     std::cout << "String representation: " << str << std::endl;
     std::cout << "✓ String representation tests passed" << std::endl;

@@ -14,8 +14,7 @@ double BetaDistribution::getProbability(double value) {
     
     // Update cache if needed
     if (!cacheValid_) {
-        // Cast away const to update cache - this is a common pattern for lazy evaluation
-        const_cast<BetaDistribution*>(this)->updateCache();
+        updateCache();
     }
     
     // Handle boundary cases

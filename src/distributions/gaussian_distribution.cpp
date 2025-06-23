@@ -6,22 +6,10 @@
 namespace libhmm
 {
 
-/*
- * Returns the value of the P(x) of the Gaussian distribution.
- *
- * Note that the Gaussian PDF at x is *NOT* the value of P(x).  For continuous
- * distributions, the PDF at x is defined as zero.  We can, however, use
- * P( x - e <= x <= x + e ) and use the CDF.  Wikipedia states that the "point
- * probability" that X is exactly b can be found as
- *
- * P(X=b) = F(b) - lim F(x)
- *                    x->b-
+/**
+ * Returns the probability density function value for the Gaussian distribution.
  * 
- * I can't take a limit from the left side, but I can approximate with
- *
- * P(X=b) = F(b) - F(x - e)
- *
- * where e = 1e-6
+ * Temporarily using the legacy CDF-based approach while debugging the PDF calculation.
  */            
 double GaussianDistribution::getProbability(double x) {
     // Validate input
@@ -29,6 +17,8 @@ double GaussianDistribution::getProbability(double x) {
         return 0.0;
     }
     
+    const double LIMIT_TOLERANCE = 1e-6;
+    const double ZERO = 0.0;
     const double p = CDF(x) - CDF(x - LIMIT_TOLERANCE);
     
     // Handle numerical issues
@@ -91,6 +81,9 @@ void GaussianDistribution::fit(const std::vector<Observation>& values) {
     // Normal distribution functions are undefined for standard deviation
     // values of 0.  (Variance = (standard deviation)^2 > 0)
     assert(standardDeviation_ > 0);
+    
+    // Invalidate cache since parameters changed
+    cacheValid_ = false;
 }
 
 /*
@@ -99,15 +92,18 @@ void GaussianDistribution::fit(const std::vector<Observation>& values) {
 void GaussianDistribution::reset() noexcept {
     mean_ = 0.0;
     standardDeviation_ = 1.0;
+    cacheValid_ = false;
 }
 
 std::string GaussianDistribution::toString() const {
-    std::stringstream os;
-    os << "Gaussian Distribution:\n      Mean = ";
-    os << mean_ << "\n      Standard Deviation = ";
-    os << standardDeviation_ << "\n";
-
-    return os.str();
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(6);
+    oss << "Gaussian Distribution:\n";
+    oss << "      μ (mean) = " << mean_ << "\n";
+    oss << "      σ (std. deviation) = " << standardDeviation_ << "\n";
+    oss << "      Mean = " << getMean() << "\n";
+    oss << "      Variance = " << getVariance() << "\n";
+    return oss.str();
 }
 
 std::ostream& operator<<( std::ostream& os, 

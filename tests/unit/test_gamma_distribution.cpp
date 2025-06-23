@@ -154,12 +154,13 @@ void testStringRepresentation() {
     GammaDistribution gamma(2.5, 1.5);
     std::string str = gamma.toString();
     
-    // Should contain key information
+    // Should contain key information based on new format:
+    // "Gamma Distribution:\n      k (shape parameter) = 2.5\n      θ (scale parameter) = 1.5\n      Mean = 3.75\n      Variance = 5.625\n"
     assert(str.find("Gamma") != std::string::npos);
     assert(str.find("2.5") != std::string::npos);
     assert(str.find("1.5") != std::string::npos);
-    assert(str.find("k") != std::string::npos);
-    assert(str.find("theta") != std::string::npos);
+    assert(str.find("shape parameter") != std::string::npos);
+    assert(str.find("scale parameter") != std::string::npos);
     
     std::cout << "String representation: " << str << std::endl;
     std::cout << "✓ String representation tests passed" << std::endl;

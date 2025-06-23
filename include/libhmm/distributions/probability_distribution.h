@@ -28,7 +28,7 @@ protected:
      *
      * This code comes from Numerical Recipes in C, p.214
      */
-    double loggamma(double x) noexcept;
+    double loggamma(double x) const noexcept;
     
     /*
      * Returns the value of the error function at x.

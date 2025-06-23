@@ -162,13 +162,13 @@ void testStringRepresentation() {
     std::string str = gaussian.toString();
     
     // Should contain key information based on actual output format:
-    // "Gaussian Distribution:\n      Mean = 2.5\n      Standard Deviation = 1.5\n"
+    // "Gaussian Distribution:\n      μ (mean) = 2.5\n      σ (std. deviation) = 1.5\n      Mean = 2.5\n      Variance = 2.25\n"
     assert(str.find("Gaussian") != std::string::npos);
     assert(str.find("Distribution") != std::string::npos);
     assert(str.find("2.5") != std::string::npos);
     assert(str.find("1.5") != std::string::npos);
     assert(str.find("Mean") != std::string::npos);
-    assert(str.find("Standard Deviation") != std::string::npos);
+    assert(str.find("std. deviation") != std::string::npos);
     
     std::cout << "String representation: " << str << std::endl;
     std::cout << "✓ String representation tests passed" << std::endl;

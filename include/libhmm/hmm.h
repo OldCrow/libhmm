@@ -16,6 +16,8 @@
 #include "libhmm/distributions/log_normal_distribution.h"
 #include "libhmm/distributions/pareto_distribution.h"
 #include "libhmm/distributions/beta_distribution.h"
+#include "libhmm/distributions/weibull_distribution.h"
+#include "libhmm/distributions/uniform_distribution.h"
 #include "libhmm/common/string_tokenizer.h"
 
 namespace libhmm{

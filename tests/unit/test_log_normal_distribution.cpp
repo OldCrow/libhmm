@@ -162,14 +162,14 @@ void testStringRepresentation() {
     LogNormalDistribution lognormal(2.5, 1.5);
     std::string str = lognormal.toString();
     
-    // Should contain key information based on actual output format:
-    // "LogNormal Distribution:\n      Mean = 2.5\n      Standard Deviation = 1.5\n"
+    // Should contain key information based on new format:
+    // "LogNormal Distribution:\n      μ (log mean) = 2.5\n      σ (log std. deviation) = 1.5\n      Mean = ...\n      Variance = ...\n"
     assert(str.find("LogNormal") != std::string::npos);
     assert(str.find("Distribution") != std::string::npos);
     assert(str.find("2.5") != std::string::npos);
     assert(str.find("1.5") != std::string::npos);
     assert(str.find("Mean") != std::string::npos);
-    assert(str.find("Standard Deviation") != std::string::npos);
+    assert(str.find("log std. deviation") != std::string::npos);
     
     std::cout << "String representation: " << str << std::endl;
     std::cout << "✓ String representation tests passed" << std::endl;
