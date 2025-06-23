@@ -5,7 +5,12 @@ add_executable(basic_hmm_example basic_hmm_example.cpp)
 target_link_libraries(basic_hmm_example hmm ${Boost_LIBRARIES} m)
 target_include_directories(basic_hmm_example PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+# Poisson HMM example (demonstrates count data modeling)
+add_executable(poisson_hmm_example poisson_hmm_example.cpp)
+target_link_libraries(poisson_hmm_example hmm ${Boost_LIBRARIES} m)
+target_include_directories(poisson_hmm_example PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 # Install examples
-install(TARGETS basic_hmm_example
+install(TARGETS basic_hmm_example poisson_hmm_example
     RUNTIME DESTINATION bin/examples
 )

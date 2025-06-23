@@ -5,6 +5,7 @@
 #include "libhmm/distributions/exponential_distribution.h"
 #include "libhmm/distributions/log_normal_distribution.h"
 #include "libhmm/distributions/pareto_distribution.h"
+#include "libhmm/distributions/poisson_distribution.h"
 #include <memory>
 #include <vector>
 #include <cmath>
@@ -286,6 +287,135 @@ TEST_F(ParetoDistributionTest, ProbabilityProperties) {
     EXPECT_GT(dist_->getProbability(2.0), 0.0);
 }
 
+// Poisson Distribution Tests
+class PoissonDistributionTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        dist_ = std::make_unique<PoissonDistribution>(2.0); // lambda=2.0
+    }
+    
+    std::unique_ptr<PoissonDistribution> dist_;
+};
+
+TEST_F(PoissonDistributionTest, DefaultConstructor) {
+    PoissonDistribution defaultDist;
+    EXPECT_DOUBLE_EQ(defaultDist.getLambda(), 1.0);
+    EXPECT_DOUBLE_EQ(defaultDist.getMean(), 1.0);
+    EXPECT_DOUBLE_EQ(defaultDist.getVariance(), 1.0);
+}
+
+TEST_F(PoissonDistributionTest, ParameterizedConstructor) {
+    PoissonDistribution dist(3.5);
+    EXPECT_DOUBLE_EQ(dist.getLambda(), 3.5);
+    EXPECT_DOUBLE_EQ(dist.getMean(), 3.5);
+    EXPECT_DOUBLE_EQ(dist.getVariance(), 3.5);
+    EXPECT_NEAR(dist.getStandardDeviation(), std::sqrt(3.5), 1e-10);
+}
+
+TEST_F(PoissonDistributionTest, ConstructorValidation) {
+    EXPECT_NO_THROW(PoissonDistribution(1.0));
+    EXPECT_THROW(PoissonDistribution(0.0), std::invalid_argument);
+    EXPECT_THROW(PoissonDistribution(-1.0), std::invalid_argument);
+    
+    // Test with NaN and infinity - create variables outside of macros
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+    
+    // Now use variables in separate statements
+    EXPECT_THROW({
+        PoissonDistribution temp_nan(nan_val);
+    }, std::invalid_argument);
+    
+    EXPECT_THROW({
+        PoissonDistribution temp_inf(inf_val);
+    }, std::invalid_argument);
+}
+
+TEST_F(PoissonDistributionTest, ProbabilityCalculation) {
+    // Test known values for λ=2.0
+    // P(X=0) = e^(-2) ≈ 0.1353
+    double p0 = dist_->getProbability(0.0);
+    EXPECT_NEAR(p0, std::exp(-2.0), 1e-10);
+    
+    // P(X=1) = 2 * e^(-2) ≈ 0.2707
+    double p1 = dist_->getProbability(1.0);
+    EXPECT_NEAR(p1, 2.0 * std::exp(-2.0), 1e-10);
+    
+    // P(X=2) = 2 * e^(-2) ≈ 0.2707 
+    double p2 = dist_->getProbability(2.0);
+    EXPECT_NEAR(p2, 2.0 * std::exp(-2.0), 1e-10);
+}
+
+TEST_F(PoissonDistributionTest, InvalidInputHandling) {
+    // Invalid inputs should return 0
+    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
+    EXPECT_DOUBLE_EQ(dist_->getProbability(1.5), 0.0);  // non-integer
+    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
+}
+
+TEST_F(PoissonDistributionTest, ParameterSettersAndGetters) {
+    dist_->setLambda(5.0);
+    EXPECT_DOUBLE_EQ(dist_->getLambda(), 5.0);
+    EXPECT_DOUBLE_EQ(dist_->getMean(), 5.0);
+    EXPECT_DOUBLE_EQ(dist_->getVariance(), 5.0);
+    
+    // Test invalid setters
+    EXPECT_THROW(dist_->setLambda(0.0), std::invalid_argument);
+    EXPECT_THROW(dist_->setLambda(-1.0), std::invalid_argument);
+    
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_THROW(dist_->setLambda(nan_val), std::invalid_argument);
+}
+
+TEST_F(PoissonDistributionTest, FittingToData) {
+    // Test with known data (should fit λ ≈ 2.5)
+    std::vector<double> data = {1, 2, 2, 3, 3, 3, 4, 2, 1, 4};
+    double expectedMean = 2.5;  // Sum = 25, n = 10
+    
+    dist_->fit(data);
+    EXPECT_NEAR(dist_->getLambda(), expectedMean, 1e-10);
+    
+    // Test with empty data (should reset to default)
+    std::vector<double> emptyData;
+    dist_->fit(emptyData);
+    EXPECT_DOUBLE_EQ(dist_->getLambda(), 1.0);
+}
+
+TEST_F(PoissonDistributionTest, FittingValidation) {
+    // Test with invalid data (should throw)
+    std::vector<double> invalidData = {1, 2, -1, 3};
+    EXPECT_THROW(dist_->fit(invalidData), std::invalid_argument);
+    
+    std::vector<double> nonIntegerData = {1.5, 2.0, 3.0};
+    EXPECT_THROW(dist_->fit(nonIntegerData), std::invalid_argument);
+}
+
+TEST_F(PoissonDistributionTest, ResetFunctionality) {
+    dist_->setLambda(10.0);
+    dist_->reset();
+    EXPECT_DOUBLE_EQ(dist_->getLambda(), 1.0);
+}
+
+TEST_F(PoissonDistributionTest, NumericalStability) {
+    // Test with large lambda
+    PoissonDistribution largeDist(500.0);
+    double probLarge = largeDist.getProbability(500.0);  // Around mode
+    EXPECT_GT(probLarge, 0.0);
+    EXPECT_LT(probLarge, 1.0);
+    
+    // Test with very small lambda
+    PoissonDistribution smallDist(1e-6);
+    double probSmall = smallDist.getProbability(0.0);
+    EXPECT_GT(probSmall, 0.0);
+    EXPECT_LT(probSmall, 1.0);
+    
+    // Test extreme cases
+    PoissonDistribution extremeDist(100.0);
+    double probExtreme = extremeDist.getProbability(200.0);  // Far from mean
+    EXPECT_GE(probExtreme, 0.0);  // Should be very small but non-negative
+}
+
 // Common Distribution Interface Tests
 class CommonDistributionTest : public ::testing::Test {
 protected:
@@ -296,6 +426,7 @@ protected:
         distributions_.push_back(std::make_unique<ExponentialDistribution>());
         distributions_.push_back(std::make_unique<LogNormalDistribution>());
         distributions_.push_back(std::make_unique<ParetoDistribution>());
+        distributions_.push_back(std::make_unique<PoissonDistribution>());
     }
     
     std::vector<std::unique_ptr<ProbabilityDistribution>> distributions_;

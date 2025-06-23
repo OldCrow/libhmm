@@ -17,6 +17,7 @@ using libhmm::GaussianDistribution;
 using libhmm::GammaDistribution;
 using libhmm::LogNormalDistribution;
 using libhmm::ExponentialDistribution;
+using libhmm::PoissonDistribution;
 using libhmm::ViterbiTrainer;
 using libhmm::Vector;
 using libhmm::Matrix;
@@ -145,6 +146,23 @@ int main() {
         std::cout << "Fitting: (4)" << std::endl;
         edist.fit( trainvector );
         std::cout << edist << std::endl;
+
+        // Test Poisson Distribution (NEW!)
+        std::cout << std::endl;
+        std::cout << "Test PoissonDistribution" << std::endl;
+        std::cout << "------------------------" << std::endl;
+        PoissonDistribution poissonDist(2.0);
+        std::cout << poissonDist << std::endl;
+        std::cout << "p( 0 ) \t\t p( 1 ) \t\t p( 2 ) \t\t p( 3 )" << std::endl;
+        std::cout << poissonDist.getProbability( 0 ) << "\t\t"
+            << poissonDist.getProbability( 1 ) << "\t\t"
+            << poissonDist.getProbability( 2 ) << "\t\t"
+            << poissonDist.getProbability( 3 ) << std::endl;
+        std::cout << "Expected: 0.1353\t0.2707\t\t0.2707\t\t0.1804" << std::endl;
+        std::cout << "Fitting to count data [1, 2, 2, 3, 3, 3, 4, 2, 1, 4] (mean=2.5)" << std::endl;
+        std::vector<Observation> countData = {1, 2, 2, 3, 3, 3, 4, 2, 1, 4};
+        poissonDist.fit( countData );
+        std::cout << poissonDist << std::endl;
 
     }
     {
