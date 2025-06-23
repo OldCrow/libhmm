@@ -11,6 +11,11 @@
 #include "libhmm/distributions/gamma_distribution.h"
 #include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/distributions/discrete_distribution.h"
+#include "libhmm/distributions/poisson_distribution.h"
+#include "libhmm/distributions/exponential_distribution.h"
+#include "libhmm/distributions/log_normal_distribution.h"
+#include "libhmm/distributions/pareto_distribution.h"
+#include "libhmm/distributions/beta_distribution.h"
 #include "libhmm/common/string_tokenizer.h"
 
 namespace libhmm{
