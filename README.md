@@ -3,10 +3,12 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.15%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-2.2.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-19/19_Passing-success.svg)](tests/)
 
 A modern, type-safe C++17 implementation of Hidden Markov Models with comprehensive training algorithms and probability distributions.
 
-**🆕 Recently Updated**: This library has been modernized with C++17 standards, smart pointer memory management, and critical bug fixes including resolution of segmentation faults in ViterbiTrainer.
+**🎉 Latest Release v2.2.0**: Complete statistical modeling framework with 12 probability distributions, comprehensive unit test coverage (19/19 tests passing), enhanced numerical stability, and production-ready code quality.
 
 ## Features
 
@@ -17,12 +19,21 @@ A modern, type-safe C++17 implementation of Hidden Markov Models with comprehens
 - **Scaled Baum-Welch** - Numerically stable implementation
 
 ### 📊 **Probability Distributions** 
-- Discrete Distribution
-- Gaussian (Normal) Distribution
-- Gamma Distribution
-- Exponential Distribution
-- Log-Normal Distribution
-- Pareto Distribution
+**Discrete Distributions:**
+- Discrete Distribution (categorical)
+- Binomial Distribution (success/failure trials)
+- Negative Binomial Distribution (success probability modeling)
+- Poisson Distribution (count data and rare events)
+
+**Continuous Distributions:**
+- Gaussian (Normal) Distribution (symmetric, bell-curve)
+- Beta Distribution (probabilities and proportions on [0,1])
+- Gamma Distribution (positive continuous variables)
+- Exponential Distribution (waiting times and reliability)
+- Log-Normal Distribution (multiplicative processes)
+- Pareto Distribution (power-law phenomena)
+- Uniform Distribution (continuous uniform random variables)
+- Weibull Distribution (reliability analysis and survival modeling)
 
 ### 🧮 **Calculators**
 - Forward-Backward Algorithm
@@ -34,6 +45,13 @@ A modern, type-safe C++17 implementation of Hidden Markov Models with comprehens
 - XML file reading/writing
 - Extensible file I/O manager
 - Model serialization
+
+### 🧪 **Testing Infrastructure**
+- **Comprehensive Unit Tests**: 19 standalone distribution tests
+- **Integration Tests**: Core HMM functionality testing
+- **100% Test Coverage**: All distributions with complete functionality testing
+- **CMake/CTest Integration**: Automated testing framework
+- **Continuous Validation**: Parameter fitting, edge cases, and error handling
 
 ## Quick Start
 
@@ -79,6 +97,18 @@ trainer.train();
 ViterbiCalculator viterbi(hmm.get(), observations);
 StateSequence states = viterbi.decode();
 ```
+
+### Examples
+
+See the [examples/](examples/) directory for comprehensive usage examples:
+
+- **[basic_hmm_example.cpp](examples/basic_hmm_example.cpp)** - Basic HMM usage with modern C++17 features
+- **[poisson_hmm_example.cpp](examples/poisson_hmm_example.cpp)** - Website traffic modeling using Poisson distribution
+- **[financial_hmm_example.cpp](examples/financial_hmm_example.cpp)** - Market volatility modeling with Beta and Log-Normal distributions
+- **[reliability_hmm_example.cpp](examples/reliability_hmm_example.cpp)** - Component lifetime analysis with Weibull and Exponential distributions
+- **[quality_control_hmm_example.cpp](examples/quality_control_hmm_example.cpp)** - Manufacturing process monitoring with Binomial and Uniform distributions
+- **[economics_hmm_example.cpp](examples/economics_hmm_example.cpp)** - Economic modeling with Negative Binomial and Pareto distributions
+- **[queuing_theory_hmm_example.cpp](examples/queuing_theory_hmm_example.cpp)** - Service systems and queuing analysis with Poisson, Exponential, and Gamma distributions
 
 ## Project Structure
 
