@@ -191,14 +191,14 @@ void testStringRepresentation() {
     ParetoDistribution pareto(2.5, 1.5);
     std::string str = pareto.toString();
     
-    // Should contain key information based on actual output format:
-    // "Pareto Distribution:\n   k = 2.5\n   xm = 1.5\n"
+    // Should contain key information based on new format:
+    // "Pareto Distribution:\n      k (shape parameter) = 2.5\n      x_m (scale parameter) = 1.5\n      Mean = 2.5\n      Variance = ...\n"
     assert(str.find("Pareto") != std::string::npos);
     assert(str.find("Distribution") != std::string::npos);
     assert(str.find("2.5") != std::string::npos);
     assert(str.find("1.5") != std::string::npos);
-    assert(str.find("k") != std::string::npos);
-    assert(str.find("xm") != std::string::npos);
+    assert(str.find("shape parameter") != std::string::npos);
+    assert(str.find("scale parameter") != std::string::npos);
     
     std::cout << "String representation: " << str << std::endl;
     std::cout << "✓ String representation tests passed" << std::endl;

@@ -4,7 +4,7 @@
 namespace libhmm
 {
 
-double ProbabilityDistribution::loggamma(double xx) noexcept {
+double ProbabilityDistribution::loggamma(double xx) const noexcept {
     double x, y, tmp, ser;
     static constexpr double cof[6] = { 76.18009172947146,
                                       -86.50532032941677,

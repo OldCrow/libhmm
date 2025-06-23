@@ -52,11 +52,26 @@ private:
     /**
      * Updates cached values when parameters change
      */
-    void updateCache() noexcept {
+    void updateCache() const noexcept {
         // B(α, β) = Γ(α)Γ(β)/Γ(α+β)
         // log(B(α, β)) = log(Γ(α)) + log(Γ(β)) - log(Γ(α+β))
         logBeta_ = loggamma(alpha_) + loggamma(beta_) - loggamma(alpha_ + beta_);
         cacheValid_ = true;
+    }
+    
+    /**
+     * Validates parameters for the Beta distribution
+     * @param alpha Alpha parameter (must be positive and finite)
+     * @param beta Beta parameter (must be positive and finite)
+     * @throws std::invalid_argument if parameters are invalid
+     */
+    void validateParameters(double alpha, double beta) const {
+        if (std::isnan(alpha) || std::isinf(alpha) || alpha <= 0.0) {
+            throw std::invalid_argument("Alpha parameter must be a positive finite number");
+        }
+        if (std::isnan(beta) || std::isinf(beta) || beta <= 0.0) {
+            throw std::invalid_argument("Beta parameter must be a positive finite number");
+        }
     }
 
     /**
@@ -78,12 +93,7 @@ public:
      */
     BetaDistribution(double alpha = 1.0, double beta = 1.0)
         : alpha_{alpha}, beta_{beta} {
-        if (std::isnan(alpha) || std::isinf(alpha) || alpha <= 0.0) {
-            throw std::invalid_argument("Alpha parameter must be a positive finite number");
-        }
-        if (std::isnan(beta) || std::isinf(beta) || beta <= 0.0) {
-            throw std::invalid_argument("Beta parameter must be a positive finite number");
-        }
+        validateParameters(alpha, beta);
         updateCache();
     }
 
@@ -174,9 +184,7 @@ public:
      * @throws std::invalid_argument if alpha <= 0 or is not finite
      */
     void setAlpha(double alpha) {
-        if (std::isnan(alpha) || std::isinf(alpha) || alpha <= 0.0) {
-            throw std::invalid_argument("Alpha parameter must be a positive finite number");
-        }
+        validateParameters(alpha, beta_);
         alpha_ = alpha;
         cacheValid_ = false;
     }
@@ -195,9 +203,7 @@ public:
      * @throws std::invalid_argument if beta <= 0 or is not finite
      */
     void setBeta(double beta) {
-        if (std::isnan(beta) || std::isinf(beta) || beta <= 0.0) {
-            throw std::invalid_argument("Beta parameter must be a positive finite number");
-        }
+        validateParameters(alpha_, beta);
         beta_ = beta;
         cacheValid_ = false;
     }

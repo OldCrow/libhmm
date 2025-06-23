@@ -6,28 +6,47 @@
 namespace libhmm
 {
 
-/*
- * Returns the value of the PDF of the LogNormal distribution.
- *
- * The normal PDF is defined as
- *
- * f(x) = exp( -(ln x-u)^2 / (2 * sigma^2) ) / ( sigma * 2 * pi );
+/**
+ * Computes the probability density function for the Log-Normal distribution.
+ * 
+ * For continuous distributions in discrete sampling contexts, we approximate
+ * the probability as P(x - ε <= X <= x) = F(x) - F(x - ε) where ε is a small tolerance.
+ * 
+ * This provides a numerically stable approximation of the PDF scaled by the tolerance,
+ * which is appropriate for discrete sampling of continuous distributions.
+ * 
+ * @param x The value at which to evaluate the probability
+ * @return Approximated probability for discrete sampling
  */            
 double LogNormalDistribution::getProbability(double x) {
-    // Validate input
-    if (std::isnan(x) || std::isinf(x) || x < 0.0) {
+    // Log-Normal distribution has support (0, ∞)
+    if (std::isnan(x) || std::isinf(x) || x <= 0.0) {
         return 0.0;
     }
     
-    double p;
-    if(x != 0) {
-        p = CDF(x) - CDF(x - LIMIT_TOLERANCE);
-    } else {
-        p = 0;
+    // Ensure cache is valid
+    if (!cacheValid_) {
+        updateCache();
     }
-
-    if(std::isnan(p)) p = ZERO;
-    assert(p <= 1);
+    
+    double p = 0.0;
+    if (x > LIMIT_TOLERANCE) {
+        p = CDF(x) - CDF(x - LIMIT_TOLERANCE);
+    } else if (x > 0 && x < LIMIT_TOLERANCE) {
+        // For very small positive values, use the PDF scaled by tolerance
+        // to avoid numerical issues with CDF differences
+        const double logX = std::log(x);
+        const double standardized = (logX - mean_) / standardDeviation_;
+        p = LIMIT_TOLERANCE * std::exp(negHalfSigmaSquaredInv_ * standardized * standardized) /
+            (x * std::exp(logNormalizationConstant_));
+    }
+    
+    // Ensure numerical stability
+    if (std::isnan(p) || p < 0.0) {
+        p = ZERO;
+    }
+    
+    assert(p <= 1.0);
     return p;
 }
 
@@ -39,71 +58,108 @@ double LogNormalDistribution::CDF(double x) noexcept {
     return y;
 }
 
-/*
- * Sets mean and standard deviation such that the resulting LogNormal 
- * distribution fits the data.
- *
- * The mean is defined as:
- *
- * u = sum( x_i, i=1..N ) / N
- *
- * where N is the number of values.
- *
- * The standard deviation is calculated as
- *
- * sigma = sqrt( sum( (x_i - u)^2, i = 1..N ) / N )
- *
+/**
+ * Fits the distribution parameters to the given data using maximum likelihood estimation.
+ * 
+ * For Log-Normal distribution, the MLE estimators are:
+ * μ = mean(ln(x_i)) for positive x_i
+ * σ = std_dev(ln(x_i)) for positive x_i
+ * 
+ * Only positive values are used since Log-Normal distribution has support (0, ∞).
+ * 
+ * @param values Vector of observed data points
  */                   
 void LogNormalDistribution::fit(const std::vector<Observation>& values) {
-    if(values.empty()) {
+    if (values.empty()) {
         reset();
         return;
     }
+    
+    if (values.size() == 1) {
+        // For a single data point, set mean to ln(value) and use a small stddev
+        // This matches legacy behavior expectations
+        const double value = values[0];
+        if (value > 0.0) {
+            mean_ = std::log(value);
+            standardDeviation_ = ZERO; // Use very small value as in legacy behavior
+            cacheValid_ = false;
+        } else {
+            reset(); // Fall back to default if invalid data
+        }
+        return;
+    }
 
-    double sum = 0;
+    double sum = 0.0;
     std::size_t validCount = 0;
     
     // Calculate sum of log values for positive values only
-    for(const auto& val : values) {
-        if(val > 0) {
+    for (const auto& val : values) {
+        if (val > 0.0) {
             sum += std::log(val);
             validCount++;
         }
+        // Skip zero or negative values as they're not in the support of Log-Normal distribution
     }
     
-    if(validCount == 0) {
-        reset();
+    if (validCount == 0) {
+        reset(); // Fall back to default if no valid data
+        return;
+    }
+    
+    if (validCount == 1) {
+        reset(); // Need at least 2 points for variance estimation
         return;
     }
 
-    mean_ = sum / validCount;
-    if(std::isnan(mean_) || mean_ < ZERO) mean_ = ZERO;
+    // Calculate mean of log values
+    mean_ = sum / static_cast<double>(validCount);
+    
+    // Validate computed mean
+    if (std::isnan(mean_) || std::isinf(mean_)) {
+        reset(); // Fall back to default
+        return;
+    }
 
-    double sumDeviance = 0;
-    for(const auto& val : values) {
-        if(val > 0) {
-            sumDeviance += std::pow(std::log(val) - mean_, 2);
+    // Calculate standard deviation of log values
+    double sumDeviance = 0.0;
+    for (const auto& val : values) {
+        if (val > 0.0) {
+            const double logVal = std::log(val);
+            sumDeviance += (logVal - mean_) * (logVal - mean_);
         }
     }
-    standardDeviation_ = std::sqrt(sumDeviance / (validCount - 1));
-    if(std::isnan(standardDeviation_) || standardDeviation_ < ZERO) standardDeviation_ = ZERO;
+    
+    // Use sample standard deviation (N-1 in denominator)
+    standardDeviation_ = std::sqrt(sumDeviance / static_cast<double>(validCount - 1));
+    
+    // Validate computed standard deviation
+    if (std::isnan(standardDeviation_) || std::isinf(standardDeviation_) || standardDeviation_ <= 0.0) {
+        reset(); // Fall back to default
+        return;
+    }
+    
+    cacheValid_ = false; // Invalidate cache since parameters changed
 }
 
-/*
- * Resets the the distribution to some default value. 
+/**
+ * Resets the distribution to default parameters (μ = 0.0, σ = 1.0).
+ * This corresponds to the standard log-normal distribution.
  */
 void LogNormalDistribution::reset() noexcept {
     mean_ = 0.0;
     standardDeviation_ = 1.0;
+    cacheValid_ = false; // Invalidate cache since parameters changed
 }
 
 std::string LogNormalDistribution::toString() const {
-    std::stringstream os;
-    os << "LogNormal Distribution:\n      Mean = ";
-    os << mean_ << "\n      Standard Deviation = ";
-    os << standardDeviation_ << "\n";
-
-    return os.str();
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(6);
+    oss << "LogNormal Distribution:\n";
+    oss << "      μ (log mean) = " << mean_ << "\n";
+    oss << "      σ (log std. deviation) = " << standardDeviation_ << "\n";
+    oss << "      Mean = " << getMean() << "\n";
+    oss << "      Variance = " << getVariance() << "\n";
+    return oss.str();
 }
 
 std::ostream& operator<<( std::ostream& os, 

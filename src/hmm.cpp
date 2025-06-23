@@ -163,6 +163,24 @@ std::istream& operator>>( std::istream& is, libhmm::Hmm& hmm ){
                 is >> s >> s >> s >> t; // "β" "(beta)" "=" value
                 double beta = std::stod(t);
                 return std::make_unique<BetaDistribution>(alpha, beta);
+            }},
+            
+            {"Weibull", [](std::istream& is) {
+                std::string s, t;
+                is >> s >> s >> s >> s >> t; // "Distribution:" "k" "(shape)" "=" value
+                double k = std::stod(t);
+                is >> s >> s >> s >> t; // "λ" "(scale)" "=" value
+                double lambda = std::stod(t);
+                return std::make_unique<WeibullDistribution>(k, lambda);
+            }},
+            
+            {"Uniform", [](std::istream& is) {
+                std::string s, t;
+                is >> s >> s >> s >> s >> t; // "Distribution:" "a" "(lower" "bound)" value
+                double a = std::stod(t);
+                is >> s >> s >> s >> s >> t; // "b" "(upper" "bound)" "=" value
+                double b = std::stod(t);
+                return std::make_unique<UniformDistribution>(a, b);
             }}
         };
         

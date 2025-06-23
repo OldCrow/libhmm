@@ -4,27 +4,36 @@
 namespace libhmm
 {
 
-/*
- * Returns the value of the PDF of the discrete distribution.
+/**
+ * Gets the probability mass function value for a discrete observation.
+ * 
+ * @param x The discrete value (will be cast to integer index)
+ * @return Probability mass for the given value, 0.0 if out of range
  */            
 double DiscreteDistribution::getProbability(double x) {
-    // Validate input
-    if (std::isnan(x) || std::isinf(x) || x < 0) {
+    // Validate input - discrete distributions only accept non-negative integer values
+    if (std::isnan(x) || std::isinf(x) || x < 0.0) {
         return 0.0;
     }
     
+    // Convert to integer index
     const auto index = static_cast<std::size_t>(x);
     if (!isValidIndex(index)) {
         return 0.0;
     }
     
-    const double p = pdf_(index); 
+    const double p = pdf_[index]; 
     assert(p <= 1.0 && p >= 0.0);
     return p;
 }
 
-/*
- * Sets the value of the PDF of the discrete distribution to the given value.
+/**
+ * Sets the probability for a specific discrete observation.
+ * 
+ * @param o The discrete observation (symbol index)
+ * @param value The probability value (must be in [0,1])
+ * @throws std::invalid_argument if value is not a valid probability
+ * @throws std::out_of_range if observation index is out of range
  */
 void DiscreteDistribution::setProbability(Observation o, double value) {
     if (std::isnan(value) || std::isinf(value) || value < 0.0 || value > 1.0) {
@@ -36,63 +45,79 @@ void DiscreteDistribution::setProbability(Observation o, double value) {
         throw std::out_of_range("Observation index out of range");
     }
     
-    pdf_(index) = value;
+    pdf_[index] = value;
+    cacheValid_ = false; // Invalidate cache since probabilities changed
 }
 
-/*
- * Sets probabilities such that the resulting distribution fits the data.
- *
- * Note that we're just using a 'uniform' distribution here
- *
+/**
+ * Fits the distribution to observed data using maximum likelihood estimation.
+ * Computes empirical probabilities: P(X = k) = count(k) / total_count
+ * 
+ * @param values Vector of observed discrete values
  */
 void DiscreteDistribution::fit(const std::vector<Observation>& values) {
     const auto N = values.size();
 
-    /* Empty cluster - use uniform distribution */
-    if(N == 0) {
+    // Handle empty data - use uniform distribution
+    if (N == 0) {
         reset();
         return;
     }
 
-    // Zero out the PDF
-    for(std::size_t i = 0; i < pdf_.size(); i++) {
-        pdf_(i) = 0;
-    }
+    // Initialize counts to zero
+    std::fill(pdf_.begin(), pdf_.end(), 0.0);
 
-    // Count the values with bounds checking
-    for(const auto& val : values) {
-        if (val >= 0) {
+    // Count valid observations
+    std::size_t validCount = 0;
+    for (const auto& val : values) {
+        if (val >= 0.0) {
             const auto index = static_cast<std::size_t>(val);
             if (isValidIndex(index)) {
-                pdf_(index)++;
+                pdf_[index]++;
+                validCount++;
             }
         }
     }
 
-    // Normalize
-    for(std::size_t i = 0; i < numSymbols_; i++) {
-        pdf_(i) /= static_cast<double>(values.size());
+    // If no valid observations, fall back to uniform distribution
+    if (validCount == 0) {
+        reset();
+        return;
     }
+
+    // Normalize by total valid count to get probabilities
+    const double normalizationFactor = 1.0 / static_cast<double>(validCount);
+    for (double& p : pdf_) {
+        p *= normalizationFactor;
+    }
+    
+    cacheValid_ = false; // Invalidate cache since probabilities changed
 }
 
-/*
- * Resets the the distribution to some default value.  Creates uniform distribution.
+/**
+ * Resets the distribution to uniform probabilities.
+ * Each symbol gets probability 1/numSymbols
  */
 void DiscreteDistribution::reset() noexcept {
     const double uniformProb = 1.0 / static_cast<double>(numSymbols_);
-    for(std::size_t i = 0; i < numSymbols_; i++) {
-        pdf_(i) = uniformProb;
-    }
+    std::fill(pdf_.begin(), pdf_.end(), uniformProb);
+    cacheValid_ = false; // Invalidate cache since probabilities changed
 }
 
+/**
+ * Returns a string representation of the distribution.
+ * 
+ * @return String showing all symbol probabilities
+ */
 std::string DiscreteDistribution::toString() const {
-    std::stringstream os;
-    os << "Discrete Distribution:\n"; 
-    for(std::size_t i = 0; i < numSymbols_; i++) {
-        os << pdf_(i) << "\t";
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(6);
+    oss << "Discrete Distribution:\n";
+    oss << "      Number of symbols = " << numSymbols_ << "\n";
+    for (std::size_t i = 0; i < numSymbols_; ++i) {
+        oss << "      P(" << i << ") = " << pdf_[i] << "\n";
     }
-    os << "\n";
-    return os.str();
+    return oss.str();
 }
 
 std::ostream& operator<<( std::ostream& os, 

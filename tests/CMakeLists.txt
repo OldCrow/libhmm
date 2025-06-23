@@ -82,10 +82,14 @@ set(UNIT_TEST_SOURCES
     unit/test_gaussian_distribution.cpp
     unit/test_gamma_distribution.cpp
     unit/test_exponential_distribution.cpp
-    unit/test_lognormal_distribution.cpp
+    unit/test_log_normal_distribution.cpp
     unit/test_pareto_distribution.cpp
     unit/test_discrete_distribution.cpp
     unit/test_beta_distribution.cpp
+    unit/test_weibull_distribution.cpp
+    unit/test_uniform_distribution.cpp
+    unit/test_binomial_distribution.cpp
+    unit/test_negative_binomial_distribution.cpp
 )
 
 set(UNIT_TEST_TARGETS "")

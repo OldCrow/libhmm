@@ -83,6 +83,10 @@ set(LIBHMM_SOURCES
     src/distributions/pareto_distribution.cpp
     src/distributions/poisson_distribution.cpp
     src/distributions/beta_distribution.cpp
+    src/distributions/weibull_distribution.cpp
+    src/distributions/uniform_distribution.cpp
+    src/distributions/binomial_distribution.cpp
+    src/distributions/negative_binomial_distribution.cpp
     src/calculators/forward_backward_calculator.cpp
     src/calculators/scaled_forward_backward_calculator.cpp
     src/calculators/log_forward_backward_calculator.cpp
