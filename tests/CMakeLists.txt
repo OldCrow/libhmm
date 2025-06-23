@@ -22,7 +22,7 @@ if(GTest_FOUND OR TARGET gtest)
         set(TEST_LIBRARIES ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} Threads::Threads hmm ${Boost_LIBRARIES} m)
     endif()
     
-    # Comprehensive test executables
+    # Integration test executables (GoogleTest framework)
     set(GTEST_SOURCES
         test_hmm_core.cpp
         test_calculators.cpp
@@ -75,6 +75,34 @@ else()
     message(STATUS "Google Test not found - building basic test suite only")
     set(ALL_TEST_TARGETS "")
 endif()
+
+# Unit tests (standalone, fast individual tests)
+set(UNIT_TEST_SOURCES
+    unit/test_poisson_distribution.cpp
+    unit/test_gaussian_distribution.cpp
+    unit/test_gamma_distribution.cpp
+    unit/test_exponential_distribution.cpp
+    unit/test_lognormal_distribution.cpp
+    unit/test_pareto_distribution.cpp
+    unit/test_discrete_distribution.cpp
+    unit/test_beta_distribution.cpp
+)
+
+set(UNIT_TEST_TARGETS "")
+foreach(UNIT_TEST_SOURCE ${UNIT_TEST_SOURCES})
+    get_filename_component(UNIT_TEST_NAME ${UNIT_TEST_SOURCE} NAME_WE)
+    
+    add_executable(${UNIT_TEST_NAME} ${UNIT_TEST_SOURCE})
+    target_link_libraries(${UNIT_TEST_NAME} hmm ${Boost_LIBRARIES} m)
+    target_include_directories(${UNIT_TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    set_property(TARGET ${UNIT_TEST_NAME} PROPERTY CXX_STANDARD 17)
+    set_property(TARGET ${UNIT_TEST_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+    
+    # Add to test suite with "unit_" prefix
+    add_test(NAME unit_${UNIT_TEST_NAME} COMMAND ${UNIT_TEST_NAME})
+    
+    list(APPEND UNIT_TEST_TARGETS ${UNIT_TEST_NAME})
+endforeach()
 
 # Original/Legacy test executables (always built)
 add_executable(test_type_safety test_type_safety.cpp)
