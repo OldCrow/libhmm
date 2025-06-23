@@ -35,6 +35,16 @@ add_executable(queuing_theory_hmm_example queuing_theory_hmm_example.cpp)
 target_link_libraries(queuing_theory_hmm_example hmm ${Boost_LIBRARIES} m)
 target_include_directories(queuing_theory_hmm_example PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+# Robust Financial Risk HMM example (Student's t-distribution)
+add_executable(robust_financial_hmm_example robust_financial_hmm_example.cpp)
+target_link_libraries(robust_financial_hmm_example hmm ${Boost_LIBRARIES} m)
+target_include_directories(robust_financial_hmm_example PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+# Statistical Process Control HMM example (Chi-squared distribution)
+add_executable(statistical_process_control_hmm_example statistical_process_control_hmm_example.cpp)
+target_link_libraries(statistical_process_control_hmm_example hmm ${Boost_LIBRARIES} m)
+target_include_directories(statistical_process_control_hmm_example PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 # Install examples
 install(TARGETS 
     basic_hmm_example 
@@ -44,5 +54,7 @@ install(TARGETS
     quality_control_hmm_example 
     economics_hmm_example 
     queuing_theory_hmm_example
+    robust_financial_hmm_example
+    statistical_process_control_hmm_example
     RUNTIME DESTINATION bin/examples
 )

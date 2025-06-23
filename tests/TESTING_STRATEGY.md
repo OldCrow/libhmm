@@ -14,14 +14,25 @@ We use a **two-tier testing strategy** that balances thorough validation with de
 ```
 tests/
 ├── test_distributions.cpp        # Integration: All distributions together
-├── test_hmm_core.cpp             # Integration: Core HMM functionality
+├── test_hmm_core.cpp             # Integration: Core HMM functionality  
 ├── test_calculators.cpp          # Integration: All calculators
 ├── test_training.cpp             # Integration: Training algorithms
-├── test_io.cpp                   # Integration: File I/O operations
+├── test_training_edge_cases.cpp  # Integration: Edge cases and error handling
+├── test_xml_file_io.cpp          # Integration: XML I/O operations
+├── test_hmm_stream_io.cpp        # Integration: HMM stream parsing
 ├── test_common.cpp               # Integration: Common utilities
+├── test_performance.cpp          # Integration: SIMD and threading
+├── test_calculator_traits.cpp    # Integration: Calculator selection
+├── test_distribution_traits.cpp  # Integration: Distribution traits
+├── test_distributions_header.cpp # Integration: Convenience headers
+├── test_optimized_matrix3d.cpp   # Integration: Matrix optimizations
 ├── test_type_safety.cpp          # Legacy: Type safety validation
-├── unit/                         # Unit tests directory
-│   └── test_poisson_distribution.cpp  # Unit: Poisson-specific tests
+├── unit/                         # Unit tests directory (17 distributions)
+│   ├── test_poisson_distribution.cpp     # Unit: Poisson tests
+│   ├── test_gaussian_distribution.cpp    # Unit: Gaussian tests
+│   ├── test_student_t_distribution.cpp   # Unit: Student's t tests
+│   ├── test_chi_squared_distribution.cpp # Unit: Chi-squared tests
+│   └── ... (13 other distribution tests)
 └── TESTING_STRATEGY.md           # This documentation
 ```
 
@@ -32,11 +43,18 @@ tests/
 # Run all integration tests
 ctest
 
-# Run all distribution tests (38 tests covering 7 distributions)
+# Run all distribution tests (100+ tests covering 17 distributions)
 ./tests/test_distributions
 
 # Run only Poisson distribution tests within integration suite
 ./tests/test_distributions --gtest_filter="*Poisson*"
+
+# Run performance and SIMD tests
+./tests/test_performance
+
+# Run new distribution tests (Student's t and Chi-squared)
+./tests/test_student_t_distribution
+./tests/test_chi_squared_distribution
 
 # Run with verbose output
 ./tests/test_distributions --gtest_filter="*Poisson*" --gtest_brief=1
@@ -74,9 +92,10 @@ ctest -R "unit_test_poisson"
 
 | Test Type | Command | Duration | Tests | Coverage |
 |-----------|---------|----------|-------|----------|
-| Unit (Poisson) | `./test_poisson_distribution` | ~0.005s | 7 tests | Single distribution |
-| Integration (Poisson) | `./test_distributions --gtest_filter="*Poisson*"` | ~0.007s | 10 tests | Poisson + common interface |
-| Integration (All) | `./test_distributions` | ~0.007s | 38 tests | All 7 distributions |
+| Unit (Single Distribution) | `./test_poisson_distribution` | ~0.005s | 7-12 tests | Single distribution |
+| Integration (Distribution Set) | `./test_distributions --gtest_filter="*Poisson*"` | ~0.007s | 10-15 tests | Specific distribution + interface |
+| Integration (All Distributions) | `./test_distributions` | ~0.15s | 100+ tests | All 17 distributions |
+| Full Test Suite | `ctest` | ~25s | 28 test suites | Complete system coverage |
 
 ## 🔧 Adding New Distribution Tests
 

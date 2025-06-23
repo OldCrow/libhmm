@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <numeric>
 #include <limits>
+#include <iomanip>
 
 namespace libhmm
 {
@@ -113,8 +114,11 @@ void PoissonDistribution::reset() noexcept {
  */
 std::string PoissonDistribution::toString() const {
     std::ostringstream oss;
-    oss << "Poisson Distribution: λ = " << lambda_ 
-        << " (mean = " << getMean() << ", variance = " << getVariance() << ")";
+    oss << "Poisson Distribution:\n";
+    oss << "      λ (rate parameter) = " << std::fixed << std::setprecision(6) << lambda_ << "\n";
+    oss << "      Mean = " << std::fixed << std::setprecision(6) << getMean() << "\n";
+    oss << "      Variance = " << std::fixed << std::setprecision(6) << getVariance() << "\n";
+    
     return oss.str();
 }
 

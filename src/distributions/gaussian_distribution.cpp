@@ -78,9 +78,18 @@ void GaussianDistribution::fit(const std::vector<Observation>& values) {
     
     standardDeviation_ = std::sqrt(variance / (values.size() - 1));
 
-    // Normal distribution functions are undefined for standard deviation
-    // values of 0.  (Variance = (standard deviation)^2 > 0)
-    assert(standardDeviation_ > 0);
+    // Handle edge cases where variance is very small or zero
+    // This can happen when all values in a cluster are identical or very close
+    const double MIN_STD_DEV = 1e-6;
+    if (standardDeviation_ <= 0.0 || std::isnan(standardDeviation_) || std::isinf(standardDeviation_)) {
+        std::cerr << "Warning: Invalid standard deviation (" << standardDeviation_ 
+                  << ") in GaussianDistribution::fit(). Using minimum value." << std::endl;
+        standardDeviation_ = MIN_STD_DEV;
+    } else if (standardDeviation_ < MIN_STD_DEV) {
+        std::cerr << "Warning: Very small standard deviation (" << standardDeviation_ 
+                  << ") in GaussianDistribution::fit(). Using minimum value." << std::endl;
+        standardDeviation_ = MIN_STD_DEV;
+    }
     
     // Invalidate cache since parameters changed
     cacheValid_ = false;

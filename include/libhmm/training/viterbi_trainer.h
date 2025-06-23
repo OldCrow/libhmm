@@ -8,6 +8,7 @@
 #include <cfloat>
 #include <memory>
 #include <algorithm>
+#include <stdexcept>
 #include "libhmm/common/common.h"
 #include "libhmm/training/hmm_trainer.h"
 #include "libhmm/training/cluster.h"

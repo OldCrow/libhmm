@@ -27,9 +27,16 @@ if(GTest_FOUND OR TARGET gtest)
         test_hmm_core.cpp
         test_calculators.cpp
         test_training.cpp
-        test_io.cpp
+        test_training_edge_cases.cpp
+        test_optimized_matrix3d.cpp
+        test_distribution_traits.cpp
+        test_distributions_header.cpp
+        test_xml_file_io.cpp
+        test_hmm_stream_io.cpp
         test_distributions.cpp
         test_common.cpp
+        test_performance.cpp
+        test_calculator_traits.cpp
     )
     
     # Create individual test executables
@@ -90,6 +97,8 @@ set(UNIT_TEST_SOURCES
     unit/test_uniform_distribution.cpp
     unit/test_binomial_distribution.cpp
     unit/test_negative_binomial_distribution.cpp
+    unit/test_student_t_distribution.cpp
+    unit/test_chi_squared_distribution.cpp
 )
 
 set(UNIT_TEST_TARGETS "")

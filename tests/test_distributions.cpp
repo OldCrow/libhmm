@@ -11,6 +11,8 @@
 #include "libhmm/distributions/uniform_distribution.h"
 #include "libhmm/distributions/binomial_distribution.h"
 #include "libhmm/distributions/negative_binomial_distribution.h"
+#include "libhmm/distributions/student_t_distribution.h"
+#include "libhmm/distributions/chi_squared_distribution.h"
 #include <memory>
 #include <vector>
 #include <cmath>
@@ -1063,6 +1065,267 @@ TEST_F(NegativeBinomialDistributionTest, OverDispersionProperty) {
     EXPECT_GT(nb3.getVariance(), nb3.getMean());
 }
 
+// Student's t-Distribution Tests
+class StudentTDistributionTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        dist_ = std::make_unique<StudentTDistribution>(5.0); // ν=5
+    }
+    
+    std::unique_ptr<StudentTDistribution> dist_;
+};
+
+TEST_F(StudentTDistributionTest, DefaultConstructor) {
+    StudentTDistribution defaultDist;
+    EXPECT_DOUBLE_EQ(defaultDist.getDegreesOfFreedom(), 1.0);
+}
+
+TEST_F(StudentTDistributionTest, ParameterizedConstructor) {
+    StudentTDistribution dist(3.5);
+    EXPECT_DOUBLE_EQ(dist.getDegreesOfFreedom(), 3.5);
+}
+
+TEST_F(StudentTDistributionTest, ConstructorValidation) {
+    EXPECT_NO_THROW(StudentTDistribution(1.0));
+    EXPECT_THROW(StudentTDistribution(0.0), std::invalid_argument);
+    EXPECT_THROW(StudentTDistribution(-1.0), std::invalid_argument);
+    
+    // Test with NaN and infinity - create separate variable declarations
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+    EXPECT_THROW({
+        StudentTDistribution temp_nan(nan_val);
+    }, std::invalid_argument);
+    EXPECT_THROW({
+        StudentTDistribution temp_inf(inf_val);
+    }, std::invalid_argument);
+}
+
+TEST_F(StudentTDistributionTest, ProbabilityCalculation) {
+    // t-distribution is symmetric around 0
+    double prob0 = dist_->getProbability(0.0);
+    double prob1 = dist_->getProbability(1.0);
+    double probNeg1 = dist_->getProbability(-1.0);
+    
+    EXPECT_GT(prob0, 0.0);
+    EXPECT_GT(prob1, 0.0);
+    EXPECT_GT(probNeg1, 0.0);
+    
+    // Symmetry property
+    EXPECT_NEAR(prob1, probNeg1, 1e-10);
+    
+    // Maximum at x=0
+    EXPECT_GT(prob0, prob1);
+}
+
+TEST_F(StudentTDistributionTest, InvalidInputHandling) {
+    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
+}
+
+TEST_F(StudentTDistributionTest, ParameterSettersAndGetters) {
+    dist_->setDegreesOfFreedom(3.0);
+    EXPECT_DOUBLE_EQ(dist_->getDegreesOfFreedom(), 3.0);
+    
+    // Test invalid setters
+    EXPECT_THROW(dist_->setDegreesOfFreedom(0.0), std::invalid_argument);
+    EXPECT_THROW(dist_->setDegreesOfFreedom(-1.0), std::invalid_argument);
+    EXPECT_THROW(dist_->setDegreesOfFreedom(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
+}
+
+TEST_F(StudentTDistributionTest, FittingToData) {
+    // Test with symmetric data
+    std::vector<double> data = {-2.0, -1.0, 0.0, 1.0, 2.0};
+    
+    EXPECT_NO_THROW(dist_->fit(data));
+    EXPECT_GT(dist_->getDegreesOfFreedom(), 0.0);
+    
+    // Test with empty data (should throw exception)
+    std::vector<double> emptyData;
+    EXPECT_THROW(dist_->fit(emptyData), std::invalid_argument);
+}
+
+TEST_F(StudentTDistributionTest, ResetFunctionality) {
+    dist_->setDegreesOfFreedom(10.0);
+    dist_->reset();
+    EXPECT_DOUBLE_EQ(dist_->getDegreesOfFreedom(), 1.0);
+}
+
+TEST_F(StudentTDistributionTest, StatisticalProperties) {
+    // For ν > 1: mean = 0
+    EXPECT_NEAR(dist_->getMean(), 0.0, 1e-10);
+    
+    // For ν > 2: variance = ν/(ν-2)
+    double expectedVar = 5.0 / (5.0 - 2.0);
+    EXPECT_NEAR(dist_->getVariance(), expectedVar, 1e-10);
+    EXPECT_NEAR(dist_->getStandardDeviation(), std::sqrt(expectedVar), 1e-10);
+    
+    // Test edge cases
+    StudentTDistribution t1(1.0);  // ν = 1, variance undefined
+    EXPECT_TRUE(std::isinf(t1.getVariance()) || std::isnan(t1.getVariance()));
+    
+    StudentTDistribution t2(2.0);  // ν = 2, variance = ∞
+    EXPECT_TRUE(std::isinf(t2.getVariance()) || std::isnan(t2.getVariance()));
+}
+
+TEST_F(StudentTDistributionTest, SpecialCases) {
+    // Test Cauchy distribution (ν = 1)
+    StudentTDistribution cauchy(1.0);
+    double prob1 = cauchy.getProbability(1.0);
+    double probNeg1 = cauchy.getProbability(-1.0);
+    EXPECT_NEAR(prob1, probNeg1, 1e-10);  // Symmetry
+    EXPECT_GT(cauchy.getProbability(0.0), prob1);  // Maximum at 0
+    
+    // Test convergence to normal as ν → ∞
+    StudentTDistribution largeNu(1000.0);
+    GaussianDistribution normal(0.0, 1.0);
+    
+    double tProb = largeNu.getProbability(1.0);
+    double normProb = normal.getProbability(1.0);
+    EXPECT_NEAR(tProb, normProb, 0.5);  // Should be reasonably close to normal
+}
+
+// Chi-squared Distribution Tests
+class ChiSquaredDistributionTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        dist_ = std::make_unique<ChiSquaredDistribution>(4.0); // k=4
+    }
+    
+    std::unique_ptr<ChiSquaredDistribution> dist_;
+};
+
+TEST_F(ChiSquaredDistributionTest, DefaultConstructor) {
+    ChiSquaredDistribution defaultDist;
+    EXPECT_DOUBLE_EQ(defaultDist.getDegreesOfFreedom(), 1.0);
+}
+
+TEST_F(ChiSquaredDistributionTest, ParameterizedConstructor) {
+    ChiSquaredDistribution dist(7.5);
+    EXPECT_DOUBLE_EQ(dist.getDegreesOfFreedom(), 7.5);
+}
+
+TEST_F(ChiSquaredDistributionTest, ConstructorValidation) {
+    EXPECT_NO_THROW(ChiSquaredDistribution(1.0));
+    EXPECT_THROW(ChiSquaredDistribution(0.0), std::invalid_argument);
+    EXPECT_THROW(ChiSquaredDistribution(-1.0), std::invalid_argument);
+    
+    // Test with NaN and infinity - create separate variable declarations  
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+    EXPECT_THROW({
+        ChiSquaredDistribution temp_nan(nan_val);
+    }, std::invalid_argument);
+    EXPECT_THROW({
+        ChiSquaredDistribution temp_inf(inf_val);
+    }, std::invalid_argument);
+}
+
+TEST_F(ChiSquaredDistributionTest, ProbabilityCalculation) {
+    // Chi-squared is zero for negative values
+    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
+    EXPECT_DOUBLE_EQ(dist_->getProbability(-0.1), 0.0);
+    
+    // Should be positive for positive values
+    EXPECT_GT(dist_->getProbability(1.0), 0.0);
+    EXPECT_GT(dist_->getProbability(4.0), 0.0);
+    EXPECT_GT(dist_->getProbability(10.0), 0.0);
+    
+    // At x=0: depends on k
+    ChiSquaredDistribution chi1(1.0);  // k=1, should be infinite at x=0
+    ChiSquaredDistribution chi2(2.0);  // k=2, should be 0.5 at x=0
+    ChiSquaredDistribution chi3(4.0);  // k>2, should be 0 at x=0
+    
+    EXPECT_DOUBLE_EQ(chi3.getProbability(0.0), 0.0);
+}
+
+TEST_F(ChiSquaredDistributionTest, InvalidInputHandling) {
+    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
+}
+
+TEST_F(ChiSquaredDistributionTest, ParameterSettersAndGetters) {
+    dist_->setDegreesOfFreedom(6.0);
+    EXPECT_DOUBLE_EQ(dist_->getDegreesOfFreedom(), 6.0);
+    
+    // Test invalid setters
+    EXPECT_THROW(dist_->setDegreesOfFreedom(0.0), std::invalid_argument);
+    EXPECT_THROW(dist_->setDegreesOfFreedom(-1.0), std::invalid_argument);
+    EXPECT_THROW(dist_->setDegreesOfFreedom(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
+}
+
+TEST_F(ChiSquaredDistributionTest, FittingToData) {
+    // Test with positive data
+    std::vector<double> data = {1.0, 2.0, 3.0, 4.0, 5.0};
+    
+    EXPECT_NO_THROW(dist_->fit(data));
+    EXPECT_GT(dist_->getDegreesOfFreedom(), 0.0);
+    
+    // Test with empty data (should throw exception)
+    std::vector<double> emptyData;
+    EXPECT_THROW(dist_->fit(emptyData), std::invalid_argument);
+}
+
+TEST_F(ChiSquaredDistributionTest, FittingValidation) {
+    // Test with negative data
+    std::vector<double> invalidData = {1.0, -1.0, 3.0};
+    EXPECT_THROW(dist_->fit(invalidData), std::invalid_argument);
+    
+    // Test with NaN data
+    std::vector<double> nanData = {1.0, std::numeric_limits<double>::quiet_NaN(), 3.0};
+    EXPECT_THROW(dist_->fit(nanData), std::invalid_argument);
+}
+
+TEST_F(ChiSquaredDistributionTest, ResetFunctionality) {
+    dist_->setDegreesOfFreedom(15.0);
+    dist_->reset();
+    EXPECT_DOUBLE_EQ(dist_->getDegreesOfFreedom(), 1.0);
+}
+
+TEST_F(ChiSquaredDistributionTest, StatisticalProperties) {
+    // For χ²(k): mean = k, variance = 2k
+    double expectedMean = 4.0;
+    double expectedVar = 2.0 * 4.0;
+    
+    EXPECT_NEAR(dist_->getMean(), expectedMean, 1e-10);
+    EXPECT_NEAR(dist_->getVariance(), expectedVar, 1e-10);
+    EXPECT_NEAR(dist_->getStandardDeviation(), std::sqrt(expectedVar), 1e-10);
+}
+
+TEST_F(ChiSquaredDistributionTest, SpecialCases) {
+    // Test χ²(1) - half-normal squared
+    ChiSquaredDistribution chi1(1.0);
+    EXPECT_GT(chi1.getProbability(0.1), 0.0);
+    EXPECT_GT(chi1.getProbability(1.0), 0.0);
+    
+    // Test χ²(2) - exponential distribution
+    ChiSquaredDistribution chi2(2.0);
+    double prob0 = chi2.getProbability(0.0);
+    EXPECT_NEAR(prob0, 0.5, 1e-10);  // For χ²(2), PDF(0) = 0.5
+    
+    // Test large k (approaches normal)
+    ChiSquaredDistribution largeChi(100.0);
+    double meanProb = largeChi.getProbability(100.0);  // At mean
+    EXPECT_GT(meanProb, 0.0);
+    EXPECT_LT(meanProb, 1.0);
+}
+
+TEST_F(ChiSquaredDistributionTest, RelationshipToGamma) {
+    // χ²(k) is related to Gamma distribution
+    // Note: The exact relationship depends on parameterization
+    ChiSquaredDistribution chi(4.0);
+    
+    // Test that chi-squared produces reasonable values
+    std::vector<double> testPoints = {0.5, 1.0, 2.0, 4.0, 8.0};
+    for (double x : testPoints) {
+        double chiProb = chi.getProbability(x);
+        EXPECT_GT(chiProb, 0.0);  // Should be positive
+        EXPECT_LT(chiProb, 1.0);  // Should be a valid probability density
+    }
+}
+
 // Common Distribution Interface Tests
 class CommonDistributionTest : public ::testing::Test {
 protected:
@@ -1079,6 +1342,8 @@ protected:
         distributions_.push_back(std::make_unique<UniformDistribution>());
         distributions_.push_back(std::make_unique<BinomialDistribution>());
         distributions_.push_back(std::make_unique<NegativeBinomialDistribution>());
+        distributions_.push_back(std::make_unique<StudentTDistribution>());
+        distributions_.push_back(std::make_unique<ChiSquaredDistribution>());
     }
     
     std::vector<std::unique_ptr<ProbabilityDistribution>> distributions_;

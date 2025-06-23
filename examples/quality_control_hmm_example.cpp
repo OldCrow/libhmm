@@ -160,7 +160,7 @@ int main() {
     std::cout << "Control Charts Analysis:\n";
     
     // Calculate control limits for defect counts (assuming in-control state)
-    auto inControlDist = static_cast<BinomialDistribution*>(hmm->getProbabilityDistribution(0));
+    // Using known parameters (n=100, p=0.02) for control limit calculation
     double mean = 100 * 0.02;  // n * p = 100 * 0.02 = 2
     double variance = 100 * 0.02 * (1 - 0.02);  // n * p * (1-p)
     double stddev = std::sqrt(variance);
