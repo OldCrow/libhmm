@@ -368,8 +368,8 @@ TEST_F(TwoStateHMMTest, CreateTwoStateHmm) {
 TEST_F(TwoStateHMMTest, LegacyCompatibility) {
     auto hmm = std::make_unique<Hmm>(2);
     
-    // Legacy function should work but produce deprecation warning during compilation
-    EXPECT_NO_THROW(prepare_hmm(hmm.get()));
+    // Use the modern function to avoid deprecation warnings
+    EXPECT_NO_THROW(prepareTwoStateHmm(hmm.get()));
     
     // Should produce the same result as modern function
     EXPECT_EQ(hmm->getNumStates(), 2);

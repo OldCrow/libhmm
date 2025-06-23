@@ -145,8 +145,8 @@ void testStringRepresentation() {
     // Should contain key information
     assert(str.find("Poisson") != std::string::npos);
     assert(str.find("2.5") != std::string::npos);
-    assert(str.find("mean") != std::string::npos);
-    assert(str.find("variance") != std::string::npos);
+    assert(str.find("Mean") != std::string::npos);
+    assert(str.find("Variance") != std::string::npos);
     
     std::cout << "String representation: " << str << std::endl;
     std::cout << "✓ String representation tests passed" << std::endl;

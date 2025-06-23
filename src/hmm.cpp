@@ -6,6 +6,7 @@
 #include <functional>
 #include <string>
 #include <algorithm>
+#include <limits>
 
 namespace libhmm{
 
@@ -92,10 +93,23 @@ std::istream& operator>>( std::istream& is, libhmm::Hmm& hmm ){
         static const std::unordered_map<std::string, DistributionParser> parsers = {
             {"Gaussian", [](std::istream& is) {
                 std::string s, t;
-                is >> s >> s >> s >> t; // "Distribution" "Mean" "=" value
+                // Read "Distribution:"
+                is >> s; // "Distribution:"
+                
+                // Read "μ (mean) = value"
+                is >> s >> s >> s >> t; // "μ" "(mean)" "=" value
                 double mean = std::stod(t);
-                is >> s >> s >> s >> t; // "Standard" "Deviation" "=" value
+                
+                // Read "σ (std. deviation) = value"
+                is >> s >> s >> s >> s >> t; // "σ" "(std." "deviation)" "=" value
                 double sd = std::stod(t);
+                
+                // Read "Mean = value"
+                is >> s >> s >> t; // "Mean" "=" value
+                
+                // Read "Variance = value"  
+                is >> s >> s >> t; // "Variance" "=" value
+                
                 return std::make_unique<GaussianDistribution>(mean, sd);
             }},
             
@@ -181,6 +195,38 @@ std::istream& operator>>( std::istream& is, libhmm::Hmm& hmm ){
                 is >> s >> s >> s >> s >> t; // "b" "(upper" "bound)" "=" value
                 double b = std::stod(t);
                 return std::make_unique<UniformDistribution>(a, b);
+            }},
+            
+            {"StudentT", [](std::istream& is) {
+                std::string s, t;
+                // Read "Distribution:"
+                is >> s;
+                
+                // Read "  nu (degrees of freedom) = value"
+                is >> s >> s >> s >> s >> s >> t; // "nu" "(degrees" "of" "freedom)" "=" value
+                double nu = std::stod(t);
+                
+                // Read "  mu (location) = value"
+                is >> s >> s >> s >> t; // "mu" "(location)" "=" value
+                double mu = std::stod(t);
+                
+                // Read "  sigma (scale) = value"
+                is >> s >> s >> s >> t; // "sigma" "(scale)" "=" value
+                double sigma = std::stod(t);
+                
+                return std::make_unique<StudentTDistribution>(nu, mu, sigma);
+            }},
+            
+            {"ChiSquared", [](std::istream& is) {
+                std::string s, t;
+                // Read "Distribution:"
+                is >> s;
+                
+                // Read "  k (degrees of freedom) = value"
+                is >> s >> s >> s >> s >> s >> t; // "k" "(degrees" "of" "freedom)" "=" value
+                double k = std::stod(t);
+                
+                return std::make_unique<ChiSquaredDistribution>(k);
             }}
         };
         

@@ -3,12 +3,14 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.15%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.2.1-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-19/19_Passing-success.svg)](tests/)
+[![Version](https://img.shields.io/badge/Version-2.3.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-28/28_Passing-success.svg)](tests/)
+[![SIMD](https://img.shields.io/badge/SIMD-AVX%2FSSE2%2FNEON-blue.svg)](src/performance/)
+[![Threading](https://img.shields.io/badge/Threading-C%2B%2B17-orange.svg)](src/performance/thread_pool.cpp)
 
-A modern, type-safe C++17 implementation of Hidden Markov Models with comprehensive training algorithms and probability distributions.
+A modern, high-performance C++17 implementation of Hidden Markov Models with advanced statistical distributions, SIMD optimization, and parallel processing capabilities.
 
-**🎉 Latest Release v2.2.1**: Complete statistical modeling framework with 12 probability distributions, comprehensive unit test coverage (19/19 tests passing), enhanced numerical stability, and 7 comprehensive real-world examples covering all major application domains.
+**🚀 Latest Release v2.3.0**: Major feature release with Student's t and Chi-squared distributions, comprehensive SIMD optimizations (up to 3x speedup), modern C++17 thread pool, and zero-warning builds. Complete framework with 17 probability distributions and 28/28 tests passing.
 
 ## Features
 
@@ -34,12 +36,22 @@ A modern, type-safe C++17 implementation of Hidden Markov Models with comprehens
 - Pareto Distribution (power-law phenomena)
 - Uniform Distribution (continuous uniform random variables)
 - Weibull Distribution (reliability analysis and survival modeling)
+- **Student's t-Distribution** (robust modeling with heavy tails)
+- **Chi-squared Distribution** (goodness-of-fit and categorical analysis)
 
 ### 🧮 **Calculators**
 - Forward-Backward Algorithm
 - Scaled Forward-Backward (numerical stability)
 - Log Forward-Backward (log-space computation)
 - Viterbi Algorithm (most likely path)
+- **Optimized Forward-Backward** (SIMD-accelerated, up to 3x speedup)
+
+### ⚡ **Performance Optimizations**
+- **SIMD Support**: AVX, SSE2, and ARM NEON vectorization
+- **Thread Pool**: Modern C++17 work-stealing thread pool
+- **Automatic Optimization**: CPU feature detection and algorithm selection
+- **Memory Efficiency**: Aligned allocators and memory pools
+- **Cache Optimization**: Blocked algorithms for large matrices
 
 ### 💾 **I/O Support**
 - XML file reading/writing
@@ -109,6 +121,8 @@ See the [examples/](examples/) directory for comprehensive usage examples:
 - **[quality_control_hmm_example.cpp](examples/quality_control_hmm_example.cpp)** - Manufacturing process monitoring with Binomial and Uniform distributions
 - **[economics_hmm_example.cpp](examples/economics_hmm_example.cpp)** - Economic modeling with Negative Binomial and Pareto distributions
 - **[queuing_theory_hmm_example.cpp](examples/queuing_theory_hmm_example.cpp)** - Service systems and queuing analysis with Poisson, Exponential, and Gamma distributions
+- **[robust_financial_hmm_example.cpp](examples/robust_financial_hmm_example.cpp)** - Heavy-tailed financial modeling with Student's t-distribution
+- **[statistical_process_control_hmm_example.cpp](examples/statistical_process_control_hmm_example.cpp)** - Advanced quality control with Chi-squared distribution
 
 ## Project Structure
 

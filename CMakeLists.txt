@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
 
+# Set policy for FindBoost to suppress deprecation warning
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 project(libhmm
-    VERSION 2.0.0
+    VERSION 2.3.0
     DESCRIPTION "Modern C++17 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -87,6 +92,8 @@ set(LIBHMM_SOURCES
     src/distributions/uniform_distribution.cpp
     src/distributions/binomial_distribution.cpp
     src/distributions/negative_binomial_distribution.cpp
+    src/distributions/student_t_distribution.cpp
+    src/distributions/chi_squared_distribution.cpp
     src/calculators/forward_backward_calculator.cpp
     src/calculators/scaled_forward_backward_calculator.cpp
     src/calculators/log_forward_backward_calculator.cpp
@@ -98,6 +105,10 @@ set(LIBHMM_SOURCES
     src/io/file_io_manager.cpp
     src/io/xml_file_reader.cpp
     src/io/xml_file_writer.cpp
+    src/performance/simd_support.cpp
+    src/performance/thread_pool.cpp
+    src/calculators/optimized_forward_backward_calculator.cpp
+    src/calculators/calculator_traits.cpp
 )
 
 # Create the library

@@ -1,6 +1,6 @@
 # libhmm Examples
 
-This directory contains comprehensive examples demonstrating real-world applications of Hidden Markov Models using the libhmm library. Each example showcases different probability distributions and modeling scenarios.
+This directory contains 9 comprehensive examples demonstrating real-world applications of Hidden Markov Models using the libhmm library. Each example showcases different probability distributions and modeling scenarios, covering major application domains from finance to manufacturing.
 
 ## Building Examples
 
@@ -17,6 +17,8 @@ make  # This will build all examples
 ./examples/quality_control_hmm_example
 ./examples/economics_hmm_example
 ./examples/queuing_theory_hmm_example
+./examples/robust_financial_hmm_example
+./examples/statistical_process_control_hmm_example
 ```
 
 ## Example Overview
@@ -154,6 +156,52 @@ make  # This will build all examples
 - Hospital emergency department management
 - Network traffic analysis and capacity planning
 
+---
+
+### 💪 [robust_financial_hmm_example.cpp](robust_financial_hmm_example.cpp)
+**Topic**: Heavy-tailed financial modeling and outlier-robust analysis  
+**Distributions**: Student's t-distribution  
+**Concepts**: Heavy tails, robust statistics, financial outliers, location-scale modeling  
+**Use Case**: Robust financial modeling, risk management with extreme events  
+
+**Key Features:**
+- Student's t-distribution for heavy-tailed financial returns
+- Location (μ), scale (σ), and degrees of freedom (ν) parameter interpretation
+- Outlier-robust modeling compared to Gaussian distributions
+- Financial crisis and normal market regime detection
+- Fat tail analysis and extreme event modeling
+
+**Applications:**
+- Robust portfolio optimization under heavy-tailed returns
+- Financial risk management with extreme events
+- Credit risk modeling with default clustering
+- Commodity price modeling with supply shocks
+- Insurance claims modeling with catastrophic events
+
+---
+
+### 🔬 [statistical_process_control_hmm_example.cpp](statistical_process_control_hmm_example.cpp)
+**Topic**: Advanced statistical process control and quality monitoring  
+**Distributions**: Chi-squared distribution  
+**Concepts**: Goodness-of-fit testing, categorical analysis, process variation monitoring  
+**Use Case**: Advanced quality control, hypothesis testing, process capability analysis  
+
+**Key Features:**
+- Chi-squared distribution for goodness-of-fit testing
+- Degrees of freedom parameter interpretation
+- Statistical hypothesis testing integration
+- Process capability monitoring
+- Categorical data analysis for quality attributes
+
+**Applications:**
+- Advanced statistical process control (SPC)
+- Hypothesis testing in manufacturing
+- Categorical quality attribute analysis
+- Process capability studies
+- Six Sigma quality improvement projects
+
+---
+
 ## Common Patterns
 
 All examples follow consistent patterns:
@@ -178,9 +226,11 @@ Each example includes:
 1. **Start with `basic_hmm_example.cpp`** to understand fundamental concepts
 2. **Choose domain-specific examples** based on your application:
    - Count data → `poisson_hmm_example.cpp`
-   - Financial data → `financial_hmm_example.cpp`
+   - Financial data → `financial_hmm_example.cpp` or `robust_financial_hmm_example.cpp`
    - Reliability data → `reliability_hmm_example.cpp`
-   - Quality data → `quality_control_hmm_example.cpp`
+   - Quality data → `quality_control_hmm_example.cpp` or `statistical_process_control_hmm_example.cpp`
+   - Economics → `economics_hmm_example.cpp`
+   - Service systems → `queuing_theory_hmm_example.cpp`
 3. **Adapt examples** to your specific data and requirements
 4. **Combine concepts** from multiple examples as needed
 

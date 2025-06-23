@@ -4,6 +4,8 @@
 #include <sstream>
 #include <time.h>
 #include <cstdlib>
+#include <stdexcept>
+#include <iomanip>
 
 namespace libhmm
 {
@@ -117,13 +119,30 @@ void ViterbiTrainer::train() {
             std::cout << "\r  Curve fitting cluster " << i+1 << "/" << numStates;
             std::cout.flush();
             
+            // Check if cluster is empty before attempting to fit
+            if (clusters_[i].size() == 0) {
+                std::cerr << "\nWarning: Cluster " << i << " is empty. Skipping distribution fitting." << std::endl;
+                continue;
+            }
+            
             std::vector<Observation> clusterObservations = clusters_[i].getObservations();
+            
+            // Additional safety check: ensure we have observations
+            if (clusterObservations.empty()) {
+                std::cerr << "\nWarning: No observations retrieved from cluster " << i << ". Skipping distribution fitting." << std::endl;
+                continue;
+            }
 
-            // Fix: Modify the existing distribution in place instead of reassigning
-            // The HMM already owns this distribution, so we don't need to transfer ownership
-            ProbabilityDistribution* pdist = hmm_->getProbabilityDistribution(static_cast<int>(i));
-            pdist->fit(clusterObservations);
-            // Note: No need to call setProbabilityDistribution - the object is already owned by HMM
+            try {
+                // Fix: Modify the existing distribution in place instead of reassigning
+                // The HMM already owns this distribution, so we don't need to transfer ownership
+                ProbabilityDistribution* pdist = hmm_->getProbabilityDistribution(static_cast<int>(i));
+                pdist->fit(clusterObservations);
+                // Note: No need to call setProbabilityDistribution - the object is already owned by HMM
+            } catch (const std::exception& e) {
+                std::cerr << "\nError fitting distribution for cluster " << i << ": " << e.what() << std::endl;
+                // Continue with next cluster rather than terminating entire training
+            }
         }
         std::cout << std::endl;
 
