@@ -1,7 +1,9 @@
 #include "libhmm/hmm.h"
-#include <iomanip>
-#include <vector>
-#include <sstream>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <unordered_map>
+#include <functional>
 #include <string>
 #include <algorithm>
 
@@ -84,36 +86,92 @@ std::istream& operator>>( std::istream& is, libhmm::Hmm& hmm ){
     for(std::size_t i = 0; i < states; ++i){
         is >> s >> s >> t; // "State" "i:" "DistributionType"
 
-        if(t == "Gaussian"){
-            is >> s >> s >> s >> t; // "Distribution" "Mean" "=" value
-            double mean = std::stod(t);
-            is >> s >> s >> s >> t; // "Standard" "Deviation" "=" value
-            double sd = std::stod(t);
+        // Modern C++17 approach: Hash-based dispatch for cleaner code
+        using DistributionParser = std::function<std::unique_ptr<ProbabilityDistribution>(std::istream&)>;
+        
+        static const std::unordered_map<std::string, DistributionParser> parsers = {
+            {"Gaussian", [](std::istream& is) {
+                std::string s, t;
+                is >> s >> s >> s >> t; // "Distribution" "Mean" "=" value
+                double mean = std::stod(t);
+                is >> s >> s >> s >> t; // "Standard" "Deviation" "=" value
+                double sd = std::stod(t);
+                return std::make_unique<GaussianDistribution>(mean, sd);
+            }},
             
-            auto gaussDist = std::make_unique<GaussianDistribution>(mean, sd);
-            hmm.setProbabilityDistribution(i, std::move(gaussDist));
-        }
-        else if(t == "Discrete"){
-            is >> s; // "Distribution"
-
-            // For now, assume a fixed number of symbols for simplicity
-            // In a real implementation, this should be more flexible
-            constexpr std::size_t MAX_SYMBOLS = 11;
-            std::vector<double> symbols(MAX_SYMBOLS);
-
-            for(std::size_t symIndex = 0; symIndex < MAX_SYMBOLS; ++symIndex) {
-                is >> t;
-                symbols[symIndex] = std::stod(t);
-            }
-
-            auto discreteDist = std::make_unique<DiscreteDistribution>(MAX_SYMBOLS);
-            for(std::size_t symIndex = 0; symIndex < MAX_SYMBOLS; ++symIndex) {
-                discreteDist->setProbability(static_cast<int>(symIndex), symbols[symIndex]);
-            }
+            {"Discrete", [](std::istream& is) {
+                std::string s, t;
+                is >> s; // "Distribution"
+                constexpr std::size_t MAX_SYMBOLS = 11;
+                std::vector<double> symbols(MAX_SYMBOLS);
+                for(std::size_t symIndex = 0; symIndex < MAX_SYMBOLS; ++symIndex) {
+                    is >> t;
+                    symbols[symIndex] = std::stod(t);
+                }
+                auto discreteDist = std::make_unique<DiscreteDistribution>(MAX_SYMBOLS);
+                for(std::size_t symIndex = 0; symIndex < MAX_SYMBOLS; ++symIndex) {
+                    discreteDist->setProbability(static_cast<int>(symIndex), symbols[symIndex]);
+                }
+                return discreteDist;
+            }},
             
-            hmm.setProbabilityDistribution(i, std::move(discreteDist));
-        }
-        else {
+            {"Gamma", [](std::istream& is) {
+                std::string s, t;
+                is >> s >> s >> s >> t; // "Distribution:" "k" "=" value
+                double k = std::stod(t);
+                is >> s >> s >> t; // "theta" "=" value
+                double theta = std::stod(t);
+                return std::make_unique<GammaDistribution>(k, theta);
+            }},
+            
+            {"Exponential", [](std::istream& is) {
+                std::string s, t;
+                is >> s >> s >> s >> s >> t; // "Distribution:" "Rate" "parameter" "=" value
+                double lambda = std::stod(t);
+                return std::make_unique<ExponentialDistribution>(lambda);
+            }},
+            
+            {"LogNormal", [](std::istream& is) {
+                std::string s, t;
+                is >> s >> s >> s >> t; // "Distribution:" "Mean" "=" value
+                double mean = std::stod(t);
+                is >> s >> s >> s >> t; // "Standard" "Deviation" "=" value
+                double sd = std::stod(t);
+                return std::make_unique<LogNormalDistribution>(mean, sd);
+            }},
+            
+            {"Pareto", [](std::istream& is) {
+                std::string s, t;
+                is >> s >> s >> s >> t; // "Distribution:" "k" "=" value
+                double k = std::stod(t);
+                is >> s >> s >> t; // "xm" "=" value
+                double xm = std::stod(t);
+                return std::make_unique<ParetoDistribution>(k, xm);
+            }},
+            
+            {"Poisson", [](std::istream& is) {
+                std::string s, t;
+                is >> s >> s >> s >> t; // "Distribution:" "λ" "=" value
+                double lambda = std::stod(t);
+                return std::make_unique<PoissonDistribution>(lambda);
+            }},
+            
+            {"Beta", [](std::istream& is) {
+                std::string s, t;
+                is >> s >> s >> s >> s >> t; // "Distribution:" "α" "(alpha)" "=" value
+                double alpha = std::stod(t);
+                is >> s >> s >> s >> t; // "β" "(beta)" "=" value
+                double beta = std::stod(t);
+                return std::make_unique<BetaDistribution>(alpha, beta);
+            }}
+        };
+        
+        // Execute the appropriate parser
+        auto parser_it = parsers.find(t);
+        if (parser_it != parsers.end()) {
+            auto distribution = parser_it->second(is);
+            hmm.setProbabilityDistribution(i, std::move(distribution));
+        } else {
             throw std::runtime_error("Unknown distribution type: " + t);
         }
     }
