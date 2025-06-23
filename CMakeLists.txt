@@ -81,6 +81,8 @@ set(LIBHMM_SOURCES
     src/distributions/exponential_distribution.cpp
     src/distributions/log_normal_distribution.cpp
     src/distributions/pareto_distribution.cpp
+    src/distributions/poisson_distribution.cpp
+    src/distributions/beta_distribution.cpp
     src/calculators/forward_backward_calculator.cpp
     src/calculators/scaled_forward_backward_calculator.cpp
     src/calculators/log_forward_backward_calculator.cpp

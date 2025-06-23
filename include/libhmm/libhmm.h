@@ -11,6 +11,7 @@
 #include "libhmm/distributions/log_normal_distribution.h"
 #include "libhmm/distributions/exponential_distribution.h"
 #include "libhmm/distributions/pareto_distribution.h"
+#include "libhmm/distributions/poisson_distribution.h"
 
 #include "libhmm/calculators/viterbi_calculator.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
