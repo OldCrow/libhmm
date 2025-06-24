@@ -86,3 +86,6 @@ GITHUB_SETUP.md
 
 # Internal development documentation
 .dev-docs/
+
+# Benchmarks directory (contains third-party HMMLib and large binary files)
+benchmarks/
