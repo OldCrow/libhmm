@@ -96,9 +96,11 @@ set(LIBHMM_SOURCES
     src/distributions/negative_binomial_distribution.cpp
     src/distributions/student_t_distribution.cpp
     src/distributions/chi_squared_distribution.cpp
-    src/calculators/forward_backward_calculator.cpp
+src/calculators/forward_backward_calculator.cpp
     src/calculators/scaled_forward_backward_calculator.cpp
     src/calculators/log_forward_backward_calculator.cpp
+    src/calculators/log_simd_forward_backward_calculator.cpp
+    src/calculators/scaled_simd_forward_backward_calculator.cpp
     src/calculators/viterbi_calculator.cpp
     src/training/viterbi_trainer.cpp
     src/training/robust_viterbi_trainer.cpp

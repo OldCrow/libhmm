@@ -40,6 +40,9 @@ set(COMPREHENSIVE_TESTS
     test_calculator_traits.cpp
     test_numerical_stability.cpp
     test_trainer_traits.cpp
+    test_calculator_selection.cpp
+    test_calculator_performance.cpp
+    test_log_simd.cpp
 )
     
     # Create individual test executables

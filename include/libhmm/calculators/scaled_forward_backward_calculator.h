@@ -13,7 +13,7 @@ namespace libhmm
 
 class ScaledForwardBackwardCalculator : public ForwardBackwardCalculator
 {
-private:
+protected:
     // Scaling factors
     // c is the *lowercase* c mentioned by Rahimi
     Vector c_;

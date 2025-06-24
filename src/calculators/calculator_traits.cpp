@@ -3,6 +3,8 @@
 #include "libhmm/calculators/scaled_forward_backward_calculator.h"
 #include "libhmm/calculators/log_forward_backward_calculator.h"
 #include "libhmm/calculators/optimized_forward_backward_calculator.h"
+#include "libhmm/calculators/log_simd_forward_backward_calculator.h"
+#include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 #include "libhmm/performance/thread_pool.h"
 #include "libhmm/performance/simd_support.h"
 #include "libhmm/hmm.h"
@@ -92,8 +94,34 @@ CalculatorTraits CalculatorSelector::getTraits(CalculatorType type) noexcept {
                 sizeof(double) * 1000, // memoryOverhead (aligned storage)
                 4,      // minStatesForBenefit (SIMD benefits 4+ elements)
                 10,     // minObsForBenefit
-                2.5,    // scalingFactor (potential 2.5x speedup)
+                1.8,    // scalingFactor (reduced due to stability issues)
                 false   // numericallyStable (same as standard)
+            };
+            
+        case CalculatorType::LOG_SIMD:
+            return {
+                "Log-SIMD",
+                true,   // supportsParallel
+                true,   // usesSIMD
+                true,   // usesBlocking
+                sizeof(double) * 1500, // memoryOverhead (aligned + log storage)
+                10,     // minStatesForBenefit (log-space SIMD has high overhead)
+                200,    // minObsForBenefit (log overhead makes it inefficient for smaller problems)
+                0.75,   // scalingFactor (SIMD overhead hurts log-space performance)
+                true    // numericallyStable (log-space arithmetic)
+            };
+            
+        case CalculatorType::SCALED_SIMD:
+            return {
+                "Scaled-SIMD",
+                true,   // supportsParallel
+                true,   // usesSIMD
+                true,   // usesBlocking
+                sizeof(double) * 1200, // memoryOverhead (aligned storage + scaling factors)
+                4,      // minStatesForBenefit (SIMD benefits 4+ elements)
+                50,     // minObsForBenefit (scaling benefits + SIMD setup)
+                1.3,    // scalingFactor (true SIMD benefits for scaled arithmetic)
+                true    // numericallyStable (scaled arithmetic)
             };
             
         case CalculatorType::AUTO:
@@ -155,7 +183,9 @@ CalculatorType CalculatorSelector::selectOptimal(const ProblemCharacteristics& c
         CalculatorType::STANDARD,
         CalculatorType::SCALED,
         CalculatorType::LOG_SPACE,
-        CalculatorType::OPTIMIZED
+        CalculatorType::OPTIMIZED,
+        CalculatorType::LOG_SIMD,
+        CalculatorType::SCALED_SIMD
     };
     
     for (CalculatorType type : candidates) {
@@ -185,7 +215,14 @@ std::unique_ptr<ForwardBackwardCalculator> CalculatorSelector::create(
         case CalculatorType::OPTIMIZED:
             return std::make_unique<OptimizedForwardBackwardCalculator>(hmm, observations);
             
-        case CalculatorType::AUTO: {
+        case CalculatorType::LOG_SIMD:
+            return std::make_unique<LogSIMDForwardBackwardCalculator>(hmm, observations);
+            
+        case CalculatorType::SCALED_SIMD:
+            return std::make_unique<ScaledSIMDForwardBackwardCalculator>(hmm, observations);
+            
+        case CalculatorType::AUTO:
+        {
             const ProblemCharacteristics characteristics(hmm, observations);
             const CalculatorType optimalType = selectOptimal(characteristics);
             return create(optimalType, hmm, observations);
@@ -218,7 +255,9 @@ std::string CalculatorSelector::getPerformanceComparison(const ProblemCharacteri
         CalculatorType::STANDARD,
         CalculatorType::SCALED,
         CalculatorType::LOG_SPACE,
-        CalculatorType::OPTIMIZED
+        CalculatorType::OPTIMIZED,
+        CalculatorType::LOG_SIMD,
+        CalculatorType::SCALED_SIMD
     };
     
     CalculatorType bestType = CalculatorType::STANDARD;
