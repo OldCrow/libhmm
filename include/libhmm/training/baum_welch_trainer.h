@@ -5,8 +5,7 @@
 #include "libhmm/common/common.h"
 #include "libhmm/training/hmm_trainer.h"
 #include "libhmm/training/matrix3d.h"
-#include "libhmm/distributions/discrete_distribution.h"
-#include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/distributions/distributions.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
 
 namespace libhmm

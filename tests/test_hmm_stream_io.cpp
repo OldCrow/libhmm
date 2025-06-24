@@ -1,7 +1,5 @@
 #include "libhmm/hmm.h"
-#include "libhmm/distributions/gaussian_distribution.h"
-#include "libhmm/distributions/student_t_distribution.h"
-#include "libhmm/distributions/chi_squared_distribution.h"
+#include "libhmm/distributions/distributions.h"
 #include <gtest/gtest.h>
 #include <sstream>
 #include <memory>

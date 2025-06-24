@@ -83,3 +83,6 @@ docs/latex/
 
 # Github Setup documentation
 GITHUB_SETUP.md
+
+# Internal development documentation
+.dev-docs/

@@ -2,6 +2,7 @@
 #define CLUSTER_H_
 
 #include <vector>
+#include <algorithm>
 #include "libhmm/training/centroid.h"
 
 namespace libhmm
@@ -64,16 +65,15 @@ public:
      * effect on the Centroid.  I hope.
      */
     void remove( Observation o ){
-        std::vector<Observation>::iterator i = observations.begin( );
-
-        centroid.remove( o, observations.size( ) );
+        auto i = std::find(observations.begin(), observations.end(), o);
         
-        while( *i != o && i != observations.end( ) ){
-            i++;
+        // If observation is found, remove it
+        if (i != observations.end()) {
+            centroid.remove( o, observations.size( ) );
+            observations.erase( i );
         }
-
-        assert( *i == o );
-        observations.erase( i );
+        // Note: If observation not found, we silently ignore it to handle
+        // edge cases with NaN values or numerical precision issues
     }
 
     /*

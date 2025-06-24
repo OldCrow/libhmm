@@ -42,9 +42,14 @@ target_include_directories(robust_financial_hmm_example PRIVATE ${CMAKE_SOURCE_D
 
 # Statistical Process Control HMM example (Chi-squared distribution)
 add_executable(statistical_process_control_hmm_example statistical_process_control_hmm_example.cpp)
-target_link_libraries(statistical_process_control_hmm_example hmm ${Boost_LIBRARIES} m)
-target_include_directories(statistical_process_control_hmm_example PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(statistical_process_control_hmm_example hmm ${Boost_LIBRARIES})
+set_property(TARGET statistical_process_control_hmm_example PROPERTY CXX_STANDARD 17)
+set_property(TARGET statistical_process_control_hmm_example PROPERTY CXX_STANDARD_REQUIRED ON)
 
+add_executable(robust_viterbi_trainer_example robust_viterbi_trainer_example.cpp)
+target_link_libraries(robust_viterbi_trainer_example hmm ${Boost_LIBRARIES})
+set_property(TARGET robust_viterbi_trainer_example PROPERTY CXX_STANDARD 17)
+set_property(TARGET robust_viterbi_trainer_example PROPERTY CXX_STANDARD_REQUIRED ON)
 # Install examples
 install(TARGETS 
     basic_hmm_example 
@@ -56,5 +61,6 @@ install(TARGETS
     queuing_theory_hmm_example
     robust_financial_hmm_example
     statistical_process_control_hmm_example
+    robust_viterbi_trainer_example
     RUNTIME DESTINATION bin/examples
 )

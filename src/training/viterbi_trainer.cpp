@@ -134,11 +134,12 @@ void ViterbiTrainer::train() {
             }
 
             try {
-                // Fix: Modify the existing distribution in place instead of reassigning
-                // The HMM already owns this distribution, so we don't need to transfer ownership
-                ProbabilityDistribution* pdist = hmm_->getProbabilityDistribution(static_cast<int>(i));
-                pdist->fit(clusterObservations);
-                // Note: No need to call setProbabilityDistribution - the object is already owned by HMM
+                // Modern C++17: Use reference instead of raw pointer for better safety
+                // The HMM owns the distribution, we just modify it in place
+                ProbabilityDistribution& distribution = 
+                    *hmm_->getProbabilityDistribution(static_cast<int>(i));
+                distribution.fit(clusterObservations);
+                // No ownership transfer needed - distribution is owned by HMM
             } catch (const std::exception& e) {
                 std::cerr << "\nError fitting distribution for cluster " << i << ": " << e.what() << std::endl;
                 // Continue with next cluster rather than terminating entire training
@@ -230,37 +231,39 @@ std::size_t ViterbiTrainer::findClosestCluster(Observation o) {
     return index;   
 }
 
-/*
- * Association is different.
- *
- * I'm looking for simple, so the std::map that's in use has a key, value pair.
- * The key in this case is a std::string which is shows that Observation o is
- * the jth observation in the ith ObservationSet in obsLists, so the key is
- * "i-j" and the value is the the index of the Cluster in clusters that 
- * it is associated to.
+/**
+ * Modern type-safe association system.
+ * 
+ * Associates an observation with a cluster using a structured key instead of
+ * inefficient string concatenation. This provides better performance and type safety.
+ * 
+ * @param sequenceId Index of the observation sequence
+ * @param observationId Index of the observation within the sequence  
+ * @param clusterId Index of the cluster to associate with
  */
-void ViterbiTrainer::associateObservation(std::size_t i, std::size_t j, std::size_t c) {
-    std::ostringstream keyStream;
-    keyStream << i << "-" << j;
-    std::string key = keyStream.str();
-    associations_[key] = static_cast<int>(c);
+void ViterbiTrainer::associateObservation(std::size_t sequenceId, std::size_t observationId, std::size_t clusterId) {
+    AssociationKey key{sequenceId, observationId};
+    associations_[key] = clusterId;
 }
 
-/*
- * Returns clusterIndex that the jth Observation in the ith ObservationSet is
- * associated with
+/**
+ * Returns the cluster index that an observation is associated with.
+ * 
+ * @param sequenceId Index of the observation sequence
+ * @param observationId Index of the observation within the sequence
+ * @return Cluster index
+ * @throws std::runtime_error if association not found
  */
-std::size_t ViterbiTrainer::findAssociation(std::size_t i, std::size_t j) {
-    std::ostringstream keyStream;
-    keyStream << i << "-" << j;
-    std::string key = keyStream.str();
+std::size_t ViterbiTrainer::findAssociation(std::size_t sequenceId, std::size_t observationId) {
+    AssociationKey key{sequenceId, observationId};
     
-    auto it = associations_.find(key);
-    if (it != associations_.end()) {
-        return static_cast<std::size_t>(it->second);
+    if (auto it = associations_.find(key); it != associations_.end()) {
+        return it->second;
     }
     
-    throw std::runtime_error("Association not found for observation");
+    throw std::runtime_error("Association not found for observation (sequence: " + 
+                           std::to_string(sequenceId) + ", observation: " + 
+                           std::to_string(observationId) + ")");
 }
 
 /*

@@ -13,6 +13,7 @@
 #include "libhmm/calculators/log_forward_backward_calculator.h"
 
 #include "libhmm/training/viterbi_trainer.h"
+#include "libhmm/training/robust_viterbi_trainer.h"
 #include "libhmm/training/segmented_kmeans_trainer.h"
 #include "libhmm/training/baum_welch_trainer.h"
 #include "libhmm/training/scaled_baum_welch_trainer.h"

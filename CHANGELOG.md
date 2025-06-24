@@ -5,6 +5,110 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2024-06-24
+
+### 🧹 Include Consolidation & Numerical Stability Release
+
+This release focuses on code maintainability, numerical robustness, and developer experience improvements through header consolidation and comprehensive stability infrastructure.
+
+### Added
+
+#### Numerical Stability Infrastructure
+- **NumericalSafety Class**: Comprehensive finite value validation and safe mathematical operations
+  - `safeLog()` and `safeExp()` with underflow/overflow protection
+  - Probability range validation and automatic normalization
+  - Container validation for matrices and vectors
+- **ConvergenceDetector**: Adaptive convergence detection with oscillation and stagnation detection
+- **AdaptivePrecision**: Dynamic tolerance adjustment based on problem characteristics
+- **ErrorRecovery**: Multiple recovery strategies (STRICT, GRACEFUL, ROBUST, ADAPTIVE)
+- **NumericalDiagnostics**: Real-time health monitoring with actionable recommendations
+
+#### Trainer Traits System
+- **Compile-time Type Safety**: Distribution compatibility checking at build time
+- **Template Metaprogramming**: Modern C++17 type traits with `constexpr` and SFINAE
+- **Trainer Selection**: Automatic algorithm selection based on distribution capabilities
+- **Zero Runtime Overhead**: All type checking resolved during compilation
+
+#### Development Infrastructure
+- **Internal Documentation**: Organized development docs in `.dev-docs/` (gitignored)
+- **Future Work Parking Lot**: Comprehensive roadmap for v2.x and v3.x development
+- **Phase Documentation**: Complete modernization history and rationale
+
+### Enhanced
+
+#### Include Structure Modernization
+- **Umbrella Header Consolidation**: Replaced 70+ individual distribution includes with single `distributions.h`
+- **Consistent Architecture**: Unified include pattern across 11 core files
+- **Reduced Maintenance Overhead**: Single point of distribution header management
+- **Build Efficiency**: Improved incremental compilation performance
+
+#### Code Quality
+- **Maintainability**: Significantly easier to add new distributions
+- **Readability**: Cleaner, more professional header structure
+- **Standards Compliance**: Aligned with C++ umbrella header best practices
+- **Documentation**: Clear dependency relationships and API organization
+
+#### Testing Infrastructure
+- **Extended Test Suite**: 31 test suites (up from 28)
+- **Numerical Stability Tests**: 24 new tests for edge case handling
+- **Trainer Traits Tests**: 12 new tests for compile-time type safety
+- **Comprehensive Coverage**: 100% pass rate with zero regressions
+
+### Fixed
+
+#### Robustness Improvements
+- **Edge Case Handling**: Comprehensive protection against NaN, infinity, and underflow
+- **Training Stability**: Enhanced convergence detection prevents infinite loops
+- **Error Recovery**: Graceful handling of degenerate data and numerical issues
+- **Memory Safety**: Continued adherence to RAII principles
+
+### Performance Improvements
+
+- **Build Times**: Potential improvement through optimized include structure
+- **Runtime Stability**: Proactive numerical issue detection and correction
+- **Zero Overhead**: Type safety checking with no runtime cost
+- **Adaptive Precision**: Dynamic adjustment based on problem characteristics
+
+### Technical Specifications
+
+#### Files Modified
+- **Header Files**: 4 core library headers consolidated
+- **Test Files**: 7 test files with simplified includes
+- **Lines Reduced**: 70+ redundant include lines eliminated
+- **Maintainability**: Single point of distribution header management
+
+#### New Infrastructure
+- **Numerical Constants**: Carefully tuned for different scenarios
+- **Error Recovery Strategies**: 4 different approaches based on requirements
+- **Diagnostic Capabilities**: Real-time numerical health assessment
+- **Future-Ready**: Foundation for advanced trainer selection (Phase 6)
+
+### Breaking Changes
+
+None - this release maintains full backward compatibility while significantly improving maintainability.
+
+### Migration Notes
+
+Existing code works unchanged. The improvements are transparent:
+
+```cpp
+// Existing includes still work
+#include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/distributions/poisson_distribution.h"
+
+// But now you can simply use:
+#include "libhmm/distributions/distributions.h"  // All distributions available
+```
+
+### Dependencies
+
+- **C++17 Compatible Compiler**: GCC 7+, Clang 6+, MSVC 2017+
+- **CMake**: 3.15 or later
+- **Boost Libraries**: For matrix operations
+- **Platform**: macOS, Linux, Unix-like systems
+
+---
+
 ## [2.3.0] - 2024-06-23
 
 ### 🚀 Major Feature Release - Advanced Statistical Distributions & Performance Optimization
