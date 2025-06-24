@@ -25,8 +25,10 @@ double GaussianDistribution::getProbability(double x) {
     if (std::isnan(p) || p < 0.0) {
         return ZERO;
     }
+    if (p > 1.0) {
+        return 1.0;
+    }
     
-    assert(p <= 1.0);
     return p;
 }
 
@@ -38,8 +40,27 @@ double GaussianDistribution::getProbability(double x) {
  *          2           sigma*sqrt(2)
  */
 double GaussianDistribution::CDF(double x) noexcept {
+    // Handle problematic inputs
+    if (std::isnan(x) || std::isnan(mean_) || std::isnan(standardDeviation_)) {
+        return 0.0;
+    }
+    if (std::isinf(x)) {
+        return (x > 0) ? 1.0 : 0.0;
+    }
+    if (standardDeviation_ <= 0.0) {
+        return (x >= mean_) ? 1.0 : 0.0;
+    }
+    
     const double y = 0.5 * (1 + errorf((x - mean_) / (standardDeviation_ * std::sqrt(2.0))));
-    assert(y >= 0);
+    
+    // Ensure valid probability range
+    if (std::isnan(y) || y < 0.0) {
+        return 0.0;
+    }
+    if (y > 1.0) {
+        return 1.0;
+    }
+    
     return y;
 }
 

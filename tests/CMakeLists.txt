@@ -23,24 +23,27 @@ if(GTest_FOUND OR TARGET gtest)
     endif()
     
     # Integration test executables (GoogleTest framework)
-    set(GTEST_SOURCES
-        test_hmm_core.cpp
-        test_calculators.cpp
-        test_training.cpp
-        test_training_edge_cases.cpp
-        test_optimized_matrix3d.cpp
-        test_distribution_traits.cpp
-        test_distributions_header.cpp
-        test_xml_file_io.cpp
-        test_hmm_stream_io.cpp
-        test_distributions.cpp
-        test_common.cpp
-        test_performance.cpp
-        test_calculator_traits.cpp
-    )
+set(COMPREHENSIVE_TESTS
+    test_hmm_core.cpp
+    test_calculators.cpp
+    test_training.cpp
+    test_training_edge_cases.cpp
+    test_robust_viterbi_trainer.cpp
+    test_optimized_matrix3d.cpp
+    test_distribution_traits.cpp
+    test_distributions_header.cpp
+    test_xml_file_io.cpp
+    test_hmm_stream_io.cpp
+    test_distributions.cpp
+    test_common.cpp
+    test_performance.cpp
+    test_calculator_traits.cpp
+    test_numerical_stability.cpp
+    test_trainer_traits.cpp
+)
     
     # Create individual test executables
-    foreach(TEST_SOURCE ${GTEST_SOURCES})
+    foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})
         # Get the test name from the source file name
         get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
         
@@ -70,13 +73,13 @@ if(GTest_FOUND OR TARGET gtest)
     # Test discovery for modern CMake versions
     if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.10 AND TARGET gtest_discover_tests)
         include(GoogleTest)
-        foreach(TEST_SOURCE ${GTEST_SOURCES})
+        foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})
             get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
             gtest_discover_tests(${TEST_NAME})
         endforeach()
     endif()
     
-    set(ALL_TEST_TARGETS ${GTEST_SOURCES})
+    set(ALL_TEST_TARGETS ${COMPREHENSIVE_TESTS})
     string(REPLACE ".cpp" "" ALL_TEST_TARGETS "${ALL_TEST_TARGETS}")
 else()
     message(STATUS "Google Test not found - building basic test suite only")
@@ -146,7 +149,7 @@ install(TARGETS ${ALL_TEST_TARGETS}
 # Print summary
 message(STATUS "Test configuration summary:")
 if(GTest_FOUND OR TARGET gtest)
-    message(STATUS "  Comprehensive tests: ${GTEST_SOURCES}")
+    message(STATUS "  Comprehensive tests: ${COMPREHENSIVE_TESTS}")
 else()
     message(STATUS "  Comprehensive tests: DISABLED (Google Test not found)")
 endif()

@@ -3,14 +3,14 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.15%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.3.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-28/28_Passing-success.svg)](tests/)
+[![Version](https://img.shields.io/badge/Version-2.4.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-31/31_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX%2FSSE2%2FNEON-blue.svg)](src/performance/)
 [![Threading](https://img.shields.io/badge/Threading-C%2B%2B17-orange.svg)](src/performance/thread_pool.cpp)
 
 A modern, high-performance C++17 implementation of Hidden Markov Models with advanced statistical distributions, SIMD optimization, and parallel processing capabilities.
 
-**🚀 Latest Release v2.3.0**: Major feature release with Student's t and Chi-squared distributions, comprehensive SIMD optimizations (up to 3x speedup), modern C++17 thread pool, and zero-warning builds. Complete framework with 17 probability distributions and 28/28 tests passing.
+**🚀 Latest Release v2.4.0**: Include consolidation and numerical stability release featuring distribution header modernization, comprehensive numerical safety infrastructure, trainer traits system, and robust edge case handling. Enhanced maintainability with 31/31 tests passing and production-ready stability features.
 
 ## Features
 

@@ -6,7 +6,7 @@ if(POLICY CMP0167)
 endif()
 
 project(libhmm
-    VERSION 2.3.0
+    VERSION 2.4.0
     DESCRIPTION "Modern C++17 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -79,6 +79,8 @@ set(LIBHMM_SOURCES
     src/hmm.cpp
     src/common/common.cpp
     src/common/string_tokenizer.cpp
+    src/common/numerical_stability.cpp
+    src/common/trainer_traits.cpp
     src/distributions/probability_distribution.cpp
     src/distributions/discrete_distribution.cpp
     src/distributions/gaussian_distribution.cpp
@@ -99,6 +101,7 @@ set(LIBHMM_SOURCES
     src/calculators/log_forward_backward_calculator.cpp
     src/calculators/viterbi_calculator.cpp
     src/training/viterbi_trainer.cpp
+    src/training/robust_viterbi_trainer.cpp
     src/training/segmented_kmeans_trainer.cpp
     src/training/baum_welch_trainer.cpp
     src/training/scaled_baum_welch_trainer.cpp

@@ -208,8 +208,12 @@ TEST_F(PerformanceTest, CpuInfoDetection) {
     EXPECT_FALSE(cpuInfo.empty());
     
     // Use the features variable to avoid unused variable warning
-    // (Features is a complex type so we just verify it's accessible)
-    EXPECT_NO_THROW(features.size());
+    // (Features is a struct with feature flags, so we test if it's accessible)
+    EXPECT_NO_THROW({
+        // Just access some feature flags to ensure the struct is properly initialized
+        static_cast<void>(features.hasSSE2);
+        static_cast<void>(features.hasAVX);
+    });
     
     std::cout << "CPU Info:\n" << cpuInfo << std::endl;
 }

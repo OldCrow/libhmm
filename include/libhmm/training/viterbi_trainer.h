@@ -1,20 +1,20 @@
 #ifndef VITERBITRAINER_H_
 #define VITERBITRAINER_H_
 
-#include <map>
-#include <string>
+#include <unordered_map>
 #include <cassert>
 #include <cstdlib>
 #include <cfloat>
 #include <memory>
 #include <algorithm>
 #include <stdexcept>
+#include <optional>
+#include <functional>
 #include "libhmm/common/common.h"
 #include "libhmm/training/hmm_trainer.h"
 #include "libhmm/training/cluster.h"
 #include "libhmm/training/centroid.h"
-#include "libhmm/distributions/probability_distribution.h"
-#include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/distributions/distributions.h"
 #include "libhmm/calculators/scaled_forward_backward_calculator.h"
 #include "libhmm/calculators/viterbi_calculator.h"
 
@@ -28,15 +28,50 @@ namespace libhmm
 /// does not provide a solution.
 class ViterbiTrainer : public HmmTrainer
 {
-private:
+protected:
     /// Training termination flag
     bool terminated_{false};
 
     /// Array of clusters for k-means algorithm
     std::unique_ptr<Cluster[]> clusters_;
 
-    /// Map to keep track of which observations are associated with which clusters
-    std::map<std::string, int> associations_;
+    /// Modern type-safe association key for observation-cluster mapping
+    struct AssociationKey {
+        std::size_t sequence_id;    ///< Index of observation sequence
+        std::size_t observation_id; ///< Index of observation within sequence
+        
+        /// Equality operator for C++17 compatibility
+        bool operator==(const AssociationKey& other) const noexcept {
+            return sequence_id == other.sequence_id && observation_id == other.observation_id;
+        }
+        
+        /// Inequality operator for C++17 compatibility
+        bool operator!=(const AssociationKey& other) const noexcept {
+            return !(*this == other);
+        }
+        
+        /// Less-than operator for ordered containers (C++17 compatible)
+        bool operator<(const AssociationKey& other) const noexcept {
+            if (sequence_id != other.sequence_id) {
+                return sequence_id < other.sequence_id;
+            }
+            return observation_id < other.observation_id;
+        }
+    };
+    
+    /// Hash function for AssociationKey to enable unordered_map usage
+    struct AssociationKeyHash {
+        std::size_t operator()(const AssociationKey& key) const noexcept {
+            // Combine two hash values using a standard technique
+            std::size_t h1 = std::hash<std::size_t>{}(key.sequence_id);
+            std::size_t h2 = std::hash<std::size_t>{}(key.observation_id);
+            return h1 ^ (h2 << 1); // Simple but effective hash combination
+        }
+    };
+
+    /// Modern type-safe map for observation-cluster associations
+    /// Maps (sequence_id, observation_id) -> cluster_index
+    std::unordered_map<AssociationKey, std::size_t, AssociationKeyHash> associations_;
 
     /// Number of changes made to the clusters during training
     std::size_t numChanges_{0};
