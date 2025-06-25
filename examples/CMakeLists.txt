@@ -50,6 +50,12 @@ add_executable(robust_viterbi_trainer_example robust_viterbi_trainer_example.cpp
 target_link_libraries(robust_viterbi_trainer_example hmm ${Boost_LIBRARIES})
 set_property(TARGET robust_viterbi_trainer_example PROPERTY CXX_STANDARD 17)
 set_property(TARGET robust_viterbi_trainer_example PROPERTY CXX_STANDARD_REQUIRED ON)
+
+# Swarm Coordination HMM example (Discrete state drone formation control)
+add_executable(swarm_coordination_example swarm_coordination_example.cpp)
+target_link_libraries(swarm_coordination_example hmm ${Boost_LIBRARIES})
+set_property(TARGET swarm_coordination_example PROPERTY CXX_STANDARD 17)
+set_property(TARGET swarm_coordination_example PROPERTY CXX_STANDARD_REQUIRED ON)
 # Install examples
 install(TARGETS 
     basic_hmm_example 
@@ -62,5 +68,6 @@ install(TARGETS
     robust_financial_hmm_example
     statistical_process_control_hmm_example
     robust_viterbi_trainer_example
+    swarm_coordination_example
     RUNTIME DESTINATION bin/examples
 )

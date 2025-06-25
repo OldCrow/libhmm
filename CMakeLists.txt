@@ -45,11 +45,11 @@ elseif(LINUX)
     set(CMAKE_PREFIX_PATH "/usr" "/usr/local" ${CMAKE_PREFIX_PATH})
 endif()
 
-find_package(Boost REQUIRED)
+# find_package(Boost REQUIRED)  # REMOVED: No longer needed after Phase 8.3 Boost replacement
 
 # Include directories - use modern target-based approach
 include_directories(include)
-include_directories(${Boost_INCLUDE_DIRS})
+# include_directories(${Boost_INCLUDE_DIRS})  # REMOVED: No longer needed
 
 # Platform-specific compiler flags
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -144,13 +144,13 @@ endif()
 # Link libraries with platform-specific handling
 if(LINUX)
     # On Linux, explicitly link math library
-    target_link_libraries(hmm ${Boost_LIBRARIES} m)
+    target_link_libraries(hmm m)  # Boost libraries removed
 elseif(APPLE)
     # On macOS, math functions are part of the system library
-    target_link_libraries(hmm ${Boost_LIBRARIES})
+    target_link_libraries(hmm)  # Boost libraries removed
 else()
     # Fallback for other Unix systems
-    target_link_libraries(hmm ${Boost_LIBRARIES} m)
+    target_link_libraries(hmm m)  # Boost libraries removed
 endif()
 
 # Install targets

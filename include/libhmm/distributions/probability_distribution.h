@@ -6,9 +6,7 @@
 #include <string>
 #include <memory>
 #include "libhmm/common/common.h"
-#include <boost/archive/xml_oarchive.hpp>
-#include <boost/archive/xml_iarchive.hpp>
-#include <boost/serialization/base_object.hpp>
+// Removed Boost includes - using C++17 serialization
 #include "libhmm/common/string_tokenizer.h"
 
 namespace libhmm

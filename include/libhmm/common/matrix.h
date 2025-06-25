@@ -9,6 +9,9 @@
 
 namespace libhmm {
 
+// Forward declaration
+template<typename T> class BasicVector;
+
 /**
  * Lightweight Matrix class designed to replace boost::numeric::ublas::matrix
  * with better performance and SIMD-friendly memory layout.
@@ -185,6 +188,68 @@ public:
     bool operator!=(const BasicMatrix& other) const {
         return !(*this == other);
     }
+    
+    // Linear algebra operations for uBLAS compatibility
+    
+    /**
+     * Get a row as a vector (copies the data)
+     * Compatible with boost::numeric::ublas::row(matrix, i)
+     */
+    BasicVector<T> row(size_type row_index) const {
+        if (row_index >= rows_) {
+            throw std::out_of_range("Row index out of bounds");
+        }
+        BasicVector<T> result(cols_);
+        for (size_type j = 0; j < cols_; ++j) {
+            result[j] = (*this)(row_index, j);
+        }
+        return result;
+    }
+    
+    /**
+     * Get a column as a vector (copies the data)
+     * Compatible with boost::numeric::ublas::column(matrix, j)
+     */
+    BasicVector<T> column(size_type col_index) const {
+        if (col_index >= cols_) {
+            throw std::out_of_range("Column index out of bounds");
+        }
+        BasicVector<T> result(rows_);
+        for (size_type i = 0; i < rows_; ++i) {
+            result[i] = (*this)(i, col_index);
+        }
+        return result;
+    }
+    
+    /**
+     * Set a row from a vector
+     */
+    void set_row(size_type row_index, const BasicVector<T>& vec) {
+        if (row_index >= rows_) {
+            throw std::out_of_range("Row index out of bounds");
+        }
+        if (vec.size() != cols_) {
+            throw std::invalid_argument("Vector size must match number of columns");
+        }
+        for (size_type j = 0; j < cols_; ++j) {
+            (*this)(row_index, j) = vec[j];
+        }
+    }
+    
+    /**
+     * Set a column from a vector
+     */
+    void set_column(size_type col_index, const BasicVector<T>& vec) {
+        if (col_index >= cols_) {
+            throw std::out_of_range("Column index out of bounds");
+        }
+        if (vec.size() != rows_) {
+            throw std::invalid_argument("Vector size must match number of rows");
+        }
+        for (size_type i = 0; i < rows_; ++i) {
+            (*this)(i, col_index) = vec[i];
+        }
+    }
 };
 
 // Binary arithmetic operators
@@ -234,6 +299,32 @@ std::ostream& operator<<(std::ostream& os, const BasicMatrix<T>& matrix) {
         if (i < matrix.rows() - 1) os << "\n";
     }
     return os;
+}
+
+// Linear algebra functions for uBLAS compatibility
+
+/**
+ * Get a row from a matrix (compatible with boost::numeric::ublas::row)
+ */
+template<typename T>
+BasicVector<T> row(const BasicMatrix<T>& matrix, typename BasicMatrix<T>::size_type row_index) {
+    return matrix.row(row_index);
+}
+
+/**
+ * Get a column from a matrix (compatible with boost::numeric::ublas::column)
+ */
+template<typename T>
+BasicVector<T> column(const BasicMatrix<T>& matrix, typename BasicMatrix<T>::size_type col_index) {
+    return matrix.column(col_index);
+}
+
+/**
+ * Inner product of two vectors (compatible with boost::numeric::ublas::inner_prod)
+ */
+template<typename T>
+T inner_prod(const BasicVector<T>& vec1, const BasicVector<T>& vec2) {
+    return vec1.dot(vec2);
 }
 
 } // namespace libhmm

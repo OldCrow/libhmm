@@ -123,6 +123,7 @@ See the [examples/](examples/) directory for comprehensive usage examples:
 - **[queuing_theory_hmm_example.cpp](examples/queuing_theory_hmm_example.cpp)** - Service systems and queuing analysis with Poisson, Exponential, and Gamma distributions
 - **[robust_financial_hmm_example.cpp](examples/robust_financial_hmm_example.cpp)** - Heavy-tailed financial modeling with Student's t-distribution
 - **[statistical_process_control_hmm_example.cpp](examples/statistical_process_control_hmm_example.cpp)** - Advanced quality control with Chi-squared distribution
+- **[swarm_coordination_example.cpp](examples/swarm_coordination_example.cpp)** - Discrete state drone swarm coordination and formation control
 
 ## Project Structure
 

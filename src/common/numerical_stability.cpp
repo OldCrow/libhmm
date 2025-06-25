@@ -337,7 +337,7 @@ bool ErrorRecovery::recoverFromUnderflow(Vector& probs, RecoveryStrategy strateg
             
         case RecoveryStrategy::ADAPTIVE:
             // Choose strategy based on severity
-            double minVal = *std::min_element(probs.data().begin(), probs.data().end());
+            double minVal = *std::min_element(probs.begin(), probs.end());
             if (minVal < NumericalConstants::MIN_PROBABILITY * 1e-10) {
                 return recoverFromUnderflow(probs, RecoveryStrategy::ROBUST);
             } else {

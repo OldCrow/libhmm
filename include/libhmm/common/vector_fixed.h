@@ -11,8 +11,6 @@
 
 namespace libhmm {
 
-// Fixed version with BasicVector class naming to avoid conflicts
-
 /**
  * Lightweight Vector class designed to replace boost::numeric::ublas::vector
  * with better performance and SIMD-friendly operations.
@@ -296,7 +294,11 @@ BasicVector<T> element_div(const BasicVector<T>& lhs, const BasicVector<T>& rhs)
     return result;
 }
 
-// Note: inner_prod function is defined in matrix.h to avoid redefinition
+// Dot product
+template<typename T>
+T inner_prod(const BasicVector<T>& lhs, const BasicVector<T>& rhs) {
+    return lhs.dot(rhs);
+}
 
 } // namespace libhmm
 
