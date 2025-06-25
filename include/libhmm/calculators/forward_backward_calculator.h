@@ -1,7 +1,7 @@
 #ifndef FORWARDBACKWARDCALCULATOR_H_
 #define FORWARDBACKWARDCALCULATOR_H_
 
-#include <boost/numeric/ublas/matrix_proxy.hpp>
+// Removed boost include - using custom Matrix/Vector classes
 #include <cmath>
 
 #include "libhmm/common/common.h"

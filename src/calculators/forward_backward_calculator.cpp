@@ -30,7 +30,7 @@ void ForwardBackwardCalculator::forward()
     for (std::size_t t = 1; t < obsSize; ++t) {
         for (std::size_t j = 0; j < numStates; ++j) {
             alpha(t, j) = hmm_->getProbabilityDistribution(static_cast<int>(j))->getProbability(observations_(t)) * 
-                         boost::numeric::ublas::inner_prod(boost::numeric::ublas::row(alpha, t - 1), boost::numeric::ublas::column(trans, j));
+                         inner_prod(row(alpha, t - 1), column(trans, j));
             if (alpha(t, j) < ZERO || std::isnan(alpha(t, j))) {
                 alpha(t, j) = ZERO;
             }

@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <filesystem>
 #include <memory>
-#include <boost/archive/xml_oarchive.hpp>
+// Removed boost include - using custom C++17 XML serialization
 
 #include "libhmm/common/common.h"
 #include "libhmm/hmm.h"
