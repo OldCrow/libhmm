@@ -21,7 +21,7 @@ namespace libhmm {
  * - Zero external dependencies (pure C++17)
  */
 template<typename T>
-class Matrix {
+class BasicMatrix {
 private:
     std::vector<T> data_;
     std::size_t rows_;
@@ -37,29 +37,29 @@ public:
     using const_iterator = typename std::vector<T>::const_iterator;
 
     // Default constructor
-    Matrix() : rows_(0), cols_(0) {}
+    BasicMatrix() : rows_(0), cols_(0) {}
     
     // Constructor with dimensions
-    Matrix(size_type rows, size_type cols) 
+    BasicMatrix(size_type rows, size_type cols) 
         : data_(rows * cols), rows_(rows), cols_(cols) {}
         
     // Constructor with dimensions and default value
-    Matrix(size_type rows, size_type cols, const T& value)
+    BasicMatrix(size_type rows, size_type cols, const T& value)
         : data_(rows * cols, value), rows_(rows), cols_(cols) {}
         
     // Copy constructor
-    Matrix(const Matrix& other) 
+    BasicMatrix(const BasicMatrix& other) 
         : data_(other.data_), rows_(other.rows_), cols_(other.cols_) {}
         
     // Move constructor
-    Matrix(Matrix&& other) noexcept
+    BasicMatrix(BasicMatrix&& other) noexcept
         : data_(std::move(other.data_)), rows_(other.rows_), cols_(other.cols_) {
         other.rows_ = 0;
         other.cols_ = 0;
     }
     
     // Copy assignment
-    Matrix& operator=(const Matrix& other) {
+    BasicMatrix& operator=(const BasicMatrix& other) {
         if (this != &other) {
             data_ = other.data_;
             rows_ = other.rows_;
@@ -69,7 +69,7 @@ public:
     }
     
     // Move assignment
-    Matrix& operator=(Matrix&& other) noexcept {
+    BasicMatrix& operator=(BasicMatrix&& other) noexcept {
         if (this != &other) {
             data_ = std::move(other.data_);
             rows_ = other.rows_;
@@ -143,7 +143,7 @@ public:
     const_iterator cend() const noexcept { return data_.cend(); }
 
     // Matrix operations
-    Matrix& operator+=(const Matrix& other) {
+    BasicMatrix& operator+=(const BasicMatrix& other) {
         if (rows_ != other.rows_ || cols_ != other.cols_) {
             throw std::invalid_argument("Matrix dimensions must match for addition");
         }
@@ -153,7 +153,7 @@ public:
         return *this;
     }
 
-    Matrix& operator-=(const Matrix& other) {
+    BasicMatrix& operator-=(const BasicMatrix& other) {
         if (rows_ != other.rows_ || cols_ != other.cols_) {
             throw std::invalid_argument("Matrix dimensions must match for subtraction");
         }
@@ -163,14 +163,14 @@ public:
         return *this;
     }
 
-    Matrix& operator*=(const T& scalar) {
+    BasicMatrix& operator*=(const T& scalar) {
         for (auto& element : data_) {
             element *= scalar;
         }
         return *this;
     }
 
-    Matrix& operator/=(const T& scalar) {
+    BasicMatrix& operator/=(const T& scalar) {
         for (auto& element : data_) {
             element /= scalar;
         }
@@ -178,52 +178,52 @@ public:
     }
 
     // Comparison operators
-    bool operator==(const Matrix& other) const {
+    bool operator==(const BasicMatrix& other) const {
         return rows_ == other.rows_ && cols_ == other.cols_ && data_ == other.data_;
     }
 
-    bool operator!=(const Matrix& other) const {
+    bool operator!=(const BasicMatrix& other) const {
         return !(*this == other);
     }
 };
 
 // Binary arithmetic operators
 template<typename T>
-Matrix<T> operator+(const Matrix<T>& lhs, const Matrix<T>& rhs) {
-    Matrix<T> result = lhs;
+BasicMatrix<T> operator+(const BasicMatrix<T>& lhs, const BasicMatrix<T>& rhs) {
+    BasicMatrix<T> result = lhs;
     result += rhs;
     return result;
 }
 
 template<typename T>
-Matrix<T> operator-(const Matrix<T>& lhs, const Matrix<T>& rhs) {
-    Matrix<T> result = lhs;
+BasicMatrix<T> operator-(const BasicMatrix<T>& lhs, const BasicMatrix<T>& rhs) {
+    BasicMatrix<T> result = lhs;
     result -= rhs;
     return result;
 }
 
 template<typename T>
-Matrix<T> operator*(const Matrix<T>& matrix, const T& scalar) {
-    Matrix<T> result = matrix;
+BasicMatrix<T> operator*(const BasicMatrix<T>& matrix, const T& scalar) {
+    BasicMatrix<T> result = matrix;
     result *= scalar;
     return result;
 }
 
 template<typename T>
-Matrix<T> operator*(const T& scalar, const Matrix<T>& matrix) {
+BasicMatrix<T> operator*(const T& scalar, const BasicMatrix<T>& matrix) {
     return matrix * scalar;
 }
 
 template<typename T>
-Matrix<T> operator/(const Matrix<T>& matrix, const T& scalar) {
-    Matrix<T> result = matrix;
+BasicMatrix<T> operator/(const BasicMatrix<T>& matrix, const T& scalar) {
+    BasicMatrix<T> result = matrix;
     result /= scalar;
     return result;
 }
 
 // Stream output operator
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const Matrix<T>& matrix) {
+std::ostream& operator<<(std::ostream& os, const BasicMatrix<T>& matrix) {
     for (std::size_t i = 0; i < matrix.rows(); ++i) {
         os << "[";
         for (std::size_t j = 0; j < matrix.cols(); ++j) {
