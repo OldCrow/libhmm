@@ -11,6 +11,8 @@
 
 namespace libhmm {
 
+// Fixed version with BasicVector class naming to avoid conflicts
+
 /**
  * Lightweight Vector class designed to replace boost::numeric::ublas::vector
  * with better performance and SIMD-friendly operations.
@@ -23,7 +25,7 @@ namespace libhmm {
  * - Zero external dependencies (pure C++17)
  */
 template<typename T>
-class Vector {
+class BasicVector {
 private:
     std::vector<T> data_;
 
@@ -37,29 +39,29 @@ public:
     using const_iterator = typename std::vector<T>::const_iterator;
 
     // Default constructor
-    Vector() = default;
+    BasicVector() = default;
     
     // Constructor with size
-    explicit Vector(size_type size) : data_(size) {}
+    explicit BasicVector(size_type size) : data_(size) {}
         
     // Constructor with size and default value
-    Vector(size_type size, const T& value) : data_(size, value) {}
+    BasicVector(size_type size, const T& value) : data_(size, value) {}
         
     // Constructor from std::vector
-    explicit Vector(const std::vector<T>& vec) : data_(vec) {}
-    explicit Vector(std::vector<T>&& vec) : data_(std::move(vec)) {}
+    explicit BasicVector(const std::vector<T>& vec) : data_(vec) {}
+    explicit BasicVector(std::vector<T>&& vec) : data_(std::move(vec)) {}
         
     // Copy constructor
-    Vector(const Vector& other) : data_(other.data_) {}
+    BasicVector(const BasicVector& other) : data_(other.data_) {}
         
     // Move constructor
-    Vector(Vector&& other) noexcept : data_(std::move(other.data_)) {}
+    BasicVector(BasicVector&& other) noexcept : data_(std::move(other.data_)) {}
     
     // Initializer list constructor
-    Vector(std::initializer_list<T> init) : data_(init) {}
+    BasicVector(std::initializer_list<T> init) : data_(init) {}
     
     // Copy assignment
-    Vector& operator=(const Vector& other) {
+    BasicVector& operator=(const BasicVector& other) {
         if (this != &other) {
             data_ = other.data_;
         }
@@ -67,7 +69,7 @@ public:
     }
     
     // Move assignment
-    Vector& operator=(Vector&& other) noexcept {
+    BasicVector& operator=(BasicVector&& other) noexcept {
         if (this != &other) {
             data_ = std::move(other.data_);
         }
@@ -118,7 +120,7 @@ public:
     const_iterator cend() const noexcept { return data_.cend(); }
 
     // Vector operations
-    Vector& operator+=(const Vector& other) {
+    BasicVector& operator+=(const BasicVector& other) {
         if (size() != other.size()) {
             throw std::invalid_argument("Vector dimensions must match for addition");
         }
@@ -128,7 +130,7 @@ public:
         return *this;
     }
 
-    Vector& operator-=(const Vector& other) {
+    BasicVector& operator-=(const BasicVector& other) {
         if (size() != other.size()) {
             throw std::invalid_argument("Vector dimensions must match for subtraction");
         }
@@ -138,14 +140,14 @@ public:
         return *this;
     }
 
-    Vector& operator*=(const T& scalar) {
+    BasicVector& operator*=(const T& scalar) {
         for (auto& element : data_) {
             element *= scalar;
         }
         return *this;
     }
 
-    Vector& operator/=(const T& scalar) {
+    BasicVector& operator/=(const T& scalar) {
         for (auto& element : data_) {
             element /= scalar;
         }
@@ -153,11 +155,11 @@ public:
     }
 
     // Comparison operators
-    bool operator==(const Vector& other) const {
+    bool operator==(const BasicVector& other) const {
         return data_ == other.data_;
     }
 
-    bool operator!=(const Vector& other) const {
+    bool operator!=(const BasicVector& other) const {
         return !(*this == other);
     }
 
@@ -174,7 +176,7 @@ public:
     }
     
     // Dot product with another vector
-    T dot(const Vector& other) const {
+    T dot(const BasicVector& other) const {
         if (size() != other.size()) {
             throw std::invalid_argument("Vector dimensions must match for dot product");
         }
@@ -195,7 +197,7 @@ public:
     }
     
     // Normalize vector to unit length
-    Vector& normalize() {
+    BasicVector& normalize() {
         T n = norm();
         if (n > T{}) {
             *this /= n;
@@ -204,7 +206,7 @@ public:
     }
     
     // Element-wise multiplication (Hadamard product)
-    Vector& element_multiply(const Vector& other) {
+    BasicVector& element_multiply(const BasicVector& other) {
         if (size() != other.size()) {
             throw std::invalid_argument("Vector dimensions must match for element-wise multiplication");
         }
@@ -215,7 +217,7 @@ public:
     }
     
     // Element-wise division
-    Vector& element_divide(const Vector& other) {
+    BasicVector& element_divide(const BasicVector& other) {
         if (size() != other.size()) {
             throw std::invalid_argument("Vector dimensions must match for element-wise division");
         }
@@ -232,41 +234,41 @@ public:
 
 // Binary arithmetic operators
 template<typename T>
-Vector<T> operator+(const Vector<T>& lhs, const Vector<T>& rhs) {
-    Vector<T> result = lhs;
+BasicVector<T> operator+(const BasicVector<T>& lhs, const BasicVector<T>& rhs) {
+    BasicVector<T> result = lhs;
     result += rhs;
     return result;
 }
 
 template<typename T>
-Vector<T> operator-(const Vector<T>& lhs, const Vector<T>& rhs) {
-    Vector<T> result = lhs;
+BasicVector<T> operator-(const BasicVector<T>& lhs, const BasicVector<T>& rhs) {
+    BasicVector<T> result = lhs;
     result -= rhs;
     return result;
 }
 
 template<typename T>
-Vector<T> operator*(const Vector<T>& vector, const T& scalar) {
-    Vector<T> result = vector;
+BasicVector<T> operator*(const BasicVector<T>& vector, const T& scalar) {
+    BasicVector<T> result = vector;
     result *= scalar;
     return result;
 }
 
 template<typename T>
-Vector<T> operator*(const T& scalar, const Vector<T>& vector) {
+BasicVector<T> operator*(const T& scalar, const BasicVector<T>& vector) {
     return vector * scalar;
 }
 
 template<typename T>
-Vector<T> operator/(const Vector<T>& vector, const T& scalar) {
-    Vector<T> result = vector;
+BasicVector<T> operator/(const BasicVector<T>& vector, const T& scalar) {
+    BasicVector<T> result = vector;
     result /= scalar;
     return result;
 }
 
 // Stream output operator
 template<typename T>
-std::ostream& operator<<(std::ostream& os, const Vector<T>& vector) {
+std::ostream& operator<<(std::ostream& os, const BasicVector<T>& vector) {
     os << "[";
     for (std::size_t i = 0; i < vector.size(); ++i) {
         os << std::setprecision(6) << vector[i];
@@ -280,23 +282,23 @@ std::ostream& operator<<(std::ostream& os, const Vector<T>& vector) {
 
 // Element-wise multiplication (Hadamard product)
 template<typename T>
-Vector<T> element_prod(const Vector<T>& lhs, const Vector<T>& rhs) {
-    Vector<T> result = lhs;
+BasicVector<T> element_prod(const BasicVector<T>& lhs, const BasicVector<T>& rhs) {
+    BasicVector<T> result = lhs;
     result.element_multiply(rhs);
     return result;
 }
 
 // Element-wise division
 template<typename T>
-Vector<T> element_div(const Vector<T>& lhs, const Vector<T>& rhs) {
-    Vector<T> result = lhs;
+BasicVector<T> element_div(const BasicVector<T>& lhs, const BasicVector<T>& rhs) {
+    BasicVector<T> result = lhs;
     result.element_divide(rhs);
     return result;
 }
 
 // Dot product
 template<typename T>
-T inner_prod(const Vector<T>& lhs, const Vector<T>& rhs) {
+T inner_prod(const BasicVector<T>& lhs, const BasicVector<T>& rhs) {
     return lhs.dot(rhs);
 }
 
