@@ -1,4 +1,5 @@
 #include "libhmm/training/viterbi_trainer.h"
+#include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -162,8 +163,8 @@ void ViterbiTrainer::train() {
         
             compareSequence(sequence, i);
 
-            ScaledForwardBackwardCalculator sfbc(hmm_, os);
-            double logProbability = sfbc.logProbability();
+            ScaledSIMDForwardBackwardCalculator sfbc(hmm_, os);
+            double logProbability = sfbc.getLogProbability();
             probabilities.push_back(logProbability);
         }
         std::cout << std::endl;

@@ -1,6 +1,6 @@
 #include <iostream>
-#include "../include/libhmm/libhmm.h"
-#include "../include/libhmm/calculators/calculator_traits.h"
+#include "libhmm/libhmm.h"
+#include "libhmm/calculators/forward_backward_traits.h"
 
 int main() {
     std::cout << "Testing Calculator Selection System\n\n";
@@ -42,32 +42,30 @@ int main() {
         }
         
         // Get problem characteristics
-        libhmm::calculators::ProblemCharacteristics characteristics(hmm.get(), obs);
+        libhmm::forwardbackward::ProblemCharacteristics characteristics(hmm.get(), obs);
         
         // Get performance comparison
-        std::string comparison = libhmm::calculators::CalculatorSelector::getPerformanceComparison(characteristics);
+        std::string comparison = libhmm::forwardbackward::CalculatorSelector::getPerformanceComparison(characteristics);
         
         std::cout << "=== Sequence Length: " << seq_len << " ===\n";
         std::cout << comparison << "\n";
         
         // Debug: print all calculator types and their enum values
         std::cout << "Debug - Calculator enum values:\n";
-        std::cout << "STANDARD: " << static_cast<int>(libhmm::calculators::CalculatorType::STANDARD) << "\n";
-        std::cout << "SCALED: " << static_cast<int>(libhmm::calculators::CalculatorType::SCALED) << "\n";
-        std::cout << "LOG_SPACE: " << static_cast<int>(libhmm::calculators::CalculatorType::LOG_SPACE) << "\n";
-        std::cout << "OPTIMIZED: " << static_cast<int>(libhmm::calculators::CalculatorType::OPTIMIZED) << "\n";
-        std::cout << "LOG_SIMD: " << static_cast<int>(libhmm::calculators::CalculatorType::LOG_SIMD) << "\n";
-        std::cout << "SCALED_SIMD: " << static_cast<int>(libhmm::calculators::CalculatorType::SCALED_SIMD) << "\n";
+        std::cout << "STANDARD: " << static_cast<int>(libhmm::forwardbackward::CalculatorType::STANDARD) << "\n";
+        std::cout << "SCALED_SIMD: " << static_cast<int>(libhmm::forwardbackward::CalculatorType::SCALED_SIMD) << "\n";
+        std::cout << "LOG_SIMD: " << static_cast<int>(libhmm::forwardbackward::CalculatorType::LOG_SIMD) << "\n";
+        std::cout << "AUTO: " << static_cast<int>(libhmm::forwardbackward::CalculatorType::AUTO) << "\n";
         std::cout << "\n";
         
         // Debug: Test SCALED_SIMD specifically
-        auto scaledSimdTraits = libhmm::calculators::CalculatorSelector::getTraits(libhmm::calculators::CalculatorType::SCALED_SIMD);
-        auto scaledSimdPerf = libhmm::calculators::CalculatorSelector::predictPerformance(libhmm::calculators::CalculatorType::SCALED_SIMD, characteristics);
+        auto scaledSimdTraits = libhmm::forwardbackward::CalculatorSelector::getTraits(libhmm::forwardbackward::CalculatorType::SCALED_SIMD);
+        auto scaledSimdPerf = libhmm::forwardbackward::CalculatorSelector::predictPerformance(libhmm::forwardbackward::CalculatorType::SCALED_SIMD, characteristics);
         std::cout << "SCALED_SIMD traits name: '" << scaledSimdTraits.name << "'\n";
         std::cout << "SCALED_SIMD predicted performance: " << scaledSimdPerf << "x\n";
         
         // Test AutoCalculator selection
-        libhmm::calculators::AutoCalculator calc(hmm.get(), obs);
+        libhmm::forwardbackward::AutoCalculator calc(hmm.get(), obs);
         std::cout << "Selected Type: " << static_cast<int>(calc.getSelectedType()) << "\n";
         std::cout << "Rationale: " << calc.getSelectionRationale() << "\n\n";
     }

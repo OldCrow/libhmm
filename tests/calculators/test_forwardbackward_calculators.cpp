@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "libhmm/calculators/forward_backward_calculator.h"
-#include "libhmm/calculators/scaled_forward_backward_calculator.h"
-#include "libhmm/calculators/log_forward_backward_calculator.h"
+#include "libhmm/calculators/log_simd_forward_backward_calculator.h"
+#include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 #include "libhmm/calculators/viterbi_calculator.h"
 #include "libhmm/two_state_hmm.h"
 #include <memory>
@@ -52,18 +52,14 @@ TEST_F(CalculatorTest, ForwardBackwardNullHmmThrows) {
     EXPECT_THROW(ForwardBackwardCalculator(nullptr, observations_), std::invalid_argument);
 }
 
-// Scaled Forward-Backward Calculator Tests
-TEST_F(CalculatorTest, ScaledForwardBackwardFunctionality) {
-    ScaledForwardBackwardCalculator sfbc(hmm_.get(), observations_);
+// Scaled SIMD Forward-Backward Calculator Tests
+TEST_F(CalculatorTest, ScaledSIMDForwardBackwardFunctionality) {
+    ScaledSIMDForwardBackwardCalculator sfbc(hmm_.get(), observations_);
     
     // Test probability calculation
     double prob = sfbc.probability();
     EXPECT_GT(prob, 0.0);
     EXPECT_LE(prob, 1.0);
-    
-    // Test log probability
-    double logProb = sfbc.logProbability();
-    EXPECT_LE(logProb, 0.0); // Log probability should be negative or zero
     
     // Compare with regular forward-backward for consistency
     ForwardBackwardCalculator fbc(hmm_.get(), observations_);
@@ -73,21 +69,21 @@ TEST_F(CalculatorTest, ScaledForwardBackwardFunctionality) {
     EXPECT_NEAR(prob, fbcProb, 1e-10);
 }
 
-// Log Forward-Backward Calculator Tests
-TEST_F(CalculatorTest, LogForwardBackwardFunctionality) {
-    LogForwardBackwardCalculator lfbc(hmm_.get(), observations_);
+// Log SIMD Forward-Backward Calculator Tests
+TEST_F(CalculatorTest, LogSIMDForwardBackwardFunctionality) {
+    LogSIMDForwardBackwardCalculator lfbc(hmm_.get(), observations_);
     
     // Test probability calculation
     double prob = lfbc.probability();
     EXPECT_GT(prob, 0.0);
     EXPECT_LE(prob, 1.0);
     
-    // Test log probability
-    double logProb = lfbc.logProbability();
-    EXPECT_LE(logProb, 0.0);
+    // Compare with regular forward-backward for consistency
+    ForwardBackwardCalculator fbc(hmm_.get(), observations_);
+    double fbcProb = fbc.probability();
     
-    // Test that exp(logProb) ≈ prob
-    EXPECT_NEAR(std::exp(logProb), prob, 1e-10);
+    // Should be approximately equal (within floating point precision)
+    EXPECT_NEAR(prob, fbcProb, 1e-10);
 }
 
 // Viterbi Calculator Tests
@@ -123,8 +119,8 @@ TEST_F(CalculatorTest, ViterbiNullHmmThrows) {
 // Cross-Calculator Consistency Tests
 TEST_F(CalculatorTest, CalculatorConsistency) {
     ForwardBackwardCalculator fbc(hmm_.get(), observations_);
-    ScaledForwardBackwardCalculator sfbc(hmm_.get(), observations_);
-    LogForwardBackwardCalculator lfbc(hmm_.get(), observations_);
+    ScaledSIMDForwardBackwardCalculator sfbc(hmm_.get(), observations_);
+    LogSIMDForwardBackwardCalculator lfbc(hmm_.get(), observations_);
     
     double fbcProb = fbc.probability();
     double sfbcProb = sfbc.probability();
@@ -182,8 +178,8 @@ TEST_F(CalculatorTest, LongSequenceStability) {
     }
     
     // Scaled version should handle this better than regular
-    EXPECT_NO_THROW(ScaledForwardBackwardCalculator(hmm_.get(), longObs));
-    EXPECT_NO_THROW(LogForwardBackwardCalculator(hmm_.get(), longObs));
+    EXPECT_NO_THROW(ScaledSIMDForwardBackwardCalculator(hmm_.get(), longObs));
+    EXPECT_NO_THROW(LogSIMDForwardBackwardCalculator(hmm_.get(), longObs));
 }
 
 TEST_F(CalculatorTest, Matrix3DFunctionality) {

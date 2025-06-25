@@ -4,11 +4,10 @@
 #include <iomanip>
 #include <random>
 #include <functional>
-#include "../include/libhmm/libhmm.h"
-#include "../include/libhmm/calculators/log_simd_forward_backward_calculator.h"
-#include "../include/libhmm/calculators/scaled_simd_forward_backward_calculator.h"
-#include "../include/libhmm/calculators/log_forward_backward_calculator.h"
-#include "../include/libhmm/calculators/scaled_forward_backward_calculator.h"
+#include "libhmm/libhmm.h"
+#include "libhmm/calculators/viterbi_calculator.h"
+#include "libhmm/calculators/scaled_simd_viterbi_calculator.h"
+#include "libhmm/calculators/log_simd_viterbi_calculator.h"
 
 using namespace std::chrono;
 
@@ -108,35 +107,29 @@ libhmm::ObservationSet createTestObservations(std::size_t seq_length, std::size_
     return obs;
 }
 
-PerformanceResult testCalculator(const std::string& name, 
-                                std::function<std::unique_ptr<libhmm::ForwardBackwardCalculator>(libhmm::Hmm*, const libhmm::ObservationSet&)> factory,
-                                libhmm::Hmm* hmm, const libhmm::ObservationSet& obs, std::size_t iterations = 5) {
+// Test function for Viterbi calculators
+template<typename ViterbiCalculator>
+PerformanceResult testViterbiCalculator(const std::string& name,
+                                       libhmm::Hmm* hmm, const libhmm::ObservationSet& obs, std::size_t iterations = 5) {
     
     PerformanceTimer timer;
     double total_time = 0.0;
     double log_prob = 0.0;
     
     // Warmup
-    auto warmup_calc = factory(hmm, obs);
-    
-    // Get log probability depending on calculator type
-    if (name == "Scaled" || name == "Scaled-SIMD") {
-        if (auto scaled_calc = dynamic_cast<libhmm::ScaledForwardBackwardCalculator*>(warmup_calc.get())) {
-            log_prob = scaled_calc->logProbability();
-        }
-    } else if (name == "Log-Space" || name == "Log-SIMD") {
-        if (auto log_calc = dynamic_cast<libhmm::LogForwardBackwardCalculator*>(warmup_calc.get())) {
-            log_prob = log_calc->logProbability();
-        }
+    {
+        ViterbiCalculator warmup_calc(hmm, obs);
+        warmup_calc.decode();
+        log_prob = warmup_calc.getLogProbability();
     }
     
     // Benchmark
     for (std::size_t i = 0; i < iterations; ++i) {
         timer.start();
-        auto calc = factory(hmm, obs);
-        volatile double prob = calc->probability(); // Use base method to ensure all work
+        ViterbiCalculator calc(hmm, obs);
+        libhmm::StateSequence seq = calc.decode();
         total_time += timer.stop();
-        (void)prob; // Suppress unused variable warning
+        (void)seq; // Prevent optimization
     }
     
     return {
@@ -177,27 +170,11 @@ int main() {
         auto hmm = createTestHMM(num_states, alphabet_size);
         auto obs = createTestObservations(seq_length, alphabet_size);
         
-        // Test different calculators
+        // Test different Viterbi calculators
         auto results = std::vector<PerformanceResult>{
-            testCalculator("Scaled", 
-                [](libhmm::Hmm* h, const libhmm::ObservationSet& o) -> std::unique_ptr<libhmm::ForwardBackwardCalculator> {
-                    return std::make_unique<libhmm::ScaledForwardBackwardCalculator>(h, o);
-                }, hmm.get(), obs),
-                
-            testCalculator("Log-Space", 
-                [](libhmm::Hmm* h, const libhmm::ObservationSet& o) -> std::unique_ptr<libhmm::ForwardBackwardCalculator> {
-                    return std::make_unique<libhmm::LogForwardBackwardCalculator>(h, o);
-                }, hmm.get(), obs),
-                
-            testCalculator("Log-SIMD", 
-                [](libhmm::Hmm* h, const libhmm::ObservationSet& o) -> std::unique_ptr<libhmm::ForwardBackwardCalculator> {
-                    return std::make_unique<libhmm::LogSIMDForwardBackwardCalculator>(h, o);
-                }, hmm.get(), obs),
-                
-            testCalculator("Scaled-SIMD", 
-                [](libhmm::Hmm* h, const libhmm::ObservationSet& o) -> std::unique_ptr<libhmm::ForwardBackwardCalculator> {
-                    return std::make_unique<libhmm::ScaledSIMDForwardBackwardCalculator>(h, o);
-                }, hmm.get(), obs)
+            testViterbiCalculator<libhmm::ViterbiCalculator>("Standard", hmm.get(), obs),
+            testViterbiCalculator<libhmm::ScaledSIMDViterbiCalculator>("Scaled-SIMD", hmm.get(), obs),
+            testViterbiCalculator<libhmm::LogSIMDViterbiCalculator>("Log-SIMD", hmm.get(), obs)
         };
         
         // Print results
@@ -206,16 +183,16 @@ int main() {
         }
         
         // Calculate speedups
-        double scaled_time = results[0].time_ms;
-        std::cout << "\nSpeedups vs Scaled:\n";
+        double standard_time = results[0].time_ms;
+        std::cout << "\nSpeedups vs Standard:\n";
         for (std::size_t i = 1; i < results.size(); ++i) {
-            double speedup = scaled_time / results[i].time_ms;
+            double speedup = standard_time / results[i].time_ms;
             std::cout << "  " << results[i].calculator_name << ": " 
                       << std::fixed << std::setprecision(2) << speedup << "x\n";
         }
         
         // Numerical accuracy check
-        std::cout << "\nNumerical Accuracy (log probability differences from Scaled):\n";
+        std::cout << "\nNumerical Accuracy (log probability differences from Standard):\n";
         double reference_prob = results[0].log_prob;
         for (std::size_t i = 1; i < results.size(); ++i) {
             double diff = std::abs(results[i].log_prob - reference_prob);

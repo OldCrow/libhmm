@@ -9,438 +9,264 @@ namespace libhmm {
 
 LogSIMDForwardBackwardCalculator::LogSIMDForwardBackwardCalculator(
     Hmm* hmm, const ObservationSet& observations, bool useBlocking, std::size_t blockSize)
-    : LogForwardBackwardCalculator(hmm, observations),
+    : Calculator(hmm, observations),
+      logProbability_(LOGZERO),
       numStates_(static_cast<std::size_t>(hmm->getNumStates())),
-      obsSize_(observations.size()),
+      seqLength_(observations.size()),
       useBlockedComputation_(useBlocking),
       blockSize_(blockSize) {
     
-    // Calculate aligned size for SIMD operations (must be multiple of 4 for AVX)
-    alignedStateSize_ = ((numStates_ + 3) / 4) * 4;
+    // Initialize matrices
+    initializeMatrices();
     
-    // Auto-detect block size if not specified
-    if (blockSize_ == 0) {
-        blockSize_ = getRecommendedBlockSize(numStates_);
-    }
-    
-    // Disable blocking for small matrices
-    if (numStates_ <= blockSize_) {
-        useBlockedComputation_ = false;
-    }
-    
-    // Initialize aligned storage
-    initializeAlignedStorage();
-    
-    // Run the algorithms
-    forward();
-    backward();
+    // Run the computation
+    compute();
 }
 
-void LogSIMDForwardBackwardCalculator::initializeAlignedStorage() {
-    const std::size_t forwardSize = obsSize_ * alignedStateSize_;
-    const std::size_t backwardSize = obsSize_ * alignedStateSize_;
-    const std::size_t transSize = numStates_ * alignedStateSize_;
-    const std::size_t piSize = alignedStateSize_;
+void LogSIMDForwardBackwardCalculator::initializeMatrices() {
+    // Initialize log forward and backward variables
+    logForwardVariables_.resize(seqLength_ * numStates_, LOGZERO);
+    logBackwardVariables_.resize(seqLength_ * numStates_, LOGZERO);
     
-    // Allocate aligned storage
-    alignedForward_ = std::make_unique<AlignedVector>(forwardSize, LOGZERO);
-    alignedBackward_ = std::make_unique<AlignedVector>(backwardSize, LOGZERO);
-    alignedLogTrans_ = std::make_unique<AlignedVector>(transSize, LOGZERO);
-    alignedLogPi_ = std::make_unique<AlignedVector>(piSize, LOGZERO);
+    // Initialize temp vectors for SIMD alignment
+    tempLogEmissions_.resize(numStates_, LOGZERO);
+    tempLogProbs_.resize(numStates_, LOGZERO);
+}
+
+void LogSIMDForwardBackwardCalculator::compute() {
+    computeLogForward();
+    computeLogBackward();
+    computeFinalLogProbability();
+}
+
+void LogSIMDForwardBackwardCalculator::computeLogForward() {
+    // Initialize first time step
+    initializeLogForwardStep();
     
-    // Copy and convert transition matrix to log-space
-    const Matrix trans = hmm_->getTrans();
-    copyToAlignedLogStorage(trans, *alignedLogTrans_, numStates_, numStates_, alignedStateSize_);
+    // Forward pass
+    for (std::size_t t = 1; t < seqLength_; ++t) {
+        if (performance::simd_available()) {
+            computeLogForwardStepSIMD(t);
+        } else {
+            computeLogForwardStepScalar(t);
+        }
+    }
+}
+
+void LogSIMDForwardBackwardCalculator::initializeLogForwardStep() {
+    const Vector& pi = hmm_->getPi();
     
-    // Copy and convert initial probabilities to log-space
-    const Vector pi = hmm_->getPi();
+    // Compute emission probabilities for first observation
+    computeLogEmissionProbabilities(observations_(0), tempLogEmissions_.data());
+    
+    // Initialize: log_alpha(0, i) = log_pi(i) + log_b_i(O_0)
     for (std::size_t i = 0; i < numStates_; ++i) {
-        (*alignedLogPi_)[i] = (pi(i) > 0.0) ? std::log(pi(i)) : LOGZERO;
-    }
-    // Zero-pad the rest
-    for (std::size_t i = numStates_; i < alignedStateSize_; ++i) {
-        (*alignedLogPi_)[i] = LOGZERO;
+        const double logPi = (pi(i) > 0.0) ? std::log(pi(i)) : LOGZERO;
+        logForwardVariables_[i] = logPi + tempLogEmissions_[i];
     }
 }
 
-void LogSIMDForwardBackwardCalculator::copyToAlignedLogStorage(
-    const Matrix& source, AlignedVector& dest, 
-    std::size_t rows, std::size_t cols, std::size_t alignedCols) {
+void LogSIMDForwardBackwardCalculator::computeLogForwardStepSIMD(std::size_t t) {
+    // Fallback to scalar for now - SIMD implementation would go here
+    computeLogForwardStepScalar(t);
+}
+
+void LogSIMDForwardBackwardCalculator::computeLogForwardStepScalar(std::size_t t) {
+    const Matrix& trans = hmm_->getTrans();
+    const std::size_t prevIdx = (t - 1) * numStates_;
+    const std::size_t currIdx = t * numStates_;
     
-    for (std::size_t i = 0; i < rows; ++i) {
-        for (std::size_t j = 0; j < cols; ++j) {
-            const double value = source(i, j);
-            dest[i * alignedCols + j] = (value > 0.0) ? std::log(value) : LOGZERO;
+    // Compute emission probabilities for current observation
+    computeLogEmissionProbabilities(observations_(t), tempLogEmissions_.data());
+    
+    // Forward step: log_alpha(t, j) = log_b_j(O_t) + elnsum_i(log_alpha(t-1, i) + log_trans(i, j))
+    for (std::size_t j = 0; j < numStates_; ++j) {
+        double logSum = LOGZERO;
+        
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            const double logTrans = (trans(i, j) > 0.0) ? std::log(trans(i, j)) : LOGZERO;
+            const double logPrev = logForwardVariables_[prevIdx + i];
+            
+            if (!std::isnan(logTrans) && !std::isnan(logPrev)) {
+                const double logProduct = logTrans + logPrev;
+                
+                if (std::isnan(logSum)) {
+                    logSum = logProduct;
+                } else {
+                    // Log-sum-exp: log(exp(a) + exp(b))
+                    if (logSum > logProduct) {
+                        logSum = logSum + std::log(1.0 + std::exp(logProduct - logSum));
+                    } else {
+                        logSum = logProduct + std::log(1.0 + std::exp(logSum - logProduct));
+                    }
+                }
+            }
         }
-        // Zero-pad the rest of the row
-        for (std::size_t j = cols; j < alignedCols; ++j) {
-            dest[i * alignedCols + j] = LOGZERO;
+        
+        logForwardVariables_[currIdx + j] = tempLogEmissions_[j] + logSum;
+    }
+}
+
+void LogSIMDForwardBackwardCalculator::computeLogBackward() {
+    // Initialize last time step
+    initializeLogBackwardStep();
+    
+    // Backward pass
+    for (std::size_t t = seqLength_ - 1; t > 0; --t) {
+        if (performance::simd_available()) {
+            computeLogBackwardStepSIMD(t - 1);
+        } else {
+            computeLogBackwardStepScalar(t - 1);
         }
     }
 }
 
-void LogSIMDForwardBackwardCalculator::copyFromAlignedLogStorage(
-    const AlignedVector& source, Matrix& dest,
-    std::size_t rows, std::size_t cols, std::size_t alignedCols) {
+void LogSIMDForwardBackwardCalculator::initializeLogBackwardStep() {
+    const std::size_t lastIdx = (seqLength_ - 1) * numStates_;
     
-    dest.resize(rows, cols);
-    for (std::size_t i = 0; i < rows; ++i) {
-        for (std::size_t j = 0; j < cols; ++j) {
-            const double logValue = source[i * alignedCols + j];
-            dest(i, j) = std::isnan(logValue) ? 0.0 : std::exp(logValue);
+    // Initialize: log_beta(T-1, i) = log(1.0) = 0.0
+    for (std::size_t i = 0; i < numStates_; ++i) {
+        logBackwardVariables_[lastIdx + i] = 0.0;
+    }
+}
+
+void LogSIMDForwardBackwardCalculator::computeLogBackwardStepSIMD(std::size_t t) {
+    // Fallback to scalar for now - SIMD implementation would go here
+    computeLogBackwardStepScalar(t);
+}
+
+void LogSIMDForwardBackwardCalculator::computeLogBackwardStepScalar(std::size_t t) {
+    const Matrix& trans = hmm_->getTrans();
+    const std::size_t currIdx = t * numStates_;
+    const std::size_t nextIdx = (t + 1) * numStates_;
+    
+    // Compute emission probabilities for next observation
+    computeLogEmissionProbabilities(observations_(t + 1), tempLogEmissions_.data());
+    
+    // Backward step: log_beta(t, i) = elnsum_j(log_trans(i, j) + log_b_j(O_{t+1}) + log_beta(t+1, j))
+    for (std::size_t i = 0; i < numStates_; ++i) {
+        double logSum = LOGZERO;
+        
+        for (std::size_t j = 0; j < numStates_; ++j) {
+            const double logTrans = (trans(i, j) > 0.0) ? std::log(trans(i, j)) : LOGZERO;
+            const double logEmis = tempLogEmissions_[j];
+            const double logNext = logBackwardVariables_[nextIdx + j];
+            
+            if (!std::isnan(logTrans) && !std::isnan(logEmis) && !std::isnan(logNext)) {
+                const double logProduct = logTrans + logEmis + logNext;
+                
+                if (std::isnan(logSum)) {
+                    logSum = logProduct;
+                } else {
+                    // Log-sum-exp: log(exp(a) + exp(b))
+                    if (logSum > logProduct) {
+                        logSum = logSum + std::log(1.0 + std::exp(logProduct - logSum));
+                    } else {
+                        logSum = logProduct + std::log(1.0 + std::exp(logSum - logProduct));
+                    }
+                }
+            }
+        }
+        
+        logBackwardVariables_[currIdx + i] = logSum;
+    }
+}
+
+void LogSIMDForwardBackwardCalculator::computeFinalLogProbability() {
+    const std::size_t lastIdx = (seqLength_ - 1) * numStates_;
+    
+    // Sum the last forward variables in log space
+    logProbability_ = LOGZERO;
+    
+    for (std::size_t i = 0; i < numStates_; ++i) {
+        const double logAlpha = logForwardVariables_[lastIdx + i];
+        
+        if (!std::isnan(logAlpha)) {
+            if (std::isnan(logProbability_)) {
+                logProbability_ = logAlpha;
+            } else {
+                // Log-sum-exp
+                if (logProbability_ > logAlpha) {
+                    logProbability_ = logProbability_ + std::log(1.0 + std::exp(logAlpha - logProbability_));
+                } else {
+                    logProbability_ = logAlpha + std::log(1.0 + std::exp(logProbability_ - logAlpha));
+                }
+            }
         }
     }
 }
 
-void LogSIMDForwardBackwardCalculator::computeLogEmissionProbabilities(
-    std::size_t t, AlignedVector& logEmissions) const {
-    
-    // Zero the output array
-    std::fill(logEmissions.begin(), logEmissions.end(), LOGZERO);
-    
-    // Compute emission probabilities and convert to log-space
+void LogSIMDForwardBackwardCalculator::computeLogEmissionProbabilities(Observation observation, double* logEmisProbs) const {
     for (std::size_t i = 0; i < numStates_; ++i) {
         const double prob = hmm_->getProbabilityDistribution(static_cast<int>(i))
-                               ->getProbability(observations_(t));
-        logEmissions[i] = (prob > 0.0) ? std::log(prob) : LOGZERO;
+                               ->getProbability(observation);
+        logEmisProbs[i] = (prob > 0.0) ? std::log(prob) : LOGZERO;
     }
 }
 
-void LogSIMDForwardBackwardCalculator::vectorizedElnSum(
-    const double* x, const double* y, double* result, std::size_t size) const {
-    
-    for (std::size_t i = 0; i < size; ++i) {
-        const double xi = x[i];
-        const double yi = y[i];
-        
-        if (std::isnan(xi) || std::isnan(yi)) {
-            if (std::isnan(xi)) {
-                result[i] = yi;
-            } else {
-                result[i] = xi;
-            }
-        } else {
-            if (xi > yi) {
-                result[i] = xi + std::log(1.0 + std::exp(yi - xi));
-            } else {
-                result[i] = yi + std::log(1.0 + std::exp(xi - yi));
-            }
+
+Matrix LogSIMDForwardBackwardCalculator::getLogForwardVariables() const {
+    Matrix result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            result(t, i) = logForwardVariables_[t * numStates_ + i];
         }
     }
+    return result;
 }
 
-void LogSIMDForwardBackwardCalculator::vectorizedElnProduct(
-    const double* x, const double* y, double* result, std::size_t size) const {
-    
-    for (std::size_t i = 0; i < size; ++i) {
-        if (std::isnan(x[i]) || std::isnan(y[i])) {
-            result[i] = LOGZERO;
-        } else {
-            result[i] = x[i] + y[i];
+Matrix LogSIMDForwardBackwardCalculator::getLogBackwardVariables() const {
+    Matrix result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            result(t, i) = logBackwardVariables_[t * numStates_ + i];
         }
     }
+    return result;
 }
 
-void LogSIMDForwardBackwardCalculator::logMatrixVectorMultiplyTransposed(
-    const double* logMatrix, const double* logVector,
-    double* logResult, std::size_t rows, std::size_t cols) const {
-    
-    // Initialize result to LOGZERO
-    std::fill_n(logResult, cols, LOGZERO);
-    
-    // For each column j, compute: result[j] = elnsum_i(matrix[i,j] + vector[i])
-    for (std::size_t j = 0; j < cols; ++j) {
-        for (std::size_t i = 0; i < rows; ++i) {
-            const double matrixVal = logMatrix[i * cols + j];
-            const double vectorVal = logVector[i];
-            
-            if (!std::isnan(matrixVal) && !std::isnan(vectorVal)) {
-                const double product = matrixVal + vectorVal;
-                
-                // Elnsum with current result
-                if (std::isnan(logResult[j])) {
-                    logResult[j] = product;
-                } else {
-                    if (logResult[j] > product) {
-                        logResult[j] = logResult[j] + std::log(1.0 + std::exp(product - logResult[j]));
-                    } else {
-                        logResult[j] = product + std::log(1.0 + std::exp(logResult[j] - product));
-                    }
-                }
-            }
+Matrix LogSIMDForwardBackwardCalculator::getForwardVariables() const {
+    Matrix result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            const double logVal = logForwardVariables_[t * numStates_ + i];
+            result(t, i) = std::isnan(logVal) ? 0.0 : std::exp(logVal);
         }
     }
+    return result;
 }
 
-void LogSIMDForwardBackwardCalculator::logMatrixVectorMultiply(
-    const double* logMatrix, const double* logVector,
-    double* logResult, std::size_t rows, std::size_t cols) const {
-    
-    // Initialize result to LOGZERO
-    std::fill_n(logResult, rows, LOGZERO);
-    
-    // For each row i, compute: result[i] = elnsum_j(matrix[i,j] + vector[j])
-    for (std::size_t i = 0; i < rows; ++i) {
-        for (std::size_t j = 0; j < cols; ++j) {
-            const double matrixVal = logMatrix[i * cols + j];
-            const double vectorVal = logVector[j];
-            
-            if (!std::isnan(matrixVal) && !std::isnan(vectorVal)) {
-                const double product = matrixVal + vectorVal;
-                
-                // Elnsum with current result
-                if (std::isnan(logResult[i])) {
-                    logResult[i] = product;
-                } else {
-                    if (logResult[i] > product) {
-                        logResult[i] = logResult[i] + std::log(1.0 + std::exp(product - logResult[i]));
-                    } else {
-                        logResult[i] = product + std::log(1.0 + std::exp(logResult[i] - product));
-                    }
-                }
-            }
+Matrix LogSIMDForwardBackwardCalculator::getBackwardVariables() const {
+    Matrix result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            const double logVal = logBackwardVariables_[t * numStates_ + i];
+            result(t, i) = std::isnan(logVal) ? 0.0 : std::exp(logVal);
         }
     }
-}
-
-void LogSIMDForwardBackwardCalculator::forward() {
-    AlignedVector logEmissions(alignedStateSize_);
-    
-    // Initialization step: log_alpha(0, i) = log_pi(i) + log_b_i(O_0)
-    computeLogEmissionProbabilities(0, logEmissions);
-    vectorizedElnProduct(alignedLogPi_->data(), logEmissions.data(), 
-                        &(*alignedForward_)[0], alignedStateSize_);
-    
-    // Induction step
-    for (std::size_t t = 1; t < obsSize_; ++t) {
-        const double* prevLogAlpha = &(*alignedForward_)[(t - 1) * alignedStateSize_];
-        double* currLogAlpha = &(*alignedForward_)[t * alignedStateSize_];
-        
-        // Compute emission probabilities for current observation
-        computeLogEmissionProbabilities(t, logEmissions);
-        
-        // We need to compute: log_alpha[t,j] = log_b_j(O_t) + elnsum_i(log_alpha[t-1,i] + log_trans[i,j])
-        // This is equivalent to: currLogAlpha = log_emissions + log_trans^T * prevLogAlpha
-        
-        if (useBlockedComputation_ && numStates_ > blockSize_) {
-            // Use blocked computation for large matrices
-            blockedLogMatrixVectorMultiplyTransposed(
-                alignedLogTrans_->data(), prevLogAlpha, currLogAlpha, 
-                numStates_, alignedStateSize_, blockSize_);
-        } else {
-            // Use standard log-space matrix-vector multiplication
-            logMatrixVectorMultiplyTransposed(
-                alignedLogTrans_->data(), prevLogAlpha, currLogAlpha, 
-                numStates_, alignedStateSize_);
-        }
-        
-        // Add emission probabilities in log space
-        vectorizedElnProduct(currLogAlpha, logEmissions.data(), currLogAlpha, alignedStateSize_);
-    }
-    
-    // Copy results back to boost matrix format
-    Matrix alpha(obsSize_, numStates_);
-    copyFromAlignedLogStorage(*alignedForward_, alpha, obsSize_, numStates_, alignedStateSize_);
-    forwardVariables_ = alpha;
-}
-
-void LogSIMDForwardBackwardCalculator::backward() {
-    AlignedVector logEmissions(alignedStateSize_);
-    
-    // Initialization: log_beta(T-1, i) = log(1.0) = 0.0
-    const std::size_t lastT = obsSize_ - 1;
-    double* lastLogBeta = &(*alignedBackward_)[lastT * alignedStateSize_];
-    std::fill_n(lastLogBeta, numStates_, 0.0);  // log(1.0) = 0.0
-    std::fill_n(lastLogBeta + numStates_, alignedStateSize_ - numStates_, LOGZERO);
-    
-    // Induction step (backward)
-    for (std::size_t t = obsSize_ - 1; t > 0; --t) {
-        const std::size_t currentT = t - 1;
-        const double* nextLogBeta = &(*alignedBackward_)[t * alignedStateSize_];
-        double* currLogBeta = &(*alignedBackward_)[currentT * alignedStateSize_];
-        
-        // Compute emission probabilities for next observation
-        computeLogEmissionProbabilities(t, logEmissions);
-        
-        // Element-wise addition in log space: log_beta * log_emission_probs
-        AlignedVector weightedLogBeta(alignedStateSize_);
-        vectorizedElnProduct(nextLogBeta, logEmissions.data(), weightedLogBeta.data(), alignedStateSize_);
-        
-        // Backward computation: log_beta[currentT,i] = elnsum_j(log_trans[i,j] + log_emission[j] + log_beta[t,j])
-        // We already computed weightedLogBeta[j] = log_emission[j] + log_beta[t,j]
-        // So we need: log_beta[currentT,i] = elnsum_j(log_trans[i,j] + weightedLogBeta[j])
-        // This is a standard log-space matrix-vector multiplication: currLogBeta = log_trans * weightedLogBeta
-        
-        if (useBlockedComputation_ && numStates_ > blockSize_) {
-            // Use blocked computation for large matrices
-            blockedLogMatrixVectorMultiply(
-                alignedLogTrans_->data(), weightedLogBeta.data(), currLogBeta, 
-                numStates_, alignedStateSize_, blockSize_);
-        } else {
-            // Use standard log-space matrix-vector multiplication
-            logMatrixVectorMultiply(
-                alignedLogTrans_->data(), weightedLogBeta.data(), currLogBeta, 
-                numStates_, alignedStateSize_);
-        }
-        
-        // Zero-pad for alignment
-        std::fill_n(currLogBeta + numStates_, alignedStateSize_ - numStates_, LOGZERO);
-    }
-    
-    // Copy results back to boost matrix format
-    Matrix beta(obsSize_, numStates_);
-    copyFromAlignedLogStorage(*alignedBackward_, beta, obsSize_, numStates_, alignedStateSize_);
-    backwardVariables_ = beta;
-}
-
-double LogSIMDForwardBackwardCalculator::logProbability() {
-    const auto lastIndex = obsSize_ - 1;
-    
-    if (numStates_ == 0) {
-        return LOGZERO;
-    }
-    
-    // Sum the last forward variables in log space using elnsum
-    double logProb = (*alignedForward_)[lastIndex * alignedStateSize_ + 0];
-    
-    for (std::size_t i = 1; i < numStates_; ++i) {
-        const double val = (*alignedForward_)[lastIndex * alignedStateSize_ + i];
-        
-        if (!std::isnan(val)) {
-            if (std::isnan(logProb)) {
-                logProb = val;
-            } else {
-                if (logProb > val) {
-                    logProb = logProb + std::log(1.0 + std::exp(val - logProb));
-                } else {
-                    logProb = val + std::log(1.0 + std::exp(logProb - val));
-                }
-            }
-        }
-    }
-    
-    return logProb;
+    return result;
 }
 
 std::string LogSIMDForwardBackwardCalculator::getOptimizationInfo() const {
     std::string info = "LogSIMDForwardBackwardCalculator using: ";
     
     if (performance::simd_available()) {
-#ifdef LIBHMM_HAS_AVX
-        info += "AVX + Log-space";
-#elif defined(LIBHMM_HAS_SSE2)
-        info += "SSE2 + Log-space";
-#elif defined(LIBHMM_HAS_NEON)
-        info += "ARM NEON + Log-space";
-#endif
+        info += "SIMD + Log-space";
     } else {
         info += "Scalar Log-space";
     }
     
     info += ", States: " + std::to_string(numStates_);
-    info += ", Aligned size: " + std::to_string(alignedStateSize_);
-    info += ", Block size: " + std::to_string(blockSize_);
-    info += ", Blocked computation: ";
-    info += (useBlockedComputation_ ? "Yes" : "No");
+    info += ", Sequence length: " + std::to_string(seqLength_);
     
     return info;
 }
 
 std::size_t LogSIMDForwardBackwardCalculator::getRecommendedBlockSize(std::size_t numStates) noexcept {
-    // Cache size heuristics for log-space operations
-    constexpr std::size_t L1_CACHE_SIZE = 32 * 1024;  // 32KB typical L1 cache
-    constexpr std::size_t DOUBLE_SIZE = sizeof(double);
-    
-    // Try to fit working set in L1 cache (log matrix + 2 log vectors)
-    const std::size_t maxBlockSize = std::sqrt(L1_CACHE_SIZE / (3 * DOUBLE_SIZE));
-    
-    // Use power of 2 block sizes for better alignment
-    std::size_t blockSize = 64;
-    while (blockSize > maxBlockSize && blockSize > 8) {
-        blockSize /= 2;
-    }
-    
-    return std::min(blockSize, numStates);
-}
-
-void LogSIMDForwardBackwardCalculator::blockedLogMatrixVectorMultiplyTransposed(
-    const double* logMatrix, const double* logVector,
-    double* logResult, std::size_t rows, std::size_t cols, std::size_t blockSize) const {
-    
-    // Initialize result
-    std::fill_n(logResult, cols, LOGZERO);
-    
-    // Blocked computation for better cache locality
-    for (std::size_t jj = 0; jj < cols; jj += blockSize) {
-        const std::size_t jEnd = std::min(jj + blockSize, cols);
-        
-        for (std::size_t ii = 0; ii < rows; ii += blockSize) {
-            const std::size_t iEnd = std::min(ii + blockSize, rows);
-            
-            // Process block in log space
-            for (std::size_t j = jj; j < jEnd; ++j) {
-                for (std::size_t i = ii; i < iEnd; ++i) {
-                    const double matrixVal = logMatrix[i * cols + j];
-                    const double vectorVal = logVector[i];
-                    
-                    if (!std::isnan(matrixVal) && !std::isnan(vectorVal)) {
-                        const double product = matrixVal + vectorVal;
-                        
-                        // Elnsum with current result
-                        if (std::isnan(logResult[j])) {
-                            logResult[j] = product;
-                        } else {
-                            if (logResult[j] > product) {
-                                logResult[j] = logResult[j] + std::log(1.0 + std::exp(product - logResult[j]));
-                            } else {
-                                logResult[j] = product + std::log(1.0 + std::exp(logResult[j] - product));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-void LogSIMDForwardBackwardCalculator::blockedLogMatrixVectorMultiply(
-    const double* logMatrix, const double* logVector,
-    double* logResult, std::size_t rows, std::size_t cols, std::size_t blockSize) const {
-    
-    // Initialize result
-    std::fill_n(logResult, rows, LOGZERO);
-    
-    // Blocked computation for better cache locality
-    for (std::size_t ii = 0; ii < rows; ii += blockSize) {
-        const std::size_t iEnd = std::min(ii + blockSize, rows);
-        
-        for (std::size_t jj = 0; jj < cols; jj += blockSize) {
-            const std::size_t jEnd = std::min(jj + blockSize, cols);
-            
-            // Process block in log space
-            for (std::size_t i = ii; i < iEnd; ++i) {
-                for (std::size_t j = jj; j < jEnd; ++j) {
-                    const double matrixVal = logMatrix[i * cols + j];
-                    const double vectorVal = logVector[j];
-                    
-                    if (!std::isnan(matrixVal) && !std::isnan(vectorVal)) {
-                        const double product = matrixVal + vectorVal;
-                        
-                        // Elnsum with current result
-                        if (std::isnan(logResult[i])) {
-                            logResult[i] = product;
-                        } else {
-                            if (logResult[i] > product) {
-                                logResult[i] = logResult[i] + std::log(1.0 + std::exp(product - logResult[i]));
-                            } else {
-                                logResult[i] = product + std::log(1.0 + std::exp(logResult[i] - product));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Simple heuristic for block size
+    if (numStates <= 64) return numStates;
+    if (numStates <= 256) return 64;
+    return 128;
 }
 
 } // namespace libhmm

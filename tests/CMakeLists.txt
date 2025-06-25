@@ -22,28 +22,59 @@ if(GTest_FOUND OR TARGET gtest)
         set(TEST_LIBRARIES ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} Threads::Threads hmm ${Boost_LIBRARIES} m)
     endif()
     
-    # Integration test executables (GoogleTest framework)
-set(COMPREHENSIVE_TESTS
-    test_hmm_core.cpp
-    test_calculators.cpp
-    test_training.cpp
-    test_training_edge_cases.cpp
-    test_robust_viterbi_trainer.cpp
-    test_optimized_matrix3d.cpp
-    test_distribution_traits.cpp
-    test_distributions_header.cpp
-    test_xml_file_io.cpp
-    test_hmm_stream_io.cpp
-    test_distributions.cpp
-    test_common.cpp
-    test_performance.cpp
-    test_calculator_traits.cpp
-    test_numerical_stability.cpp
-    test_trainer_traits.cpp
-    test_calculator_selection.cpp
-    test_calculator_performance.cpp
-    test_log_simd.cpp
-)
+    # Main integration tests (in tests/ root directory)
+    set(MAIN_TESTS
+        test_hmm_core.cpp
+        test_training.cpp
+        test_training_edge_cases.cpp
+        test_robust_viterbi_trainer.cpp
+        test_optimized_matrix3d.cpp
+        test_xml_file_io.cpp
+        test_hmm_stream_io.cpp
+        test_common.cpp
+        test_performance.cpp
+        test_numerical_stability.cpp
+        test_trainer_traits.cpp
+        test_type_safety.cpp
+    )
+    
+    # Calculator tests (in calculators/ subdirectory)
+    set(CALCULATOR_TESTS
+        calculators/test_forwardbackward_calculators.cpp
+        calculators/test_forwardbackward_performance.cpp
+        calculators/test_forwardbackward_selection.cpp
+        calculators/test_forwardbackward_traits.cpp
+        calculators/test_simd_forward_backward_calculators.cpp
+        calculators/test_simd_viterbi_calculators.cpp
+        calculators/test_viterbi_calculators.cpp
+        calculators/test_viterbi_performance.cpp
+        calculators/test_viterbi_selection.cpp
+        calculators/test_viterbi_traits.cpp
+    )
+    
+    # Distribution tests (in distributions/ subdirectory)
+    set(DISTRIBUTION_TESTS
+        distributions/test_distribution_traits.cpp
+        distributions/test_distributions_header.cpp
+        distributions/test_distributions.cpp
+        distributions/test_beta_distribution.cpp
+        distributions/test_binomial_distribution.cpp
+        distributions/test_chi_squared_distribution.cpp
+        distributions/test_discrete_distribution.cpp
+        distributions/test_exponential_distribution.cpp
+        distributions/test_gamma_distribution.cpp
+        distributions/test_gaussian_distribution.cpp
+        distributions/test_log_normal_distribution.cpp
+        distributions/test_negative_binomial_distribution.cpp
+        distributions/test_pareto_distribution.cpp
+        distributions/test_poisson_distribution.cpp
+        distributions/test_student_t_distribution.cpp
+        distributions/test_uniform_distribution.cpp
+        distributions/test_weibull_distribution.cpp
+    )
+    
+    # Combine all tests
+    set(COMPREHENSIVE_TESTS ${MAIN_TESTS} ${CALCULATOR_TESTS} ${DISTRIBUTION_TESTS})
     
     # Create individual test executables
     foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})
@@ -82,56 +113,20 @@ set(COMPREHENSIVE_TESTS
         endforeach()
     endif()
     
-    set(ALL_TEST_TARGETS ${COMPREHENSIVE_TESTS})
-    string(REPLACE ".cpp" "" ALL_TEST_TARGETS "${ALL_TEST_TARGETS}")
+    # Create list of test target names (without subdirectory paths)
+    set(ALL_TEST_TARGETS)
+    foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})
+        get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+        list(APPEND ALL_TEST_TARGETS ${TEST_NAME})
+    endforeach()
 else()
     message(STATUS "Google Test not found - building basic test suite only")
     set(ALL_TEST_TARGETS "")
 endif()
 
-# Unit tests (standalone, fast individual tests)
-set(UNIT_TEST_SOURCES
-    unit/test_poisson_distribution.cpp
-    unit/test_gaussian_distribution.cpp
-    unit/test_gamma_distribution.cpp
-    unit/test_exponential_distribution.cpp
-    unit/test_log_normal_distribution.cpp
-    unit/test_pareto_distribution.cpp
-    unit/test_discrete_distribution.cpp
-    unit/test_beta_distribution.cpp
-    unit/test_weibull_distribution.cpp
-    unit/test_uniform_distribution.cpp
-    unit/test_binomial_distribution.cpp
-    unit/test_negative_binomial_distribution.cpp
-    unit/test_student_t_distribution.cpp
-    unit/test_chi_squared_distribution.cpp
-)
-
-set(UNIT_TEST_TARGETS "")
-foreach(UNIT_TEST_SOURCE ${UNIT_TEST_SOURCES})
-    get_filename_component(UNIT_TEST_NAME ${UNIT_TEST_SOURCE} NAME_WE)
-    
-    add_executable(${UNIT_TEST_NAME} ${UNIT_TEST_SOURCE})
-    target_link_libraries(${UNIT_TEST_NAME} hmm ${Boost_LIBRARIES} m)
-    target_include_directories(${UNIT_TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    set_property(TARGET ${UNIT_TEST_NAME} PROPERTY CXX_STANDARD 17)
-    set_property(TARGET ${UNIT_TEST_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
-    
-    # Add to test suite with "unit_" prefix
-    add_test(NAME unit_${UNIT_TEST_NAME} COMMAND ${UNIT_TEST_NAME})
-    
-    list(APPEND UNIT_TEST_TARGETS ${UNIT_TEST_NAME})
-endforeach()
 
 # Original/Legacy test executables (always built)
-add_executable(test_type_safety test_type_safety.cpp)
-target_link_libraries(test_type_safety hmm ${Boost_LIBRARIES} m)
-target_include_directories(test_type_safety PRIVATE ${CMAKE_SOURCE_DIR}/include)
-set_property(TARGET test_type_safety PROPERTY CXX_STANDARD 17)
-set_property(TARGET test_type_safety PROPERTY CXX_STANDARD_REQUIRED ON)
-
-# Register legacy tests with CTest
-add_test(NAME TypeSafetyTest COMMAND test_type_safety)
+# Note: test_type_safety is now included in the comprehensive test suite above
 
 # Custom target to run all tests
 add_custom_target(run_all_tests
@@ -141,8 +136,8 @@ add_custom_target(run_all_tests
 )
 
 # Install test executables
-set(LEGACY_TARGETS test_type_safety)
-list(APPEND ALL_TEST_TARGETS ${LEGACY_TARGETS})
+set(LEGACY_TARGETS)
+# Note: All tests are now in the comprehensive test suite
 
 install(TARGETS ${ALL_TEST_TARGETS}
     RUNTIME DESTINATION bin/tests

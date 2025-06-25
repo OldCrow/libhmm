@@ -1,125 +1,274 @@
 #ifndef LIBHMM_SCALED_SIMD_FORWARD_BACKWARD_CALCULATOR_H_
 #define LIBHMM_SCALED_SIMD_FORWARD_BACKWARD_CALCULATOR_H_
 
-#include "libhmm/calculators/scaled_forward_backward_calculator.h"
+#include "libhmm/hmm.h"
+#include "libhmm/calculators/calculator.h"
 #include "libhmm/performance/simd_support.h"
-#include <memory>
-#include <vector>
-#include <string>
+#include <cfloat>
 #include <cmath>
+#include <vector>
+#include <memory>
 #include <immintrin.h>
 
 namespace libhmm {
 
-/// High-performance scaled forward-backward calculator using SIMD optimizations
-/// Combines numerical stability of Rabiner's scaling with true SIMD vectorization
-/// This follows HMMLib's approach of vectorizing scaled arithmetic rather than log arithmetic
-class ScaledSIMDForwardBackwardCalculator : public ScaledForwardBackwardCalculator {
+/**
+ * @brief SIMD-optimized scaled Forward-Backward algorithm implementation
+ * 
+ * This calculator combines Rabiner-style scaling for numerical stability
+ * with SIMD vectorization for high performance. The scaling prevents
+ * underflow issues while SIMD acceleration provides substantial speed
+ * improvements for the critical inner loops.
+ * 
+ * Key features:
+ * - Numerical stability through scaling factors
+ * - SIMD vectorization of probability computations
+ * - Cache-friendly memory access patterns
+ * - Automatic fallback to scalar implementation
+ * 
+ * The algorithm implements the scaled Forward-Backward approach where
+ * forward and backward variables are scaled at each time step to prevent
+ * underflow, and the final probability is reconstructed from the scaling factors.
+ */
+class ScaledSIMDForwardBackwardCalculator : public Calculator {
 private:
-    /// Aligned storage for SIMD operations
-    using AlignedVector = std::vector<double, performance::aligned_allocator<double>>;
+    // Core matrices (aligned for SIMD)
+    std::vector<double, performance::aligned_allocator<double>> forwardVariables_;
+    std::vector<double, performance::aligned_allocator<double>> backwardVariables_;
+    std::vector<double> scalingFactors_;
     
-    /// Scaling constants for SIMD operations
+    // Results
+    double probability_;
+    double logProbability_;
+    
+    // Problem dimensions
+    std::size_t numStates_;
+    std::size_t seqLength_;
+    
+    // SIMD optimization parameters
+    static constexpr std::size_t SIMD_BLOCK_SIZE = 8;
+    static constexpr double SCALING_THRESHOLD = 1e-100;
     static constexpr double MIN_SCALE_FACTOR = 1e-100;
     static constexpr double MAX_SCALE_FACTOR = 1e100;
     
-    /// Cached aligned matrices for efficient SIMD operations
-    mutable std::unique_ptr<AlignedVector> alignedForward_;
-    mutable std::unique_ptr<AlignedVector> alignedBackward_;
-    mutable std::unique_ptr<AlignedVector> alignedTrans_;
-    mutable std::unique_ptr<AlignedVector> alignedPi_;
-    mutable std::unique_ptr<AlignedVector> alignedScales_;
+    // Temporary SIMD-aligned vectors for computations
+    mutable std::vector<double, performance::aligned_allocator<double>> tempEmissions_;
+    mutable std::vector<double, performance::aligned_allocator<double>> tempProbs_;
     
-    /// Matrix dimensions for cache efficiency
-    std::size_t numStates_;
-    std::size_t obsSize_;
-    std::size_t alignedStateSize_;  // Padded to SIMD alignment (multiple of 4 for AVX)
-    
-    /// Performance optimization flags
+    // Performance optimization flags
     bool useBlockedComputation_;
     std::size_t blockSize_;
+    std::size_t alignedStateSize_;  // Padded to SIMD alignment
+
+public:
+    /**
+     * @brief Constructor with HMM and observations
+     * @param hmm Pointer to the HMM (must not be null)
+     * @param observations The observation set to process
+     * @param useBlocking Enable blocked computation for large matrices
+     * @param blockSize Block size for cache optimization (0 = auto-detect)
+     * @throws std::invalid_argument if hmm is null
+     */
+    ScaledSIMDForwardBackwardCalculator(Hmm* hmm, const ObservationSet& observations,
+                                        bool useBlocking = true, std::size_t blockSize = 0);
     
-    /// Initialize aligned storage and copy data for SIMD operations
-    void initializeAlignedStorage();
+    /**
+     * @brief Compute forward and backward variables using scaled SIMD algorithm
+     * 
+     * Performs the complete Forward-Backward algorithm with numerical scaling
+     * and SIMD acceleration. Computes both forward and backward variables.
+     * 
+     * @throws std::runtime_error if computation fails
+     */
+    void compute();
     
-    /// Copy matrix data to aligned storage with padding
-    void copyToAlignedStorage(const Matrix& source, AlignedVector& dest, 
-                              std::size_t rows, std::size_t cols, std::size_t alignedCols);
+    /**
+     * @brief Get the probability of the observation sequence
+     * 
+     * Returns the probability of the observation sequence given the HMM,
+     * properly reconstructed from the scaling factors.
+     * 
+     * @return The probability value
+     */
+    double getProbability() const noexcept {
+        return probability_;
+    }
     
-    /// Copy aligned storage back to boost matrix
-    void copyFromAlignedStorage(const AlignedVector& source, Matrix& dest,
-                                std::size_t rows, std::size_t cols, std::size_t alignedCols);
+    /**
+     * @brief Get the log probability of the observation sequence
+     * 
+     * Returns the log probability of the observation sequence,
+     * reconstructed from the scaling factors.
+     * 
+     * @return The log probability value
+     */
+    double getLogProbability() const noexcept {
+        return logProbability_;
+    }
     
-    /// SIMD-optimized emission probability computation
-    void computeEmissionProbabilities(std::size_t t, AlignedVector& emissions) const;
+    /**
+     * @brief Calculate probability (required by traits system)
+     * 
+     * This method is required for compatibility with the calculator
+     * traits system and automatic selection.
+     * 
+     * @return The probability value
+     */
+    double probability() {
+        return getProbability();
+    }
     
-    /// SIMD-optimized vector operations
+    /**
+     * @brief Get the forward variables matrix
+     * @return The forward variables as a Matrix
+     */
+    Matrix getForwardVariables() const;
+    
+    /**
+     * @brief Get the backward variables matrix
+     * @return The backward variables as a Matrix
+     */
+    Matrix getBackwardVariables() const;
+    
+    /**
+     * @brief Get the scaling factors used during computation
+     * 
+     * Useful for debugging and understanding numerical behavior.
+     * 
+     * @return Vector of scaling factors for each time step
+     */
+    std::vector<double> getScalingFactors() const {
+        return scalingFactors_;
+    }
+    
+    /**
+     * @brief Check if SIMD optimization is being used
+     * @return True if SIMD is available and being used
+     */
+    static bool isSIMDEnabled() noexcept {
+        return performance::simd_available();
+    }
+    
+    /**
+     * @brief Get performance information
+     * @return String describing optimizations used
+     */
+    std::string getOptimizationInfo() const;
+    
+    /**
+     * @brief Get recommended block size for this system
+     * @param numStates Number of HMM states
+     * @return Optimal block size for cache efficiency
+     */
+    static std::size_t getRecommendedBlockSize(std::size_t numStates) noexcept;
+
+private:
+    /**
+     * @brief Initialize matrices and prepare for computation
+     */
+    void initializeMatrices();
+    
+    /**
+     * @brief Perform SIMD-optimized forward pass
+     */
+    void computeForward();
+    
+    /**
+     * @brief Perform SIMD-optimized backward pass
+     */
+    void computeBackward();
+    
+    /**
+     * @brief Initialize forward variables with first observation
+     */
+    void initializeForwardStep();
+    
+    /**
+     * @brief Perform SIMD-optimized forward step at time t
+     * @param t Time step index
+     */
+    void computeForwardStepSIMD(std::size_t t);
+    
+    /**
+     * @brief Fallback scalar computation for forward step
+     * @param t Time step index
+     */
+    void computeForwardStepScalar(std::size_t t);
+    
+    /**
+     * @brief Initialize backward variables
+     */
+    void initializeBackwardStep();
+    
+    /**
+     * @brief Perform SIMD-optimized backward step at time t
+     * @param t Time step index
+     */
+    void computeBackwardStepSIMD(std::size_t t);
+    
+    /**
+     * @brief Fallback scalar computation for backward step
+     * @param t Time step index
+     */
+    void computeBackwardStepScalar(std::size_t t);
+    
+    /**
+     * @brief Apply scaling to variables at time step t
+     * @param t Time step index
+     * @param variables Pointer to variables to scale
+     * @return Scaling factor applied
+     */
+    double applyScaling(std::size_t t, double* variables);
+    
+    /**
+     * @brief Reconstruct probability from scaling factors
+     */
+    void reconstructProbability();
+    
+    /**
+     * @brief SIMD-optimized computation of emission probabilities
+     * @param observation Current observation
+     * @param emisProbs Output emission probabilities (aligned)
+     */
+    void computeEmissionProbabilities(Observation observation, double* emisProbs) const;
+    
+    /**
+     * @brief SIMD-optimized vector operations
+     */
     void simdVectorMultiply(const double* a, const double* b, double* result, std::size_t size) const;
     void simdVectorAdd(const double* a, const double* b, double* result, std::size_t size) const;
     void simdVectorScale(const double* input, double scale, double* result, std::size_t size) const;
     double simdVectorSum(const double* vector, std::size_t size) const;
     
-    /// SIMD-optimized transposed matrix-vector multiplication
-    /// Computes result[j] = sum_i(matrix[i * cols + j] * vector[i])
-    void simdMatrixVectorMultiplyTransposed(const double* matrix, const double* vector,
-                                            double* result, std::size_t rows, std::size_t cols) const;
-    
-    /// Blocked transposed matrix-vector multiplication for large matrices
-    void blockedMatrixVectorMultiplyTransposed(const double* matrix, const double* vector,
-                                               double* result, std::size_t rows, std::size_t cols,
-                                               std::size_t blockSize) const;
-    
-    /// SIMD-optimized standard matrix-vector multiplication
+    /**
+     * @brief SIMD-optimized matrix-vector multiplication
+     */
     void simdMatrixVectorMultiply(const double* matrix, const double* vector,
                                   double* result, std::size_t rows, std::size_t cols) const;
     
-    /// Blocked version of standard matrix-vector multiplication
-    void blockedMatrixVectorMultiply(const double* matrix, const double* vector,
-                                     double* result, std::size_t rows, std::size_t cols,
-                                     std::size_t blockSize) const;
+    /**
+     * @brief SIMD-optimized transposed matrix-vector multiplication
+     */
+    void simdMatrixVectorMultiplyTransposed(const double* matrix, const double* vector,
+                                            double* result, std::size_t rows, std::size_t cols) const;
     
-    /// SIMD-optimized scaling operations
-    double computeScalingFactor(const double* array, std::size_t size) const;
-    void applyScaling(double* array, double scaleFactor, std::size_t size) const;
-
-protected:
-    /// SIMD-optimized scaled forward algorithm implementation
-    void forward() override;
+    /**
+     * @brief Check if variables need scaling
+     * @param t Time step index
+     * @param variables Pointer to variables to check
+     * @return True if scaling is needed
+     */
+    bool needsScaling(std::size_t t, const double* variables) const;
     
-    /// SIMD-optimized scaled backward algorithm implementation  
-    void backward() override;
-
-public:
-    /// Constructor with HMM and observations
-    /// @param hmm Pointer to the HMM (must not be null)
-    /// @param observations The observation set to process
-    /// @param useBlocking Enable blocked computation for large matrices
-    /// @param blockSize Block size for cache optimization (0 = auto-detect)
-    /// @throws std::invalid_argument if hmm is null
-    ScaledSIMDForwardBackwardCalculator(Hmm* hmm, const ObservationSet& observations,
-                                        bool useBlocking = true, std::size_t blockSize = 0);
-    
-    /// Virtual destructor
-    virtual ~ScaledSIMDForwardBackwardCalculator() = default;
-    
-    /// Get performance information
-    /// @return String describing optimizations used
-    std::string getOptimizationInfo() const;
-    
-    /// Check if SIMD optimizations are available
-    /// @return True if SIMD is available and being used
-    bool isSIMDOptimized() const noexcept {
-        return performance::simd_available();
+    /**
+     * @brief Get matrix index for forward/backward matrices
+     * @param t Time step
+     * @param state State index
+     * @return Linear index in matrix
+     */
+    std::size_t getMatrixIndex(std::size_t t, std::size_t state) const {
+        return t * numStates_ + state;
     }
-    
-    /// Get recommended block size for this system
-    /// @param numStates Number of HMM states
-    /// @return Optimal block size for cache efficiency
-    static std::size_t getRecommendedBlockSize(std::size_t numStates) noexcept;
-    
-    /// Get scaling factors
-    /// @return Vector of scaling factors used in computation
-    Vector getScalingFactors() const;
 };
 
 /// Helper class for SIMD scaled operations

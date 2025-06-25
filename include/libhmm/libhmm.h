@@ -7,10 +7,7 @@
 
 #include "libhmm/distributions/distributions.h"
 
-#include "libhmm/calculators/viterbi_calculator.h"
-#include "libhmm/calculators/forward_backward_calculator.h"
-#include "libhmm/calculators/scaled_forward_backward_calculator.h"
-#include "libhmm/calculators/log_forward_backward_calculator.h"
+#include "libhmm/calculators/calculators.h"
 
 #include "libhmm/training/viterbi_trainer.h"
 #include "libhmm/training/robust_viterbi_trainer.h"
@@ -25,8 +22,6 @@
 // Performance optimization components
 #include "libhmm/performance/simd_support.h"
 #include "libhmm/performance/thread_pool.h"
-#include "libhmm/calculators/optimized_forward_backward_calculator.h"
-#include "libhmm/calculators/calculator_traits.h"
 
 #include "libhmm/two_state_hmm.h"
 

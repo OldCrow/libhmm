@@ -1,126 +1,262 @@
 #ifndef LIBHMM_LOG_SIMD_FORWARD_BACKWARD_CALCULATOR_H_
 #define LIBHMM_LOG_SIMD_FORWARD_BACKWARD_CALCULATOR_H_
 
-#include "libhmm/calculators/log_forward_backward_calculator.h"
+#include "libhmm/hmm.h"
+#include "libhmm/calculators/calculator.h"
 #include "libhmm/performance/simd_support.h"
-#include <memory>
-#include <vector>
-#include <string>
+#include <cfloat>
 #include <cmath>
+#include <vector>
+#include <memory>
 #include <limits>
 
 namespace libhmm {
 
-/// High-performance log-space forward-backward calculator using SIMD optimizations
-/// Combines numerical stability of log-space arithmetic with SIMD performance
-/// This addresses the critical gap where OptimizedForwardBackwardCalculator lacks numerical stability
-class LogSIMDForwardBackwardCalculator : public LogForwardBackwardCalculator {
+/**
+ * @brief SIMD-optimized log-space Forward-Backward algorithm implementation
+ * 
+ * This calculator combines log-space arithmetic for numerical stability
+ * with SIMD vectorization for high performance. The log-space approach
+ * prevents underflow issues while SIMD acceleration provides substantial
+ * speed improvements for the critical inner loops.
+ * 
+ * Key features:
+ * - Numerical stability through log-space arithmetic
+ * - SIMD vectorization of probability computations
+ * - Cache-friendly memory access patterns
+ * - Automatic fallback to scalar implementation
+ * 
+ * The algorithm implements log-space Forward-Backward where all
+ * probabilities are maintained in log space throughout computation,
+ * eliminating the need for scaling factors.
+ */
+class LogSIMDForwardBackwardCalculator : public Calculator {
 private:
-    /// Aligned storage for SIMD operations
-    using AlignedVector = std::vector<double, performance::aligned_allocator<double>>;
+    // Core matrices (aligned for SIMD)
+    std::vector<double, performance::aligned_allocator<double>> logForwardVariables_;
+    std::vector<double, performance::aligned_allocator<double>> logBackwardVariables_;
     
-    /// Log-space constants for SIMD operations
-    static constexpr double LOGZERO = std::numeric_limits<double>::quiet_NaN();
-    static constexpr double LOG_MIN_PROBABILITY = -700.0;  // Prevents -infinity
+    // Results
+    double logProbability_;
     
-    /// Cached aligned matrices for efficient SIMD operations
-    mutable std::unique_ptr<AlignedVector> alignedForward_;
-    mutable std::unique_ptr<AlignedVector> alignedBackward_;
-    mutable std::unique_ptr<AlignedVector> alignedLogTrans_;
-    mutable std::unique_ptr<AlignedVector> alignedLogPi_;
-    
-    /// Matrix dimensions for cache efficiency
+    // Problem dimensions
     std::size_t numStates_;
-    std::size_t obsSize_;
-    std::size_t alignedStateSize_;  // Padded to SIMD alignment
+    std::size_t seqLength_;
     
-    /// Performance optimization flags
+    // SIMD optimization parameters
+    static constexpr std::size_t SIMD_BLOCK_SIZE = 8;
+    static constexpr double LOGZERO = -std::numeric_limits<double>::infinity();
+    static constexpr double LOG_MIN_PROBABILITY = -700.0;  // Prevents underflow
+    
+    // Temporary SIMD-aligned vectors for computations
+    mutable std::vector<double, performance::aligned_allocator<double>> tempLogEmissions_;
+    mutable std::vector<double, performance::aligned_allocator<double>> tempLogProbs_;
+    
+    // Performance optimization flags
     bool useBlockedComputation_;
     std::size_t blockSize_;
-    
-    /// Initialize aligned storage and copy data for SIMD operations
-    void initializeAlignedStorage();
-    
-    /// Copy matrix data to aligned storage with padding, converting to log-space
-    void copyToAlignedLogStorage(const Matrix& source, AlignedVector& dest, 
-                                 std::size_t rows, std::size_t cols, std::size_t alignedCols);
-    
-    /// Copy aligned log-space storage back to boost matrix
-    void copyFromAlignedLogStorage(const AlignedVector& source, Matrix& dest,
-                                   std::size_t rows, std::size_t cols, std::size_t alignedCols);
-    
-    /// SIMD-optimized log-space emission probability computation
-    void computeLogEmissionProbabilities(std::size_t t, AlignedVector& logEmissions) const;
-    
-    /// SIMD-optimized extended logarithm function (vectorized eln)
-    /// Handles zero values by converting to LOGZERO
-    void vectorizedEln(const double* input, double* output, std::size_t size) const;
-    
-    /// SIMD-optimized extended logarithm sum (vectorized elnsum)
-    /// log(exp(x) + exp(y)) with numerical stability
-    void vectorizedElnSum(const double* x, const double* y, double* result, std::size_t size) const;
-    
-    /// SIMD-optimized extended logarithm product (vectorized elnproduct)
-    /// Simply x + y in log space
-    void vectorizedElnProduct(const double* x, const double* y, double* result, std::size_t size) const;
-    
-    /// SIMD-optimized log-space matrix-vector multiplication with elnsum
-    /// Computes result[j] = elnsum_i(trans_log[i,j] + vector_log[i])
-    void logMatrixVectorMultiplyTransposed(const double* logMatrix, const double* logVector,
-                                           double* logResult, std::size_t rows, std::size_t cols) const;
-    
-    /// Blocked log-space matrix-vector multiplication for large matrices
-    void blockedLogMatrixVectorMultiplyTransposed(const double* logMatrix, const double* logVector,
-                                                  double* logResult, std::size_t rows, std::size_t cols,
-                                                  std::size_t blockSize) const;
-    
-    /// SIMD-optimized standard log-space matrix-vector multiplication
-    void logMatrixVectorMultiply(const double* logMatrix, const double* logVector,
-                                 double* logResult, std::size_t rows, std::size_t cols) const;
-    
-    /// Blocked version of standard log-space matrix-vector multiplication
-    void blockedLogMatrixVectorMultiply(const double* logMatrix, const double* logVector,
-                                        double* logResult, std::size_t rows, std::size_t cols,
-                                        std::size_t blockSize) const;
-
-protected:
-    /// SIMD-optimized log-space forward algorithm implementation
-    void forward() override;
-    
-    /// SIMD-optimized log-space backward algorithm implementation  
-    void backward() override;
+    std::size_t alignedStateSize_;  // Padded to SIMD alignment
 
 public:
-    /// Constructor with HMM and observations
-    /// @param hmm Pointer to the HMM (must not be null)
-    /// @param observations The observation set to process
-    /// @param useBlocking Enable blocked computation for large matrices
-    /// @param blockSize Block size for cache optimization (0 = auto-detect)
-    /// @throws std::invalid_argument if hmm is null
+    /**
+     * @brief Constructor with HMM and observations
+     * @param hmm Pointer to the HMM (must not be null)
+     * @param observations The observation set to process
+     * @param useBlocking Enable blocked computation for large matrices
+     * @param blockSize Block size for cache optimization (0 = auto-detect)
+     * @throws std::invalid_argument if hmm is null
+     */
     LogSIMDForwardBackwardCalculator(Hmm* hmm, const ObservationSet& observations,
                                      bool useBlocking = true, std::size_t blockSize = 0);
     
-    /// Virtual destructor
-    virtual ~LogSIMDForwardBackwardCalculator() = default;
+    /**
+     * @brief Compute forward and backward variables using log-space SIMD algorithm
+     * 
+     * Performs the complete Forward-Backward algorithm in log space with
+     * SIMD acceleration. Computes both forward and backward variables.
+     * 
+     * @throws std::runtime_error if computation fails
+     */
+    void compute();
     
-    /// Get performance information
-    /// @return String describing optimizations used
-    std::string getOptimizationInfo() const;
+    /**
+     * @brief Get the log probability of the observation sequence
+     * 
+     * Returns the log probability of the observation sequence given the HMM.
+     * 
+     * @return The log probability value
+     */
+    double getLogProbability() const noexcept {
+        return logProbability_;
+    }
     
-    /// Check if SIMD optimizations are available
-    /// @return True if SIMD is available and being used
-    bool isSIMDOptimized() const noexcept {
+    /**
+     * @brief Get the probability of the observation sequence
+     * 
+     * Returns the probability by exponentiating the log probability.
+     * Note: This may underflow for very low probabilities.
+     * 
+     * @return The probability value
+     */
+    double getProbability() const noexcept {
+        return std::exp(logProbability_);
+    }
+    
+    /**
+     * @brief Calculate probability (required by traits system)
+     * 
+     * This method is required for compatibility with the calculator
+     * traits system and automatic selection.
+     * 
+     * @return The probability value
+     */
+    double probability() {
+        return getProbability();
+    }
+    
+    /**
+     * @brief Get the log forward variables matrix
+     * @return The log forward variables as a Matrix
+     */
+    Matrix getLogForwardVariables() const;
+    
+    /**
+     * @brief Get the log backward variables matrix
+     * @return The log backward variables as a Matrix
+     */
+    Matrix getLogBackwardVariables() const;
+    
+    /**
+     * @brief Get the forward variables matrix (converted from log space)
+     * @return The forward variables as a Matrix
+     */
+    Matrix getForwardVariables() const;
+    
+    /**
+     * @brief Get the backward variables matrix (converted from log space)
+     * @return The backward variables as a Matrix
+     */
+    Matrix getBackwardVariables() const;
+    
+    /**
+     * @brief Check if SIMD optimization is being used
+     * @return True if SIMD is available and being used
+     */
+    static bool isSIMDEnabled() noexcept {
         return performance::simd_available();
     }
     
-    /// Get recommended block size for this system
-    /// @param numStates Number of HMM states
-    /// @return Optimal block size for cache efficiency
-    static std::size_t getRecommendedBlockSize(std::size_t numStates) noexcept;
+    /**
+     * @brief Get performance information
+     * @return String describing optimizations used
+     */
+    std::string getOptimizationInfo() const;
     
-    /// Calculate log probability with SIMD optimization
-    /// @return The log probability value
-    double logProbability() override;
+    /**
+     * @brief Get recommended block size for this system
+     * @param numStates Number of HMM states
+     * @return Optimal block size for cache efficiency
+     */
+    static std::size_t getRecommendedBlockSize(std::size_t numStates) noexcept;
+
+private:
+    /**
+     * @brief Initialize matrices and prepare for computation
+     */
+    void initializeMatrices();
+    
+    /**
+     * @brief Perform SIMD-optimized log-space forward pass
+     */
+    void computeLogForward();
+    
+    /**
+     * @brief Perform SIMD-optimized log-space backward pass
+     */
+    void computeLogBackward();
+    
+    /**
+     * @brief Initialize log forward variables with first observation
+     */
+    void initializeLogForwardStep();
+    
+    /**
+     * @brief Perform SIMD-optimized log forward step at time t
+     * @param t Time step index
+     */
+    void computeLogForwardStepSIMD(std::size_t t);
+    
+    /**
+     * @brief Fallback scalar computation for log forward step
+     * @param t Time step index
+     */
+    void computeLogForwardStepScalar(std::size_t t);
+    
+    /**
+     * @brief Initialize log backward variables
+     */
+    void initializeLogBackwardStep();
+    
+    /**
+     * @brief Perform SIMD-optimized log backward step at time t
+     * @param t Time step index
+     */
+    void computeLogBackwardStepSIMD(std::size_t t);
+    
+    /**
+     * @brief Fallback scalar computation for log backward step
+     * @param t Time step index
+     */
+    void computeLogBackwardStepScalar(std::size_t t);
+    
+    /**
+     * @brief Compute final log probability from log forward variables
+     */
+    void computeFinalLogProbability();
+    
+    /**
+     * @brief SIMD-optimized computation of log emission probabilities
+     * @param observation Current observation
+     * @param logEmisProbs Output log emission probabilities (aligned)
+     */
+    void computeLogEmissionProbabilities(Observation observation, double* logEmisProbs) const;
+    
+    /**
+     * @brief SIMD-optimized extended logarithm operations
+     */
+    void vectorizedEln(const double* input, double* output, std::size_t size) const;
+    void vectorizedElnSum(const double* x, const double* y, double* result, std::size_t size) const;
+    void vectorizedElnProduct(const double* x, const double* y, double* result, std::size_t size) const;
+    
+    /**
+     * @brief SIMD-optimized log-space matrix-vector multiplication
+     */
+    void logMatrixVectorMultiply(const double* logMatrix, const double* logVector,
+                                 double* logResult, std::size_t rows, std::size_t cols) const;
+    
+    /**
+     * @brief SIMD-optimized log-space transposed matrix-vector multiplication
+     */
+    void logMatrixVectorMultiplyTransposed(const double* logMatrix, const double* logVector,
+                                           double* logResult, std::size_t rows, std::size_t cols) const;
+    
+    /**
+     * @brief Check if log values are valid (not NaN or -inf in inappropriate places)
+     * @param t Time step index
+     * @param logVariables Pointer to log variables to check
+     * @return True if values are valid
+     */
+    bool areLogValuesValid(std::size_t t, const double* logVariables) const;
+    
+    /**
+     * @brief Get matrix index for log forward/backward matrices
+     * @param t Time step
+     * @param state State index
+     * @return Linear index in matrix
+     */
+    std::size_t getMatrixIndex(std::size_t t, std::size_t state) const {
+        return t * numStates_ + state;
+    }
 };
 
 /// Helper class for SIMD log-space operations
