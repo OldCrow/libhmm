@@ -3,14 +3,14 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.15%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.4.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Version](https://img.shields.io/badge/Version-2.5.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
 [![Tests](https://img.shields.io/badge/Tests-31/31_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX%2FSSE2%2FNEON-blue.svg)](src/performance/)
 [![Threading](https://img.shields.io/badge/Threading-C%2B%2B17-orange.svg)](src/performance/thread_pool.cpp)
 
 A modern, high-performance C++17 implementation of Hidden Markov Models with advanced statistical distributions, SIMD optimization, and parallel processing capabilities.
 
-**🚀 Latest Release v2.4.0**: Include consolidation and numerical stability release featuring distribution header modernization, comprehensive numerical safety infrastructure, trainer traits system, and robust edge case handling. Enhanced maintainability with 31/31 tests passing and production-ready stability features.
+**🚀 Latest Release v2.5.0**: Calculator modernization and benchmark validation release featuring complete AutoCalculator system validation, SIMD optimization improvements (~17x performance gain), benchmark suite modernization with 100% numerical accuracy maintained, and API consolidation. Enhanced calculator selection intelligence with detailed performance rationale and future-ready optimization infrastructure.
 
 ## Features
 

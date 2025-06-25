@@ -14,7 +14,7 @@ StateSequence ViterbiCalculator::decode() {
     const Matrix a = hmm_->getTrans();
 
     // Step 1: Initialization
-    // delta( 0, i ) = -ln( pi( i ) ) - ln( b( i, O_1 ) )
+    // delta( 0, i ) = ln( pi( i ) ) + ln( b( i, O_1 ) )
     // psi( 0, i ) = 0
     for (std::size_t i = 0; i < numStates; ++i) {
         const double piProb = hmm_->getPi()(i);
@@ -24,59 +24,57 @@ StateSequence ViterbiCalculator::decode() {
         const double logPi = (piProb > 0.0) ? std::log(piProb) : std::log(ZERO);
         const double logEmis = (emisProb > 0.0) ? std::log(emisProb) : std::log(ZERO);
         
-        delta_(0, i) = -logPi - logEmis;
+        delta_(0, i) = logPi + logEmis;
         psi_(0, i) = 0;
     }
 
     // Step 2: Recursive computation
     // For 2 <= t <= T, 1 <= i <= N
-    // j just helps me count through the ObservationList.
+    // Maximum likelihood formulation:
     //
     // for 2 <= t <= T
     //   for 1 <= j <= N
-    //     delta( t, j ) = min(delta(t-1,i) - ln(a(i,j)),i=1..N) - ln( b(j,O_t))
-    //     psi( t, j ) = arg min(delta(t-1,i) - ln(a(i,j)),i=1..N)
+    //     delta( t, j ) = max(delta(t-1,i) + ln(a(i,j)),i=1..N) + ln( b(j,O_t))
+    //     psi( t, j ) = arg max(delta(t-1,i) + ln(a(i,j)),i=1..N)
     //
-    // Note that the psi value is equal to the first term of the delta value
-    // and that the above formulae are not zero bounded
     for (std::size_t t = 1; t < obsSize; ++t) {
         const Observation o = observations_(t);
         
         for (std::size_t j = 0; j < numStates; ++j) {
-            // Find the above minimum value
-            double minValue = DBL_MAX;
-            std::size_t minIndex = 0;
+            // Find the maximum log probability
+            double maxValue = -DBL_MAX;
+            std::size_t maxIndex = 0;
             
             for (std::size_t i = 0; i < numStates; ++i) {
                 const double transProb = a(i, j);
                 const double logTrans = (transProb > 0.0) ? std::log(transProb) : std::log(ZERO);
-                const double temp = delta_(t - 1, i) - logTrans;
+                const double temp = delta_(t - 1, i) + logTrans;
                 
-                if (minValue > temp) {
-                    minValue = temp;
-                    minIndex = i;
+                if (maxValue < temp) {
+                    maxValue = temp;
+                    maxIndex = i;
                 }
             }
 
-            // Remember...its *arg* min for psi and min for delta
-            psi_(t, j) = static_cast<int>(minIndex);
+            // Store the best previous state
+            psi_(t, j) = static_cast<int>(maxIndex);
             
             const double emisProb = hmm_->getProbabilityDistribution(static_cast<int>(j))->getProbability(o);
             const double logEmis = (emisProb > 0.0) ? std::log(emisProb) : std::log(ZERO);
             
-            delta_(t, j) = minValue - logEmis;
+            delta_(t, j) = maxValue + logEmis;
         }
     }
 
     // Step 3: Termination
-    //  P* = min( delta( T, i ), i=1..N )
-    //  q* = arg min( delta( T, i ), i = 1..N )
+    //  P* = max( delta( T, i ), i=1..N )
+    //  q* = arg max( delta( T, i ), i = 1..N )
     //  q is the last state
-    logProbability_ = DBL_MAX;
+    logProbability_ = -DBL_MAX;
     const auto lastIndex = obsSize - 1;
     
     for (std::size_t i = 0; i < numStates; ++i) {
-        if (logProbability_ > delta_(lastIndex, i)) {
+        if (logProbability_ < delta_(lastIndex, i)) {
             logProbability_ = delta_(lastIndex, i);
             sequence_(lastIndex) = static_cast<int>(i);
         }

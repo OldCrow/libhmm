@@ -1,5 +1,5 @@
 #include "libhmm/training/robust_viterbi_trainer.h"
-#include "libhmm/calculators/scaled_forward_backward_calculator.h"
+#include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 #include "libhmm/calculators/viterbi_calculator.h"
 #include "libhmm/distributions/gaussian_distribution.h"
 #include <iostream>
@@ -310,8 +310,8 @@ void RobustViterbiTrainer::robustTrainingLoop() {
                 StateSequence sequence = vc.decode();
                 compareSequence(sequence, i);
                 
-                ScaledForwardBackwardCalculator sfbc(hmm_, os);
-                double logProbability = sfbc.logProbability();
+                ScaledSIMDForwardBackwardCalculator sfbc(hmm_, os);
+                double logProbability = sfbc.getLogProbability();
                 
                 // Validate log probability
                 if (std::isfinite(logProbability)) {

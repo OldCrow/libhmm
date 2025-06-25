@@ -6,7 +6,7 @@
 #include "libhmm/training/hmm_trainer.h"
 #include "libhmm/training/matrix3d.h"
 #include "libhmm/distributions/distributions.h"
-#include "libhmm/calculators/scaled_forward_backward_calculator.h"
+#include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 
 namespace libhmm
 {

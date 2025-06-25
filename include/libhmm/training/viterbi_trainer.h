@@ -15,7 +15,7 @@
 #include "libhmm/training/cluster.h"
 #include "libhmm/training/centroid.h"
 #include "libhmm/distributions/distributions.h"
-#include "libhmm/calculators/scaled_forward_backward_calculator.h"
+#include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 #include "libhmm/calculators/viterbi_calculator.h"
 
 namespace libhmm

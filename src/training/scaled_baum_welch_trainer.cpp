@@ -1,5 +1,5 @@
 #include "libhmm/training/scaled_baum_welch_trainer.h"
-#include "libhmm/calculators/scaled_forward_backward_calculator.h"
+#include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 #include <iostream>
 #include <cassert>
 
@@ -23,7 +23,7 @@ Matrix3D<double> ScaledBaumWelchTrainer::calculateXi(const ObservationSet& obser
     const Matrix trans = hmm_->getTrans();
     
     // Get Forward (alpha) and Backward (beta) variables
-    ScaledForwardBackwardCalculator fbc(hmm_, observations);
+    ScaledSIMDForwardBackwardCalculator fbc(hmm_, observations);
     const Matrix alpha = fbc.getForwardVariables();
     const Matrix beta = fbc.getBackwardVariables();
     
@@ -117,10 +117,10 @@ void ScaledBaumWelchTrainer::train() {
             for (const auto& observations : obsLists_) {
                 if (observations.size() < 2) continue; // Skip too-short sequences
                 
-                ScaledForwardBackwardCalculator fbc(hmm_, observations);
+                ScaledSIMDForwardBackwardCalculator fbc(hmm_, observations);
                 const Matrix alpha = fbc.getForwardVariables();
                 const Matrix beta = fbc.getBackwardVariables();
-                const double logProb = fbc.logProbability();
+                const double logProb = fbc.getLogProbability();
                 
                 if (std::isnan(logProb) || std::isinf(logProb)) continue; // Skip invalid sequences
 
@@ -162,10 +162,10 @@ void ScaledBaumWelchTrainer::train() {
             double denominator = 0.0;
 
             for (const auto& observations : obsLists_) {
-                ScaledForwardBackwardCalculator fbc(hmm_, observations);
+                ScaledSIMDForwardBackwardCalculator fbc(hmm_, observations);
                 const Matrix alpha = fbc.getForwardVariables();
                 const Matrix beta = fbc.getBackwardVariables();
-                const double logProb = fbc.logProbability();
+                const double logProb = fbc.getLogProbability();
                 
                 if (std::isnan(logProb) || std::isinf(logProb)) continue;
 
@@ -209,10 +209,10 @@ void ScaledBaumWelchTrainer::train() {
         for (const auto& observations : obsLists_) {
             if (observations.empty()) continue;
             
-            ScaledForwardBackwardCalculator fbc(hmm_, observations);
+            ScaledSIMDForwardBackwardCalculator fbc(hmm_, observations);
             const Matrix alpha = fbc.getForwardVariables();
             const Matrix beta = fbc.getBackwardVariables();
-            const double logProb = fbc.logProbability();
+            const double logProb = fbc.getLogProbability();
             
             if (!std::isnan(logProb) && !std::isinf(logProb)) {
                 const double gamma = alpha(0, i) * beta(0, i);

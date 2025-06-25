@@ -1,5 +1,5 @@
-#ifndef LIBHMM_CALCULATOR_TRAITS_H_
-#define LIBHMM_CALCULATOR_TRAITS_H_
+#ifndef LIBHMM_FORWARD_BACKWARD_TRAITS_H_
+#define LIBHMM_FORWARD_BACKWARD_TRAITS_H_
 
 #include <memory>
 #include <string>
@@ -11,9 +11,10 @@ namespace libhmm {
 
 // Forward declarations
 class Hmm;
+class Calculator;
 class ForwardBackwardCalculator;
 
-namespace calculators {
+namespace forwardbackward {
 
 /// Calculator performance characteristics
 struct CalculatorTraits {
@@ -30,12 +31,9 @@ struct CalculatorTraits {
 
 /// Calculator type enumeration
 enum class CalculatorType {
-    STANDARD,           ///< Standard forward-backward calculator
-    SCALED,            ///< Scaled forward-backward calculator  
-    LOG_SPACE,         ///< Log-space forward-backward calculator
-    OPTIMIZED,         ///< SIMD-optimized calculator (numerical issues)
-    LOG_SIMD,          ///< Log-space SIMD-optimized calculator (best of both)
-    SCALED_SIMD,       ///< Scaled SIMD-optimized calculator (scaling + SIMD)
+    STANDARD,           ///< Standard forward-backward calculator (unscaled)
+    SCALED_SIMD,       ///< Scaled SIMD-optimized calculator (scaling + SIMD + fallback)
+    LOG_SIMD,          ///< Log-space SIMD-optimized calculator (log-space + SIMD + fallback)
     AUTO               ///< Automatic selection based on problem characteristics
 };
 
@@ -84,7 +82,7 @@ public:
     /// @param hmm HMM for calculations
     /// @param observations Observation sequence
     /// @return Calculator instance
-    static std::unique_ptr<ForwardBackwardCalculator> create(
+    static std::unique_ptr<Calculator> create(
         CalculatorType type, Hmm* hmm, const ObservationSet& observations);
     
     /// Create optimal calculator instance (convenience method)
@@ -94,7 +92,7 @@ public:
     /// @param isRealTime Real-time processing flag
     /// @param memoryBudget Available memory budget
     /// @return Optimal calculator instance
-    static std::unique_ptr<ForwardBackwardCalculator> createOptimal(
+    static std::unique_ptr<Calculator> createOptimal(
         Hmm* hmm, const ObservationSet& observations,
         bool requiresStability = false, bool isRealTime = false,
         double memoryBudget = 0.0);
@@ -126,7 +124,7 @@ private:
 /// RAII helper for automatic calculator selection
 class AutoCalculator {
 private:
-    std::unique_ptr<ForwardBackwardCalculator> calculator_;
+    std::unique_ptr<Calculator> calculator_;
     CalculatorType selectedType_;
     ProblemCharacteristics characteristics_;
     
@@ -143,11 +141,11 @@ public:
     
     /// Get the underlying calculator
     /// @return Reference to calculator
-    ForwardBackwardCalculator& getCalculator() { return *calculator_; }
+    Calculator& getCalculator() { return *calculator_; }
     
     /// Get the underlying calculator (const)
     /// @return Const reference to calculator
-    const ForwardBackwardCalculator& getCalculator() const { return *calculator_; }
+    const Calculator& getCalculator() const { return *calculator_; }
     
     /// Get selected calculator type
     /// @return Calculator type that was selected
@@ -198,7 +196,7 @@ public:
     static bool validateSelection(Hmm* hmm, const ObservationSet& observations);
 };
 
-} // namespace calculators
+} // namespace forwardbackward
 } // namespace libhmm
 
-#endif // LIBHMM_CALCULATOR_TRAITS_H_
+#endif // LIBHMM_FORWARD_BACKWARD_TRAITS_H_

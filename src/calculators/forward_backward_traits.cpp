@@ -1,8 +1,5 @@
-#include "libhmm/calculators/calculator_traits.h"
+#include "libhmm/calculators/forward_backward_traits.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
-#include "libhmm/calculators/scaled_forward_backward_calculator.h"
-#include "libhmm/calculators/log_forward_backward_calculator.h"
-#include "libhmm/calculators/optimized_forward_backward_calculator.h"
 #include "libhmm/calculators/log_simd_forward_backward_calculator.h"
 #include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 #include "libhmm/performance/thread_pool.h"
@@ -15,7 +12,7 @@
 #include <iostream>
 
 namespace libhmm {
-namespace calculators {
+namespace forwardbackward {
 
 //========== ProblemCharacteristics Implementation ==========
 
@@ -59,58 +56,6 @@ CalculatorTraits CalculatorSelector::getTraits(CalculatorType type) noexcept {
                 false   // numericallyStable (can have underflow)
             };
             
-        case CalculatorType::SCALED:
-            return {
-                "Scaled",
-                false,  // supportsParallel
-                false,  // usesSIMD
-                false,  // usesBlocking
-                sizeof(double) * 1000, // memoryOverhead (scaling factors)
-                1,      // minStatesForBenefit
-                100,    // minObsForBenefit (benefits longer sequences)
-                0.95,   // scalingFactor (slight overhead)
-                true    // numericallyStable
-            };
-            
-        case CalculatorType::LOG_SPACE:
-            return {
-                "LogSpace",
-                false,  // supportsParallel
-                false,  // usesSIMD
-                false,  // usesBlocking
-                0,      // memoryOverhead
-                1,      // minStatesForBenefit
-                500,    // minObsForBenefit (mainly for very long sequences)
-                0.85,   // scalingFactor (logarithm overhead)
-                true    // numericallyStable
-            };
-            
-        case CalculatorType::OPTIMIZED:
-            return {
-                "SIMD-Optimized",
-                true,   // supportsParallel
-                true,   // usesSIMD
-                true,   // usesBlocking
-                sizeof(double) * 1000, // memoryOverhead (aligned storage)
-                4,      // minStatesForBenefit (SIMD benefits 4+ elements)
-                10,     // minObsForBenefit
-                1.8,    // scalingFactor (reduced due to stability issues)
-                false   // numericallyStable (same as standard)
-            };
-            
-        case CalculatorType::LOG_SIMD:
-            return {
-                "Log-SIMD",
-                true,   // supportsParallel
-                true,   // usesSIMD
-                true,   // usesBlocking
-                sizeof(double) * 1500, // memoryOverhead (aligned + log storage)
-                10,     // minStatesForBenefit (log-space SIMD has high overhead)
-                200,    // minObsForBenefit (log overhead makes it inefficient for smaller problems)
-                0.75,   // scalingFactor (SIMD overhead hurts log-space performance)
-                true    // numericallyStable (log-space arithmetic)
-            };
-            
         case CalculatorType::SCALED_SIMD:
             return {
                 "Scaled-SIMD",
@@ -120,8 +65,21 @@ CalculatorTraits CalculatorSelector::getTraits(CalculatorType type) noexcept {
                 sizeof(double) * 1200, // memoryOverhead (aligned storage + scaling factors)
                 4,      // minStatesForBenefit (SIMD benefits 4+ elements)
                 50,     // minObsForBenefit (scaling benefits + SIMD setup)
-                1.3,    // scalingFactor (true SIMD benefits for scaled arithmetic)
+                2.5,    // scalingFactor (excellent SIMD benefits for scaled arithmetic)
                 true    // numericallyStable (scaled arithmetic)
+            };
+            
+        case CalculatorType::LOG_SIMD:
+            return {
+                "Log-SIMD",
+                true,   // supportsParallel
+                true,   // usesSIMD
+                true,   // usesBlocking
+                sizeof(double) * 1500, // memoryOverhead (aligned + log storage)
+                8,      // minStatesForBenefit (log-space SIMD benefits larger problems)
+                100,    // minObsForBenefit (log-space excellent for long sequences)
+                2.0,    // scalingFactor (good SIMD benefits for log-space)
+                true    // numericallyStable (log-space arithmetic)
             };
             
         case CalculatorType::AUTO:
@@ -181,11 +139,8 @@ CalculatorType CalculatorSelector::selectOptimal(const ProblemCharacteristics& c
     
     const std::vector<CalculatorType> candidates = {
         CalculatorType::STANDARD,
-        CalculatorType::SCALED,
-        CalculatorType::LOG_SPACE,
-        CalculatorType::OPTIMIZED,
-        CalculatorType::LOG_SIMD,
-        CalculatorType::SCALED_SIMD
+        CalculatorType::SCALED_SIMD,
+        CalculatorType::LOG_SIMD
     };
     
     for (CalculatorType type : candidates) {
@@ -199,27 +154,26 @@ CalculatorType CalculatorSelector::selectOptimal(const ProblemCharacteristics& c
     return bestType;
 }
 
-std::unique_ptr<ForwardBackwardCalculator> CalculatorSelector::create(
+std::unique_ptr<Calculator> CalculatorSelector::create(
     CalculatorType type, Hmm* hmm, const ObservationSet& observations) {
     
     switch (type) {
         case CalculatorType::STANDARD:
             return std::make_unique<ForwardBackwardCalculator>(hmm, observations);
             
-        case CalculatorType::SCALED:
-            return std::make_unique<ScaledForwardBackwardCalculator>(hmm, observations);
-            
-        case CalculatorType::LOG_SPACE:
-            return std::make_unique<LogForwardBackwardCalculator>(hmm, observations);
-            
-        case CalculatorType::OPTIMIZED:
-            return std::make_unique<OptimizedForwardBackwardCalculator>(hmm, observations);
-            
         case CalculatorType::LOG_SIMD:
-            return std::make_unique<LogSIMDForwardBackwardCalculator>(hmm, observations);
+        {
+            auto calc = std::make_unique<LogSIMDForwardBackwardCalculator>(hmm, observations);
+            calc->compute(); // SIMD calculators need explicit computation
+            return calc;
+        }
             
         case CalculatorType::SCALED_SIMD:
-            return std::make_unique<ScaledSIMDForwardBackwardCalculator>(hmm, observations);
+        {
+            auto calc = std::make_unique<ScaledSIMDForwardBackwardCalculator>(hmm, observations);
+            calc->compute(); // SIMD calculators need explicit computation
+            return calc;
+        }
             
         case CalculatorType::AUTO:
         {
@@ -233,7 +187,7 @@ std::unique_ptr<ForwardBackwardCalculator> CalculatorSelector::create(
     }
 }
 
-std::unique_ptr<ForwardBackwardCalculator> CalculatorSelector::createOptimal(
+std::unique_ptr<Calculator> CalculatorSelector::createOptimal(
     Hmm* hmm, const ObservationSet& observations,
     bool requiresStability, bool isRealTime, double memoryBudget) {
     
@@ -253,9 +207,6 @@ std::string CalculatorSelector::getPerformanceComparison(const ProblemCharacteri
     
     const std::vector<CalculatorType> types = {
         CalculatorType::STANDARD,
-        CalculatorType::SCALED,
-        CalculatorType::LOG_SPACE,
-        CalculatorType::OPTIMIZED,
         CalculatorType::LOG_SIMD,
         CalculatorType::SCALED_SIMD
     };
@@ -364,15 +315,58 @@ std::string AutoCalculator::getSelectionRationale() const {
 }
 
 double AutoCalculator::probability() {
-    return calculator_->probability();
+    // We need to cast to appropriate Forward-Backward calculator type to call probability()
+    // This follows the same pattern as the Viterbi traits system
+    if (selectedType_ == CalculatorType::STANDARD) {
+        if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator_.get())) {
+            return fb->probability();
+        }
+    } else if (selectedType_ == CalculatorType::SCALED_SIMD) {
+        if (auto scaled = dynamic_cast<ScaledSIMDForwardBackwardCalculator*>(calculator_.get())) {
+            return scaled->probability();
+        }
+    } else if (selectedType_ == CalculatorType::LOG_SIMD) {
+        if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator_.get())) {
+            return log->probability();
+        }
+    }
+    throw std::runtime_error("Unable to compute probability with selected calculator type");
 }
 
 Matrix AutoCalculator::getForwardVariables() const {
-    return calculator_->getForwardVariables();
+    // Use dynamic casting to call getForwardVariables() based on calculator type
+    if (selectedType_ == CalculatorType::STANDARD) {
+        if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator_.get())) {
+            return fb->getForwardVariables();
+        }
+    } else if (selectedType_ == CalculatorType::SCALED_SIMD) {
+        if (auto scaled = dynamic_cast<ScaledSIMDForwardBackwardCalculator*>(calculator_.get())) {
+            return scaled->getForwardVariables();
+        }
+    } else if (selectedType_ == CalculatorType::LOG_SIMD) {
+        if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator_.get())) {
+            return log->getForwardVariables();
+        }
+    }
+    throw std::runtime_error("Unable to get forward variables with selected calculator type");
 }
 
 Matrix AutoCalculator::getBackwardVariables() const {
-    return calculator_->getBackwardVariables();
+    // Use dynamic casting to call getBackwardVariables() based on calculator type
+    if (selectedType_ == CalculatorType::STANDARD) {
+        if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator_.get())) {
+            return fb->getBackwardVariables();
+        }
+    } else if (selectedType_ == CalculatorType::SCALED_SIMD) {
+        if (auto scaled = dynamic_cast<ScaledSIMDForwardBackwardCalculator*>(calculator_.get())) {
+            return scaled->getBackwardVariables();
+        }
+    } else if (selectedType_ == CalculatorType::LOG_SIMD) {
+        if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator_.get())) {
+            return log->getBackwardVariables();
+        }
+    }
+    throw std::runtime_error("Unable to get backward variables with selected calculator type");
 }
 
 //========== CalculatorBenchmark Implementation ==========
@@ -384,9 +378,8 @@ std::map<CalculatorType, double> CalculatorBenchmark::benchmarkAll(
     
     const std::vector<CalculatorType> types = {
         CalculatorType::STANDARD,
-        CalculatorType::SCALED,
-        CalculatorType::LOG_SPACE,
-        CalculatorType::OPTIMIZED
+        CalculatorType::SCALED_SIMD,
+        CalculatorType::LOG_SIMD
     };
     
     for (CalculatorType type : types) {
@@ -397,7 +390,22 @@ std::map<CalculatorType, double> CalculatorBenchmark::benchmarkAll(
             
             try {
                 auto calculator = CalculatorSelector::create(type, hmm, observations);
-                volatile double prob = calculator->probability(); // Prevent optimization
+                
+                // Use dynamic casting to call probability() based on calculator type
+                volatile double prob = 0.0;
+                if (type == CalculatorType::STANDARD) {
+                    if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator.get())) {
+                        prob = fb->probability();
+                    }
+                } else if (type == CalculatorType::SCALED_SIMD) {
+                    if (auto scaled = dynamic_cast<ScaledSIMDForwardBackwardCalculator*>(calculator.get())) {
+                        prob = scaled->probability();
+                    }
+                } else if (type == CalculatorType::LOG_SIMD) {
+                    if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator.get())) {
+                        prob = log->probability();
+                    }
+                }
                 (void)prob;
             } catch (const std::exception&) {
                 // Skip failed calculators
@@ -458,5 +466,5 @@ bool CalculatorBenchmark::validateSelection(Hmm* hmm, const ObservationSet& obse
     return predicted == actualBest;
 }
 
-} // namespace calculators
+} // namespace forwardbackward
 } // namespace libhmm

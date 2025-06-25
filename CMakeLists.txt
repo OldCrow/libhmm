@@ -6,7 +6,7 @@ if(POLICY CMP0167)
 endif()
 
 project(libhmm
-    VERSION 2.4.0
+    VERSION 2.5.0
     DESCRIPTION "Modern C++17 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -97,11 +97,11 @@ set(LIBHMM_SOURCES
     src/distributions/student_t_distribution.cpp
     src/distributions/chi_squared_distribution.cpp
 src/calculators/forward_backward_calculator.cpp
-    src/calculators/scaled_forward_backward_calculator.cpp
-    src/calculators/log_forward_backward_calculator.cpp
     src/calculators/log_simd_forward_backward_calculator.cpp
     src/calculators/scaled_simd_forward_backward_calculator.cpp
     src/calculators/viterbi_calculator.cpp
+    src/calculators/scaled_simd_viterbi_calculator.cpp
+    src/calculators/log_simd_viterbi_calculator.cpp
     src/training/viterbi_trainer.cpp
     src/training/robust_viterbi_trainer.cpp
     src/training/segmented_kmeans_trainer.cpp
@@ -112,8 +112,8 @@ src/calculators/forward_backward_calculator.cpp
     src/io/xml_file_writer.cpp
     src/performance/simd_support.cpp
     src/performance/thread_pool.cpp
-    src/calculators/optimized_forward_backward_calculator.cpp
-    src/calculators/calculator_traits.cpp
+    src/calculators/forward_backward_traits.cpp
+    src/calculators/viterbi_traits.cpp
 )
 
 # Create the library
