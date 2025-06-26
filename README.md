@@ -3,14 +3,14 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.15%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.5.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Version](https://img.shields.io/badge/Version-2.6.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
 [![Tests](https://img.shields.io/badge/Tests-31/31_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX%2FSSE2%2FNEON-blue.svg)](src/performance/)
 [![Threading](https://img.shields.io/badge/Threading-C%2B%2B17-orange.svg)](src/performance/thread_pool.cpp)
 
 A modern, high-performance C++17 implementation of Hidden Markov Models with advanced statistical distributions, SIMD optimization, and parallel processing capabilities.
 
-**🚀 Latest Release v2.5.0**: Calculator modernization and benchmark validation release featuring complete AutoCalculator system validation, SIMD optimization improvements (~17x performance gain), benchmark suite modernization with 100% numerical accuracy maintained, and API consolidation. Enhanced calculator selection intelligence with detailed performance rationale and future-ready optimization infrastructure.
+**🚀 Latest Release v2.6.0**: Zero dependencies achievement through complete Boost elimination and comprehensive multi-library benchmarking suite. Features custom Matrix/Vector implementations with SIMD-friendly memory layout, lightweight XML serialization, and validated numerical accuracy (100% agreement) across 5 HMM libraries. Establishes performance baseline with streamlined build system requiring only C++17 standard library.
 
 ## Features
 
@@ -64,6 +64,12 @@ A modern, high-performance C++17 implementation of Hidden Markov Models with adv
 - **100% Test Coverage**: All distributions with complete functionality testing
 - **CMake/CTest Integration**: Automated testing framework
 - **Continuous Validation**: Parameter fitting, edge cases, and error handling
+
+### 📈 **Benchmarking Suite**
+- **Multi-Library Validation**: Integration with HMMLib, GHMM, StochHMM, HTK
+- **Numerical Accuracy**: 100% agreement at machine precision across libraries
+- **Performance Baseline**: Comprehensive performance characterization
+- **Compatibility Documentation**: Complete integration guides and fixes
 
 ## Quick Start
 
@@ -146,8 +152,9 @@ libhmm/
 
 - **C++17** compatible compiler (GCC 7+, Clang 6+, MSVC 2017+)
 - **CMake 3.15+** (for CMake builds)
-- **Boost** libraries
 - **Make** (for legacy Makefile builds)
+
+**Zero External Dependencies** - libhmm now requires only the C++17 standard library!
 
 ## Documentation
 

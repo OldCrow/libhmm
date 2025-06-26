@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iomanip>
 #include "libhmm/libhmm.h"
+#include "libhmm/calculators/forward_backward_traits.h"
 
 using libhmm::Hmm;
 using libhmm::StudentTDistribution;
@@ -116,13 +117,14 @@ int main() {
     }
     std::cout << "\n                     (0=Normal, 1=Stressed, 2=Crisis)\n\n";
     
-    // Calculate overall likelihood for the sequence
-    ForwardBackwardCalculator fb(hmm.get(), returnsSequence);
+    // Calculate overall likelihood for the sequence using AutoCalculator
+    libhmm::forwardbackward::AutoCalculator fb(hmm.get(), returnsSequence);
     double likelihood = fb.probability();
+    double logLikelihood = fb.getLogProbability();
     
     std::cout << "=== Sequence Analysis ===\n";
     std::cout << "Total sequence likelihood: " << std::scientific << std::setprecision(3) << likelihood << "\n";
-    std::cout << "Log-likelihood: " << std::fixed << std::setprecision(2) << std::log(likelihood) << "\n\n";
+    std::cout << "Log-likelihood: " << std::fixed << std::setprecision(2) << logLikelihood << "\n\n";
     
     std::cout << "=== Decoded Regime Sequence ===\n";
     std::cout << "Day | Return | Most Likely Regime\n";

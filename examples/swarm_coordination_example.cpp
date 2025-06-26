@@ -400,12 +400,14 @@ public:
             obsSet(i) = observations[i].toDiscreteValue();
         }
         
-        // Use Forward-Backward to get probability
+        // Use Forward-Backward to get log probability for numerical stability
         libhmm::forwardbackward::AutoCalculator fb(formationHMM_.get(), obsSet);
-        double probability = fb.probability();
+        double logProbability = fb.getLogProbability();
         
-        // Convert to confidence score (0-100%)
-        return std::min(100.0, std::max(0.0, probability * 1000)); // Scale for display
+        // Convert log probability to confidence score (0-100%)
+        // Higher log probability (closer to 0) = higher confidence
+        double confidence = std::exp(std::max(-10.0, logProbability)) * 100.0;
+        return std::min(100.0, std::max(0.0, confidence));
     }
     
     /**

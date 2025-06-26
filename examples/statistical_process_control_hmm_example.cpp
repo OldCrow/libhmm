@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iomanip>
 #include "libhmm/libhmm.h"
+#include "libhmm/calculators/forward_backward_traits.h"
 
 using libhmm::Hmm;
 using libhmm::ChiSquaredDistribution;
@@ -136,13 +137,14 @@ int main() {
     }
     std::cout << "\n                     (0=InControl, 1=Warning, 2=OutOfControl)\n\n";
     
-    // Calculate overall process likelihood
-    ForwardBackwardCalculator fb(hmm.get(), testStatSequence);
+    // Calculate overall process likelihood using AutoCalculator
+    libhmm::forwardbackward::AutoCalculator fb(hmm.get(), testStatSequence);
     double likelihood = fb.probability();
+    double logLikelihood = fb.getLogProbability();
     
     std::cout << "=== Process Quality Assessment ===\n";
     std::cout << "Sequence likelihood: " << std::scientific << std::setprecision(3) << likelihood << "\n";
-    std::cout << "Log-likelihood: " << std::fixed << std::setprecision(2) << std::log(likelihood) << "\n\n";
+    std::cout << "Log-likelihood: " << std::fixed << std::setprecision(2) << logLikelihood << "\n\n";
     
     std::cout << "=== Decoded Process State Sequence ===\n";
     std::cout << "Sample | Test Stat | Most Likely State\n";

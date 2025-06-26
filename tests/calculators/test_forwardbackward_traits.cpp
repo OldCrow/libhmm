@@ -188,6 +188,7 @@ TEST_F(CalculatorTraitsTest, CalculatorCreation) {
     // Test creation of all calculator types through AutoCalculator
     AutoCalculator standardAuto(smallHmm_.get(), shortObs_);
     EXPECT_NO_THROW(standardAuto.probability());
+    EXPECT_NO_THROW(standardAuto.getLogProbability());
     
     // Test that we can create calculators directly (though we need AutoCalculator to call methods)
     auto standard = CalculatorSelector::create(
