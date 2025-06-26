@@ -40,6 +40,9 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 
+# CTest/CMake Testing directory
+Testing/
+
 # IDE files
 .vscode/
 .idea/
@@ -87,5 +90,15 @@ GITHUB_SETUP.md
 # Internal development documentation
 .dev-docs/
 
-# Benchmarks directory (contains third-party HMMLib and large binary files)
-benchmarks/
+# Benchmarks directory - ignore third-party libraries and build artifacts but track our code
+benchmarks/GHMM/
+benchmarks/HMMlib/
+benchmarks/HTK/
+benchmarks/Kaldi/
+benchmarks/StochHMM/
+benchmarks/libhmm/
+benchmarks/build/
+benchmarks/Makefile
+benchmarks/CMakeCache.txt
+benchmarks/cmake_install.cmake
+benchmarks/CMakeFiles/

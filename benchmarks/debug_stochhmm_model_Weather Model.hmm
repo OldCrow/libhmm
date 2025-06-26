@@ -1,0 +1,43 @@
+#STOCHHMM MODEL FILE
+MODEL INFORMATION
+======================================================
+MODEL_NAME:	Weather Model
+MODEL_DESCRIPTION:	Auto-generated for benchmarking
+
+TRACK SYMBOL DEFINITIONS
+======================================================
+WEATHER:	0,1
+
+STATE DEFINITIONS
+#############################################
+STATE:
+	NAME:	INIT
+TRANSITION:	STANDARD: P(X)
+	State0:	0.6
+	State1:	0.4
+#############################################
+STATE:
+	NAME:	State0
+	PATH_LABEL:	S0
+TRANSITION:	STANDARD: P(X)
+	State0:	0.7
+	State1:	0.3
+	END:	1
+EMISSION:	WEATHER: P(X)
+	ORDER:	0
+@0		1
+0.8	0.2
+#############################################
+STATE:
+	NAME:	State1
+	PATH_LABEL:	S1
+TRANSITION:	STANDARD: P(X)
+	State0:	0.4
+	State1:	0.6
+	END:	1
+EMISSION:	WEATHER: P(X)
+	ORDER:	0
+@0		1
+0.3	0.7
+#############################################
+//END

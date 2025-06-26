@@ -31,11 +31,17 @@ if(GTest_FOUND OR TARGET gtest)
         test_optimized_matrix3d.cpp
         test_xml_file_io.cpp
         test_hmm_stream_io.cpp
-        test_common.cpp
         test_performance.cpp
         test_numerical_stability.cpp
         test_trainer_traits.cpp
         test_type_safety.cpp
+    )
+    
+    # Common module tests (in common/ subdirectory)
+    set(COMMON_TESTS
+        common/test_common.cpp
+        common/test_complete_replacement.cpp
+        common/test_matrix_vector_replacement.cpp
     )
     
     # Calculator tests (in calculators/ subdirectory)
@@ -74,7 +80,7 @@ if(GTest_FOUND OR TARGET gtest)
     )
     
     # Combine all tests
-    set(COMPREHENSIVE_TESTS ${MAIN_TESTS} ${CALCULATOR_TESTS} ${DISTRIBUTION_TESTS})
+    set(COMPREHENSIVE_TESTS ${MAIN_TESTS} ${COMMON_TESTS} ${CALCULATOR_TESTS} ${DISTRIBUTION_TESTS})
     
     # Create individual test executables
     foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})

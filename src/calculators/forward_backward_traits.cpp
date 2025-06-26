@@ -333,6 +333,31 @@ double AutoCalculator::probability() {
     throw std::runtime_error("Unable to compute probability with selected calculator type");
 }
 
+double AutoCalculator::getLogProbability() {
+    // Get log probability using selected calculator with numerical stability
+    if (selectedType_ == CalculatorType::STANDARD) {
+        if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator_.get())) {
+            // Standard calculator returns raw probability - take log carefully
+            double prob = fb->probability();
+            if (prob <= 0.0) {
+                return -std::numeric_limits<double>::infinity();
+            }
+            return std::log(prob);
+        }
+    } else if (selectedType_ == CalculatorType::SCALED_SIMD) {
+        if (auto scaled = dynamic_cast<ScaledSIMDForwardBackwardCalculator*>(calculator_.get())) {
+            // Scaled calculator has getLogProbability() method for numerical stability
+            return scaled->getLogProbability();
+        }
+    } else if (selectedType_ == CalculatorType::LOG_SIMD) {
+        if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator_.get())) {
+            // Log calculator has getLogProbability() method for numerical stability
+            return log->getLogProbability();
+        }
+    }
+    throw std::runtime_error("Unable to compute log probability with selected calculator type");
+}
+
 Matrix AutoCalculator::getForwardVariables() const {
     // Use dynamic casting to call getForwardVariables() based on calculator type
     if (selectedType_ == CalculatorType::STANDARD) {

@@ -163,6 +163,10 @@ public:
     /// @return Probability of observation sequence
     double probability();
     
+    /// Get log probability using selected calculator
+    /// @return Log probability of observation sequence (numerically stable)
+    double getLogProbability();
+    
     /// Get forward variables
     /// @return Forward variables matrix
     Matrix getForwardVariables() const;

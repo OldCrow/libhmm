@@ -1,0 +1,43 @@
+#STOCHHMM MODEL FILE
+MODEL INFORMATION
+======================================================
+MODEL_NAME:	Dishonest Casino
+MODEL_DESCRIPTION:	Auto-generated for benchmarking
+
+TRACK SYMBOL DEFINITIONS
+======================================================
+DICE:	0,1,2,3,4,5
+
+STATE DEFINITIONS
+#############################################
+STATE:
+	NAME:	INIT
+TRANSITION:	STANDARD: P(X)
+	State0:	0.5
+	State1:	0.5
+#############################################
+STATE:
+	NAME:	State0
+	PATH_LABEL:	S0
+TRANSITION:	STANDARD: P(X)
+	State0:	0.95
+	State1:	0.05
+	END:	1
+EMISSION:	DICE: P(X)
+	ORDER:	0
+@0		1		2		3		4		5
+0.166667	0.166667	0.166667	0.166667	0.166667	0.166667
+#############################################
+STATE:
+	NAME:	State1
+	PATH_LABEL:	S1
+TRANSITION:	STANDARD: P(X)
+	State0:	0.1
+	State1:	0.9
+	END:	1
+EMISSION:	DICE: P(X)
+	ORDER:	0
+@0		1		2		3		4		5
+0.1	0.1	0.1	0.1	0.1	0.5
+#############################################
+//END

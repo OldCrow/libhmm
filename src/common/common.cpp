@@ -1,4 +1,4 @@
-#include "libhmm/common/common_complete.h"
+#include "libhmm/common/common.h"
 
 namespace libhmm {
 
