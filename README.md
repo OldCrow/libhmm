@@ -12,6 +12,14 @@ A modern, high-performance C++17 implementation of Hidden Markov Models with adv
 
 **🚀 Latest Release v2.6.0**: Zero dependencies achievement through complete Boost elimination and comprehensive multi-library benchmarking suite. Features custom Matrix/Vector implementations with SIMD-friendly memory layout, lightweight XML serialization, and validated numerical accuracy (100% agreement) across 5 HMM libraries. Establishes performance baseline with streamlined build system requiring only C++17 standard library.
 
+## Major Achievements
+
+✅ **Complete Boost dependency elimination** - Replaced all Boost.uBLAS and Boost.Serialization dependencies with custom C++17 implementations  
+✅ **Custom Matrix/Vector implementations** - SIMD-friendly contiguous memory layout with full API compatibility  
+✅ **Comprehensive 5-library benchmarking suite** - 100% numerical agreement across HMMLib, GHMM, StochHMM, HTK, and libhmm  
+✅ **Zero external dependencies** - C++17 standard library only, simplified build and deployment  
+✅ **Performance baseline established** - Validated numerical accuracy with comprehensive performance characterization across HMM libraries  
+
 ## Features
 
 ### 🎯 **Training Algorithms**
@@ -40,11 +48,20 @@ A modern, high-performance C++17 implementation of Hidden Markov Models with adv
 - **Chi-squared Distribution** (goodness-of-fit and categorical analysis)
 
 ### 🧮 **Calculators**
-- Forward-Backward Algorithm
-- Scaled Forward-Backward (numerical stability)
-- Log Forward-Backward (log-space computation)
-- Viterbi Algorithm (most likely path)
-- **Optimized Forward-Backward** (SIMD-accelerated, up to 3x speedup)
+**Forward-Backward Algorithms:**
+- **Standard Forward-Backward** - Classic algorithm for probability computation
+- **Scaled SIMD Forward-Backward** - Numerically stable with SIMD optimization and automatic CPU fallback
+- **Log SIMD Forward-Backward** - Log-space computation with SIMD optimization and automatic CPU fallback
+
+**Viterbi Algorithms:**
+- **Standard Viterbi** - Most likely state sequence decoding
+- **Scaled SIMD Viterbi** - Numerically stable Viterbi with SIMD optimization and automatic CPU fallback
+- **Log SIMD Viterbi** - Log-space Viterbi with SIMD optimization and automatic CPU fallback
+
+**Automatic Calculator Selection:**
+- **AutoCalculator** - Intelligent algorithm selection based on problem characteristics
+- **Performance Prediction** - CPU feature detection and optimal calculator selection
+- **Traits-Based Selection** - Automatic fallback from SIMD to scalar implementations
 
 ### ⚡ **Performance Optimizations**
 - **SIMD Support**: AVX, SSE2, and ARM NEON vectorization
@@ -59,7 +76,8 @@ A modern, high-performance C++17 implementation of Hidden Markov Models with adv
 - Model serialization
 
 ### 🧪 **Testing Infrastructure**
-- **Comprehensive Unit Tests**: 19 standalone distribution tests
+- **Distribution Tests**: 14 comprehensive distribution tests in `tests/distributions/`
+- **Calculator Tests**: 10 SIMD calculator and performance tests in `tests/calculators/`
 - **Integration Tests**: Core HMM functionality testing
 - **100% Test Coverage**: All distributions with complete functionality testing
 - **CMake/CTest Integration**: Automated testing framework
