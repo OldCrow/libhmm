@@ -210,8 +210,8 @@ TEST_F(ExponentialDistributionTest, ConstructorValidation) {
 }
 
 TEST_F(ExponentialDistributionTest, ProbabilityProperties) {
-    // Should be zero at x=0
-    EXPECT_DOUBLE_EQ(dist_->getProbability(0.0), 0.0);
+    // For continuous Exponential PDF, at x=0 the value is λ (the rate parameter)
+    EXPECT_DOUBLE_EQ(dist_->getProbability(0.0), 1.0);  // lambda = 1.0
     
     // Should be positive for positive values
     EXPECT_GT(dist_->getProbability(1.0), 0.0);
@@ -1406,10 +1406,14 @@ TEST_F(DistributionEdgeCaseTest, NumericalStabilityTest) {
     // Test with very small standard deviation
     GaussianDistribution narrowGauss(0.0, 1e-10);
     
-    // Should still produce valid probabilities
+    // Should still produce valid probabilities (can be > 1 for continuous distributions)
     double prob = narrowGauss.getProbability(0.0);
     EXPECT_GE(prob, 0.0);
-    EXPECT_LE(prob, 1.0);
+    EXPECT_TRUE(std::isfinite(prob));
+    
+    // Test log probability should be finite
+    double logProb = narrowGauss.getLogProbability(0.0);
+    EXPECT_TRUE(std::isfinite(logProb));
 }
 
 int main(int argc, char **argv) {

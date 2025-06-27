@@ -237,8 +237,11 @@ TEST_F(SIMDViterbiCalculatorTest, ScalingFactorsRetrieval) {
 // Test LogSIMD calculator specific features
 TEST_F(SIMDViterbiCalculatorTest, LogSIMDSpecificFeatures) {
     double logZero = LogSIMDViterbiCalculator::getLogZero();
-    EXPECT_LT(logZero, -1000.0); // Should be a very negative number
+    // Should be a very negative number, consistent with consolidated constants
+    EXPECT_LT(logZero, -500.0); // Updated to match MIN_LOG_PROBABILITY (-700)
     EXPECT_TRUE(std::isfinite(logZero));
+    // Verify it matches our consolidated constant
+    EXPECT_EQ(logZero, constants::probability::MIN_LOG_PROBABILITY);
 }
 
 // Test error handling

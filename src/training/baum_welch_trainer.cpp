@@ -12,14 +12,15 @@ namespace libhmm
 // xi_t( i, j ) is the probability of being in state i at time t and
 // state j at time t + 1, or better written as
 // xi_t( i, j ) = P( q_t = S_i, q_(t+1) = S_j ) | O, lambda )
-Matrix3D<double> BaumWelchTrainer::calculateXi(const ObservationSet& observations) {
+BasicMatrix3D<double> BaumWelchTrainer::calculateXi(const ObservationSet& observations)
+{
     if (observations.size() < 2) {
         throw std::runtime_error("Observation sequence too short for xi calculation");
     }
     
     const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
     const auto obsSize = observations.size();
-    Matrix3D<double> xi(obsSize - 1, numStates, numStates);
+BasicMatrix3D<double> xi(obsSize - 1, numStates, numStates);
     const Matrix trans = hmm_->getTrans();
     
     // Get Forward (alpha) and Backward (beta) variables
@@ -51,7 +52,8 @@ Matrix3D<double> BaumWelchTrainer::calculateXi(const ObservationSet& observation
 // gamma_t( i ) is the probability of being in state i at time t 
 // given observation sequence O and HMM lambda, or:
 // gamma_t( i ) = P( q_t = S_i | O, lambda );
-Matrix BaumWelchTrainer::calculateGamma(const ObservationSet& observations, const Matrix3D<double>& xi) {
+Matrix BaumWelchTrainer::calculateGamma(const ObservationSet& observations, const BasicMatrix3D<double>& xi)
+{
     const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
     const auto obsSize = observations.size();
     Matrix gamma(obsSize, numStates);

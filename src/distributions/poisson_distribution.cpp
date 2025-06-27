@@ -6,6 +6,8 @@
 #include <limits>
 #include <iomanip>
 
+using namespace libhmm::constants;
+
 namespace libhmm
 {
 
@@ -29,7 +31,7 @@ double PoissonDistribution::logFactorial(int k) const noexcept {
     
     // For large k, use Stirling's approximation
     const double kd = static_cast<double>(k);
-    return kd * std::log(kd) - kd + 0.5 * std::log(2.0 * PI * kd);
+    return kd * std::log(kd) - kd + 0.5 * std::log(2.0 * math::PI * kd);
 }
 
 /*
@@ -97,7 +99,7 @@ void PoissonDistribution::fit(const std::vector<Observation>& values) {
     const double sampleMean = sum / static_cast<double>(values.size());
     
     // Ensure lambda is positive (handle edge case of all zeros)
-    lambda_ = std::max(sampleMean, ZERO);
+    lambda_ = std::max(sampleMean, precision::ZERO);
     cacheValid_ = false;
 }
 
@@ -135,21 +137,22 @@ std::ostream& operator<<(std::ostream& os, const libhmm::PoissonDistribution& di
  * Expects format: "Poisson Distribution: λ = <value>"
  */
 std::istream& operator>>(std::istream& is, libhmm::PoissonDistribution& distribution) {
-    std::string word;
+    std::string token;
     double lambda;
     
-    // Skip "Poisson Distribution: λ ="
-    is >> word >> word >> word >> word >> lambda;
-    
-    if (is.fail()) {
-        throw std::runtime_error("Failed to parse Poisson distribution from stream");
-    }
-    
     try {
-        distribution.setLambda(lambda);
+        // Skip "Poisson Distribution: λ ="
+        std::string lambda_str;
+        is >> token >> token >> token >> token >> lambda_str;
+        lambda = std::stod(lambda_str);
+        
+        if (is.good()) {
+            distribution.setLambda(lambda);
+        }
+        
     } catch (const std::exception& e) {
+        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
-        throw std::runtime_error("Invalid lambda value in Poisson distribution input: " + std::string(e.what()));
     }
     
     return is;

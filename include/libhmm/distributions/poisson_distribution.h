@@ -57,6 +57,17 @@ private:
     double logFactorial(int k) const noexcept;
     
     /**
+     * Validates parameters for the Poisson distribution
+     * @param lambda Rate parameter (must be positive and finite)
+     * @throws std::invalid_argument if lambda is invalid
+     */
+    void validateParameters(double lambda) const {
+        if (std::isnan(lambda) || std::isinf(lambda) || lambda <= 0.0) {
+            throw std::invalid_argument("Lambda must be a positive finite number");
+        }
+    }
+    
+    /**
      * Validates that k is a valid count (non-negative integer)
      * 
      * @param k Value to validate
@@ -77,9 +88,7 @@ public:
      * @throws std::invalid_argument if lambda <= 0 or is not finite
      */
     explicit PoissonDistribution(double lambda = 1.0) : lambda_{lambda} {
-        if (std::isnan(lambda) || std::isinf(lambda) || lambda <= 0.0) {
-            throw std::invalid_argument("Lambda must be a positive finite number");
-        }
+        validateParameters(lambda);
         updateCache();
     }
 
@@ -162,9 +171,7 @@ public:
      * @throws std::invalid_argument if lambda <= 0 or is not finite
      */
     void setLambda(double lambda) {
-        if (std::isnan(lambda) || std::isinf(lambda) || lambda <= 0.0) {
-            throw std::invalid_argument("Lambda must be a positive finite number");
-        }
+        validateParameters(lambda);
         lambda_ = lambda;
         cacheValid_ = false;
     }

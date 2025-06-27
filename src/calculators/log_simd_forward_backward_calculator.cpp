@@ -205,7 +205,50 @@ void LogSIMDForwardBackwardCalculator::computeLogEmissionProbabilities(Observati
 }
 
 
-Matrix LogSIMDForwardBackwardCalculator::getLogForwardVariables() const {
+OptimizedMatrix<double> LogSIMDForwardBackwardCalculator::getLogForwardVariables() const {
+    OptimizedMatrix<double> result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            result(t, i) = logForwardVariables_[t * numStates_ + i];
+        }
+    }
+    return result;
+}
+
+OptimizedMatrix<double> LogSIMDForwardBackwardCalculator::getLogBackwardVariables() const {
+    OptimizedMatrix<double> result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            result(t, i) = logBackwardVariables_[t * numStates_ + i];
+        }
+    }
+    return result;
+}
+
+OptimizedMatrix<double> LogSIMDForwardBackwardCalculator::getForwardVariables() const {
+    OptimizedMatrix<double> result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            const double logVal = logForwardVariables_[t * numStates_ + i];
+            result(t, i) = std::isnan(logVal) ? 0.0 : std::exp(logVal);
+        }
+    }
+    return result;
+}
+
+OptimizedMatrix<double> LogSIMDForwardBackwardCalculator::getBackwardVariables() const {
+    OptimizedMatrix<double> result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            const double logVal = logBackwardVariables_[t * numStates_ + i];
+            result(t, i) = std::isnan(logVal) ? 0.0 : std::exp(logVal);
+        }
+    }
+    return result;
+}
+
+// Compatibility methods for basic Matrix interface
+Matrix LogSIMDForwardBackwardCalculator::getLogForwardVariablesCompat() const {
     Matrix result(seqLength_, numStates_);
     for (std::size_t t = 0; t < seqLength_; ++t) {
         for (std::size_t i = 0; i < numStates_; ++i) {
@@ -215,7 +258,7 @@ Matrix LogSIMDForwardBackwardCalculator::getLogForwardVariables() const {
     return result;
 }
 
-Matrix LogSIMDForwardBackwardCalculator::getLogBackwardVariables() const {
+Matrix LogSIMDForwardBackwardCalculator::getLogBackwardVariablesCompat() const {
     Matrix result(seqLength_, numStates_);
     for (std::size_t t = 0; t < seqLength_; ++t) {
         for (std::size_t i = 0; i < numStates_; ++i) {
@@ -225,7 +268,7 @@ Matrix LogSIMDForwardBackwardCalculator::getLogBackwardVariables() const {
     return result;
 }
 
-Matrix LogSIMDForwardBackwardCalculator::getForwardVariables() const {
+Matrix LogSIMDForwardBackwardCalculator::getForwardVariablesCompat() const {
     Matrix result(seqLength_, numStates_);
     for (std::size_t t = 0; t < seqLength_; ++t) {
         for (std::size_t i = 0; i < numStates_; ++i) {
@@ -236,7 +279,7 @@ Matrix LogSIMDForwardBackwardCalculator::getForwardVariables() const {
     return result;
 }
 
-Matrix LogSIMDForwardBackwardCalculator::getBackwardVariables() const {
+Matrix LogSIMDForwardBackwardCalculator::getBackwardVariablesCompat() const {
     Matrix result(seqLength_, numStates_);
     for (std::size_t t = 0; t < seqLength_; ++t) {
         for (std::size_t i = 0; i < numStates_; ++i) {

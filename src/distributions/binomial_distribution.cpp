@@ -3,6 +3,8 @@
 #include <numeric>
 #include <algorithm>
 
+using namespace libhmm::constants;
+
 namespace libhmm
 {
 
@@ -18,21 +20,21 @@ namespace libhmm
 double BinomialDistribution::getProbability(double value) {
     // Validate input - discrete distributions only accept non-negative integer values
     if (std::isnan(value) || std::isinf(value)) {
-        return 0.0;
+        return math::ZERO_DOUBLE;
     }
     
     // Round to nearest integer and check if it's in valid range
     int k = static_cast<int>(std::round(value));
     if (k < 0 || k > n_) {
-        return 0.0;
+        return math::ZERO_DOUBLE;
     }
     
     // Handle edge cases
-    if (p_ == 0.0) {
-        return (k == 0) ? 1.0 : 0.0;
+    if (p_ == math::ZERO_DOUBLE) {
+        return (k == 0) ? math::ONE : math::ZERO_DOUBLE;
     }
-    if (p_ == 1.0) {
-        return (k == n_) ? 1.0 : 0.0;
+    if (p_ == math::ONE) {
+        return (k == n_) ? math::ONE : math::ZERO_DOUBLE;
     }
     
     // Ensure cache is valid
@@ -48,11 +50,11 @@ double BinomialDistribution::getProbability(double value) {
     const double prob = std::exp(logProb);
     
     // Ensure numerical stability
-    if (std::isnan(prob) || prob < 0.0) {
-        return 0.0;
+    if (std::isnan(prob) || prob < math::ZERO_DOUBLE) {
+        return math::ZERO_DOUBLE;
     }
     
-    assert(prob <= 1.0);
+    assert(prob <= math::ONE);
     return prob;
 }
 
@@ -81,7 +83,7 @@ void BinomialDistribution::fit(const std::vector<Observation>& values) {
         const int observedValue = static_cast<int>(std::round(values[0]));
         if (observedValue >= 0) {
             n_ = std::max(1, observedValue);
-            p_ = (observedValue == 0) ? 0.0 : 1.0;
+            p_ = (observedValue == 0) ? math::ZERO_DOUBLE : math::ONE;
             cacheValid_ = false;
         } else {
             reset(); // Invalid data
@@ -92,7 +94,7 @@ void BinomialDistribution::fit(const std::vector<Observation>& values) {
     // Filter valid integer observations
     std::vector<int> validObs;
     for (const auto& val : values) {
-        if (val >= 0.0 && !std::isnan(val) && !std::isinf(val)) {
+        if (val >= math::ZERO_DOUBLE && !std::isnan(val) && !std::isinf(val)) {
             validObs.push_back(static_cast<int>(std::round(val)));
         }
     }
@@ -107,19 +109,19 @@ void BinomialDistribution::fit(const std::vector<Observation>& values) {
     if (maxObs == 0) {
         // All observations are 0
         n_ = 1;
-        p_ = 0.0;
+        p_ = math::ZERO_DOUBLE;
     } else {
         n_ = maxObs;
         
         // Calculate sample mean
-        const double sum = std::accumulate(validObs.begin(), validObs.end(), 0.0);
+        const double sum = std::accumulate(validObs.begin(), validObs.end(), math::ZERO_DOUBLE);
         const double sampleMean = sum / static_cast<double>(validObs.size());
         
         // MLE estimate: p = sample_mean / n
         p_ = sampleMean / static_cast<double>(n_);
         
         // Ensure p is in valid range [0,1]
-        p_ = std::max(0.0, std::min(1.0, p_));
+        p_ = std::max(math::ZERO_DOUBLE, std::min(math::ONE, p_));
     }
     
     cacheValid_ = false; // Invalidate cache since parameters changed
@@ -131,7 +133,7 @@ void BinomialDistribution::fit(const std::vector<Observation>& values) {
  */
 void BinomialDistribution::reset() noexcept {
     n_ = 10;
-    p_ = 0.5;
+    p_ = math::HALF;
     cacheValid_ = false; // Invalidate cache since parameters changed
 }
 

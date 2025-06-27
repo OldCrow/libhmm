@@ -3,13 +3,16 @@
 #include <iomanip>
 #include <algorithm>
 #include <numeric>
+#include <limits>
+
+using namespace libhmm::constants;
 
 namespace libhmm {
 
 double BetaDistribution::getProbability(double value) {
     // Beta distribution is only defined on [0,1]
-    if (value < 0.0 || value > 1.0 || std::isnan(value) || std::isinf(value)) {
-        return 0.0;
+    if (value < math::ZERO_DOUBLE || value > math::ONE || std::isnan(value) || std::isinf(value)) {
+        return math::ZERO_DOUBLE;
     }
     
     // Update cache if needed
@@ -17,21 +20,100 @@ double BetaDistribution::getProbability(double value) {
         updateCache();
     }
     
-    // Handle boundary cases
+    // Handle boundary cases - use cached invBeta_ for efficiency
+    if (value == math::ZERO_DOUBLE) {
+        return (alpha_ == math::ONE) ? invBeta_ : math::ZERO_DOUBLE;
+    }
+    if (value == math::ONE) {
+        return (beta_ == math::ONE) ? invBeta_ : math::ZERO_DOUBLE;
+    }
+    
+    // For efficiency, use direct computation when both exponents are integers
+    // and small, otherwise use optimized log-space computation
+    if (alphaMinus1_ == std::floor(alphaMinus1_) && betaMinus1_ == std::floor(betaMinus1_) &&
+        alphaMinus1_ >= precision::ZERO && betaMinus1_ >= precision::ZERO && 
+        alphaMinus1_ <= math::FOUR && betaMinus1_ <= math::FOUR) {
+        
+        // Direct computation for small integer exponents (faster than log/exp)
+        double result = invBeta_;
+        
+        // Use efficient integer power computation
+        int alphaExp = static_cast<int>(alphaMinus1_);
+        int betaExp = static_cast<int>(betaMinus1_);
+        
+        // Compute x^(α-1) efficiently
+        double xPower = math::ONE;
+        for (int i = 0; i < alphaExp; ++i) {
+            xPower *= value;
+        }
+        
+        // Compute (1-x)^(β-1) efficiently
+        double oneMinusX = math::ONE - value;
+        double oneMinusXPower = math::ONE;
+        for (int i = 0; i < betaExp; ++i) {
+            oneMinusXPower *= oneMinusX;
+        }
+        
+        return result * xPower * oneMinusXPower;
+    } else {
+        // Use optimized log-space computation for general case
+        // f(x) = x^(α-1) * (1-x)^(β-1) / B(α,β)
+        // Use cached values to avoid repeated calculations
+        return invBeta_ * std::pow(value, alphaMinus1_) * std::pow(math::ONE - value, betaMinus1_);
+    }
+}
+
+/**
+ * Computes the logarithm of the probability density function for numerical stability.
+ * 
+ * For Beta distribution: log(f(x)) = (α-1)log(x) + (β-1)log(1-x) - log(B(α,β))
+ * 
+ * @param value The value at which to evaluate the log-PDF (should be in [0,1])
+ * @return Natural logarithm of the probability density, or -∞ for invalid values
+ */
+double BetaDistribution::getLogProbability(double value) const noexcept {
+    // Beta distribution is only defined on [0,1]
+    if (value < math::ZERO_DOUBLE || value > math::ONE || std::isnan(value) || std::isinf(value)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Update cache if needed
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Handle boundary cases carefully
     if (value == 0.0) {
-        return (alpha_ == 1.0) ? std::exp(-logBeta_) : 0.0;
+        if (alpha_ == 1.0) {
+            // log(f(0)) = -log(B(1,β)) = -log(Γ(β)) = -logBeta_
+            return -logBeta_;
+        } else if (alpha_ > 1.0) {
+            // f(0) = 0 since x^(α-1) → 0 as x → 0 for α > 1
+            return -std::numeric_limits<double>::infinity();
+        } else {
+            // α < 1: f(0) → +∞, which should be avoided
+            return -std::numeric_limits<double>::infinity();
+        }
     }
+    
     if (value == 1.0) {
-        return (beta_ == 1.0) ? std::exp(-logBeta_) : 0.0;
+        if (beta_ == 1.0) {
+            // log(f(1)) = -log(B(α,1)) = -log(Γ(α)) = -logBeta_
+            return -logBeta_;
+        } else if (beta_ > 1.0) {
+            // f(1) = 0 since (1-x)^(β-1) → 0 as x → 1 for β > 1
+            return -std::numeric_limits<double>::infinity();
+        } else {
+            // β < 1: f(1) → +∞, which should be avoided
+            return -std::numeric_limits<double>::infinity();
+        }
     }
     
-    // Compute PDF: f(x) = x^(α-1) * (1-x)^(β-1) / B(α,β)
-    // In log space: log(f(x)) = (α-1)log(x) + (β-1)log(1-x) - log(B(α,β))
-    double logPdf = (alpha_ - 1.0) * std::log(value) + 
-                    (beta_ - 1.0) * std::log(1.0 - value) - 
-                    logBeta_;
-    
-    return std::exp(logPdf);
+    // For interior points: log(f(x)) = (α-1)log(x) + (β-1)log(1-x) - log(B(α,β))
+    // Use cached values for maximum efficiency
+    return alphaMinus1_ * std::log(value) + 
+           betaMinus1_ * std::log(1.0 - value) - 
+           logBeta_;
 }
 
 void BetaDistribution::fit(const std::vector<Observation>& values) {
@@ -53,16 +135,20 @@ void BetaDistribution::fit(const std::vector<Observation>& values) {
         return;
     }
     
-    // Compute sample mean and variance
-    double sum = std::accumulate(values.begin(), values.end(), 0.0);
-    double mean = sum / values.size();
+    // Use single-pass Welford's algorithm for numerical stability and performance
+    double mean = 0.0;
+    double M2 = 0.0;  // Sum of squared differences from current mean
+    double n = 0.0;
     
-    double sumSq = std::accumulate(values.begin(), values.end(), 0.0,
-        [mean](double acc, double val) {
-            double diff = val - mean;
-            return acc + diff * diff;
-        });
-    double variance = sumSq / (values.size() - 1);
+    for (const auto& val : values) {
+        n += 1.0;
+        double delta = val - mean;
+        mean += delta / n;
+        double delta2 = val - mean;
+        M2 += delta * delta2;
+    }
+    
+    double variance = (n > 1.0) ? M2 / (n - 1.0) : 0.0;
     
     // Method of moments estimators
     // α = μ * (μ(1-μ)/σ² - 1)
@@ -128,15 +214,26 @@ std::ostream& operator<<(std::ostream& os, const BetaDistribution& distribution)
 
 std::istream& operator>>(std::istream& is, BetaDistribution& distribution) {
     std::string token;
-    double alpha, beta;
+    double alpha = 1.0;
+    double beta = 1.0;
     
-    // Expected format: "Beta Distribution: α (alpha) = <value> β (beta) = <value>"
-    is >> token >> token;  // "Beta" "Distribution:"
-    is >> token >> token >> token >> alpha;  // "α" "(alpha)" "=" <value>
-    is >> token >> token >> token >> beta;   // "β" "(beta)" "=" <value>
+    try {
+        // Expected format: "Beta Distribution: α (alpha) = <value> β (beta) = <value>"
+        is >> token >> token;  // "Beta" "Distribution:"
+        is >> token >> token >> token >> token;  // "α" "(alpha)" "=" <alpha_str>
+        alpha = std::stod(token);
+        is >> token >> token >> token >> token;   // "β" "(beta)" "=" <beta_str>
+        beta = std::stod(token);
+        
+        if (is.good()) {
+            distribution = BetaDistribution(alpha, beta);
+        }
+        
+    } catch (const std::exception& e) {
+        // Set error state on stream if parsing fails
+        is.setstate(std::ios::failbit);
+    }
     
-    distribution = BetaDistribution(alpha, beta);
     return is;
 }
-
 } // namespace libhmm

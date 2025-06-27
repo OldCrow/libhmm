@@ -4,7 +4,7 @@
 #include <cmath>
 #include "libhmm/common/common.h"
 #include "libhmm/training/hmm_trainer.h"
-#include "libhmm/training/matrix3d.h"
+#include "libhmm/common/basic_matrix3d.h"
 #include "libhmm/distributions/distributions.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
 
@@ -36,13 +36,13 @@ private:
     /// @param observations Single observation sequence
     /// @return 3D matrix of xi values
     /// @throws std::runtime_error if calculation fails
-    Matrix3D<double> calculateXi(const ObservationSet& observations);
+    BasicMatrix3D<double> calculateXi(const ObservationSet& observations);
     
     /// Calculates gamma (state probabilities) matrix
     /// @param observations Single observation sequence
     /// @param xi Precomputed xi matrix
     /// @return Matrix of gamma values
-    Matrix calculateGamma(const ObservationSet& observations, const Matrix3D<double>& xi);
+    Matrix calculateGamma(const ObservationSet& observations, const BasicMatrix3D<double>& xi);
     
     /// Validates that the HMM has discrete distributions for training
     /// @throws std::runtime_error if HMM doesn't have discrete distributions

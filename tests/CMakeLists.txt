@@ -5,6 +5,27 @@ cmake_minimum_required(VERSION 3.14)
 find_package(GTest QUIET)
 find_package(Threads REQUIRED)
 
+# Detect if using LLVM compiler and set appropriate linking flags
+# NOTE: LLVM-specific linking temporarily commented out due to runtime issues
+#       on macOS 10.15 (2012 MacBook Pro). Using system libc++ for stability.
+# if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER MATCHES "llvm")
+#     message(STATUS "Detected LLVM Clang compiler - configuring libc++ linking")
+#     set(LIBCXX_LINK_FLAGS "-stdlib=libc++")
+#     # Add explicit path to LLVM's libc++ if needed
+#     get_filename_component(LLVM_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+#     get_filename_component(LLVM_ROOT_DIR ${LLVM_BIN_DIR} DIRECTORY)
+#     set(LLVM_LIBCXX_PATH "${LLVM_ROOT_DIR}/lib/c++")
+#     if(EXISTS "${LLVM_LIBCXX_PATH}")
+#         set(LIBCXX_LINK_FLAGS "${LIBCXX_LINK_FLAGS} -L${LLVM_LIBCXX_PATH} -Wl,-rpath,${LLVM_LIBCXX_PATH}")
+#         message(STATUS "Using LLVM libc++ from: ${LLVM_LIBCXX_PATH}")
+#     endif()
+# else()
+#     set(LIBCXX_LINK_FLAGS "")
+# endif()
+
+# Use system libc++ for stability
+set(LIBCXX_LINK_FLAGS "")
+
 # Check if Google Test is available
 if(GTest_FOUND OR TARGET gtest)
     message(STATUS "Google Test found - building comprehensive test suite")
@@ -17,31 +38,27 @@ if(GTest_FOUND OR TARGET gtest)
     
     # Common test libraries and dependencies
     if(TARGET gtest)
-        set(TEST_LIBRARIES gtest gtest_main Threads::Threads hmm ${Boost_LIBRARIES} m)
+        set(TEST_LIBRARIES gtest gtest_main Threads::Threads hmm)
     else()
-        set(TEST_LIBRARIES ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} Threads::Threads hmm ${Boost_LIBRARIES} m)
+        set(TEST_LIBRARIES ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} Threads::Threads hmm)
+    endif()
+    
+    # Apply LLVM-specific linking flags if needed
+    if(LIBCXX_LINK_FLAGS)
+        list(APPEND TEST_LIBRARIES "${LIBCXX_LINK_FLAGS}")
     endif()
     
     # Main integration tests (in tests/ root directory)
     set(MAIN_TESTS
         test_hmm_core.cpp
-        test_training.cpp
-        test_training_edge_cases.cpp
-        test_robust_viterbi_trainer.cpp
-        test_optimized_matrix3d.cpp
-        test_xml_file_io.cpp
-        test_hmm_stream_io.cpp
-        test_performance.cpp
-        test_numerical_stability.cpp
-        test_trainer_traits.cpp
-        test_type_safety.cpp
     )
     
     # Common module tests (in common/ subdirectory)
     set(COMMON_TESTS
         common/test_common.cpp
-        common/test_complete_replacement.cpp
-        common/test_matrix_vector_replacement.cpp
+        common/test_numerical_stability.cpp
+        common/test_optimized_matrix3d.cpp
+        common/test_modern_constants.cpp
     )
     
     # Calculator tests (in calculators/ subdirectory)
@@ -77,10 +94,30 @@ if(GTest_FOUND OR TARGET gtest)
         distributions/test_student_t_distribution.cpp
         distributions/test_uniform_distribution.cpp
         distributions/test_weibull_distribution.cpp
+        distributions/test_distribution_type_safety.cpp
     )
     
+    # IO tests (in io/ subdirectory)
+    set(IO_TESTS
+        io/test_xml_file_io.cpp
+        io/test_hmm_stream_io.cpp
+    )
+    
+    # Performance tests (in performance/ subdirectory)
+    set(PERFORMANCE_TESTS
+        performance/test_performance.cpp
+    )
+
+    # Training tests (in training/ subdirectory)
+    set(TRAINING_TESTS
+        training/test_training.cpp
+        training/test_training_edge_cases.cpp
+        training/test_robust_viterbi_trainer.cpp
+        training/test_trainer_traits.cpp
+    )
+
     # Combine all tests
-    set(COMPREHENSIVE_TESTS ${MAIN_TESTS} ${COMMON_TESTS} ${CALCULATOR_TESTS} ${DISTRIBUTION_TESTS})
+    set(COMPREHENSIVE_TESTS ${MAIN_TESTS} ${COMMON_TESTS} ${CALCULATOR_TESTS} ${DISTRIBUTION_TESTS} ${IO_TESTS} ${PERFORMANCE_TESTS} ${TRAINING_TESTS})
     
     # Create individual test executables
     foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})
@@ -92,6 +129,13 @@ if(GTest_FOUND OR TARGET gtest)
         
         # Link libraries
         target_link_libraries(${TEST_NAME} ${TEST_LIBRARIES})
+        
+        # Apply LLVM-specific linking flags if needed
+        if(LIBCXX_LINK_FLAGS)
+            set_target_properties(${TEST_NAME} PROPERTIES
+                LINK_FLAGS "${LIBCXX_LINK_FLAGS}"
+            )
+        endif()
         
         # Set C++17 standard
         set_property(TARGET ${TEST_NAME} PROPERTY CXX_STANDARD 17)

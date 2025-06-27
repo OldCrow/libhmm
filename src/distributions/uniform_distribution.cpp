@@ -4,6 +4,8 @@
 #include <cmath>
 #include <limits>
 
+using namespace libhmm::constants;
+
 namespace libhmm {
 
 void UniformDistribution::validateParameters(double a, double b) const {
@@ -18,26 +20,72 @@ void UniformDistribution::validateParameters(double a, double b) const {
     }
 }
 
-UniformDistribution::UniformDistribution() : a_(0.0), b_(1.0) {
+UniformDistribution::UniformDistribution() : a_(math::ZERO_DOUBLE), b_(math::ONE), cache_valid_(false) {
     // Default: standard uniform distribution on [0, 1]
 }
 
-UniformDistribution::UniformDistribution(double a, double b) : a_(a), b_(b) {
+UniformDistribution::UniformDistribution(double a, double b) : a_(a), b_(b), cache_valid_(false) {
     validateParameters(a, b);
+}
+
+void UniformDistribution::updateCache() const {
+    if (!cache_valid_) {
+        double range = b_ - a_;
+        cached_pdf_ = math::ONE / range;
+        cached_log_pdf_ = -std::log(range);
+        cache_valid_ = true;
+    }
 }
 
 double UniformDistribution::getProbability(Observation val) {
     // Handle invalid inputs
     if (std::isnan(val) || std::isinf(val)) {
-        return 0.0;
+        return math::ZERO_DOUBLE;
     }
     
     // Uniform PDF: f(x) = 1/(b-a) for a ≤ x ≤ b, 0 otherwise
     if (val >= a_ && val <= b_) {
-        return 1.0 / (b_ - a_);
+        if (!cache_valid_) {
+            updateCache();
+        }
+        return cached_pdf_;
     }
     
-    return 0.0;
+    return math::ZERO_DOUBLE;
+}
+
+double UniformDistribution::getLogProbability(Observation val) const {
+    // Handle invalid inputs
+    if (std::isnan(val) || std::isinf(val)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Uniform log PDF: log(f(x)) = -log(b-a) for a ≤ x ≤ b, -∞ otherwise
+    if (val >= a_ && val <= b_) {
+        if (!cache_valid_) {
+            updateCache();
+        }
+        return cached_log_pdf_;
+    }
+    
+    return -std::numeric_limits<double>::infinity();
+}
+
+double UniformDistribution::CDF(double x) const {
+    // Handle invalid inputs
+    if (std::isnan(x) || std::isinf(x)) {
+        return std::isnan(x) ? std::numeric_limits<double>::quiet_NaN() : 
+               (x > math::ZERO_DOUBLE ? math::ONE : math::ZERO_DOUBLE);
+    }
+    
+    // Uniform CDF: F(x) = 0 for x < a, (x-a)/(b-a) for a ≤ x ≤ b, 1 for x > b
+    if (x < a_) {
+        return math::ZERO_DOUBLE;
+    } else if (x > b_) {
+        return math::ONE;
+    } else {
+        return (x - a_) / (b_ - a_);
+    }
 }
 
 void UniformDistribution::fit(const std::vector<Observation>& data) {
@@ -69,9 +117,10 @@ void UniformDistribution::fit(const std::vector<Observation>& data) {
     // Add small padding to ensure all data points are within [a, b]
     // This accounts for the fact that sample min/max are estimates of true bounds
     double range = max_val - min_val;
-    if (range == 0.0) {
+    if (range == math::ZERO_DOUBLE) {
         // All values are the same - create a small interval around the value
-        double padding = std::max(std::abs(min_val) * 1e-6, 1e-6);
+        double padding = std::max(std::abs(min_val) * thresholds::MIN_DISTRIBUTION_PARAMETER, 
+                                 thresholds::MIN_DISTRIBUTION_PARAMETER);
         a_ = min_val - padding;
         b_ = max_val + padding;
     } else {
@@ -83,11 +132,15 @@ void UniformDistribution::fit(const std::vector<Observation>& data) {
     
     // Ensure we still have valid parameters
     validateParameters(a_, b_);
+    
+    // Invalidate cache since parameters changed
+    cache_valid_ = false;
 }
 
 void UniformDistribution::reset() noexcept {
-    a_ = 0.0;
-    b_ = 1.0;
+    a_ = math::ZERO_DOUBLE;
+    b_ = math::ONE;
+    cache_valid_ = false;
 }
 
 std::string UniformDistribution::toString() const {
@@ -102,28 +155,31 @@ std::string UniformDistribution::toString() const {
 void UniformDistribution::setA(double a) {
     validateParameters(a, b_);
     a_ = a;
+    cache_valid_ = false;
 }
 
 void UniformDistribution::setB(double b) {
     validateParameters(a_, b);
     b_ = b;
+    cache_valid_ = false;
 }
 
 void UniformDistribution::setParameters(double a, double b) {
     validateParameters(a, b);
     a_ = a;
     b_ = b;
+    cache_valid_ = false;
 }
 
 double UniformDistribution::getMean() const {
     // Mean of uniform distribution: μ = (a + b) / 2
-    return (a_ + b_) / 2.0;
+    return (a_ + b_) / math::TWO;
 }
 
 double UniformDistribution::getVariance() const {
     // Variance of uniform distribution: σ² = (b - a)² / 12
     double range = b_ - a_;
-    return (range * range) / 12.0;
+    return (range * range) / (math::THREE * math::FOUR);  // 12.0 = 3 * 4
 }
 
 double UniformDistribution::getStandardDeviation() const {
@@ -134,6 +190,39 @@ double UniformDistribution::getStandardDeviation() const {
 bool UniformDistribution::isApproximatelyEqual(const UniformDistribution& other, double tolerance) const {
     return std::abs(a_ - other.a_) < tolerance && 
            std::abs(b_ - other.b_) < tolerance;
+}
+
+bool UniformDistribution::operator==(const UniformDistribution& other) const {
+    return isApproximatelyEqual(other, precision::LIMIT_TOLERANCE);
+}
+
+std::ostream& operator<<(std::ostream& os, const UniformDistribution& dist) {
+    os << std::fixed << std::setprecision(6);
+    os << "Uniform Distribution: a = " << dist.getA() << ", b = " << dist.getB();
+    return os;
+}
+
+std::istream& operator>>(std::istream& is, UniformDistribution& dist) {
+    std::string token;
+    double a, b;
+    
+    try {
+        // Expected format: "Uniform Distribution: a = <value>, b = <value>"
+        std::string a_str, b_str;
+        is >> token >> token >> token >> token >> a_str >> token >> token >> token >> b_str;  // "Uniform" "Distribution:" "a" "=" <a_str> "," "b" "=" <b_str>
+        a = std::stod(a_str);
+        b = std::stod(b_str);
+        
+        if (is.good()) {
+            dist.setParameters(a, b);
+        }
+        
+    } catch (const std::exception& e) {
+        // Set error state on stream if parsing fails
+        is.setstate(std::ios::failbit);
+    }
+    
+    return is;
 }
 
 } // namespace libhmm

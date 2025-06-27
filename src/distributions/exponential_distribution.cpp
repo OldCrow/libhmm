@@ -1,6 +1,9 @@
 #include "libhmm/distributions/exponential_distribution.h"
 #include <iostream>
 #include <numeric>
+#include <limits>
+
+using namespace libhmm::constants;
 
 namespace libhmm
 {
@@ -17,14 +20,17 @@ namespace libhmm
  * @param x The value at which to evaluate the probability
  * @return Approximated probability for discrete sampling
  */            
-double ExponentialDistribution::getProbability(double x) {
+double ExponentialDistribution::getProbability(double value) {
     // Exponential distribution has support [0, ∞)
-    if (x < 0) {
-        return 0.0;
+    if (value < math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value)) {
+        return math::ZERO_DOUBLE;
     }
     
-    if (x == 0.0) {
-        return 0.0;
+    // For continuous distributions, we return the actual PDF value
+    // This is more mathematically correct than the old discrete approximation
+    if (value == math::ZERO_DOUBLE) {
+        // At x=0, PDF equals λ (the rate parameter)
+        return lambda_;
     }
     
     // Ensure cache is valid
@@ -32,22 +38,32 @@ double ExponentialDistribution::getProbability(double x) {
         updateCache();
     }
     
-    double p = 0.0;
-    if (x > LIMIT_TOLERANCE) {
-        p = CDF(x) - CDF(x - LIMIT_TOLERANCE);
-    } else if (x > 0 && x < LIMIT_TOLERANCE) {
-        // For very small positive values, use the PDF scaled by tolerance
-        // This provides better numerical stability than CDF differences
-        p = lambda_ * LIMIT_TOLERANCE * std::exp(-lambda_ * x);
-    }
+    // Optimized PDF calculation: f(x) = λ * exp(-λx)
+    // Use cached -λ value for efficiency
+    return lambda_ * std::exp(negLambda_ * value);
+}
 
-    // Ensure numerical stability
-    if (std::isnan(p) || p < 0.0) {
-        p = ZERO;
+/**
+ * Computes the logarithm of the probability density function for numerical stability.
+ * 
+ * For exponential distribution: log(f(x)) = log(λ) - λx for x ≥ 0
+ * 
+ * @param x The value at which to evaluate the log-PDF
+ * @return Natural logarithm of the probability density, or -∞ for invalid values
+ */
+double ExponentialDistribution::getLogProbability(double value) const noexcept {
+    // Exponential distribution has support [0, ∞)
+    if (value < math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value)) {
+        return -std::numeric_limits<double>::infinity();
     }
     
-    assert(p <= 1.0);
-    return p;
+    // Ensure cache is valid
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // For exponential: log(f(x)) = log(λ) - λx
+    return logLambda_ - lambda_ * value;
 }
 
 /*
@@ -55,9 +71,9 @@ double ExponentialDistribution::getProbability(double x) {
  *
  *   F(x) = 1 - exp( -lambda * x )
  */
-double ExponentialDistribution::CDF(double x) noexcept {
-    const double y = 1 - std::exp(-lambda_ * x);
-    assert(y >= 0);
+double ExponentialDistribution::CDF(double x) const noexcept {
+    const double y = math::ONE - std::exp(-lambda_ * x);
+    assert(y >= math::ZERO_DOUBLE);
     return y;
 }
 
@@ -86,18 +102,40 @@ void ExponentialDistribution::fit(const std::vector<Observation>& values) {
         return;
     }
 
-    // Calculate sample mean
-    const double sum = std::accumulate(values.begin(), values.end(), 0.0);
-    const double mean = sum / static_cast<double>(values.size());
+    // Use Welford's single-pass algorithm for numerical stability and performance
+    // This algorithm provides better numerical accuracy than naive sum-and-divide
+    double mean = math::ZERO_DOUBLE;
+    double n = math::ZERO_DOUBLE;
     
-    // Validate that mean is positive (required for exponential distribution)
-    if (mean <= 0.0) {
-        reset(); // Fall back to default if data is invalid
+    for (const auto& val : values) {
+        // Validate each data point during iteration (fail-fast approach)
+        if (val < math::ZERO_DOUBLE || std::isnan(val) || std::isinf(val)) {
+            reset(); // Invalid data for exponential distribution
+            return;
+        }
+        
+        // Welford's algorithm update
+        n += math::ONE;
+        double delta = val - mean;
+        mean += delta / n;
+    }
+    
+    // Validate that mean is positive and reasonable
+    if (mean <= math::ZERO_DOUBLE || !std::isfinite(mean)) {
+        reset(); // Fall back to default if computed mean is invalid
         return;
     }
     
     // Set MLE estimate: λ = 1/mean
-    lambda_ = 1.0 / mean;
+    // For exponential distribution, this is the optimal estimator
+    lambda_ = math::ONE / mean;
+    
+    // Validate the resulting lambda parameter
+    if (!std::isfinite(lambda_) || lambda_ <= math::ZERO_DOUBLE) {
+        reset(); // Fallback if lambda computation fails
+        return;
+    }
+    
     cacheValid_ = false; // Invalidate cache since parameters changed
 }
 
@@ -106,7 +144,7 @@ void ExponentialDistribution::fit(const std::vector<Observation>& values) {
  * This corresponds to the standard exponential distribution.
  */
 void ExponentialDistribution::reset() noexcept {
-    lambda_ = 1.0;
+    lambda_ = math::ONE;
     cacheValid_ = false; // Invalidate cache since parameters changed
 }
 
@@ -130,15 +168,29 @@ std::ostream& operator<<( std::ostream& os,
 
 std::istream& operator>>( std::istream& is,
         libhmm::ExponentialDistribution& distribution ){
-    std::string s, t;
-    is >> s; //" Rate"
-    is >> s; // "parameter"
-    is >> s; // "="
-    is >> t;
-    distribution.setLambda(std::stod(t));
+    std::string token, lambda_str;
+    
+    try {
+        is >> token; // "Rate"
+        is >> token; // "parameter"
+        is >> token; // "="
+        is >> lambda_str;
+        double lambda = std::stod(lambda_str);
+        
+        // Use setLambda for validation
+        distribution.setLambda(lambda);
+        
+    } catch (const std::exception& e) {
+        // Set error state on stream if parsing fails
+        is.setstate(std::ios::failbit);
+    }
 
     return is;
 }
 
+bool ExponentialDistribution::operator==(const ExponentialDistribution& other) const {
+    using namespace libhmm::constants;
+    return std::abs(lambda_ - other.lambda_) < precision::LIMIT_TOLERANCE;
+}
 
 }

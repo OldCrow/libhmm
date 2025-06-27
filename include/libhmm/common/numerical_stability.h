@@ -12,30 +12,31 @@ namespace libhmm {
 namespace numerical {
 
 /// Numerical stability constants and utilities
+/// Uses constants from common.h for consistency across the library
 struct NumericalConstants {
     /// Minimum probability value to prevent underflow
-    static constexpr double MIN_PROBABILITY = 1e-300;
+    static constexpr double MIN_PROBABILITY = constants::probability::MIN_PROBABILITY;
     
     /// Maximum probability value to prevent overflow  
-    static constexpr double MAX_PROBABILITY = 1.0 - 1e-15;
+    static constexpr double MAX_PROBABILITY = constants::probability::MAX_PROBABILITY;
     
     /// Tolerance for convergence detection
-    static constexpr double DEFAULT_CONVERGENCE_TOLERANCE = 1e-8;
+    static constexpr double DEFAULT_CONVERGENCE_TOLERANCE = constants::precision::DEFAULT_CONVERGENCE_TOLERANCE;
     
     /// Maximum iterations before forced termination
-    static constexpr std::size_t DEFAULT_MAX_ITERATIONS = 10000;
+    static constexpr std::size_t DEFAULT_MAX_ITERATIONS = constants::iterations::DEFAULT_MAX_ITERATIONS;
     
     /// Minimum log probability to prevent -infinity
-    static constexpr double MIN_LOG_PROBABILITY = -700.0; // approx log(1e-300)
+    static constexpr double MIN_LOG_PROBABILITY = constants::probability::MIN_LOG_PROBABILITY;
     
     /// Maximum log probability
-    static constexpr double MAX_LOG_PROBABILITY = 0.0;
+    static constexpr double MAX_LOG_PROBABILITY = constants::probability::MAX_LOG_PROBABILITY;
     
     /// Small value for numerical differentiation
-    static constexpr double NUMERICAL_EPSILON = 1e-12;
+    static constexpr double NUMERICAL_EPSILON = constants::precision::HIGH_PRECISION_TOLERANCE;
     
     /// Scaling threshold for numerical stability
-    static constexpr double SCALING_THRESHOLD = 1e-100;
+    static constexpr double SCALING_THRESHOLD = constants::probability::SCALING_THRESHOLD;
 };
 
 /// Numerical safety checks and corrections
@@ -160,7 +161,7 @@ class AdaptivePrecision {
 private:
     double baseTolerance_;
     double currentTolerance_;
-    std::size_t problemSize_;  // Used for future problem-size-dependent scaling
+    [[maybe_unused]] std::size_t problemSize_;  // Used for future problem-size-dependent scaling
     bool useAdaptive_;
     
 public:

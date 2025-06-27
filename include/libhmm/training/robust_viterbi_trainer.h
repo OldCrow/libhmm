@@ -19,8 +19,8 @@ public:
         bool enableErrorRecovery = true;
         bool enableDiagnostics = true;
         bool enableProgressReporting = true;
-        double convergenceTolerance = numerical::NumericalConstants::DEFAULT_CONVERGENCE_TOLERANCE;
-        std::size_t maxIterations = numerical::NumericalConstants::DEFAULT_MAX_ITERATIONS;
+        double convergenceTolerance = constants::precision::DEFAULT_CONVERGENCE_TOLERANCE;
+        std::size_t maxIterations = constants::iterations::DEFAULT_MAX_ITERATIONS;
         std::size_t convergenceWindow = 5;
     };
 

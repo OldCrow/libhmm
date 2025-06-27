@@ -191,7 +191,6 @@ void ScaledSIMDViterbiCalculator::computeTransitionScoresSIMD(
 #ifdef LIBHMM_HAS_AVX
     const std::size_t simdWidth = 4; // AVX processes 4 doubles at once
     const std::size_t simdBlocks = numStates / simdWidth;
-    const std::size_t remainder = numStates % simdWidth;
     
     // Process SIMD blocks
     for (std::size_t block = 0; block < simdBlocks; ++block) {
@@ -233,13 +232,11 @@ void ScaledSIMDViterbiCalculator::computeTransitionScoresSIMD(
 #elif defined(LIBHMM_HAS_SSE2)
     const std::size_t simdWidth = 2; // SSE2 processes 2 doubles at once
     const std::size_t simdBlocks = numStates / simdWidth;
-    const std::size_t remainder = numStates % simdWidth;
-    
     // Process SSE2 blocks
     for (std::size_t block = 0; block < simdBlocks; ++block) {
         const std::size_t baseIdx = block * simdWidth;
         
-        __m128d trans = _mm_loadu_pd(&transitionsStart[baseIdx]);
+        // Load previous delta values (transitions loaded inline to avoid unused variable)
         __m128d delta = _mm_loadu_pd(&prevDelta[baseIdx]);
         
         // Simplified log computation (similar to AVX)

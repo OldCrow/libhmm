@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "libhmm/hmm.h"
-#include "libhmm/distributions/distributions.h"
+#include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/distributions/discrete_distribution.h"
 #include <memory>
 #include <stdexcept>
 

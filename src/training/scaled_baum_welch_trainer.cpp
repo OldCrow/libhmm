@@ -12,20 +12,21 @@ namespace libhmm
 // xi_t( i, j ) is the probability of being in state i at time t and
 // state j at time t + 1, or better written as
 // xi_t( i, j ) = P( q_t = S_i, q_(t+1) = S_j ) | O, lambda )
-Matrix3D<double> ScaledBaumWelchTrainer::calculateXi(const ObservationSet& observations) {
+BasicMatrix3D<double> ScaledBaumWelchTrainer::calculateXi(const ObservationSet& observations)
+{
     if (observations.size() < 2) {
         throw std::runtime_error("Observation sequence too short for xi calculation");
     }
     
     const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
     const auto obsSize = observations.size();
-    Matrix3D<double> xi(obsSize - 1, numStates, numStates);
+BasicMatrix3D<double> xi(obsSize - 1, numStates, numStates);
     const Matrix trans = hmm_->getTrans();
     
     // Get Forward (alpha) and Backward (beta) variables
     ScaledSIMDForwardBackwardCalculator fbc(hmm_, observations);
-    const Matrix alpha = fbc.getForwardVariables();
-    const Matrix beta = fbc.getBackwardVariables();
+    const auto alpha = fbc.getForwardVariables();
+    const auto beta = fbc.getBackwardVariables();
     
     // Get the probability of seeing these observations
     const double probability = fbc.probability();
@@ -51,7 +52,8 @@ Matrix3D<double> ScaledBaumWelchTrainer::calculateXi(const ObservationSet& obser
 // gamma_t( i ) is the probability of being in state i at time t 
 // given observation sequence O and HMM lambda, or:
 // gamma_t( i ) = P( q_t = S_i | O, lambda );
-Matrix ScaledBaumWelchTrainer::calculateGamma(const ObservationSet& observations, const Matrix3D<double>& xi) {
+Matrix ScaledBaumWelchTrainer::calculateGamma(const ObservationSet& observations, const BasicMatrix3D<double>& xi)
+{
     const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
     const auto obsSize = observations.size();
     Matrix gamma(obsSize, numStates);
@@ -118,8 +120,8 @@ void ScaledBaumWelchTrainer::train() {
                 if (observations.size() < 2) continue; // Skip too-short sequences
                 
                 ScaledSIMDForwardBackwardCalculator fbc(hmm_, observations);
-                const Matrix alpha = fbc.getForwardVariables();
-                const Matrix beta = fbc.getBackwardVariables();
+                const auto alpha = fbc.getForwardVariables();
+                const auto beta = fbc.getBackwardVariables();
                 const double logProb = fbc.getLogProbability();
                 
                 if (std::isnan(logProb) || std::isinf(logProb)) continue; // Skip invalid sequences
@@ -163,8 +165,8 @@ void ScaledBaumWelchTrainer::train() {
 
             for (const auto& observations : obsLists_) {
                 ScaledSIMDForwardBackwardCalculator fbc(hmm_, observations);
-                const Matrix alpha = fbc.getForwardVariables();
-                const Matrix beta = fbc.getBackwardVariables();
+                const auto alpha = fbc.getForwardVariables();
+                const auto beta = fbc.getBackwardVariables();
                 const double logProb = fbc.getLogProbability();
                 
                 if (std::isnan(logProb) || std::isinf(logProb)) continue;
@@ -210,8 +212,8 @@ void ScaledBaumWelchTrainer::train() {
             if (observations.empty()) continue;
             
             ScaledSIMDForwardBackwardCalculator fbc(hmm_, observations);
-            const Matrix alpha = fbc.getForwardVariables();
-            const Matrix beta = fbc.getBackwardVariables();
+            const auto alpha = fbc.getForwardVariables();
+            const auto beta = fbc.getBackwardVariables();
             const double logProb = fbc.getLogProbability();
             
             if (!std::isnan(logProb) && !std::isinf(logProb)) {

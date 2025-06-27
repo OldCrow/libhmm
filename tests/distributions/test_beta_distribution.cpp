@@ -4,6 +4,8 @@
 #include <cassert>
 #include <stdexcept>
 #include <limits>
+#include <chrono>
+#include <iomanip>
 #include "libhmm/distributions/beta_distribution.h"
 
 using libhmm::BetaDistribution;
@@ -264,6 +266,68 @@ void testResetFunctionality() {
 }
 
 /**
+ * Test log probability function for numerical stability
+ */
+void testLogProbability() {
+    std::cout << "Testing log probability calculations..." << std::endl;
+    
+    BetaDistribution beta(2.0, 3.0);  // alpha=2, beta=3
+    
+    // Test log probability at several points
+    double x1 = 0.25;
+    double x2 = 0.5;
+    double x3 = 0.75;
+    
+    double logP1 = beta.getLogProbability(x1);
+    double logP2 = beta.getLogProbability(x2);
+    double logP3 = beta.getLogProbability(x3);
+    
+    // Debug: Print the actual values
+    std::cout << "  logP1 = " << logP1 << ", logP2 = " << logP2 << ", logP3 = " << logP3 << std::endl;
+    
+    // Note: For continuous distributions, PDF can be > 1, so log(PDF) can be positive
+    // We just verify they are finite and reasonable
+    assert(std::isfinite(logP1));
+    assert(std::isfinite(logP2));
+    assert(std::isfinite(logP3));
+    
+    // For Beta(2,3): log(f(x)) = log(x) + 2*log(1-x) - log(B(2,3))
+    // where B(2,3) = Γ(2)Γ(3)/Γ(5) = 1*2/(4*3*2*1) = 2/24 = 1/12
+    double logBeta23 = lgamma(2.0) + lgamma(3.0) - lgamma(5.0);
+    
+    double expectedLogP1 = std::log(x1) + 2.0 * std::log(1.0 - x1) - logBeta23;
+    double expectedLogP2 = std::log(x2) + 2.0 * std::log(1.0 - x2) - logBeta23;
+    double expectedLogP3 = std::log(x3) + 2.0 * std::log(1.0 - x3) - logBeta23;
+    
+    assert(std::abs(logP1 - expectedLogP1) < 1e-10);
+    assert(std::abs(logP2 - expectedLogP2) < 1e-10);
+    assert(std::abs(logP3 - expectedLogP3) < 1e-10);
+    
+    // Verify consistency with getProbability
+    double p1 = beta.getProbability(x1);
+    double p2 = beta.getProbability(x2);
+    
+    assert(p1 > 0.0);
+    assert(p2 > 0.0);
+    
+    // Test invalid inputs return -infinity
+    assert(beta.getLogProbability(-0.1) == -std::numeric_limits<double>::infinity());
+    assert(beta.getLogProbability(1.1) == -std::numeric_limits<double>::infinity());
+    assert(beta.getLogProbability(std::numeric_limits<double>::quiet_NaN()) == -std::numeric_limits<double>::infinity());
+    
+    // Test boundary cases
+    BetaDistribution uniform(1.0, 1.0);  // Uniform on [0,1]
+    double logP0 = uniform.getLogProbability(0.0);
+    double logP1_boundary = uniform.getLogProbability(1.0);
+    
+    // For uniform distribution, log(f(x)) = -log(B(1,1)) = -log(1) = 0
+    assert(std::abs(logP0 - 0.0) < 1e-10);
+    assert(std::abs(logP1_boundary - 0.0) < 1e-10);
+    
+    std::cout << "✓ Log probability calculation tests passed" << std::endl;
+}
+
+/**
  * Test Beta distribution properties
  */
 void testBetaProperties() {
@@ -356,6 +420,83 @@ void testStatisticalMoments() {
     std::cout << "✓ Statistical moments tests passed" << std::endl;
 }
 
+/**
+ * Test performance characteristics to verify optimizations
+ * This serves as a benchmark and regression test for performance
+ */
+void testPerformance() {
+    std::cout << "Testing performance characteristics..." << std::endl;
+    
+    using namespace std::chrono;
+    BetaDistribution beta(2.5, 3.5);
+    
+    // Test parameters
+    const int pdf_iterations = 100000;
+    const int fit_datapoints = 5000;
+    
+    // Generate test values for PDF calls (avoid exact 0 and 1 for log PDF)
+    std::vector<double> testValues;
+    testValues.reserve(pdf_iterations);
+    for (int i = 0; i < pdf_iterations; ++i) {
+        // Values in (0,1) - slightly away from boundaries to avoid -infinity in log PDF
+        double t = static_cast<double>(i + 1) / (pdf_iterations + 1);
+        testValues.push_back(t);
+    }
+    
+    // Test getProbability() performance (should benefit from integer optimization and caching)
+    auto start = high_resolution_clock::now();
+    double sum_pdf = 0.0;
+    for (const auto& val : testValues) {
+        sum_pdf += beta.getProbability(val);
+    }
+    auto end = high_resolution_clock::now();
+    auto pdf_duration = duration_cast<microseconds>(end - start);
+    
+    // Test getLogProbability() performance (should benefit from cached alphaMinus1_, betaMinus1_)
+    start = high_resolution_clock::now();
+    double sum_log_pdf = 0.0;
+    for (const auto& val : testValues) {
+        sum_log_pdf += beta.getLogProbability(val);
+    }
+    end = high_resolution_clock::now();
+    auto log_pdf_duration = duration_cast<microseconds>(end - start);
+    
+    // Test fitting performance with Welford's single-pass algorithm
+    std::vector<double> fit_data;
+    fit_data.reserve(fit_datapoints);
+    for (int i = 0; i < fit_datapoints; ++i) {
+        // Generate Beta-like data for consistent testing
+        double t = static_cast<double>(i) / (fit_datapoints - 1);
+        fit_data.push_back(0.1 + 0.8 * t);  // Values in [0.1, 0.9]
+    }
+    
+    start = high_resolution_clock::now();
+    beta.fit(fit_data);
+    end = high_resolution_clock::now();
+    auto fit_duration = duration_cast<microseconds>(end - start);
+    
+    // Performance expectations (reasonable thresholds for regression testing)
+    double pdf_per_call = static_cast<double>(pdf_duration.count()) / pdf_iterations;
+    double log_pdf_per_call = static_cast<double>(log_pdf_duration.count()) / pdf_iterations;
+    double fit_per_point = static_cast<double>(fit_duration.count()) / fit_datapoints;
+    
+    // Basic performance assertions (adjust thresholds based on typical performance)
+    // These should be conservative to avoid false failures on different hardware
+    assert(pdf_per_call < 2.0);      // Should be well under 2 microseconds per PDF call
+    assert(log_pdf_per_call < 1.0);  // Should be well under 1 microsecond per log PDF call (faster due to no exp)
+    assert(fit_per_point < 5.0);     // Should be well under 5 microseconds per fit datapoint
+    
+    // Verify correctness (prevent compiler optimization removal)
+    assert(sum_pdf > 0.0);
+    assert(std::isfinite(sum_log_pdf));
+    
+    std::cout << std::fixed << std::setprecision(3);
+    std::cout << "  PDF timing:       " << pdf_per_call << " μs/call (" << pdf_iterations << " calls)" << std::endl;
+    std::cout << "  Log PDF timing:   " << log_pdf_per_call << " μs/call (" << pdf_iterations << " calls)" << std::endl;
+    std::cout << "  Fit timing:       " << fit_per_point << " μs/point (" << fit_datapoints << " points)" << std::endl;
+    std::cout << "✓ Performance tests passed" << std::endl;
+}
+
 int main() {
     std::cout << "Running Beta distribution tests..." << std::endl;
     std::cout << "==================================" << std::endl;
@@ -363,6 +504,7 @@ int main() {
     try {
         testBasicFunctionality();
         testProbabilities();
+        testLogProbability();
         testFitting();
         testParameterValidation();
         testStringRepresentation();
@@ -372,6 +514,7 @@ int main() {
         testBetaProperties();
         testFittingValidation();
         testStatisticalMoments();
+        testPerformance();
         
         std::cout << "==================================" << std::endl;
         std::cout << "✅ All Beta distribution tests passed!" << std::endl;

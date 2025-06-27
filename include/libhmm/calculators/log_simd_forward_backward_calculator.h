@@ -4,6 +4,7 @@
 #include "libhmm/hmm.h"
 #include "libhmm/calculators/calculator.h"
 #include "libhmm/performance/simd_support.h"
+#include "libhmm/common/optimized_matrix.h"
 #include <cfloat>
 #include <cmath>
 #include <vector>
@@ -43,10 +44,10 @@ private:
     std::size_t numStates_;
     std::size_t seqLength_;
     
-    // SIMD optimization parameters
-    static constexpr std::size_t SIMD_BLOCK_SIZE = 8;
+    // SIMD optimization parameters (using consolidated constants)
+    static constexpr std::size_t SIMD_BLOCK_SIZE = constants::simd::DEFAULT_BLOCK_SIZE;
     static constexpr double LOGZERO = -std::numeric_limits<double>::infinity();
-    static constexpr double LOG_MIN_PROBABILITY = -700.0;  // Prevents underflow
+    static constexpr double LOG_MIN_PROBABILITY = constants::probability::MIN_LOG_PROBABILITY;
     
     // Temporary SIMD-aligned vectors for computations
     mutable std::vector<double, performance::aligned_allocator<double>> tempLogEmissions_;
@@ -116,27 +117,51 @@ public:
     
     /**
      * @brief Get the log forward variables matrix
-     * @return The log forward variables as a Matrix
+     * @return The log forward variables as an OptimizedMatrix
      */
-    Matrix getLogForwardVariables() const;
+    OptimizedMatrix<double> getLogForwardVariables() const;
     
     /**
      * @brief Get the log backward variables matrix
-     * @return The log backward variables as a Matrix
+     * @return The log backward variables as an OptimizedMatrix
      */
-    Matrix getLogBackwardVariables() const;
+    OptimizedMatrix<double> getLogBackwardVariables() const;
     
     /**
      * @brief Get the forward variables matrix (converted from log space)
-     * @return The forward variables as a Matrix
+     * @return The forward variables as an OptimizedMatrix
      */
-    Matrix getForwardVariables() const;
+    OptimizedMatrix<double> getForwardVariables() const;
     
     /**
      * @brief Get the backward variables matrix (converted from log space)
+     * @return The backward variables as an OptimizedMatrix
+     */
+    OptimizedMatrix<double> getBackwardVariables() const;
+    
+    /**
+     * @brief Get the log forward variables as basic Matrix (for compatibility)
+     * @return The log forward variables as a Matrix
+     */
+    Matrix getLogForwardVariablesCompat() const;
+    
+    /**
+     * @brief Get the log backward variables as basic Matrix (for compatibility)
+     * @return The log backward variables as a Matrix
+     */
+    Matrix getLogBackwardVariablesCompat() const;
+    
+    /**
+     * @brief Get the forward variables as basic Matrix (for compatibility)
+     * @return The forward variables as a Matrix
+     */
+    Matrix getForwardVariablesCompat() const;
+    
+    /**
+     * @brief Get the backward variables as basic Matrix (for compatibility)
      * @return The backward variables as a Matrix
      */
-    Matrix getBackwardVariables() const;
+    Matrix getBackwardVariablesCompat() const;
     
     /**
      * @brief Check if SIMD optimization is being used

@@ -37,9 +37,27 @@ private:
     double lambda_{1.0};
     
     /**
-     * Cached value of ln(λ) for efficiency in probability calculations
+     * Cached value of ln(λ) for efficiency in log probability calculations
      */
     mutable double logLambda_{0.0};
+    
+    /**
+     * Cached value of 1/λ (mean and scale parameter) for efficiency
+     * This eliminates division in getMean(), getVariance(), getStandardDeviation()
+     */
+    mutable double invLambda_{1.0};
+    
+    /**
+     * Cached value of -λ for efficiency in PDF and log-PDF calculations
+     * This eliminates negation operations in hot paths
+     */
+    mutable double negLambda_{-1.0};
+    
+    /**
+     * Cached value of 1/λ² for variance calculation efficiency
+     * This eliminates the need to square invLambda_ repeatedly
+     */
+    mutable double invLambdaSquared_{1.0};
     
     /**
      * Flag to track if cached values need updating
@@ -48,9 +66,13 @@ private:
     
     /**
      * Updates cached values when parameters change
+     * Computes all derived values to eliminate divisions and operations in hot paths
      */
     void updateCache() const noexcept {
         logLambda_ = std::log(lambda_);
+        invLambda_ = 1.0 / lambda_;
+        negLambda_ = -lambda_;
+        invLambdaSquared_ = invLambda_ * invLambda_; // Avoids division in getVariance()
         cacheValid_ = true;
     }
     
@@ -59,16 +81,11 @@ private:
      * @param lambda Rate parameter (must be positive and finite)
      * @throws std::invalid_argument if parameters are invalid
      */
-    void validateParameters(double lambda) const {
+    static void validateParameters(double lambda) {
         if (std::isnan(lambda) || std::isinf(lambda) || lambda <= 0.0) {
             throw std::invalid_argument("Lambda (rate parameter) must be a positive finite number");
         }
     }
-
-    /**
-     * Evaluates the CDF at x using the standard exponential CDF formula
-     */
-    double CDF(double x) noexcept;
 
     friend std::istream& operator>>(std::istream& is,
             libhmm::ExponentialDistribution& distribution);
@@ -80,8 +97,8 @@ public:
      * @param lambda Rate parameter λ (must be positive)
      * @throws std::invalid_argument if lambda is invalid
      */
-    ExponentialDistribution(double lambda = 1.0)
-        : lambda_{lambda}, logLambda_{0.0}, cacheValid_{false} {
+    explicit ExponentialDistribution(double lambda = 1.0)
+        : lambda_{lambda} {
         validateParameters(lambda);
         updateCache();
     }
@@ -91,7 +108,8 @@ public:
      */
     ExponentialDistribution(const ExponentialDistribution& other) 
         : lambda_{other.lambda_}, logLambda_{other.logLambda_}, 
-          cacheValid_{other.cacheValid_} {}
+          invLambda_{other.invLambda_}, negLambda_{other.negLambda_},
+          invLambdaSquared_{other.invLambdaSquared_}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Copy assignment operator
@@ -100,6 +118,9 @@ public:
         if (this != &other) {
             lambda_ = other.lambda_;
             logLambda_ = other.logLambda_;
+            invLambda_ = other.invLambda_;
+            negLambda_ = other.negLambda_;
+            invLambdaSquared_ = other.invLambdaSquared_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -110,7 +131,8 @@ public:
      */
     ExponentialDistribution(ExponentialDistribution&& other) noexcept
         : lambda_{other.lambda_}, logLambda_{other.logLambda_}, 
-          cacheValid_{other.cacheValid_} {}
+          invLambda_{other.invLambda_}, negLambda_{other.negLambda_},
+          invLambdaSquared_{other.invLambdaSquared_}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Move assignment operator
@@ -119,10 +141,18 @@ public:
         if (this != &other) {
             lambda_ = other.lambda_;
             logLambda_ = other.logLambda_;
+            invLambda_ = other.invLambda_;
+            negLambda_ = other.negLambda_;
+            invLambdaSquared_ = other.invLambdaSquared_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
+
+    /**
+     * Destructor
+     */
+    ~ExponentialDistribution() = default;
 
     /**
      * Computes the probability density function for the Exponential distribution.
@@ -131,6 +161,16 @@ public:
      * @return Probability density (or approximated probability for discrete sampling)
      */
     double getProbability(double value) override;
+
+    /**
+     * Computes the logarithm of the probability density function for numerical stability.
+     * 
+     * For exponential distribution: log(f(x)) = log(λ) - λx for x ≥ 0
+     * 
+     * @param value The value at which to evaluate the log-PDF
+     * @return Natural logarithm of the probability density, or -∞ for invalid values
+     */
+    double getLogProbability(double value) const noexcept;
 
     /**
      * Fits the distribution parameters to the given data using maximum likelihood estimation.
@@ -175,42 +215,81 @@ public:
     /**
      * Gets the mean of the distribution.
      * For Exponential distribution, mean = 1/λ
+     * Uses cached value to eliminate division.
      * 
      * @return Mean value
      */
     double getMean() const noexcept { 
-        return 1.0 / lambda_; 
+        if (!cacheValid_) {
+            updateCache();
+        }
+        return invLambda_; 
     }
     
     /**
      * Gets the variance of the distribution.
      * For Exponential distribution, variance = 1/λ²
+     * Uses cached value to eliminate divisions and multiplications.
      * 
      * @return Variance value
      */
     double getVariance() const noexcept { 
-        return 1.0 / (lambda_ * lambda_); 
+        if (!cacheValid_) {
+            updateCache();
+        }
+        return invLambdaSquared_; 
     }
     
     /**
      * Gets the standard deviation of the distribution.
      * For Exponential distribution, std_dev = 1/λ
+     * Uses cached value to eliminate division (std_dev = mean for exponential).
      * 
      * @return Standard deviation value
      */
     double getStandardDeviation() const noexcept { 
-        return 1.0 / lambda_; 
+        if (!cacheValid_) {
+            updateCache();
+        }
+        return invLambda_; 
     }
     
     /**
      * Gets the scale parameter (reciprocal of rate parameter).
      * This is equivalent to the mean for exponential distributions.
+     * Uses cached value to eliminate division.
      * 
      * @return Scale parameter (1/λ)
      */
     double getScale() const noexcept {
-        return 1.0 / lambda_;
+        if (!cacheValid_) {
+            updateCache();
+        }
+        return invLambda_;
     }
+    
+    /**
+     * Evaluates the CDF at x using the standard exponential CDF formula
+     * For exponential distribution: F(x) = 1 - exp(-λx) for x ≥ 0, 0 otherwise
+     * 
+     * @param x The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ x)
+     */
+    double CDF(double x) const noexcept;
+    
+    /**
+     * Equality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are equal within tolerance
+     */
+    bool operator==(const ExponentialDistribution& other) const;
+    
+    /**
+     * Inequality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are not equal
+     */
+    bool operator!=(const ExponentialDistribution& other) const { return !(*this == other); }
 
 };
 

@@ -44,10 +44,10 @@ private:
     std::size_t numStates_;
     std::size_t seqLength_;
     
-    // SIMD optimization parameters
-    static constexpr std::size_t SIMD_BLOCK_SIZE = 8;
-    static constexpr double LOG_ZERO = -1e10; // Representation of log(0)
-    static constexpr double MIN_LOG_PROB = -1e8; // Minimum meaningful log probability
+    // SIMD optimization parameters (using consolidated constants)
+    static constexpr std::size_t SIMD_BLOCK_SIZE = constants::simd::DEFAULT_BLOCK_SIZE;
+    static constexpr double LOG_ZERO = constants::probability::MIN_LOG_PROBABILITY; // Representation of log(0)
+    static constexpr double MIN_LOG_PROB = constants::probability::MIN_LOG_PROBABILITY; // Minimum meaningful log probability
     
     // Temporary SIMD-aligned vectors for computations
     mutable std::vector<double, performance::aligned_allocator<double>> tempLogScores_;

@@ -3,14 +3,14 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.15%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.6.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Version](https://img.shields.io/badge/Version-2.7.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
 [![Tests](https://img.shields.io/badge/Tests-31/31_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX%2FSSE2%2FNEON-blue.svg)](src/performance/)
 [![Threading](https://img.shields.io/badge/Threading-C%2B%2B17-orange.svg)](src/performance/thread_pool.cpp)
 
 A modern, high-performance C++17 implementation of Hidden Markov Models with advanced statistical distributions, SIMD optimization, and parallel processing capabilities.
 
-**🚀 Latest Release v2.6.0**: Zero dependencies achievement through complete Boost elimination and comprehensive multi-library benchmarking suite. Features custom Matrix/Vector implementations with SIMD-friendly memory layout, lightweight XML serialization, and validated numerical accuracy (100% agreement) across 5 HMM libraries. Establishes performance baseline with streamlined build system requiring only C++17 standard library.
+**🚀 Latest Release v2.7.0**: Stream I/O robustness and code quality enhancement release. Implements comprehensive exception handling across all distribution stream input operators with consistent error recovery patterns. Establishes Gold Standard Checklist for distribution quality and implements consistent variable naming conventions. Maintains 100% test pass rate while significantly improving reliability and maintainability.
 
 ## Major Achievements
 
@@ -47,6 +47,8 @@ A modern, high-performance C++17 implementation of Hidden Markov Models with adv
 - **Student's t-Distribution** (robust modeling with heavy tails)
 - **Chi-squared Distribution** (goodness-of-fit and categorical analysis)
 
+**Quality Standards:** All distributions are being progressively updated to meet the [Gold Standard Checklist](docs/GOLD_STANDARD_CHECKLIST.md) for consistency, robustness, and maintainability.
+
 ### 🧮 **Calculators**
 **Forward-Backward Algorithms:**
 - **Standard Forward-Backward** - Classic algorithm for probability computation
@@ -82,6 +84,7 @@ A modern, high-performance C++17 implementation of Hidden Markov Models with adv
 - **100% Test Coverage**: All distributions with complete functionality testing
 - **CMake/CTest Integration**: Automated testing framework
 - **Continuous Validation**: Parameter fitting, edge cases, and error handling
+- **Code Quality Enforcement**: clang-tidy integration for automated style guide compliance
 
 ### 📈 **Benchmarking Suite**
 - **Multi-Library Validation**: Integration with HMMLib, GHMM, StochHMM, HTK
@@ -107,6 +110,8 @@ ctest
 # Install
 sudo make install
 ```
+
+**Cross-Platform Support**: For detailed cross-platform building instructions including macOS, Linux, and configuration options, see [Cross-Platform Build Guide](docs/CROSS_PLATFORM.md).
 
 ### Building with Make (Legacy)
 
@@ -189,7 +194,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes with tests
-4. Submit a pull request
+4. Follow the [Gold Standard Checklist](docs/GOLD_STANDARD_CHECKLIST.md) for distribution implementations
+5. Ensure code complies with the project style guide (enforced via clang-tidy)
+6. Submit a pull request
 
 ## Acknowledgments
 
