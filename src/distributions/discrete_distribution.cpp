@@ -1,6 +1,8 @@
 #include "libhmm/distributions/discrete_distribution.h"
 #include <iostream>
 
+using namespace libhmm::constants;
+
 namespace libhmm
 {
 
@@ -12,14 +14,14 @@ namespace libhmm
  */            
 double DiscreteDistribution::getProbability(double x) {
     // Validate input - discrete distributions only accept non-negative integer values
-    if (std::isnan(x) || std::isinf(x) || x < 0.0) {
-        return 0.0;
+    if (std::isnan(x) || std::isinf(x) || x < math::ZERO_DOUBLE) {
+        return math::ZERO_DOUBLE;
     }
     
     // Convert to integer index
     const auto index = static_cast<std::size_t>(x);
     if (!isValidIndex(index)) {
-        return 0.0;
+        return math::ZERO_DOUBLE;
     }
     
     const double p = pdf_[index]; 
@@ -36,7 +38,7 @@ double DiscreteDistribution::getProbability(double x) {
  * @throws std::out_of_range if observation index is out of range
  */
 void DiscreteDistribution::setProbability(Observation o, double value) {
-    if (std::isnan(value) || std::isinf(value) || value < 0.0 || value > 1.0) {
+    if (std::isnan(value) || std::isinf(value) || value < math::ZERO_DOUBLE || value > math::ONE) {
         throw std::invalid_argument("Probability value must be between 0 and 1");
     }
     
@@ -65,12 +67,12 @@ void DiscreteDistribution::fit(const std::vector<Observation>& values) {
     }
 
     // Initialize counts to zero
-    std::fill(pdf_.begin(), pdf_.end(), 0.0);
+    std::fill(pdf_.begin(), pdf_.end(), math::ZERO_DOUBLE);
 
     // Count valid observations
     std::size_t validCount = 0;
     for (const auto& val : values) {
-        if (val >= 0.0) {
+        if (val >= math::ZERO_DOUBLE) {
             const auto index = static_cast<std::size_t>(val);
             if (isValidIndex(index)) {
                 pdf_[index]++;
@@ -86,7 +88,7 @@ void DiscreteDistribution::fit(const std::vector<Observation>& values) {
     }
 
     // Normalize by total valid count to get probabilities
-    const double normalizationFactor = 1.0 / static_cast<double>(validCount);
+    const double normalizationFactor = math::ONE / static_cast<double>(validCount);
     for (double& p : pdf_) {
         p *= normalizationFactor;
     }
@@ -99,7 +101,7 @@ void DiscreteDistribution::fit(const std::vector<Observation>& values) {
  * Each symbol gets probability 1/numSymbols
  */
 void DiscreteDistribution::reset() noexcept {
-    const double uniformProb = 1.0 / static_cast<double>(numSymbols_);
+    const double uniformProb = math::ONE / static_cast<double>(numSymbols_);
     std::fill(pdf_.begin(), pdf_.end(), uniformProb);
     cacheValid_ = false; // Invalidate cache since probabilities changed
 }

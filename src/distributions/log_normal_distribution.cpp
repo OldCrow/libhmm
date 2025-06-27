@@ -3,6 +3,8 @@
 #include <numeric>
 #include <algorithm>
 
+using namespace libhmm::constants;
+
 namespace libhmm
 {
 
@@ -30,20 +32,20 @@ double LogNormalDistribution::getProbability(double x) {
     }
     
     double p = 0.0;
-    if (x > LIMIT_TOLERANCE) {
-        p = CDF(x) - CDF(x - LIMIT_TOLERANCE);
-    } else if (x > 0 && x < LIMIT_TOLERANCE) {
+    if (x > precision::LIMIT_TOLERANCE) {
+        p = CDF(x) - CDF(x - precision::LIMIT_TOLERANCE);
+    } else if (x > 0 && x < precision::LIMIT_TOLERANCE) {
         // For very small positive values, use the PDF scaled by tolerance
         // to avoid numerical issues with CDF differences
         const double logX = std::log(x);
         const double standardized = (logX - mean_) / standardDeviation_;
-        p = LIMIT_TOLERANCE * std::exp(negHalfSigmaSquaredInv_ * standardized * standardized) /
+        p = precision::LIMIT_TOLERANCE * std::exp(negHalfSigmaSquaredInv_ * standardized * standardized) /
             (x * std::exp(logNormalizationConstant_));
     }
     
     // Ensure numerical stability
     if (std::isnan(p) || p < 0.0) {
-        p = ZERO;
+        p = precision::ZERO;
     }
     
     assert(p <= 1.0);
@@ -52,7 +54,7 @@ double LogNormalDistribution::getProbability(double x) {
 
 double LogNormalDistribution::CDF(double x) noexcept {
     const double y = 0.5 + 0.5 * 
-        errorf((std::log(x) - mean_) / (standardDeviation_ * std::sqrt(2.0)));
+        errorf((std::log(x) - mean_) / (standardDeviation_ * math::SQRT_2));
 
     assert(y <= 1.0);
     return y;
@@ -81,7 +83,7 @@ void LogNormalDistribution::fit(const std::vector<Observation>& values) {
         const double value = values[0];
         if (value > 0.0) {
             mean_ = std::log(value);
-            standardDeviation_ = ZERO; // Use very small value as in legacy behavior
+            standardDeviation_ = precision::ZERO; // Use very small value as in legacy behavior
             cacheValid_ = false;
         } else {
             reset(); // Fall back to default if invalid data
@@ -175,17 +177,29 @@ std::ostream& operator<<( std::ostream& os,
 
 std::istream& operator>>( std::istream& is,
         libhmm::LogNormalDistribution& distribution ){
-    std::string s, t;
-    is >> s; //" Mean"
-    is >> s; // "="
-    is >> t;
-    distribution.setMean(std::stod(t));
+    std::string token, mean_str, stddev_str;
+    
+    try {
+        is >> token; //" Mean"
+        is >> token; // "="
+        is >> mean_str;
+        double mean = std::stod(mean_str);
 
-    is >> s; // "Standard"
-    is >> s; // "Deviation"
-    is >> s; // " = "
-    is >> t; // ""
-    distribution.setStandardDeviation(std::stod(t));
+        is >> token; // "Standard"
+        is >> token; // "Deviation"
+        is >> token; // " = "
+        is >> stddev_str;
+        double stdDev = std::stod(stddev_str);
+        
+        if (is.good()) {
+            distribution.setMean(mean);
+            distribution.setStandardDeviation(stdDev);
+        }
+        
+    } catch (const std::exception& e) {
+        // Set error state on stream if parsing fails
+        is.setstate(std::ios::failbit);
+    }
 
     return is;
 }

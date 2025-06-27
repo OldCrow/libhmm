@@ -146,6 +146,11 @@ public:
         }
         return *this;
     }
+    
+    /**
+     * Destructor - explicitly defaulted to satisfy Rule of Five
+     */
+    ~ChiSquaredDistribution() override = default;
 
     /**
      * Computes the probability density function for the Chi-squared distribution.
@@ -154,6 +159,22 @@ public:
      * @return Probability density f(value|k), or 0.0 if value < 0
      */
     double getProbability(Observation value) override;
+    
+    /**
+     * Computes the log probability density function for numerical stability.
+     * 
+     * @param value The value at which to evaluate the log PDF (should be non-negative)
+     * @return Log probability density log(f(value|k)), or -∞ if value < 0
+     */
+    double getLogProbability(Observation value) const;
+    
+    /**
+     * Computes the cumulative distribution function.
+     * 
+     * @param x The value at which to evaluate the CDF
+     * @return P(X ≤ x) for the Chi-squared distribution
+     */
+    double CDF(double x);
 
     /**
      * Fits the distribution parameters to the given data using method of moments estimation.
@@ -252,6 +273,22 @@ private:
     static constexpr double MIN_DEGREES_OF_FREEDOM = 1e-10;  ///< Minimum degrees of freedom
     static constexpr double MAX_DEGREES_OF_FREEDOM = 1e6;    ///< Maximum degrees of freedom for numerical stability
 };
+
+/**
+ * Stream output operator for Chi-squared distribution
+ * @param os Output stream
+ * @param dist Distribution to output
+ * @return Reference to the output stream
+ */
+std::ostream& operator<<(std::ostream& os, const ChiSquaredDistribution& dist);
+
+/**
+ * Stream input operator for Chi-squared distribution
+ * @param is Input stream
+ * @param dist Distribution to input
+ * @return Reference to the input stream
+ */
+std::istream& operator>>(std::istream& is, ChiSquaredDistribution& dist);
 
 } // namespace libhmm
 

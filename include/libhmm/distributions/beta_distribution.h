@@ -45,6 +45,21 @@ private:
     mutable double logBeta_{0.0};
     
     /**
+     * Cached value of (α-1) for efficiency - used in every PDF calculation
+     */
+    mutable double alphaMinus1_{0.0};
+    
+    /**
+     * Cached value of (β-1) for efficiency - used in every PDF calculation
+     */
+    mutable double betaMinus1_{0.0};
+    
+    /**
+     * Cached value of 1/B(α,β) for direct PDF calculation efficiency
+     */
+    mutable double invBeta_{1.0};
+    
+    /**
      * Flag to track if cached values need updating
      */
     mutable bool cacheValid_{false};
@@ -55,7 +70,10 @@ private:
     void updateCache() const noexcept {
         // B(α, β) = Γ(α)Γ(β)/Γ(α+β)
         // log(B(α, β)) = log(Γ(α)) + log(Γ(β)) - log(Γ(α+β))
-        logBeta_ = loggamma(alpha_) + loggamma(beta_) - loggamma(alpha_ + beta_);
+        logBeta_ = std::lgamma(alpha_) + std::lgamma(beta_) - std::lgamma(alpha_ + beta_);
+        invBeta_ = std::exp(-logBeta_);  // Cache 1/B(α,β) for direct computation
+        alphaMinus1_ = alpha_ - 1.0;
+        betaMinus1_ = beta_ - 1.0;
         cacheValid_ = true;
     }
     
@@ -65,7 +83,7 @@ private:
      * @param beta Beta parameter (must be positive and finite)
      * @throws std::invalid_argument if parameters are invalid
      */
-    void validateParameters(double alpha, double beta) const {
+    static void validateParameters(double alpha, double beta) {
         if (std::isnan(alpha) || std::isinf(alpha) || alpha <= 0.0) {
             throw std::invalid_argument("Alpha parameter must be a positive finite number");
         }
@@ -91,7 +109,7 @@ public:
      * @param beta Shape parameter β (must be positive)
      * @throws std::invalid_argument if parameters are not positive finite numbers
      */
-    BetaDistribution(double alpha = 1.0, double beta = 1.0)
+    explicit BetaDistribution(double alpha = 1.0, double beta = 1.0)
         : alpha_{alpha}, beta_{beta} {
         validateParameters(alpha, beta);
         updateCache();
@@ -102,7 +120,9 @@ public:
      */
     BetaDistribution(const BetaDistribution& other) 
         : alpha_{other.alpha_}, beta_{other.beta_}, 
-          logBeta_{other.logBeta_}, cacheValid_{other.cacheValid_} {}
+          logBeta_{other.logBeta_}, alphaMinus1_{other.alphaMinus1_},
+          betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_},
+          cacheValid_{other.cacheValid_} {}
     
     /**
      * Copy assignment operator
@@ -112,6 +132,9 @@ public:
             alpha_ = other.alpha_;
             beta_ = other.beta_;
             logBeta_ = other.logBeta_;
+            alphaMinus1_ = other.alphaMinus1_;
+            betaMinus1_ = other.betaMinus1_;
+            invBeta_ = other.invBeta_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -122,7 +145,9 @@ public:
      */
     BetaDistribution(BetaDistribution&& other) noexcept
         : alpha_{other.alpha_}, beta_{other.beta_}, 
-          logBeta_{other.logBeta_}, cacheValid_{other.cacheValid_} {}
+          logBeta_{other.logBeta_}, alphaMinus1_{other.alphaMinus1_},
+          betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_},
+          cacheValid_{other.cacheValid_} {}
     
     /**
      * Move assignment operator
@@ -132,10 +157,18 @@ public:
             alpha_ = other.alpha_;
             beta_ = other.beta_;
             logBeta_ = other.logBeta_;
+            alphaMinus1_ = other.alphaMinus1_;
+            betaMinus1_ = other.betaMinus1_;
+            invBeta_ = other.invBeta_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
+
+    /**
+     * Default destructor
+     */
+    ~BetaDistribution() = default;
 
     /**
      * Computes the probability density function for the Beta distribution.
@@ -144,6 +177,16 @@ public:
      * @return Probability density, or 0.0 if value is outside [0,1]
      */
     double getProbability(double value) override;
+
+    /**
+     * Computes the logarithm of the probability density function for numerical stability.
+     * 
+     * For Beta distribution: log(f(x)) = (α-1)log(x) + (β-1)log(1-x) - log(B(α,β))
+     * 
+     * @param value The value at which to evaluate the log-PDF (should be in [0,1])
+     * @return Natural logarithm of the probability density, or -∞ for invalid values
+     */
+    double getLogProbability(double value) const noexcept;
 
     /**
      * Fits the distribution parameters to the given data using method of moments.

@@ -17,15 +17,10 @@
 #include "libhmm/calculators/viterbi_traits.h"
 
 // HMMLib includes
-#include "HMMlib/hmm.h"
-#include "HMMlib/nStateHMM.h"
-#include "HMMlib/forwardAlg.h"
-#include "HMMlib/viterbiAlg.h"
+#include "HMMlib/hmm.hpp"
 
 // StochHMM includes
-#include "StochHMM/src/stochMath.h"
-#include "StochHMM/src/hmm.h"
-#include "StochHMM/src/seqTracks.h"
+#include "../StochHMM/source/src/StochHMMlib.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -193,58 +188,58 @@ public:
                                          full_obs_sequence.begin() + sequence_length);
         
         try {
-            // Create HMMLib model
-            HMMLib::nStateHMM* hmm = new HMMLib::nStateHMM();
-            
-            // Set up the model structure
-            hmm->setStates(problem.num_states);
-            hmm->setEmissions(problem.alphabet_size);
+            // Create HMMLib matrices and vectors
+            auto pi_ptr = boost::shared_ptr<hmmlib::HMMVector<double>>(
+                new hmmlib::HMMVector<double>(problem.num_states));
+            auto T_ptr = boost::shared_ptr<hmmlib::HMMMatrix<double>>(
+                new hmmlib::HMMMatrix<double>(problem.num_states, problem.num_states));
+            auto E_ptr = boost::shared_ptr<hmmlib::HMMMatrix<double>>(
+                new hmmlib::HMMMatrix<double>(problem.alphabet_size, problem.num_states));
             
             // Set initial probabilities
             for (int i = 0; i < problem.num_states; ++i) {
-                hmm->setInitial(i, problem.initial_probs[i]);
+                (*pi_ptr)(i) = problem.initial_probs[i];
             }
             
-            // Set transition probabilities
+            // Set transition matrix
             for (int i = 0; i < problem.num_states; ++i) {
                 for (int j = 0; j < problem.num_states; ++j) {
-                    hmm->setTransition(i, j, problem.transition_matrix[i][j]);
+                    (*T_ptr)(i, j) = problem.transition_matrix[i][j];
                 }
             }
             
-            // Set emission probabilities
-            for (int i = 0; i < problem.num_states; ++i) {
-                for (int j = 0; j < problem.alphabet_size; ++j) {
-                    hmm->setEmission(i, j, problem.emission_matrix[i][j]);
+            // Set emission matrix (note: HMMLib uses E(symbol, state) indexing)
+            for (int symbol = 0; symbol < problem.alphabet_size; ++symbol) {
+                for (int state = 0; state < problem.num_states; ++state) {
+                    (*E_ptr)(symbol, state) = problem.emission_matrix[state][symbol];
                 }
             }
             
-            // Convert observation sequence to HMMLib format
-            vector<short> hmmlib_sequence(obs_sequence.size());
-            for (size_t i = 0; i < obs_sequence.size(); ++i) {
-                hmmlib_sequence[i] = static_cast<short>(obs_sequence[i]);
-            }
+            // Create HMMLib HMM
+            hmmlib::HMM<double> hmm(pi_ptr, T_ptr, E_ptr);
             
-            // Forward-Backward benchmark
+            // Prepare data structures for algorithms
+            hmmlib::HMMMatrix<double> F(obs_sequence.size(), problem.num_states);
+            hmmlib::HMMMatrix<double> B(obs_sequence.size(), problem.num_states);
+            hmmlib::HMMVector<double> scales(obs_sequence.size());
+            
+            // Benchmark forward-backward
             auto start = high_resolution_clock::now();
-            HMMLib::forwardAlg forward_alg(hmm);
-            forward_alg.runForward(hmmlib_sequence);
-            double forward_prob = forward_alg.getLogProbability();
+            hmm.forward(obs_sequence, scales, F);
+            hmm.backward(obs_sequence, scales, B);
+            double forward_backward_likelihood = hmm.likelihood(scales);
             auto end = high_resolution_clock::now();
             results.forward_time = duration_cast<microseconds>(end - start).count() / 1000.0;
-            results.likelihood = forward_prob;
+            results.likelihood = forward_backward_likelihood;
             
-            // Viterbi benchmark
+            // Benchmark Viterbi
+            vector<unsigned int> hidden_sequence(obs_sequence.size());
             start = high_resolution_clock::now();
-            HMMLib::viterbiAlg viterbi_alg(hmm);
-            viterbi_alg.runViterbi(hmmlib_sequence);
-            auto viterbi_states = viterbi_alg.getPath();
+            double viterbi_likelihood = hmm.viterbi(obs_sequence, hidden_sequence);
             end = high_resolution_clock::now();
             results.viterbi_time = duration_cast<microseconds>(end - start).count() / 1000.0;
             
             results.success = true;
-            
-            delete hmm;
             
         } catch (const exception& e) {
             cout << "HMMLib Error: " << e.what() << endl;
@@ -272,57 +267,47 @@ public:
                                          full_obs_sequence.begin() + sequence_length);
         
         try {
-            // Create StochHMM model
+            // Create StochHMM model string
+            string model_str = createModelString(problem);
+            
+            // Create sequence string
+            string seq_str = createSequenceString(obs_sequence);
+            
+            // Parse model
             StochHMM::model hmm;
+            hmm.importFromString(model_str);
+            hmm.finalize();
             
-            // Set up alphabet
-            StochHMM::track* tr = new StochHMM::track("observations");
-            for (int i = 0; i < problem.alphabet_size; ++i) {
-                tr->addAlphaName(to_string(i));
-            }
-            hmm.addTrack(tr);
+            // Create sequence object and load from string
+            StochHMM::sequences seqs;
+            StochHMM::sequence* seq = new StochHMM::sequence();
             
-            // Add states
-            for (int i = 0; i < problem.num_states; ++i) {
-                StochHMM::state* st = new StochHMM::state();
-                st->setName("State" + to_string(i));
-                
-                // Set emission probabilities
-                for (int j = 0; j < problem.alphabet_size; ++j) {
-                    st->setEmission(tr, j, log(problem.emission_matrix[i][j]));
-                }
-                
-                // Set initial probability
-                st->setInitial(log(problem.initial_probs[i]));
-                
-                hmm.addState(st);
-            }
+            // Set up sequence data (simplified approach)
+            stringstream seq_stream(seq_str);
+            string line;
+            getline(seq_stream, line); // Skip header
+            getline(seq_stream, line); // Get sequence data
             
-            // Set transition probabilities
-            for (int i = 0; i < problem.num_states; ++i) {
-                for (int j = 0; j < problem.num_states; ++j) {
-                    hmm.setTransition(i, j, log(problem.transition_matrix[i][j]));
-                }
-            }
-            
-            // Convert observation sequence to StochHMM format
-            StochHMM::sequences seqs(&hmm);
-            StochHMM::sequence seq("test_seq");
-            for (size_t i = 0; i < obs_sequence.size(); ++i) {
-                seq.addObservation(to_string(obs_sequence[i]));
-            }
+            // Set sequence using the setSeq method
+            seq->setSeq(line, hmm.getTrack(0));
             seqs.addSeq(seq);
+            
+            // Create trellis
+            StochHMM::trellis trel(&hmm, &seqs);
             
             // Forward-Backward benchmark
             auto start = high_resolution_clock::now();
-            double forward_prob = hmm.forward(&seq);
+            trel.simple_forward();
+            trel.simple_backward();
             auto end = high_resolution_clock::now();
             results.forward_time = duration_cast<microseconds>(end - start).count() / 1000.0;
-            results.likelihood = forward_prob;
+            
+            // Get likelihood
+            results.likelihood = trel.getForwardProbability();
             
             // Viterbi benchmark
             start = high_resolution_clock::now();
-            StochHMM::traceback_path viterbi_path = hmm.viterbi(&seq);
+            trel.simple_viterbi();
             end = high_resolution_clock::now();
             results.viterbi_time = duration_cast<microseconds>(end - start).count() / 1000.0;
             
@@ -336,6 +321,101 @@ public:
         }
         
         return results;
+    }
+
+private:
+    template<typename ProblemType>
+    string createModelString(ProblemType& problem) {
+        stringstream ss;
+        
+        // Model header
+        ss << "#STOCHHMM MODEL FILE\n";
+        ss << "MODEL INFORMATION\n";
+        ss << "======================================================\n";
+        ss << "MODEL_NAME:\t" << problem.name << "\n";
+        ss << "MODEL_DESCRIPTION:\tAuto-generated for benchmarking\n";
+        ss << "\n";
+        
+        // Track symbol definitions
+        ss << "TRACK SYMBOL DEFINITIONS\n";
+        ss << "======================================================\n";
+        string track_name = "TRACK";
+        if (problem.name == "Dishonest Casino") {
+            track_name = "DICE";
+        } else if (problem.name == "Weather Model") {
+            track_name = "WEATHER";
+        }
+        ss << track_name << ":\t";
+        for (int i = 0; i < problem.alphabet_size; ++i) {
+            ss << i;
+            if (i < problem.alphabet_size - 1) ss << ",";
+        }
+        ss << "\n\n";
+        
+        // State definitions header
+        ss << "STATE DEFINITIONS\n";
+        ss << "#############################################\n";
+        
+        // Initial state (if we have initial probabilities)
+        if (problem.initial_probs.size() > 0) {
+            ss << "STATE:\n";
+            ss << "\tNAME:\tINIT\n";
+            ss << "TRANSITION:\tSTANDARD: P(X)\n";
+            for (int j = 0; j < problem.num_states; ++j) {
+                ss << "\tState" << j << ":\t" << problem.initial_probs[j] << "\n";
+            }
+            ss << "#############################################\n";
+        }
+        
+        // States section
+        for (int i = 0; i < problem.num_states; ++i) {
+            ss << "STATE:\n";
+            ss << "\tNAME:\tState" << i << "\n";
+            ss << "\tPATH_LABEL:\tS" << i << "\n";
+            
+            // Transition probabilities
+            ss << "TRANSITION:\tSTANDARD: P(X)\n";
+            for (int j = 0; j < problem.num_states; ++j) {
+                ss << "\tState" << j << ":\t" << problem.transition_matrix[i][j] << "\n";
+            }
+            ss << "\tEND:\t1\n";
+            
+            // Emission probabilities
+            string track_name = "TRACK";
+            if (problem.name == "Dishonest Casino") {
+                track_name = "DICE";
+            } else if (problem.name == "Weather Model") {
+                track_name = "WEATHER";
+            }
+            ss << "EMISSION:\t" << track_name << ": P(X)\n";
+            ss << "\tORDER:\t0\n";
+            ss << "@";
+            for (int k = 0; k < problem.alphabet_size; ++k) {
+                ss << k;
+                if (k < problem.alphabet_size - 1) ss << "\t\t";
+            }
+            ss << "\n";
+            for (int k = 0; k < problem.alphabet_size; ++k) {
+                ss << problem.emission_matrix[i][k];
+                if (k < problem.alphabet_size - 1) ss << "\t";
+            }
+            ss << "\n";
+            ss << "#############################################\n";
+        }
+        
+        ss << "//END\n";
+        
+        return ss.str();
+    }
+    
+    string createSequenceString(const vector<unsigned int>& sequence) {
+        stringstream ss;
+        ss << ">test_sequence\n";
+        for (size_t i = 0; i < sequence.size(); ++i) {
+            ss << sequence[i];
+        }
+        ss << "\n";
+        return ss.str();
     }
 };
 

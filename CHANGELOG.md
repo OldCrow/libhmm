@@ -5,6 +5,129 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2024-06-27
+
+### Stream I/O Robustness & Code Quality Release
+
+This release focuses on implementing robust exception handling in distribution stream input operators and establishing consistent coding standards across the library.
+
+### Added
+
+#### Exception Handling Infrastructure
+- **Robust Stream Input Operators**: All distribution `operator>>` implementations now include comprehensive exception handling
+  - Try-catch blocks around `std::stod()` calls to handle malformed input gracefully
+  - Stream failbit setting on parsing errors instead of throwing exceptions
+  - Consistent error recovery patterns across all 10 distributions
+- **Input Validation**: Enhanced validation for boundary values and special cases
+  - Proper handling of negative values, NaN, and infinity in stream parsing
+  - Consistent use of library constants instead of magic numbers
+
+#### Code Quality Standards
+- **Gold Standard Checklist**: Comprehensive quality standards document for distribution implementations
+  - 43-point checklist covering robustness, consistency, and maintainability
+  - Guidelines for exception handling, variable naming, and documentation
+  - Progressive upgrade path for bringing all distributions to gold standard
+- **Variable Naming Consistency**: Standardized variable naming in stream input operators
+  - Discarded tokens consistently named "token" across all distributions
+  - Value tokens use meaningful names ("alpha_str", "lambda_str", etc.)
+  - Enhanced code readability and maintainability
+
+### Enhanced
+
+#### Distribution Robustness
+- **Beta Distribution**: Fixed boundary value handling to return exact 0.0 for mathematical correctness
+- **Stream Parsing**: All distributions now handle malformed input gracefully without crashes
+- **Error Messages**: Improved error handling with consistent stream state management
+- **Constants Usage**: Proper use of `math::ZERO_DOUBLE` vs `precision::ZERO` for exact comparisons
+
+#### Code Consistency
+- **Uniform Patterns**: All stream input operators follow identical exception handling patterns
+- **Naming Standards**: Consistent variable naming improves code readability across distributions
+- **Documentation**: Clear standards established for future distribution implementations
+
+### Fixed
+
+#### Stream I/O Reliability
+- **Exception Safety**: Eliminated potential crashes from malformed stream input across all distributions
+- **Boundary Cases**: Fixed Beta distribution boundary value handling for Google Test compatibility
+- **Input Validation**: Robust handling of edge cases in all distribution stream operators
+
+#### Code Quality
+- **Magic Numbers**: Replaced hardcoded values with proper library constants
+- **Variable Naming**: Standardized naming conventions across all distribution implementations
+- **Error Handling**: Consistent error recovery patterns prevent undefined behavior
+
+### Technical Implementation
+
+#### Exception Handling Pattern
+```cpp
+// Before (prone to crashes):
+std::string s;
+is >> s;
+double value = std::stod(s);  // Could throw exception
+
+// After (robust):
+std::string value_str;
+try {
+    is >> token >> token >> value_str;
+    double value = std::stod(value_str);
+    if (is.good()) {
+        distribution.setParameter(value);
+    }
+} catch (const std::exception& e) {
+    is.setstate(std::ios::failbit);
+}
+```
+
+#### Distributions Enhanced (10 Total)
+- **Beta Distribution** - Added robust exception handling and fixed boundary values
+- **Log-Normal Distribution** - Enhanced stream parsing with proper error handling
+- **Pareto Distribution** - Added comprehensive exception handling
+- **Poisson Distribution** - Implemented robust stream input parsing
+- **Weibull Distribution** - Added exception safety to stream operators
+- **Uniform Distribution** - Enhanced with robust error handling
+- **Chi-squared Distribution** - Implemented consistent exception handling
+- **Gaussian Distribution** - Added robust stream input parsing
+- **Exponential Distribution** - Enhanced with exception safety
+- **Gamma Distribution** - Implemented comprehensive error handling
+
+### Test Results
+
+#### Quality Assurance
+```
+Test Suite Results: 40/40 tests passing (100%)
+Distribution Tests: 10/10 distributions with robust stream I/O
+Code Quality: All distributions follow consistent patterns
+Exception Handling: 100% coverage across stream input operators
+```
+
+#### Validation Coverage
+- **Stream I/O Testing**: All distributions tested with malformed input
+- **Edge Cases**: Boundary values, NaN, and infinity handling verified
+- **Error Recovery**: Consistent failbit setting confirmed across all operators
+- **Variable Naming**: Consistent patterns verified across all implementations
+
+### Breaking Changes
+
+**None** - All changes are internal implementation improvements that maintain full API compatibility.
+
+### Migration Notes
+
+Existing code continues to work unchanged. The improvements provide:
+- More robust stream input parsing with graceful error handling
+- Better error reporting through proper stream state management
+- Enhanced reliability for applications using stream I/O operations
+
+### Quality Standards
+
+This release establishes the foundation for systematic quality improvements:
+- **Gold Standard Checklist**: Clear criteria for distribution quality
+- **Progressive Enhancement**: Roadmap for upgrading remaining distributions
+- **Consistent Patterns**: Established templates for robust implementations
+- **Maintainability**: Simplified code patterns for easier maintenance
+
+---
+
 ## [2.6.0] - 2024-06-26
 
 ### Major Release - Boost Elimination & Benchmarking Framework

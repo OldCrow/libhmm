@@ -5,12 +5,10 @@
 #include <cmath>
 #include <cassert>
 #include <stdexcept>
+#include <sstream>
+#include <iomanip>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 namespace libhmm{
 
@@ -54,6 +52,21 @@ private:
     mutable double negHalfSigmaSquaredInv_{0.0};
     
     /**
+     * Cached log(σ) for efficiency in log probability calculations
+     */
+    mutable double logStandardDeviation_{0.0};
+    
+    /**
+     * Cached σ√2 for efficiency in CDF calculations
+     */
+    mutable double sigmaSqrt2_{0.0};
+    
+    /**
+     * Cached 1/σ for efficiency in log probability calculations
+     */
+    mutable double invStandardDeviation_{0.0};
+    
+    /**
      * Flag to track if cached values need updating
      */
     mutable bool cacheValid_{false};
@@ -62,9 +75,12 @@ private:
      * Updates cached values when parameters change
      */
     void updateCache() const noexcept {
-        double sigma2 = standardDeviation_ * standardDeviation_;
-        normalizationConstant_ = 1.0 / (standardDeviation_ * std::sqrt(2.0 * M_PI));
+        const double sigma2 = standardDeviation_ * standardDeviation_;
+        invStandardDeviation_ = 1.0 / standardDeviation_;
+        normalizationConstant_ = invStandardDeviation_ / constants::math::SQRT_2PI;
         negHalfSigmaSquaredInv_ = -0.5 / sigma2;
+        logStandardDeviation_ = std::log(standardDeviation_);
+        sigmaSqrt2_ = standardDeviation_ * constants::math::SQRT_2;
         cacheValid_ = true;
     }
     
@@ -74,7 +90,7 @@ private:
      * @param stdDev Standard deviation parameter (must be positive and finite)
      * @throws std::invalid_argument if parameters are invalid
      */
-    void validateParameters(double mean, double stdDev) const {
+    static void validateParameters(double mean, double stdDev) {
         if (std::isnan(mean) || std::isinf(mean)) {
             throw std::invalid_argument("Mean must be a finite number");
         }
@@ -82,11 +98,6 @@ private:
             throw std::invalid_argument("Standard deviation must be a positive finite number");
         }
     }
-
-    /**
-     * Evaluates the CDF at x using the error function
-     */
-    double CDF(double x) noexcept;
 
     friend std::istream& operator>>(std::istream& is,
             libhmm::GaussianDistribution& distribution);
@@ -99,9 +110,8 @@ public:
      * @param standardDeviation Standard deviation parameter σ (must be positive)
      * @throws std::invalid_argument if parameters are invalid
      */
-    GaussianDistribution(double mean = 0.0, double standardDeviation = 1.0)
-        : mean_{mean}, standardDeviation_{standardDeviation}, 
-          normalizationConstant_{0.0}, negHalfSigmaSquaredInv_{0.0}, cacheValid_{false} {
+    explicit GaussianDistribution(double mean = 0.0, double standardDeviation = 1.0)
+        : mean_{mean}, standardDeviation_{standardDeviation} {
         validateParameters(mean, standardDeviation);
         updateCache();
     }
@@ -112,7 +122,9 @@ public:
     GaussianDistribution(const GaussianDistribution& other) 
         : mean_{other.mean_}, standardDeviation_{other.standardDeviation_}, 
           normalizationConstant_{other.normalizationConstant_}, 
-          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_}, 
+          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_},
+          logStandardDeviation_{other.logStandardDeviation_},
+          sigmaSqrt2_{other.sigmaSqrt2_}, invStandardDeviation_{other.invStandardDeviation_},
           cacheValid_{other.cacheValid_} {}
     
     /**
@@ -124,6 +136,9 @@ public:
             standardDeviation_ = other.standardDeviation_;
             normalizationConstant_ = other.normalizationConstant_;
             negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
+            logStandardDeviation_ = other.logStandardDeviation_;
+            sigmaSqrt2_ = other.sigmaSqrt2_;
+            invStandardDeviation_ = other.invStandardDeviation_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -135,7 +150,9 @@ public:
     GaussianDistribution(GaussianDistribution&& other) noexcept
         : mean_{other.mean_}, standardDeviation_{other.standardDeviation_}, 
           normalizationConstant_{other.normalizationConstant_}, 
-          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_}, 
+          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_},
+          logStandardDeviation_{other.logStandardDeviation_},
+          sigmaSqrt2_{other.sigmaSqrt2_}, invStandardDeviation_{other.invStandardDeviation_},
           cacheValid_{other.cacheValid_} {}
     
     /**
@@ -147,18 +164,46 @@ public:
             standardDeviation_ = other.standardDeviation_;
             normalizationConstant_ = other.normalizationConstant_;
             negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
+            logStandardDeviation_ = other.logStandardDeviation_;
+            sigmaSqrt2_ = other.sigmaSqrt2_;
+            invStandardDeviation_ = other.invStandardDeviation_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
+    
+    /**
+     * Destructor - explicitly defaulted to satisfy Rule of Five
+     */
+    ~GaussianDistribution() override = default;
 
     /**
      * Computes the probability density function for the Gaussian distribution.
+     * Formula: PDF(x) = (1/(σ√(2π))) * exp(-½((x-μ)/σ)²)
      * 
-     * @param value The value at which to evaluate the PDF
+     * @param x The value at which to evaluate the PDF
      * @return Probability density
      */
-    double getProbability(double value) override;
+    [[nodiscard]] double getProbability(double x) override;
+    
+    /**
+     * Evaluates the logarithm of the probability density function
+     * Formula: log PDF(x) = -½log(2π) - log(σ) - ½((x-μ)/σ)²
+     * More numerically stable for small probabilities
+     * 
+     * @param x The value at which to evaluate the log PDF
+     * @return Log probability density
+     */
+    [[nodiscard]] double getLogProbability(double x) noexcept;
+
+    /**
+     * Evaluates the CDF at x using the error function
+     * Formula: CDF(x) = (1/2) * (1 + erf((x-μ)/(σ√2)))
+     * 
+     * @param x The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ x)
+     */
+    [[nodiscard]] double CDF(double x) noexcept;
 
     /**
      * Fits the distribution parameters to the given data using maximum likelihood estimation.
@@ -242,6 +287,20 @@ public:
         standardDeviation_ = stdDev;
         cacheValid_ = false;
     }
+    
+    /**
+     * Equality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are equal within tolerance
+     */
+    bool operator==(const GaussianDistribution& other) const;
+    
+    /**
+     * Inequality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are not equal
+     */
+    bool operator!=(const GaussianDistribution& other) const { return !(*this == other); }
 
 };
 

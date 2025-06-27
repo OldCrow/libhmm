@@ -6,11 +6,11 @@
 #include <iostream>
 #include <iomanip>
 #include <cstring>
+#include <numeric>
+#include <algorithm>
+#include "basic_vector.h"
 
 namespace libhmm {
-
-// Forward declaration
-template<typename T> class BasicVector;
 
 /**
  * Lightweight Matrix class designed to replace boost::numeric::ublas::matrix
@@ -249,6 +249,168 @@ public:
         for (size_type i = 0; i < rows_; ++i) {
             (*this)(i, col_index) = vec[i];
         }
+    }
+    
+    /**
+     * Matrix transpose - creates a new transposed matrix
+     * Essential for HMM algorithms (A^T operations)
+     */
+    BasicMatrix transpose() const {
+        BasicMatrix result(cols_, rows_);
+        for (size_type i = 0; i < rows_; ++i) {
+            for (size_type j = 0; j < cols_; ++j) {
+                result(j, i) = (*this)(i, j);
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * In-place transpose for square matrices
+     * More efficient for square matrices
+     */
+    BasicMatrix& transpose_inplace() {
+        if (rows_ != cols_) {
+            throw std::invalid_argument("In-place transpose only supported for square matrices");
+        }
+        for (size_type i = 0; i < rows_; ++i) {
+            for (size_type j = i + 1; j < cols_; ++j) {
+                std::swap((*this)(i, j), (*this)(j, i));
+            }
+        }
+        return *this;
+    }
+    
+    /**
+     * Matrix-vector multiplication: y = A * x
+     * Critical for HMM forward/backward algorithms
+     */
+    BasicVector<T> multiply(const BasicVector<T>& vec) const {
+        if (cols_ != vec.size()) {
+            throw std::invalid_argument("Matrix columns must match vector size for multiplication");
+        }
+        BasicVector<T> result(rows_);
+        for (size_type i = 0; i < rows_; ++i) {
+            T sum = T{};
+            for (size_type j = 0; j < cols_; ++j) {
+                sum += (*this)(i, j) * vec[j];
+            }
+            result[i] = sum;
+        }
+        return result;
+    }
+    
+    /**
+     * Matrix-matrix multiplication: C = A * B
+     * Essential for transition matrix computations
+     */
+    BasicMatrix multiply(const BasicMatrix& other) const {
+        if (cols_ != other.rows_) {
+            throw std::invalid_argument("Matrix dimensions incompatible for multiplication");
+        }
+        BasicMatrix result(rows_, other.cols_);
+        for (size_type i = 0; i < rows_; ++i) {
+            for (size_type j = 0; j < other.cols_; ++j) {
+                T sum = T{};
+                for (size_type k = 0; k < cols_; ++k) {
+                    sum += (*this)(i, k) * other(k, j);
+                }
+                result(i, j) = sum;
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * Element-wise (Hadamard) multiplication
+     * Useful for masking operations in HMM
+     */
+    BasicMatrix& element_multiply(const BasicMatrix& other) {
+        if (rows_ != other.rows_ || cols_ != other.cols_) {
+            throw std::invalid_argument("Matrix dimensions must match for element-wise multiplication");
+        }
+        for (size_type i = 0; i < data_.size(); ++i) {
+            data_[i] *= other.data_[i];
+        }
+        return *this;
+    }
+    
+    /**
+     * Sum of all elements
+     * Useful for normalization in HMM
+     */
+    T sum() const {
+        return std::accumulate(data_.begin(), data_.end(), T{});
+    }
+    
+    /**
+     * Row sums - returns vector of row sums
+     * Critical for probability normalization
+     */
+    BasicVector<T> row_sums() const {
+        BasicVector<T> result(rows_);
+        for (size_type i = 0; i < rows_; ++i) {
+            T sum = T{};
+            for (size_type j = 0; j < cols_; ++j) {
+                sum += (*this)(i, j);
+            }
+            result[i] = sum;
+        }
+        return result;
+    }
+    
+    /**
+     * Column sums - returns vector of column sums
+     * Critical for probability normalization
+     */
+    BasicVector<T> column_sums() const {
+        BasicVector<T> result(cols_);
+        for (size_type j = 0; j < cols_; ++j) {
+            T sum = T{};
+            for (size_type i = 0; i < rows_; ++i) {
+                sum += (*this)(i, j);
+            }
+            result[j] = sum;
+        }
+        return result;
+    }
+    
+    /**
+     * Normalize rows to sum to 1.0
+     * Essential for stochastic matrices in HMM
+     */
+    BasicMatrix& normalize_rows() {
+        for (size_type i = 0; i < rows_; ++i) {
+            T row_sum = T{};
+            for (size_type j = 0; j < cols_; ++j) {
+                row_sum += (*this)(i, j);
+            }
+            if (row_sum > T{}) {
+                for (size_type j = 0; j < cols_; ++j) {
+                    (*this)(i, j) /= row_sum;
+                }
+            }
+        }
+        return *this;
+    }
+    
+    /**
+     * Normalize columns to sum to 1.0
+     * Essential for emission matrices in HMM
+     */
+    BasicMatrix& normalize_columns() {
+        for (size_type j = 0; j < cols_; ++j) {
+            T col_sum = T{};
+            for (size_type i = 0; i < rows_; ++i) {
+                col_sum += (*this)(i, j);
+            }
+            if (col_sum > T{}) {
+                for (size_type i = 0; i < rows_; ++i) {
+                    (*this)(i, j) /= col_sum;
+                }
+            }
+        }
+        return *this;
     }
 };
 

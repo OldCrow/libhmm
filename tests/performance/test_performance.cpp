@@ -179,8 +179,8 @@ TEST_F(PerformanceTest, ScaledSIMDForwardBackwardCalculator) {
     // Test basic functionality
     EXPECT_NO_THROW(simdCalc.getProbability());
     
-    const Matrix simdForward = simdCalc.getForwardVariables();
-    const Matrix simdBackward = simdCalc.getBackwardVariables();
+    const Matrix simdForward = simdCalc.getForwardVariablesCompat();
+    const Matrix simdBackward = simdCalc.getBackwardVariablesCompat();
     
     EXPECT_EQ(simdForward.size1(), observations_.size());
     EXPECT_EQ(simdForward.size2(), static_cast<std::size_t>(hmm_->getNumStates()));

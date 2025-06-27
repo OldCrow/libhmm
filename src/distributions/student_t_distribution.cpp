@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <sstream>
 
+using namespace libhmm::constants;
+
 namespace libhmm {
 
 StudentTDistribution::StudentTDistribution()
@@ -118,8 +120,8 @@ void StudentTDistribution::fit(const std::vector<Observation>& values) {
         double estimated_df = 2.0 * variance / (variance - 1.0);
         
         // Clamp to reasonable bounds
-        estimated_df = std::max(MIN_DEGREES_OF_FREEDOM, 
-                               std::min(MAX_DEGREES_OF_FREEDOM, estimated_df));
+        estimated_df = std::max(thresholds::MIN_DEGREES_OF_FREEDOM, 
+                               std::min(thresholds::MAX_DEGREES_OF_FREEDOM, estimated_df));
         
         setDegreesOfFreedom(estimated_df);
     } else {

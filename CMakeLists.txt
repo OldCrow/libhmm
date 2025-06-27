@@ -5,8 +5,60 @@ if(POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
 endif()
 
+# Configure C/C++ compilers with LLVM preference on macOS
+# NOTE: LLVM detection temporarily commented out due to runtime segfault issues
+#       on macOS 10.15 (2012 MacBook Pro). Compilation works but runtime fails.
+# TODO: Investigate LLVM 19/20 runtime compatibility issues for future use
+# if(APPLE AND NOT CMAKE_CXX_COMPILER)
+#     # Try to find LLVM compilers in order of preference: 20 -> 19 -> Apple Clang
+#     find_program(LLVM20_CXX_COMPILER
+#         NAMES clang++
+#         PATHS /usr/local/Cellar/llvm/20.1.7/bin
+#         NO_DEFAULT_PATH
+#     )
+#     
+#     find_program(LLVM20_C_COMPILER
+#         NAMES clang
+#         PATHS /usr/local/Cellar/llvm/20.1.7/bin
+#         NO_DEFAULT_PATH
+#     )
+#     
+#     find_program(LLVM19_CXX_COMPILER
+#         NAMES clang++
+#         PATHS /usr/local/Cellar/llvm@19/19.1.7/bin
+#         NO_DEFAULT_PATH
+#     )
+#     
+#     find_program(LLVM19_C_COMPILER
+#         NAMES clang
+#         PATHS /usr/local/Cellar/llvm@19/19.1.7/bin
+#         NO_DEFAULT_PATH
+#     )
+#     
+#     if(LLVM20_CXX_COMPILER AND LLVM20_C_COMPILER)
+#         set(CMAKE_CXX_COMPILER ${LLVM20_CXX_COMPILER})
+#         set(CMAKE_C_COMPILER ${LLVM20_C_COMPILER})
+#         message(STATUS "Using LLVM 20 compilers:")
+#         message(STATUS "  C++: ${CMAKE_CXX_COMPILER}")
+#         message(STATUS "  C:   ${CMAKE_C_COMPILER}")
+#     elseif(LLVM19_CXX_COMPILER AND LLVM19_C_COMPILER)
+#         set(CMAKE_CXX_COMPILER ${LLVM19_CXX_COMPILER})
+#         set(CMAKE_C_COMPILER ${LLVM19_C_COMPILER})
+#         message(STATUS "Using LLVM 19 compilers:")
+#         message(STATUS "  C++: ${CMAKE_CXX_COMPILER}")
+#         message(STATUS "  C:   ${CMAKE_C_COMPILER}")
+#     else()
+#         message(STATUS "LLVM not found, falling back to system compiler")
+#     endif()
+# endif()
+
+# Default to system compiler (Apple Clang on macOS)
+if(APPLE AND NOT CMAKE_CXX_COMPILER)
+    message(STATUS "Using system compiler (Apple Clang) for stability")
+endif()
+
 project(libhmm
-    VERSION 2.5.0
+    VERSION 2.7.0
     DESCRIPTION "Modern C++17 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -20,6 +72,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 option(BUILD_EXAMPLES "Build example programs" ON)
 option(BUILD_TESTS "Build test programs" ON)
+option(ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" ON)
+option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis during build" OFF)
+option(ENABLE_CPPCHECK "Enable cppcheck analysis" ON)
 
 # Platform detection and setup
 if(APPLE)
@@ -96,7 +151,7 @@ set(LIBHMM_SOURCES
     src/distributions/negative_binomial_distribution.cpp
     src/distributions/student_t_distribution.cpp
     src/distributions/chi_squared_distribution.cpp
-src/calculators/forward_backward_calculator.cpp
+    src/calculators/forward_backward_calculator.cpp
     src/calculators/log_simd_forward_backward_calculator.cpp
     src/calculators/scaled_simd_forward_backward_calculator.cpp
     src/calculators/viterbi_calculator.cpp
@@ -118,6 +173,30 @@ src/calculators/forward_backward_calculator.cpp
 
 # Create the library
 add_library(hmm ${LIBHMM_SOURCES})
+
+# Enable clang-tidy if requested
+if(ENABLE_CLANG_TIDY)
+    # Try to find clang-tidy in common Homebrew locations
+    find_program(CLANG_TIDY_EXE 
+        NAMES clang-tidy
+        PATHS 
+            /usr/local/Cellar/llvm/20.1.7/bin
+            /usr/local/Cellar/llvm@19/19.1.7/bin
+            /opt/homebrew/bin
+            /usr/local/bin
+        NO_DEFAULT_PATH
+    )
+    
+    if(CLANG_TIDY_EXE)
+        message(STATUS "Found clang-tidy: ${CLANG_TIDY_EXE}")
+        set_target_properties(
+            hmm PROPERTIES
+            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-quiet"
+        )
+    else()
+        message(WARNING "clang-tidy requested but not found - skipping static analysis")
+    endif()
+endif()
 
 # Set library properties with cross-platform considerations
 set_target_properties(hmm PROPERTIES

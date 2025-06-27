@@ -4,6 +4,8 @@
 #include <cassert>
 #include <stdexcept>
 #include <limits>
+#include <chrono>
+#include <sstream>
 #include "libhmm/distributions/chi_squared_distribution.h"
 
 using libhmm::ChiSquaredDistribution;
@@ -348,6 +350,179 @@ void testGammaRelationship() {
 }
 
 /**
+ * Test log probability calculations
+ */
+void testLogProbabilities() {
+    std::cout << "Testing log probability calculations..." << std::endl;
+    
+    ChiSquaredDistribution chi_dist(3.0);
+    
+    // Test that log probability is -infinity for negative values
+    assert(std::isinf(chi_dist.getLogProbability(-0.1)) && chi_dist.getLogProbability(-0.1) < 0);
+    assert(std::isinf(chi_dist.getLogProbability(-1.0)) && chi_dist.getLogProbability(-1.0) < 0);
+    
+    // Test that log probability is finite for positive values
+    assert(std::isfinite(chi_dist.getLogProbability(0.5)));
+    assert(std::isfinite(chi_dist.getLogProbability(1.0)));
+    assert(std::isfinite(chi_dist.getLogProbability(2.0)));
+    
+    // Test consistency between log and regular probability
+    double x = 1.5;
+    double prob = chi_dist.getProbability(x);
+    double log_prob = chi_dist.getLogProbability(x);
+    assert(std::abs(std::log(prob) - log_prob) < 1e-10);
+    
+    // Test special case for df < 2 at x = 0
+    ChiSquaredDistribution chi_1(1.0);
+    assert(std::isinf(chi_1.getLogProbability(0.0)) && chi_1.getLogProbability(0.0) > 0);
+    
+    // Test special case for df = 2 at x = 0
+    ChiSquaredDistribution chi_2(2.0);
+    assert(std::isfinite(chi_2.getLogProbability(0.0)));
+    
+    std::cout << "✓ Log probability calculation tests passed" << std::endl;
+}
+
+/**
+ * Test CDF calculations
+ */
+void testCDF() {
+    std::cout << "Testing CDF calculations..." << std::endl;
+    
+    ChiSquaredDistribution chi_dist(4.0);
+    
+    // Test CDF values at boundaries
+    assert(chi_dist.CDF(-1.0) == 0.0);  // Below support
+    assert(chi_dist.CDF(0.0) == 0.0);   // At lower bound
+    
+    // Test CDF is monotonically increasing
+    assert(chi_dist.CDF(1.0) < chi_dist.CDF(2.0));
+    assert(chi_dist.CDF(2.0) < chi_dist.CDF(4.0));
+    assert(chi_dist.CDF(4.0) < chi_dist.CDF(8.0));
+    
+    // Test CDF approaches 1 for large values
+    assert(chi_dist.CDF(100.0) > 0.99);
+    
+    // Test with NaN
+    assert(std::isnan(chi_dist.CDF(std::numeric_limits<double>::quiet_NaN())));
+    
+    // Test known values for Chi-squared(2) which is exponential-like
+    ChiSquaredDistribution chi_2(2.0);
+    // For Chi-squared(2): CDF(x) = 1 - exp(-x/2)
+    double cdf_at_2 = chi_2.CDF(2.0);
+    double expected_cdf = 1.0 - std::exp(-1.0);  // 1 - exp(-2/2)
+    
+    std::cout << "CDF at x=2: " << cdf_at_2 << ", Expected: " << expected_cdf 
+              << ", Difference: " << std::abs(cdf_at_2 - expected_cdf) << std::endl;
+    
+    // Use precision constant for numerical tolerance
+    // CDF calculations involving gamma functions need slightly more tolerance
+    using namespace libhmm::constants;
+    assert(std::abs(cdf_at_2 - expected_cdf) < precision::LIMIT_TOLERANCE);
+    
+    std::cout << "✓ CDF calculation tests passed" << std::endl;
+}
+
+/**
+ * Test equality operators and I/O
+ */
+void testEqualityAndIO() {
+    std::cout << "Testing equality operators and I/O..." << std::endl;
+    
+    ChiSquaredDistribution chi1(3.5);
+    ChiSquaredDistribution chi2(3.5);
+    ChiSquaredDistribution chi3(4.0);
+    
+    // Test equality operator
+    assert(chi1 == chi2);
+    assert(!(chi1 == chi3));
+    
+    // Test stream output
+    std::ostringstream oss;
+    oss << chi1;
+    std::string output = oss.str();
+    assert(output.find("ChiSquared Distribution") != std::string::npos);
+    assert(output.find("3.5") != std::string::npos);
+    
+    std::cout << "Stream output: " << output << std::endl;
+    
+    // Test stream input (basic format check)
+    std::istringstream iss("ChiSquared Distribution: k = 6.75");
+    ChiSquaredDistribution inputDist;
+    iss >> inputDist;
+    
+    if (iss.good()) {
+        assert(std::abs(inputDist.getDegreesOfFreedom() - 6.75) < 1e-10);
+    }
+    
+    std::cout << "✓ Equality and I/O tests passed" << std::endl;
+}
+
+/**
+ * Test caching mechanism
+ */
+void testCaching() {
+    std::cout << "Testing caching mechanism..." << std::endl;
+    
+    ChiSquaredDistribution chi_dist(3.0);
+    
+    // First call should update cache
+    double prob1 = chi_dist.getProbability(2.0);
+    double logProb1 = chi_dist.getLogProbability(2.0);
+    
+    // Second call should use cached values
+    double prob2 = chi_dist.getProbability(2.5);
+    double logProb2 = chi_dist.getLogProbability(2.5);
+    
+    // Both should be valid
+    assert(std::isfinite(prob1) && prob1 > 0.0);
+    assert(std::isfinite(prob2) && prob2 > 0.0);
+    assert(std::isfinite(logProb1));
+    assert(std::isfinite(logProb2));
+    
+    // Changing parameters should invalidate cache
+    chi_dist.setDegreesOfFreedom(5.0);
+    double prob3 = chi_dist.getProbability(2.0);
+    assert(prob3 != prob1);  // Should be different now
+    
+    // Reset should also invalidate cache
+    chi_dist.reset();
+    double prob4 = chi_dist.getProbability(2.0);
+    assert(prob4 != prob3);  // Should be different after reset
+    
+    std::cout << "✓ Caching mechanism tests passed" << std::endl;
+}
+
+/**
+ * Test performance characteristics
+ */
+void testPerformance() {
+    std::cout << "Testing performance characteristics..." << std::endl;
+    
+    ChiSquaredDistribution chi_dist(4.0);
+    
+    // Time multiple probability calculations
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    for (int i = 0; i < 10000; ++i) {
+        double x = 0.1 * i;
+        chi_dist.getProbability(x);
+        chi_dist.getLogProbability(x);
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    
+    std::cout << "10,000 probability calculations took " << duration << " μs" << std::endl;
+    
+    // Verify calculations are still correct after performance test
+    assert(std::isfinite(chi_dist.getProbability(1.0)));
+    assert(std::isfinite(chi_dist.getLogProbability(1.0)));
+    
+    std::cout << "✓ Performance tests passed" << std::endl;
+}
+
+/**
  * Main test function
  */
 int main() {
@@ -365,6 +540,11 @@ int main() {
         testEqualityOperators();
         testEdgeCases();
         testGammaRelationship();
+        testLogProbabilities();
+        testCDF();
+        testEqualityAndIO();
+        testCaching();
+        testPerformance();
         
         std::cout << std::endl;
         std::cout << "🎉 All Chi-squared distribution tests passed!" << std::endl;

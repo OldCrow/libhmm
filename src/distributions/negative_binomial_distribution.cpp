@@ -3,6 +3,8 @@
 #include <numeric>
 #include <algorithm>
 
+using namespace libhmm::constants;
+
 namespace libhmm
 {
 
@@ -18,18 +20,18 @@ namespace libhmm
 double NegativeBinomialDistribution::getProbability(double value) {
     // Validate input - discrete distributions only accept non-negative integer values
     if (std::isnan(value) || std::isinf(value)) {
-        return 0.0;
+        return math::ZERO_DOUBLE;
     }
     
     // Round to nearest integer and check if it's in valid range
     int k = static_cast<int>(std::round(value));
     if (k < 0) {
-        return 0.0;
+        return math::ZERO_DOUBLE;
     }
     
     // Handle edge cases
-    if (p_ == 1.0) {
-        return (k == 0) ? 1.0 : 0.0;
+    if (p_ == math::ONE) {
+        return (k == 0) ? math::ONE : math::ZERO_DOUBLE;
     }
     
     // Ensure cache is valid
@@ -45,11 +47,11 @@ double NegativeBinomialDistribution::getProbability(double value) {
     const double prob = std::exp(logProb);
     
     // Ensure numerical stability
-    if (std::isnan(prob) || prob < 0.0) {
-        return 0.0;
+    if (std::isnan(prob) || prob < math::ZERO_DOUBLE) {
+        return math::ZERO_DOUBLE;
     }
     
-    assert(prob <= 1.0);
+    assert(prob <= math::ONE);
     return prob;
 }
 
@@ -83,7 +85,7 @@ void NegativeBinomialDistribution::fit(const std::vector<Observation>& values) {
     // Filter valid non-negative observations
     std::vector<double> validObs;
     for (const auto& val : values) {
-        if (val >= 0.0 && !std::isnan(val) && !std::isinf(val)) {
+        if (val >= math::ZERO_DOUBLE && !std::isnan(val) && !std::isinf(val)) {
             validObs.push_back(val);
         }
     }
@@ -94,11 +96,11 @@ void NegativeBinomialDistribution::fit(const std::vector<Observation>& values) {
     }
 
     // Calculate sample mean
-    const double sum = std::accumulate(validObs.begin(), validObs.end(), 0.0);
+    const double sum = std::accumulate(validObs.begin(), validObs.end(), math::ZERO_DOUBLE);
     const double sampleMean = sum / static_cast<double>(validObs.size());
     
     // Calculate sample variance (using sample variance with N-1 denominator)
-    double sumSquaredDiffs = 0.0;
+    double sumSquaredDiffs = math::ZERO_DOUBLE;
     for (const auto& val : validObs) {
         const double diff = val - sampleMean;
         sumSquaredDiffs += diff * diff;
@@ -106,7 +108,7 @@ void NegativeBinomialDistribution::fit(const std::vector<Observation>& values) {
     const double sampleVariance = sumSquaredDiffs / static_cast<double>(validObs.size() - 1);
     
     // Check if negative binomial is appropriate (requires variance > mean for over-dispersion)
-    if (sampleVariance <= sampleMean || sampleMean <= 0.0) {
+    if (sampleVariance <= sampleMean || sampleMean <= math::ZERO_DOUBLE) {
         reset(); // Fall back to default parameters
         return;
     }
@@ -116,8 +118,8 @@ void NegativeBinomialDistribution::fit(const std::vector<Observation>& values) {
     const double rHat = (sampleMean * sampleMean) / (sampleVariance - sampleMean);
     
     // Validate estimated parameters
-    if (std::isnan(pHat) || std::isinf(pHat) || pHat <= 0.0 || pHat > 1.0 ||
-        std::isnan(rHat) || std::isinf(rHat) || rHat <= 0.0) {
+    if (std::isnan(pHat) || std::isinf(pHat) || pHat <= math::ZERO_DOUBLE || pHat > math::ONE ||
+        std::isnan(rHat) || std::isinf(rHat) || rHat <= math::ZERO_DOUBLE) {
         reset(); // Fall back to default parameters
         return;
     }
@@ -134,7 +136,7 @@ void NegativeBinomialDistribution::fit(const std::vector<Observation>& values) {
  */
 void NegativeBinomialDistribution::reset() noexcept {
     r_ = 5.0;
-    p_ = 0.5;
+    p_ = math::HALF;
     cacheValid_ = false; // Invalidate cache since parameters changed
 }
 

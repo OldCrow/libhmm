@@ -45,10 +45,11 @@ private:
     std::size_t numStates_;
     std::size_t seqLength_;
     
-    // SIMD optimization parameters
-    static constexpr std::size_t SIMD_BLOCK_SIZE = 8;
-    static constexpr double SCALING_THRESHOLD = 1e-100;
-    static constexpr double LOG_SCALING_THRESHOLD = -230.0; // log(1e-100)
+    // SIMD optimization parameters (using consolidated constants)
+    static constexpr std::size_t SIMD_BLOCK_SIZE = constants::simd::DEFAULT_BLOCK_SIZE;
+    static constexpr double SCALING_THRESHOLD = constants::probability::SCALING_THRESHOLD;
+    static constexpr double LOG_SCALING_THRESHOLD = constants::probability::LOG_SCALING_THRESHOLD;
+    static constexpr double MIN_SCALE_FACTOR = constants::thresholds::MIN_SCALE_FACTOR;
     
     // Temporary SIMD-aligned vectors for computations
     mutable std::vector<double, performance::aligned_allocator<double>> tempScores_;

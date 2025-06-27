@@ -4,8 +4,8 @@
 #include <iostream>
 #include <iomanip>
 
-#include "libhmm/training/matrix3d.h"
-#include "libhmm/training/optimized_matrix3d.h"
+#include "libhmm/common/basic_matrix3d.h"
+#include "libhmm/common/optimized_matrix3d.h"
 
 using namespace libhmm;
 
@@ -218,7 +218,7 @@ TEST_F(OptimizedMatrix3DTest, PerformanceBenchmark) {
         auto start = std::chrono::high_resolution_clock::now();
         
         for (std::size_t iter = 0; iter < iterations; ++iter) {
-            Matrix3D<double> matrix(x, y, z);
+        BasicMatrix3D<double> matrix(x, y, z);
             
             // Fill with random values
             std::uniform_real_distribution<double> dist(0.0, 1.0);
@@ -282,7 +282,7 @@ TEST_F(OptimizedMatrix3DTest, PerformanceBenchmark) {
 TEST_F(OptimizedMatrix3DTest, CorrectnessComparison) {
     const std::size_t x = 10, y = 8, z = 6;
     
-    Matrix3D<double> original(x, y, z);
+    BasicMatrix3D<double> original(x, y, z);
     OptimizedMatrix3D<double> optimized(x, y, z);
     
     // Fill both with same pattern

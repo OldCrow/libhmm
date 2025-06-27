@@ -236,7 +236,28 @@ void ScaledSIMDForwardBackwardCalculator::computeEmissionProbabilities(
 }
 
 
-Matrix ScaledSIMDForwardBackwardCalculator::getForwardVariables() const {
+OptimizedMatrix<double> ScaledSIMDForwardBackwardCalculator::getForwardVariables() const {
+    OptimizedMatrix<double> result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            result(t, i) = forwardVariables_[t * alignedStateSize_ + i];
+        }
+    }
+    return result;
+}
+
+OptimizedMatrix<double> ScaledSIMDForwardBackwardCalculator::getBackwardVariables() const {
+    OptimizedMatrix<double> result(seqLength_, numStates_);
+    for (std::size_t t = 0; t < seqLength_; ++t) {
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            result(t, i) = backwardVariables_[t * alignedStateSize_ + i];
+        }
+    }
+    return result;
+}
+
+// Compatibility methods for basic Matrix interface
+Matrix ScaledSIMDForwardBackwardCalculator::getForwardVariablesCompat() const {
     Matrix result(seqLength_, numStates_);
     for (std::size_t t = 0; t < seqLength_; ++t) {
         for (std::size_t i = 0; i < numStates_; ++i) {
@@ -246,7 +267,7 @@ Matrix ScaledSIMDForwardBackwardCalculator::getForwardVariables() const {
     return result;
 }
 
-Matrix ScaledSIMDForwardBackwardCalculator::getBackwardVariables() const {
+Matrix ScaledSIMDForwardBackwardCalculator::getBackwardVariablesCompat() const {
     Matrix result(seqLength_, numStates_);
     for (std::size_t t = 0; t < seqLength_; ++t) {
         for (std::size_t i = 0; i < numStates_; ++i) {

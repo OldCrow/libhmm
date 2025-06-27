@@ -89,7 +89,7 @@ private:
      * @param theta Scale parameter (must be positive and finite)
      * @throws std::invalid_argument if parameters are invalid
      */
-    void validateParameters(double k, double theta) const {
+    static void validateParameters(double k, double theta) {
         if (std::isnan(k) || std::isinf(k) || k <= 0.0) {
             throw std::invalid_argument("Shape parameter k must be a positive finite number");
         }
@@ -104,12 +104,7 @@ private:
      */
     double ligamma(double a, double x) noexcept;
 
-    /**
-     * Evaluates the CDF at x using the incomplete gamma function
-     */
-    double CDF(double x) noexcept;
-
-public:    
+public:
     /**
      * Constructs a Gamma distribution with given parameters.
      * 
@@ -117,7 +112,7 @@ public:
      * @param theta Scale parameter θ (must be positive)
      * @throws std::invalid_argument if parameters are invalid
      */
-    GammaDistribution(double k = 1.0, double theta = 1.0)
+    explicit GammaDistribution(double k = 1.0, double theta = 1.0)
         : k_{k}, theta_{theta}, logGammaK_{0.0}, kLogTheta_{0.0}, 
           kMinus1_{0.0}, cacheValid_{false} {
         validateParameters(k, theta);
@@ -171,12 +166,37 @@ public:
     }
 
     /**
+     * Destructor - explicitly defaulted to satisfy Rule of Five
+     */
+    ~GammaDistribution() override = default;
+
+    /**
      * Computes the probability density function for the Gamma distribution.
      * 
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
-    double getProbability(double value) override;
+    [[nodiscard]] double getProbability(double value) override;
+    
+    /**
+     * Evaluates the logarithm of the probability density function
+     * Formula: log PDF(x) = (k-1)*ln(x) - x/θ - k*ln(θ) - ln(Γ(k))
+     * More numerically stable for small probabilities
+     * 
+     * @param x The value at which to evaluate the log PDF
+     * @return Log probability density
+     */
+    [[nodiscard]] double getLogProbability(double x) noexcept;
+
+    /**
+     * Evaluates the CDF at x using the incomplete gamma function
+     * Formula: CDF(x) = P(k, x/θ) = γ(k, x/θ) / Γ(k)
+     * where P is the regularized incomplete gamma function
+     * 
+     * @param x The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ x)
+     */
+    [[nodiscard]] double CDF(double x) noexcept;
 
     /**
      * Fits the distribution parameters to the given data using method of moments estimation.
@@ -202,21 +222,21 @@ public:
      * 
      * @return String describing the distribution parameters
      */
-    std::string toString() const override;
+    [[nodiscard]] std::string toString() const override;
 
     /**
      * Gets the shape parameter k.
      * 
      * @return Current shape parameter value
      */
-    double getK() const noexcept { return k_; }
+    [[nodiscard]] double getK() const noexcept { return k_; }
     
     /**
      * Gets the scale parameter θ.
      * 
      * @return Current scale parameter value
      */
-    double getTheta() const noexcept { return theta_; }
+    [[nodiscard]] double getTheta() const noexcept { return theta_; }
     
     /**
      * Sets the shape parameter k.
@@ -262,7 +282,7 @@ public:
      * 
      * @return Mean value
      */
-    double getMean() const noexcept { 
+    [[nodiscard]] double getMean() const noexcept { 
         return k_ * theta_; 
     }
     
@@ -272,7 +292,7 @@ public:
      * 
      * @return Variance value
      */
-    double getVariance() const noexcept { 
+    [[nodiscard]] double getVariance() const noexcept { 
         return k_ * theta_ * theta_; 
     }
     
@@ -282,7 +302,7 @@ public:
      * 
      * @return Standard deviation value
      */
-    double getStandardDeviation() const noexcept { 
+    [[nodiscard]] double getStandardDeviation() const noexcept { 
         return theta_ * std::sqrt(k_); 
     }
     
@@ -293,7 +313,7 @@ public:
      * 
      * @return Mode value
      */
-    double getMode() const noexcept {
+    [[nodiscard]] double getMode() const noexcept {
         return (k_ > 1.0) ? (k_ - 1.0) * theta_ : 0.0;
     }
     
@@ -302,13 +322,29 @@ public:
      * 
      * @return Rate parameter (1/θ)
      */
-    double getRate() const noexcept {
+    [[nodiscard]] double getRate() const noexcept {
         return 1.0 / theta_;
     }
+    
+    /**
+     * Equality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are equal within tolerance
+     */
+    bool operator==(const GammaDistribution& other) const;
+    
+    /**
+     * Inequality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are not equal
+     */
+    bool operator!=(const GammaDistribution& other) const { return !(*this == other); }
 };
 
 std::ostream& operator<<( std::ostream&, 
         const libhmm::GammaDistribution& );
+std::istream& operator>>( std::istream&,
+        libhmm::GammaDistribution& );
 
 } // namespace
 #endif

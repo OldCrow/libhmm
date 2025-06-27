@@ -124,8 +124,8 @@ TEST_F(SIMDForwardBackwardCalculatorTest, ScaledSIMDForwardBackwardBasicFunction
     EXPECT_LE(logProb, 0.0);
     
     // Test that we can get forward and backward variables
-    Matrix forwardVars = calc.getForwardVariables();
-    Matrix backwardVars = calc.getBackwardVariables();
+    Matrix forwardVars = calc.getForwardVariablesCompat();
+    Matrix backwardVars = calc.getBackwardVariablesCompat();
     
     EXPECT_EQ(forwardVars.size1(), continuousObs_.size());
     EXPECT_EQ(forwardVars.size2(), gaussianHmm_->getNumStates());
@@ -151,8 +151,8 @@ TEST_F(SIMDForwardBackwardCalculatorTest, LogSIMDForwardBackwardBasicFunctionali
     EXPECT_LE(logProb, 0.0);
     
     // Test that we can get log forward and backward variables
-    Matrix logForwardVars = calc.getLogForwardVariables();
-    Matrix logBackwardVars = calc.getLogBackwardVariables();
+    Matrix logForwardVars = calc.getLogForwardVariablesCompat();
+    Matrix logBackwardVars = calc.getLogBackwardVariablesCompat();
     
     EXPECT_EQ(logForwardVars.size1(), discreteObs_.size());
     EXPECT_EQ(logForwardVars.size2(), discreteHmm_->getNumStates());

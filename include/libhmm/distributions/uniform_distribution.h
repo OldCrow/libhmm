@@ -33,6 +33,16 @@ private:
     double a_;  ///< Lower bound
     double b_;  ///< Upper bound
     
+    // Cached values for performance
+    mutable double cached_pdf_;         ///< Cached PDF value: 1/(b-a)
+    mutable double cached_log_pdf_;     ///< Cached log PDF value: log(1/(b-a))
+    mutable bool cache_valid_;          ///< Flag indicating if cache is valid
+    
+    /**
+     * @brief Update cached values
+     */
+    void updateCache() const;
+    
     /**
      * @brief Validate parameters
      * @param a Lower bound
@@ -87,6 +97,20 @@ public:
      * @return Probability density at x
      */
     double getProbability(Observation val) override;
+    
+    /**
+     * @brief Calculate log probability density at x for numerical stability
+     * @param val Value to evaluate
+     * @return Log probability density at x
+     */
+    double getLogProbability(Observation val) const;
+    
+    /**
+     * @brief Calculate cumulative distribution function at x
+     * @param x Value to evaluate
+     * @return CDF at x: P(X <= x)
+     */
+    double CDF(double x) const;
     
     /**
      * @brief Fit distribution parameters to data using method of moments
@@ -177,6 +201,29 @@ public:
      * @return True if distributions are approximately equal
      */
     bool isApproximatelyEqual(const UniformDistribution& other, double tolerance = 1e-9) const;
+    
+    /**
+     * @brief Equality operator
+     * @param other Other distribution to compare
+     * @return True if distributions are approximately equal
+     */
+    bool operator==(const UniformDistribution& other) const;
 };
+
+/**
+ * @brief Stream output operator
+ * @param os Output stream
+ * @param dist Distribution to output
+ * @return Reference to the output stream
+ */
+std::ostream& operator<<(std::ostream& os, const UniformDistribution& dist);
+
+/**
+ * @brief Stream input operator
+ * @param is Input stream
+ * @param dist Distribution to input
+ * @return Reference to the input stream
+ */
+std::istream& operator>>(std::istream& is, UniformDistribution& dist);
 
 } // namespace libhmm

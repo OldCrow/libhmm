@@ -366,11 +366,11 @@ Matrix AutoCalculator::getForwardVariables() const {
         }
     } else if (selectedType_ == CalculatorType::SCALED_SIMD) {
         if (auto scaled = dynamic_cast<ScaledSIMDForwardBackwardCalculator*>(calculator_.get())) {
-            return scaled->getForwardVariables();
+            return scaled->getForwardVariablesCompat();
         }
     } else if (selectedType_ == CalculatorType::LOG_SIMD) {
         if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator_.get())) {
-            return log->getForwardVariables();
+            return log->getForwardVariablesCompat();
         }
     }
     throw std::runtime_error("Unable to get forward variables with selected calculator type");
@@ -384,11 +384,11 @@ Matrix AutoCalculator::getBackwardVariables() const {
         }
     } else if (selectedType_ == CalculatorType::SCALED_SIMD) {
         if (auto scaled = dynamic_cast<ScaledSIMDForwardBackwardCalculator*>(calculator_.get())) {
-            return scaled->getBackwardVariables();
+            return scaled->getBackwardVariablesCompat();
         }
     } else if (selectedType_ == CalculatorType::LOG_SIMD) {
         if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator_.get())) {
-            return log->getBackwardVariables();
+            return log->getBackwardVariablesCompat();
         }
     }
     throw std::runtime_error("Unable to get backward variables with selected calculator type");

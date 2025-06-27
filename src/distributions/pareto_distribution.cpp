@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cfloat>
 
+using namespace libhmm::constants;
+
 namespace libhmm
 {
 
@@ -22,11 +24,11 @@ namespace libhmm
 double ParetoDistribution::getProbability(double x) {
     // Pareto distribution has support [x_m, ∞)
     if (std::isnan(x) || std::isinf(x) || x < xm_) {
-        return 0.0;
+        return math::ZERO_DOUBLE;
     }
     
     if (x == xm_) {
-        return 0.0;
+        return math::ZERO_DOUBLE;
     }
     
     // Ensure cache is valid
@@ -35,17 +37,17 @@ double ParetoDistribution::getProbability(double x) {
     }
     
     double p = 0.0;
-    if (x > xm_ + LIMIT_TOLERANCE) {
-        p = CDF(x) - CDF(x - LIMIT_TOLERANCE);
-    } else if (x > xm_ && x < xm_ + LIMIT_TOLERANCE) {
+    if (x > xm_ + precision::LIMIT_TOLERANCE) {
+        p = CDF(x) - CDF(x - precision::LIMIT_TOLERANCE);
+    } else if (x > xm_ && x < xm_ + precision::LIMIT_TOLERANCE) {
         // For values very close to x_m, use the PDF scaled by tolerance
         // to avoid numerical issues with CDF differences
-        p = LIMIT_TOLERANCE * (k_ * std::pow(xm_, k_)) / std::pow(x, kPlus1_);
+        p = precision::LIMIT_TOLERANCE * (k_ * std::pow(xm_, k_)) / std::pow(x, kPlus1_);
     }
     
     // Ensure numerical stability
-    if (std::isnan(p) || p < 0.0) {
-        p = ZERO;
+    if (std::isnan(p) || p < math::ZERO_DOUBLE) {
+        p = precision::ZERO;
     }
     
     assert(p <= 1.0);
@@ -58,8 +60,8 @@ double ParetoDistribution::getProbability(double x) {
  *   F(x) = 1 - (xm/x)^k
  */
 double ParetoDistribution::CDF(double x) noexcept {
-    const double y = 1 - std::pow(xm_ / x, k_);
-    assert(y >= 0);
+    const double y = math::ONE - std::pow(xm_ / x, k_);
+    assert(y >= math::ZERO_DOUBLE);
     return y;
 }
 
@@ -86,7 +88,7 @@ void ParetoDistribution::fit(const std::vector<Observation>& values) {
 
     // Validate that all values are positive (required for Pareto distribution)
     auto minValue = *std::min_element(values.begin(), values.end());
-    if (minValue <= 0.0) {
+    if (minValue <= math::ZERO_DOUBLE) {
         reset(); // Fall back to default if data contains non-positive values
         return;
     }
@@ -95,15 +97,15 @@ void ParetoDistribution::fit(const std::vector<Observation>& values) {
     xm_ = minValue;
     
     // Calculate sum of log differences for shape parameter
-    double sum = 0.0;
+    double sum = math::ZERO_DOUBLE;
     for (const auto& val : values) {
-        if (val > 0.0) {
+        if (val > math::ZERO_DOUBLE) {
             sum += std::log(val) - std::log(xm_);
         }
     }
     
     // Validate that sum is positive for numerical stability
-    if (sum <= 0.0) {
+    if (sum <= math::ZERO_DOUBLE) {
         reset(); // Fall back to default
         return;
     }
@@ -112,7 +114,7 @@ void ParetoDistribution::fit(const std::vector<Observation>& values) {
     k_ = static_cast<double>(values.size()) / sum;
     
     // Validate computed shape parameter
-    if (std::isnan(k_) || std::isinf(k_) || k_ <= 0.0) {
+    if (std::isnan(k_) || std::isinf(k_) || k_ <= math::ZERO_DOUBLE) {
         reset(); // Fall back to default
         return;
     }
@@ -125,8 +127,8 @@ void ParetoDistribution::fit(const std::vector<Observation>& values) {
  * This corresponds to a standard Pareto distribution.
  */
 void ParetoDistribution::reset() noexcept {
-    k_ = 1.0;
-    xm_ = 1.0;
+    k_ = math::ONE;
+    xm_ = math::ONE;
     cacheValid_ = false; // Invalidate cache since parameters changed
 }
 
@@ -153,16 +155,28 @@ std::ostream& operator<<( std::ostream& os,
 
 std::istream& operator>>( std::istream& is,
         libhmm::ParetoDistribution& distribution ){
-    std::string s, t;
-    is >> s; //" k"
-    is >> s; // "="
-    is >> t;
-    distribution.setK(std::stod(t));
+    std::string token, k_str, xm_str;
+    
+    try {
+        is >> token; //" k"
+        is >> token; // "="
+        is >> k_str;
+        double k = std::stod(k_str);
 
-    is >> s; // " xm"
-    is >> s; // " ="
-    is >> t;
-    distribution.setXm(std::stod(t));
+        is >> token; // " xm"
+        is >> token; // " ="
+        is >> xm_str;
+        double xm = std::stod(xm_str);
+        
+        if (is.good()) {
+            distribution.setK(k);
+            distribution.setXm(xm);
+        }
+        
+    } catch (const std::exception& e) {
+        // Set error state on stream if parsing fails
+        is.setstate(std::ios::failbit);
+    }
 
     return is;
 }

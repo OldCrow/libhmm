@@ -40,8 +40,8 @@
 // Training utilities and support classes
 #include "libhmm/training/centroid.h"
 #include "libhmm/training/cluster.h"
-#include "libhmm/training/matrix3d.h"
-#include "libhmm/training/optimized_matrix3d.h"
+#include "libhmm/common/basic_matrix3d.h"
+#include "libhmm/common/optimized_matrix3d.h"
 
 /**
  * @namespace libhmm
@@ -63,7 +63,7 @@
  * **Training Utilities:**
  * - Centroid: Cluster centroid computation
  * - Cluster: Clustering support classes
- * - Matrix3D: 3D matrix operations for training
+ * - BasicMatrix3D: 3D matrix operations for training
  * - OptimizedMatrix3D: Performance-optimized 3D matrix operations
  */
 
