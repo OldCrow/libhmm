@@ -10,9 +10,20 @@
 #include <functional>
 #include <atomic>
 #include <memory>
+#include <type_traits>
 
 namespace libhmm {
 namespace performance {
+
+// Compatibility helper for different C++ standard library implementations
+// Uses std::invoke_result_t when available (C++17), falls back to std::result_of for older compilers
+#if defined(__cpp_lib_is_invocable) && __cpp_lib_is_invocable >= 201703L
+    template<typename F, typename... Args>
+    using result_of_t = std::invoke_result_t<F, Args...>;
+#else
+    template<typename F, typename... Args>
+    using result_of_t = typename std::result_of<F(Args...)>::type;
+#endif
 
 /// High-performance thread pool for parallel HMM computations
 /// Designed for CPU-intensive tasks with minimal synchronization overhead
@@ -33,9 +44,9 @@ public:
     /// @return Future that will contain the result
     template<typename F, typename... Args>
     auto submit(F&& task, Args&&... args) 
-        -> std::future<typename std::result_of<F(Args...)>::type> {
+        -> std::future<result_of_t<F, Args...>> {
         
-        using ReturnType = typename std::result_of<F(Args...)>::type;
+        using ReturnType = result_of_t<F, Args...>;
         
         auto taskPtr = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(task), std::forward<Args>(args)...)
