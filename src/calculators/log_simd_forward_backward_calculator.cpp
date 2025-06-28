@@ -197,10 +197,10 @@ void LogSIMDForwardBackwardCalculator::computeFinalLogProbability() {
 }
 
 void LogSIMDForwardBackwardCalculator::computeLogEmissionProbabilities(Observation observation, double* logEmisProbs) const {
+    // Leverage optimized getLogProbability methods with caching for better performance and numerical stability
     for (std::size_t i = 0; i < numStates_; ++i) {
-        const double prob = hmm_->getProbabilityDistribution(static_cast<int>(i))
-                               ->getProbability(observation);
-        logEmisProbs[i] = (prob > 0.0) ? std::log(prob) : LOGZERO;
+        logEmisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))
+                             ->getLogProbability(observation);
     }
 }
 

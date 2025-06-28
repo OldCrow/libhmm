@@ -277,9 +277,9 @@ void LogSIMDViterbiCalculator::findMaxSIMD(const double* values, std::size_t siz
 }
 
 void LogSIMDViterbiCalculator::computeLogEmissionProbabilities(Observation observation, double* logEmisProbs) const {
+    // Use optimized getLogProbability for better performance and numerical stability
     for (std::size_t i = 0; i < numStates_; ++i) {
-        const double emisProb = hmm_->getProbabilityDistribution(static_cast<int>(i))->getProbability(observation);
-        logEmisProbs[i] = safeLog(emisProb);
+        logEmisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))->getLogProbability(observation);
     }
 }
 

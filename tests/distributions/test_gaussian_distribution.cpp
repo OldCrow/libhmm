@@ -495,16 +495,12 @@ void testCaching() {
     assert(std::abs(prob5 - prob6) > 1e-6);
     
     // Test cache invalidation with reset
-    double prob7 = gaussian.getProbability(0.0);  // Use new mean after reset
-    gaussian.reset();
-    double prob8 = gaussian.getProbability(0.0);
-    // After reset, parameters are already 0,1 so we expect same result
-    // Let's change the parameters first then reset
+    // Change the parameters first then reset to see cache invalidation
     gaussian.setMean(5.0);
-    double prob9 = gaussian.getProbability(0.0);
+    double prob_before_reset = gaussian.getProbability(0.0);
     gaussian.reset();
-    double prob10 = gaussian.getProbability(0.0);
-    assert(std::abs(prob9 - prob10) > 1e-6);
+    double prob_after_reset = gaussian.getProbability(0.0);
+    assert(std::abs(prob_before_reset - prob_after_reset) > 1e-6);
     
     std::cout << "✓ Caching mechanism tests passed" << std::endl;
 }

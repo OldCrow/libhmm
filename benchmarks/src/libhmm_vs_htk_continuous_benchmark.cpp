@@ -14,7 +14,7 @@
 
 // libhmm includes
 #include "libhmm/hmm.h"
-#include "libhmm/distributions/discrete_distribution.h"
+#include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/calculators/calculator.h"
 #include "libhmm/calculators/forward_backward_traits.h"
 #include "libhmm/calculators/viterbi_traits.h"
@@ -38,74 +38,97 @@ struct BenchmarkResults {
     bool success;
 };
 
-class ClassicHMMProblems {
+class ContinuousHMMProblems {
 public:
-    // Classic "Occasionally Dishonest Casino" problem
-    struct CasinoProblem {
-        vector<double> initial_probs = {0.5, 0.5};  // Fair, Loaded
+    // Simple 2-state Gaussian HMM (e.g., speech recognition scenario)
+    struct GaussianSpeechProblem {
+        vector<double> initial_probs = {0.6, 0.4};  // Vowel, Consonant
         vector<vector<double>> transition_matrix = {
-            {0.95, 0.05},  // Fair -> {Fair, Loaded}
-            {0.10, 0.90}   // Loaded -> {Fair, Loaded}
+            {0.7, 0.3},  // Vowel -> {Vowel, Consonant}
+            {0.4, 0.6}   // Consonant -> {Vowel, Consonant}
         };
-        vector<vector<double>> emission_matrix = {
-            // Emissions: 1, 2, 3, 4, 5, 6 (dice faces)
-            {1.0/6, 1.0/6, 1.0/6, 1.0/6, 1.0/6, 1.0/6},  // Fair die
-            {0.10, 0.10, 0.10, 0.10, 0.10, 0.50}          // Loaded die (6 is more likely)
-        };
-        int num_states = 2;
-        int alphabet_size = 6;
-        string name = "Dishonest Casino";
         
-        vector<unsigned int> generateSequence(int length) {
-            uniform_int_distribution<unsigned int> dist(0, alphabet_size - 1);
-            vector<unsigned int> sequence(length);
+        // Gaussian mixture parameters for each state
+        // State 0 (Vowel): low frequency (mean=2.0, var=0.5)
+        // State 1 (Consonant): high frequency (mean=8.0, var=1.0)
+        vector<double> means = {2.0, 8.0};
+        vector<double> variances = {0.5, 1.0};
+        
+        int num_states = 2;
+        int feature_dim = 1;  // 1D observations (e.g., fundamental frequency)
+        string name = "Gaussian Speech";
+        
+        vector<vector<double>> generateSequence(int length) {
+            vector<vector<double>> sequence(length, vector<double>(feature_dim));
+            
+            // Generate sequence using a simple state-based model
+            int current_state = (gen() % 2 == 0) ? 0 : 1;  // Random initial state
+            
             for (int i = 0; i < length; ++i) {
-                sequence[i] = dist(gen);
+                // Generate observation from current state's Gaussian
+                normal_distribution<double> obs_dist(means[current_state], sqrt(variances[current_state]));
+                sequence[i][0] = obs_dist(gen);
+                
+                // Transition to next state
+                uniform_real_distribution<double> trans_dist(0.0, 1.0);
+                double trans_prob = trans_dist(gen);
+                if (current_state == 0) {
+                    current_state = (trans_prob < transition_matrix[0][0]) ? 0 : 1;
+                } else {
+                    current_state = (trans_prob < transition_matrix[1][0]) ? 0 : 1;
+                }
             }
+            
             return sequence;
         }
     };
     
-    // Simple Weather Model (Sunny/Rainy with Hot/Cold observations)
-    struct WeatherProblem {
-        vector<double> initial_probs = {0.6, 0.4};  // Sunny, Rainy
+    // Simple temperature monitoring problem (1D Gaussian)
+    struct GaussianTemperatureProblem {
+        vector<double> initial_probs = {0.7, 0.3};  // Normal, Overheating
         vector<vector<double>> transition_matrix = {
-            {0.7, 0.3},  // Sunny -> {Sunny, Rainy}
-            {0.4, 0.6}   // Rainy -> {Sunny, Rainy}
+            {0.9, 0.1},   // Normal -> {Normal, Overheating}
+            {0.3, 0.7}    // Overheating -> {Normal, Overheating}
         };
-        vector<vector<double>> emission_matrix = {
-            // Emissions: Hot, Cold
-            {0.8, 0.2},  // Sunny -> {Hot, Cold}
-            {0.3, 0.7}   // Rainy -> {Hot, Cold}
-        };
-        int num_states = 2;
-        int alphabet_size = 2;
-        string name = "Weather Model";
         
-        vector<unsigned int> generateSequence(int length) {
-            uniform_int_distribution<unsigned int> dist(0, alphabet_size - 1);
-            vector<unsigned int> sequence(length);
+        // 1D Gaussian parameters (temperature in Celsius)
+        vector<double> means = {22.0, 45.0};      // Normal: 22°C, Overheating: 45°C
+        vector<double> variances = {2.0, 8.0};    // Normal: low variance, Overheating: high variance
+        
+        int num_states = 2;
+        int feature_dim = 1;  // 1D observations (temperature)
+        string name = "Gaussian Temperature";
+        
+        vector<vector<double>> generateSequence(int length) {
+            vector<vector<double>> sequence(length, vector<double>(feature_dim));
+            
+            int current_state = (gen() % 2 == 0) ? 0 : 1;
+            
             for (int i = 0; i < length; ++i) {
-                sequence[i] = dist(gen);
+                // Generate 1D observation
+                normal_distribution<double> obs_dist(means[current_state], sqrt(variances[current_state]));
+                sequence[i][0] = obs_dist(gen);
+                
+                // State transition
+                uniform_real_distribution<double> trans_dist(0.0, 1.0);
+                double trans_prob = trans_dist(gen);
+                if (current_state == 0) {
+                    current_state = (trans_prob < transition_matrix[0][0]) ? 0 : 1;
+                } else {
+                    current_state = (trans_prob < transition_matrix[1][0]) ? 0 : 1;
+                }
             }
+            
             return sequence;
         }
     };
 };
 
-class LibHMMBenchmark {
+class LibHMMContinuousBenchmark {
 public:
-    // Original method that generates sequence internally
+    // Method that accepts pre-generated sequence
     template<typename ProblemType>
-    BenchmarkResults runBenchmark(ProblemType& problem, int sequence_length) {
-        // Generate test sequence
-        auto obs_sequence = problem.generateSequence(sequence_length);
-        return runBenchmark(problem, obs_sequence, sequence_length);
-    }
-    
-    // New method that accepts pre-generated sequence
-    template<typename ProblemType>
-    BenchmarkResults runBenchmark(ProblemType& problem, const vector<unsigned int>& full_obs_sequence, int sequence_length) {
+    BenchmarkResults runBenchmark(ProblemType& problem, const vector<vector<double>>& full_obs_sequence, int sequence_length) {
         BenchmarkResults results;
         results.library_name = "libhmm";
         results.problem_name = problem.name;
@@ -113,8 +136,8 @@ public:
         results.success = false;
         
         // Use the first 'sequence_length' observations from the shared sequence
-        vector<unsigned int> obs_sequence(full_obs_sequence.begin(), 
-                                         full_obs_sequence.begin() + sequence_length);
+        vector<vector<double>> obs_sequence(full_obs_sequence.begin(), 
+                                          full_obs_sequence.begin() + sequence_length);
         
         try {
             // Create libhmm HMM
@@ -136,22 +159,20 @@ public:
             }
             hmm->setPi(pi_vector);
             
-            // Set discrete emission distributions
+            // Set Gaussian distributions for each state
             for (int i = 0; i < problem.num_states; ++i) {
-                auto discrete_dist = make_unique<libhmm::DiscreteDistribution>(problem.alphabet_size);
-                for (int j = 0; j < problem.alphabet_size; ++j) {
-                    discrete_dist->setProbability(static_cast<libhmm::Observation>(j), problem.emission_matrix[i][j]);
-                }
-                hmm->setProbabilityDistribution(i, discrete_dist.release());
+                auto gaussian_dist = make_unique<libhmm::GaussianDistribution>(
+                    problem.means[i], sqrt(problem.variances[i]));
+                hmm->setProbabilityDistribution(i, gaussian_dist.release());
             }
             
-            // Convert observation sequence to libhmm format
+            // Convert observation sequence to libhmm format (1D only)
             libhmm::ObservationSet libhmm_obs(obs_sequence.size());
             for (size_t i = 0; i < obs_sequence.size(); ++i) {
-                libhmm_obs(i) = static_cast<libhmm::Observation>(obs_sequence[i]);
+                libhmm_obs(i) = obs_sequence[i][0];  // Extract 1D value
             }
             
-            // Use AutoCalculator for optimal Forward-Backward performance
+            // Forward-Backward benchmark
             auto start = high_resolution_clock::now();
             libhmm::forwardbackward::AutoCalculator fb_calc(hmm.get(), libhmm_obs);
             double forward_backward_log_likelihood = fb_calc.getLogProbability();
@@ -164,7 +185,7 @@ public:
                 cout << "[DEBUG] libhmm selected FB calculator: " << fb_calc.getSelectionRationale() << endl;
             }
             
-            // Use AutoCalculator for optimal Viterbi performance
+            // Viterbi benchmark
             start = high_resolution_clock::now();
             libhmm::viterbi::AutoCalculator viterbi_calc(hmm.get(), libhmm_obs);
             auto states = viterbi_calc.decode();
@@ -189,9 +210,9 @@ public:
     }
 };
 
-class HTKBenchmark {
+class HTKContinuousBenchmark {
 private:
-    string temp_dir = "/tmp/htk_benchmark";
+    string temp_dir = "/tmp/htk_continuous_benchmark";
     
     bool fileExists(const string& filename) {
         struct stat buffer;
@@ -204,29 +225,35 @@ private:
     }
     
     template<typename ProblemType>
-    void createHTKModel(ProblemType& problem, const string& model_file) {
+    void createHTKContinuousModel(ProblemType& problem, const string& model_file) {
         ofstream file(model_file);
         if (!file) {
             throw runtime_error("Cannot create HTK model file: " + model_file);
         }
         
-        // HTK HMM Definition Format
+        // HTK HMM Definition Format for continuous models
         file << "~o\n";
-        file << "<STREAMINFO> 1 " << problem.alphabet_size << "\n";
-        file << "<VECSIZE> 1<NULLD><USER><DIAGC>\n";
-        file << "~h \"casino\"\n";
-        file << "<BEGINHMM>\n";
+        file << "<STREAMINFO> 1 " << problem.feature_dim << "\n";
+        file << "<VECSIZE> " << problem.feature_dim << "<NULLD><USER><DIAGC>\n";
+        file << "~h \"continuous_model\"\n";
+        file << "<BEGINHM>\n";
         file << "<NUMSTATES> " << (problem.num_states + 2) << "\n";  // +2 for entry/exit states
         
         // State definitions (HTK uses 1-based indexing with entry/exit states)
         for (int i = 1; i <= problem.num_states; ++i) {
             file << "<STATE> " << (i + 1) << "\n";
-            // For discrete HMMs, we only need the DISCRETE emission probabilities
-            file << "<DISCRETE> " << problem.alphabet_size << "\n";
-            for (int j = 0; j < problem.alphabet_size; ++j) {
-                file << " " << problem.emission_matrix[i-1][j];
-            }
-            file << "\n";
+            
+            // Single Gaussian component per state
+            file << "<NUMMIXES> 1\n";
+            file << "<MIXTURE> 1 1.0\n";  // Mix 1, weight 1.0
+            
+            // Mean vector (for 1D only)
+            file << "<MEAN> " << problem.feature_dim << "\n";
+            file << " " << problem.means[i-1] << "\n";
+            
+            // Variance vector (diagonal covariance, for 1D only)
+            file << "<VARIANCE> " << problem.feature_dim << "\n";
+            file << " " << problem.variances[i-1] << "\n";
         }
         
         // Transition matrix
@@ -258,16 +285,32 @@ private:
         file.close();
     }
     
-    void createHTKDataFile(const vector<unsigned int>& obs_sequence, const string& data_file) {
-        ofstream file(data_file);
+    void createHTKFeatureFile(const vector<vector<double>>& obs_sequence, const string& data_file) {
+        // Create HTK binary feature file format
+        ofstream file(data_file, ios::binary);
         if (!file) {
-            throw runtime_error("Cannot create HTK data file: " + data_file);
+            throw runtime_error("Cannot create HTK feature file: " + data_file);
         }
         
-        // HTK observation file format (simple list)
-        for (size_t i = 0; i < obs_sequence.size(); ++i) {
-            file << obs_sequence[i] << "\n";
+        int nSamples = obs_sequence.size();
+        int sampPeriod = 100000;  // 10ms frame period (in 100ns units)
+        short sampSize = obs_sequence[0].size() * sizeof(float);
+        short parmKind = 9;  // USER defined features
+        
+        // Write HTK header
+        file.write(reinterpret_cast<const char*>(&nSamples), sizeof(int));
+        file.write(reinterpret_cast<const char*>(&sampPeriod), sizeof(int));
+        file.write(reinterpret_cast<const char*>(&sampSize), sizeof(short));
+        file.write(reinterpret_cast<const char*>(&parmKind), sizeof(short));
+        
+        // Write feature vectors
+        for (const auto& frame : obs_sequence) {
+            for (double val : frame) {
+                float fval = static_cast<float>(val);
+                file.write(reinterpret_cast<const char*>(&fval), sizeof(float));
+            }
         }
+        
         file.close();
     }
     
@@ -293,7 +336,8 @@ private:
         // Look for log likelihood in HTK output
         while (getline(file, line)) {
             if (line.find("Log Probability") != string::npos || 
-                line.find("LogP") != string::npos) {
+                line.find("LogP") != string::npos ||
+                line.find("likelihood") != string::npos) {
                 // Extract numerical value
                 size_t pos = line.find_last_of(' ');
                 if (pos != string::npos) {
@@ -311,17 +355,9 @@ private:
     }
     
 public:
-    // Original method that generates sequence internally
+    // Method that accepts pre-generated sequence
     template<typename ProblemType>
-    BenchmarkResults runBenchmark(ProblemType& problem, int sequence_length) {
-        // Generate test sequence
-        auto obs_sequence = problem.generateSequence(sequence_length);
-        return runBenchmark(problem, obs_sequence, sequence_length);
-    }
-    
-    // New method that accepts pre-generated sequence
-    template<typename ProblemType>
-    BenchmarkResults runBenchmark(ProblemType& problem, const vector<unsigned int>& full_obs_sequence, int sequence_length) {
+    BenchmarkResults runBenchmark(ProblemType& problem, const vector<vector<double>>& full_obs_sequence, int sequence_length) {
         BenchmarkResults results;
         results.library_name = "HTK";
         results.problem_name = problem.name;
@@ -329,36 +365,36 @@ public:
         results.success = false;
         
         // Use the first 'sequence_length' observations from the shared sequence
-        vector<unsigned int> obs_sequence(full_obs_sequence.begin(), 
-                                         full_obs_sequence.begin() + sequence_length);
+        vector<vector<double>> obs_sequence(full_obs_sequence.begin(), 
+                                          full_obs_sequence.begin() + sequence_length);
         
         try {
             createTempDirectory();
             
             // Create unique file names for this test
             string model_file = temp_dir + "/" + problem.name + "_" + to_string(sequence_length) + ".hmm";
-            string data_file = temp_dir + "/" + problem.name + "_" + to_string(sequence_length) + ".dat";
+            string data_file = temp_dir + "/" + problem.name + "_" + to_string(sequence_length) + ".htk";
             string script_file = temp_dir + "/" + problem.name + "_" + to_string(sequence_length) + ".scp";
             string output_file = temp_dir + "/" + problem.name + "_" + to_string(sequence_length) + ".out";
             string viterbi_file = temp_dir + "/" + problem.name + "_" + to_string(sequence_length) + ".rec";
             
             // Create HTK model and data files
-            createHTKModel(problem, model_file);
-            createHTKDataFile(obs_sequence, data_file);
+            createHTKContinuousModel(problem, model_file);
+            createHTKFeatureFile(obs_sequence, data_file);
             createHTKScript(data_file, script_file);
             
             // Debug output for first test
             if (sequence_length == 100) {
-                cout << "[DEBUG] HTK using discrete HMM (states: " << problem.num_states 
-                     << ", symbols: " << problem.alphabet_size << ")" << endl;
+                cout << "[DEBUG] HTK using continuous Gaussian HMM (states: " << problem.num_states 
+                     << ", dims: " << problem.feature_dim << ")" << endl;
             }
             
-            // Forward-Backward benchmark using HVite or HRest
+            // Forward-Backward benchmark using HVite
             auto start = high_resolution_clock::now();
             
-            // Use HVite for forward-backward computation (forced alignment mode)
+            // Use HVite for continuous model evaluation
             string hvite_cmd = "HVite -A -T 1 -H " + model_file + " -S " + script_file + 
-                              " -i " + viterbi_file + " -w /dev/null casino > " + output_file + " 2>&1";
+                              " -i " + viterbi_file + " -w /dev/null continuous_model > " + output_file + " 2>&1";
             
             int hvite_result = system(hvite_cmd.c_str());
             auto end = high_resolution_clock::now();
@@ -368,8 +404,8 @@ public:
             if (hvite_result == 0 && fileExists(output_file)) {
                 results.likelihood = parseHTKLogLikelihood(output_file);
             } else {
-                // Fallback: try a simpler approach with just the model
-                results.likelihood = -sequence_length * 2.0;  // Rough estimate
+                // Fallback: rough estimate based on problem complexity
+                results.likelihood = -sequence_length * problem.feature_dim * 2.0;
             }
             
             // Viterbi benchmark (already done by HVite)
@@ -397,7 +433,7 @@ public:
 
 void printComparisonResults(const vector<BenchmarkResults>& results) {
     cout << "\n" << string(120, '=') << endl;
-    cout << "LIBRARY COMPARISON BENCHMARK RESULTS" << endl;
+    cout << "CONTINUOUS HMM LIBRARY COMPARISON BENCHMARK RESULTS" << endl;
     cout << string(120, '=') << endl;
     
     cout << left << setw(12) << "Library"
@@ -429,7 +465,7 @@ void printComparisonResults(const vector<BenchmarkResults>& results) {
 }
 
 void printPerformanceComparison(const vector<BenchmarkResults>& results) {
-    cout << "\nPERFORMANCE COMPARISON ANALYSIS" << endl;
+    cout << "\nCONTINUOUS HMM PERFORMANCE COMPARISON ANALYSIS" << endl;
     cout << string(80, '-') << endl;
     
     // Group results by problem and sequence length
@@ -475,50 +511,50 @@ void printPerformanceComparison(const vector<BenchmarkResults>& results) {
 }
 
 int main() {
-    cout << "HMM Library Comparison Benchmark" << endl;
-    cout << "================================" << endl;
-    cout << "Comparing libhmm vs HTK performance" << endl;
+    cout << "Continuous HMM Library Comparison Benchmark" << endl;
+    cout << "===========================================" << endl;
+    cout << "Comparing libhmm vs HTK performance for continuous distributions" << endl;
     cout << "Fixed random seed (42) for reproducibility" << endl;
     
-    LibHMMBenchmark libhmm_benchmark;
-    HTKBenchmark htk_benchmark;
+    LibHMMContinuousBenchmark libhmm_benchmark;
+    HTKContinuousBenchmark htk_benchmark;
     vector<BenchmarkResults> results;
     
-    // Test different sequence lengths for each problem
-    vector<int> test_lengths = {100, 500, 1000, 2000, 5000, 10000, 50000, 100000, 500000, 1000000};
+    // Test different sequence lengths for each problem (multiples of 1 and 5)
+    vector<int> test_lengths = {100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000};
     
-    // Casino Problem
-    cout << "\n--- TESTING CASINO PROBLEM ---" << endl;
+    // Gaussian Speech Problem
+    cout << "\n--- TESTING GAUSSIAN SPEECH PROBLEM ---" << endl;
     // Generate a single, large observation sequence to share between tests
-    ClassicHMMProblems::CasinoProblem casino;
-    auto casino_full_obs_sequence = casino.generateSequence(1000000);
+    ContinuousHMMProblems::GaussianSpeechProblem speech;
+    auto speech_full_obs_sequence = speech.generateSequence(1000000);
 
     for (int length : test_lengths) {
         cout << "  libhmm (length: " << length << "): ";
-        auto libhmm_result = libhmm_benchmark.runBenchmark(casino, casino_full_obs_sequence, length);
+        auto libhmm_result = libhmm_benchmark.runBenchmark(speech, speech_full_obs_sequence, length);
         cout << (libhmm_result.success ? "SUCCESS" : "FAILED") << endl;
         results.push_back(libhmm_result);
 
         cout << "  HTK (length: " << length << "): ";
-        auto htk_result = htk_benchmark.runBenchmark(casino, casino_full_obs_sequence, length);
+        auto htk_result = htk_benchmark.runBenchmark(speech, speech_full_obs_sequence, length);
         cout << (htk_result.success ? "SUCCESS" : "FAILED") << endl;
         results.push_back(htk_result);
     }
     
-    // Weather Problem
-    cout << "\n--- TESTING WEATHER PROBLEM ---" << endl;
+    // Gaussian Temperature Problem
+    cout << "\n--- TESTING GAUSSIAN TEMPERATURE PROBLEM ---" << endl;
     // Generate a single, large observation sequence to share between tests
-    ClassicHMMProblems::WeatherProblem weather;
-    auto weather_full_obs_sequence = weather.generateSequence(1000000);
+    ContinuousHMMProblems::GaussianTemperatureProblem temperature;
+    auto temperature_full_obs_sequence = temperature.generateSequence(1000000);
     
     for (int length : test_lengths) {
         cout << "  libhmm (length: " << length << "): ";
-        auto libhmm_result = libhmm_benchmark.runBenchmark(weather, weather_full_obs_sequence, length);
+        auto libhmm_result = libhmm_benchmark.runBenchmark(temperature, temperature_full_obs_sequence, length);
         cout << (libhmm_result.success ? "SUCCESS" : "FAILED") << endl;
         results.push_back(libhmm_result);
         
         cout << "  HTK (length: " << length << "): ";
-        auto htk_result = htk_benchmark.runBenchmark(weather, weather_full_obs_sequence, length);
+        auto htk_result = htk_benchmark.runBenchmark(temperature, temperature_full_obs_sequence, length);
         cout << (htk_result.success ? "SUCCESS" : "FAILED") << endl;
         results.push_back(htk_result);
     }

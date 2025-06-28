@@ -9,6 +9,8 @@
 #include <vector>
 #include <numeric>
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
 
@@ -54,16 +56,15 @@ private:
     std::vector<double> pdf_;
     
     /**
-     * Cached sum of all probabilities for validation
-     * Should always be approximately 1.0 for a valid distribution
+     * Comprehensive cached values for maximum performance
      */
-    mutable double cachedSum_{1.0};
-    
-    /**
-     * Cached entropy of the distribution: H(X) = -∑p_i*log(p_i)
-     * Used for information-theoretic calculations
-     */
-    mutable double cachedEntropy_{0.0};
+    mutable double cachedSum_{1.0};              // Sum of all probabilities (validation)
+    mutable double cachedEntropy_{0.0};          // Shannon entropy: H(X) = -∑p_i*log(p_i)
+    mutable std::vector<double> cachedLogProbs_; // Pre-computed log probabilities
+    mutable std::vector<double> cachedCDF_;      // Pre-computed cumulative distribution
+    mutable std::size_t cachedMode_{0};          // Index of most probable symbol
+    mutable double cachedMaxProb_{0.0};          // Maximum probability value
+    mutable std::vector<std::size_t> nonZeroIndices_; // Indices with non-zero probabilities
     
     /**
      * Flag to track if cached values need updating
@@ -71,17 +72,46 @@ private:
     mutable bool cacheValid_{false};
     
     /**
-     * Updates cached values when probabilities change
+     * Updates all cached values when probabilities change
+     * Comprehensive caching for maximum performance
      */
     void updateCache() const noexcept {
+        // Basic statistics
         cachedSum_ = std::accumulate(pdf_.begin(), pdf_.end(), 0.0);
         
+        // Pre-compute log probabilities and entropy
+        cachedLogProbs_.resize(numSymbols_);
         cachedEntropy_ = 0.0;
-        for (const double p : pdf_) {
+        cachedMaxProb_ = 0.0;
+        cachedMode_ = 0;
+        nonZeroIndices_.clear();
+        
+        for (std::size_t i = 0; i < numSymbols_; ++i) {
+            const double p = pdf_[i];
+            
+            // Cache log probabilities
             if (p > 0.0) {
-                cachedEntropy_ -= p * std::log(p);
+                cachedLogProbs_[i] = std::log(p);
+                cachedEntropy_ -= p * cachedLogProbs_[i];
+                nonZeroIndices_.push_back(i);
+                
+                // Track mode (most probable symbol)
+                if (p > cachedMaxProb_) {
+                    cachedMaxProb_ = p;
+                    cachedMode_ = i;
+                }
+            } else {
+                cachedLogProbs_[i] = -std::numeric_limits<double>::infinity();
             }
         }
+        
+        // Pre-compute CDF
+        cachedCDF_.resize(numSymbols_);
+        cachedCDF_[0] = pdf_[0];
+        for (std::size_t i = 1; i < numSymbols_; ++i) {
+            cachedCDF_[i] = cachedCDF_[i-1] + pdf_[i];
+        }
+        
         cacheValid_ = true;
     }
     
@@ -124,7 +154,9 @@ public:
     DiscreteDistribution(const DiscreteDistribution& other) 
         : numSymbols_{other.numSymbols_}, pdf_{other.pdf_}, 
           cachedSum_{other.cachedSum_}, cachedEntropy_{other.cachedEntropy_}, 
-          cacheValid_{other.cacheValid_} {}
+          cachedLogProbs_{other.cachedLogProbs_}, cachedCDF_{other.cachedCDF_},
+          cachedMode_{other.cachedMode_}, cachedMaxProb_{other.cachedMaxProb_},
+          nonZeroIndices_{other.nonZeroIndices_}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Copy assignment operator
@@ -135,6 +167,11 @@ public:
             pdf_ = other.pdf_;
             cachedSum_ = other.cachedSum_;
             cachedEntropy_ = other.cachedEntropy_;
+            cachedLogProbs_ = other.cachedLogProbs_;
+            cachedCDF_ = other.cachedCDF_;
+            cachedMode_ = other.cachedMode_;
+            cachedMaxProb_ = other.cachedMaxProb_;
+            nonZeroIndices_ = other.nonZeroIndices_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -146,7 +183,10 @@ public:
     DiscreteDistribution(DiscreteDistribution&& other) noexcept
         : numSymbols_{other.numSymbols_}, pdf_{std::move(other.pdf_)}, 
           cachedSum_{other.cachedSum_}, cachedEntropy_{other.cachedEntropy_}, 
-          cacheValid_{other.cacheValid_} {}
+          cachedLogProbs_{std::move(other.cachedLogProbs_)}, 
+          cachedCDF_{std::move(other.cachedCDF_)},
+          cachedMode_{other.cachedMode_}, cachedMaxProb_{other.cachedMaxProb_},
+          nonZeroIndices_{std::move(other.nonZeroIndices_)}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Move assignment operator
@@ -157,15 +197,20 @@ public:
             pdf_ = std::move(other.pdf_);
             cachedSum_ = other.cachedSum_;
             cachedEntropy_ = other.cachedEntropy_;
+            cachedLogProbs_ = std::move(other.cachedLogProbs_);
+            cachedCDF_ = std::move(other.cachedCDF_);
+            cachedMode_ = other.cachedMode_;
+            cachedMaxProb_ = other.cachedMaxProb_;
+            nonZeroIndices_ = std::move(other.nonZeroIndices_);
             cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
 
     /**
-     * Default destructor
+     * Destructor - explicitly defaulted to satisfy Rule of Five
      */
-    ~DiscreteDistribution() = default;
+    ~DiscreteDistribution() override = default;
 
     /**
      * Gets the probability mass function value for a discrete observation.
@@ -254,12 +299,15 @@ public:
     
     /**
      * Gets the mode of the distribution (most likely symbol).
+     * Uses cached value for O(1) performance.
      * 
      * @return Index of the symbol with highest probability
      */
     std::size_t getMode() const {
-        auto maxIt = std::max_element(pdf_.begin(), pdf_.end());
-        return static_cast<std::size_t>(std::distance(pdf_.begin(), maxIt));
+        if (!cacheValid_) {
+            updateCache();
+        }
+        return cachedMode_;
     }
     
     /**
@@ -317,6 +365,42 @@ public:
             cacheValid_ = false; // Need to recalculate after normalization
         }
     }
+    
+    /**
+     * Evaluates the logarithm of the probability mass function
+     * More numerically stable for small probabilities
+     * 
+     * @param value The discrete value (will be cast to integer index)
+     * @return Log probability mass, -infinity if out of range or probability is 0
+     */
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    
+    /**
+     * Evaluates the CDF at k using cumulative sum approach
+     * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
+     * 
+     * @param value The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ value)
+     */
+    [[nodiscard]] double CDF(double value) noexcept;
+    
+    /**
+     * Equality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if distributions are equal within tolerance
+     */
+    bool operator==(const DiscreteDistribution& other) const;
+    
+    /**
+     * Inequality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if distributions are not equal
+     */
+    bool operator!=(const DiscreteDistribution& other) const { return !(*this == other); }
+
+private:
+    friend std::istream& operator>>(std::istream& is,
+            libhmm::DiscreteDistribution& distribution);
 };
 
 std::ostream& operator<<( std::ostream&, 

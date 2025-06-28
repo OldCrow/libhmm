@@ -51,7 +51,7 @@ double GammaDistribution::getProbability(double x) {
  * @param x The value at which to evaluate the log PDF
  * @return Log probability density
  */
-double GammaDistribution::getLogProbability(double x) noexcept {
+double GammaDistribution::getLogProbability(double x) const noexcept {
     // Gamma distribution has support [0, ∞)
     if (std::isnan(x) || std::isinf(x) || x < 0.0) {
         return -std::numeric_limits<double>::infinity();

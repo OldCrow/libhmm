@@ -153,6 +153,97 @@ std::string BinomialDistribution::toString() const {
     return oss.str();
 }
 
+double BinomialDistribution::getLogProbability(double value) const noexcept {
+    // Validate input - discrete distributions only accept non-negative integer values
+    if (std::isnan(value) || std::isinf(value)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Round to nearest integer and check if it's in valid range
+    int k = static_cast<int>(std::round(value));
+    if (k < 0 || k > n_) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Handle edge cases
+    if (p_ == math::ZERO_DOUBLE) {
+        return (k == 0) ? math::ZERO_DOUBLE : -std::numeric_limits<double>::infinity();
+    }
+    if (p_ == math::ONE) {
+        return (k == n_) ? math::ZERO_DOUBLE : -std::numeric_limits<double>::infinity();
+    }
+    
+    // Ensure cache is valid
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Compute log probability for numerical stability
+    // log P(X = k) = log C(n,k) + k*log(p) + (n-k)*log(1-p)
+    const double logCoeff = logBinomialCoefficient(n_, k);
+    const double logProb = logCoeff + k * logP_ + (n_ - k) * log1MinusP_;
+    
+    return logProb;
+}
+
+double BinomialDistribution::CDF(double value) noexcept {
+    // Validate input
+    if (std::isnan(value) || std::isinf(value)) {
+        return math::ZERO_DOUBLE;
+    }
+    
+    int k = static_cast<int>(std::floor(value));
+    
+    // Handle boundary cases
+    if (k < 0) {
+        return math::ZERO_DOUBLE;
+    }
+    if (k >= n_) {
+        return math::ONE;
+    }
+    
+    // Compute CDF as cumulative sum: P(X <= k) = sum_{i=0}^{k} P(X = i)
+    double cdf = math::ZERO_DOUBLE;
+    for (int i = 0; i <= k; ++i) {
+        cdf += getProbability(static_cast<double>(i));
+    }
+    
+    return std::min(math::ONE, cdf);
+}
+
+bool BinomialDistribution::operator==(const BinomialDistribution& other) const {
+    const double tolerance = 1e-10;
+    return (n_ == other.n_) && 
+           (std::abs(p_ - other.p_) < tolerance);
+}
+
+std::istream& operator>>(std::istream& is, libhmm::BinomialDistribution& distribution) {
+    std::string token;
+    int n;
+    double p;
+    
+    // Expected format: "Binomial(n,p)" or "n p"
+    if (is >> token) {
+        if (token.find("Binomial") != std::string::npos) {
+            // Skip to parameters
+            char ch;
+            is >> ch >> n >> ch >> p >> ch; // Read (n,p)
+        } else {
+            // Assume first token is n
+            n = std::stoi(token);
+            is >> p;
+        }
+        
+        try {
+            distribution.setParameters(n, p);
+        } catch (const std::exception&) {
+            is.setstate(std::ios::failbit);
+        }
+    }
+    
+    return is;
+}
+
 std::ostream& operator<<(std::ostream& os, 
         const libhmm::BinomialDistribution& distribution) {
     os << "Binomial Distribution:" << std::endl;

@@ -30,9 +30,13 @@ UniformDistribution::UniformDistribution(double a, double b) : a_(a), b_(b), cac
 
 void UniformDistribution::updateCache() const {
     if (!cache_valid_) {
-        double range = b_ - a_;
-        cached_pdf_ = math::ONE / range;
-        cached_log_pdf_ = -std::log(range);
+        cached_range_ = b_ - a_;
+        cached_inv_range_ = math::ONE / cached_range_;
+        cached_pdf_ = cached_inv_range_;
+        cached_log_pdf_ = -std::log(cached_range_);
+        cached_mean_ = (a_ + b_) * math::HALF;
+        cached_variance_ = (cached_range_ * cached_range_) / (math::THREE * math::FOUR); // /12
+        cached_std_dev_ = cached_range_ / std::sqrt(math::THREE * math::FOUR); // /√12
         cache_valid_ = true;
     }
 }
@@ -54,7 +58,7 @@ double UniformDistribution::getProbability(Observation val) {
     return math::ZERO_DOUBLE;
 }
 
-double UniformDistribution::getLogProbability(Observation val) const {
+double UniformDistribution::getLogProbability(Observation val) const noexcept {
     // Handle invalid inputs
     if (std::isnan(val) || std::isinf(val)) {
         return -std::numeric_limits<double>::infinity();
@@ -172,19 +176,24 @@ void UniformDistribution::setParameters(double a, double b) {
 }
 
 double UniformDistribution::getMean() const {
-    // Mean of uniform distribution: μ = (a + b) / 2
-    return (a_ + b_) / math::TWO;
+    if (!cache_valid_) {
+        updateCache();
+    }
+    return cached_mean_;
 }
 
 double UniformDistribution::getVariance() const {
-    // Variance of uniform distribution: σ² = (b - a)² / 12
-    double range = b_ - a_;
-    return (range * range) / (math::THREE * math::FOUR);  // 12.0 = 3 * 4
+    if (!cache_valid_) {
+        updateCache();
+    }
+    return cached_variance_;
 }
 
 double UniformDistribution::getStandardDeviation() const {
-    // Standard deviation: σ = (b - a) / √12
-    return std::sqrt(getVariance());
+    if (!cache_valid_) {
+        updateCache();
+    }
+    return cached_std_dev_;
 }
 
 bool UniformDistribution::isApproximatelyEqual(const UniformDistribution& other, double tolerance) const {

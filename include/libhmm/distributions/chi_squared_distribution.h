@@ -166,7 +166,7 @@ public:
      * @param value The value at which to evaluate the log PDF (should be non-negative)
      * @return Log probability density log(f(value|k)), or -∞ if value < 0
      */
-    double getLogProbability(Observation value) const;
+    double getLogProbability(Observation value) const noexcept override;
     
     /**
      * Computes the cumulative distribution function.

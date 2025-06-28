@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cassert>
 #include <stdexcept>
+#include <sstream>
+#include <iomanip>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
 
@@ -99,6 +101,9 @@ private:
         return logFactorialCache_[n] - logFactorialCache_[k] - logFactorialCache_[n-k];
     }
 
+    friend std::istream& operator>>(std::istream& is,
+            libhmm::BinomialDistribution& distribution);
+
 public:
     /**
      * Constructs a Binomial distribution with given parameters.
@@ -160,6 +165,11 @@ public:
         }
         return *this;
     }
+    
+    /**
+     * Destructor - explicitly defaulted to satisfy Rule of Five
+     */
+    ~BinomialDistribution() override = default;
     
     /**
      * Computes the probability mass function for the Binomial distribution.
@@ -269,6 +279,38 @@ public:
         p_ = p;
         cacheValid_ = false;
     }
+    
+    /**
+     * Evaluates the logarithm of the probability mass function
+     * More numerically stable for small probabilities
+     * 
+     * @param value The value at which to evaluate the log PMF
+     * @return Log probability mass
+     */
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    
+    /**
+     * Evaluates the CDF at k using cumulative sum approach
+     * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
+     * 
+     * @param value The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ value)
+     */
+    [[nodiscard]] double CDF(double value) noexcept;
+    
+    /**
+     * Equality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are equal within tolerance
+     */
+    bool operator==(const BinomialDistribution& other) const;
+    
+    /**
+     * Inequality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are not equal
+     */
+    bool operator!=(const BinomialDistribution& other) const { return !(*this == other); }
 };
 
 std::ostream& operator<<(std::ostream&, const libhmm::BinomialDistribution&);

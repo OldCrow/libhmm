@@ -4,6 +4,9 @@
 #include <cassert>
 #include <stdexcept>
 #include <limits>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 #include "libhmm/distributions/discrete_distribution.h"
 
 using libhmm::DiscreteDistribution;
@@ -327,6 +330,185 @@ void testFittingValidation() {
     std::cout << "✓ Fitting validation tests passed" << std::endl;
 }
 
+/**
+ * Test log probability calculations
+ */
+void testLogProbability() {
+    std::cout << "Testing log probability calculations..." << std::endl;
+    
+    DiscreteDistribution discrete(3);
+    discrete.setProbability(0, 0.5);
+    discrete.setProbability(1, 0.3);
+    discrete.setProbability(2, 0.2);
+    
+    // Test valid values
+    double logProb0 = discrete.getLogProbability(0.0);
+    double prob0 = discrete.getProbability(0.0);
+    
+    // log(prob) should equal logProb (within numerical precision)
+    assert(std::abs(std::log(prob0) - logProb0) < 1e-10);
+    
+    // Test out of range (should return -infinity)
+    double logProbNeg = discrete.getLogProbability(-1.0);
+    double logProbHigh = discrete.getLogProbability(3.0);
+    assert(std::isinf(logProbNeg) && logProbNeg < 0);
+    assert(std::isinf(logProbHigh) && logProbHigh < 0);
+    
+    // Test with zero probability
+    discrete.setProbability(2, 0.0);
+    double logProbZero = discrete.getLogProbability(2.0);
+    assert(std::isinf(logProbZero) && logProbZero < 0);
+    
+    std::cout << "✓ Log probability tests passed" << std::endl;
+}
+
+/**
+ * Test CDF calculations
+ */
+void testCDF() {
+    std::cout << "Testing CDF calculations..." << std::endl;
+    
+    DiscreteDistribution discrete(4);
+    discrete.setProbability(0, 0.1);
+    discrete.setProbability(1, 0.2);
+    discrete.setProbability(2, 0.3);
+    discrete.setProbability(3, 0.4);
+    
+    // Test basic properties
+    double cdf0 = discrete.CDF(0.0);
+    double cdf1 = discrete.CDF(1.0);
+    double cdf2 = discrete.CDF(2.0);
+    double cdf3 = discrete.CDF(3.0);
+    
+    assert(std::abs(cdf0 - 0.1) < 1e-10);
+    assert(std::abs(cdf1 - 0.3) < 1e-10);  // 0.1 + 0.2
+    assert(std::abs(cdf2 - 0.6) < 1e-10);  // 0.1 + 0.2 + 0.3
+    assert(std::abs(cdf3 - 1.0) < 1e-10);  // 0.1 + 0.2 + 0.3 + 0.4
+    
+    // CDF should be monotonic
+    assert(cdf0 <= cdf1);
+    assert(cdf1 <= cdf2);
+    assert(cdf2 <= cdf3);
+    
+    // Test boundary cases
+    assert(discrete.CDF(-1.0) == 0.0);
+    assert(discrete.CDF(10.0) == 1.0);
+    
+    std::cout << "✓ CDF tests passed" << std::endl;
+}
+
+/**
+ * Test equality and I/O operators
+ */
+void testEqualityAndIO() {
+    std::cout << "Testing equality and I/O operators..." << std::endl;
+    
+    DiscreteDistribution discrete1(3);
+    discrete1.setProbability(0, 0.5);
+    discrete1.setProbability(1, 0.3);
+    discrete1.setProbability(2, 0.2);
+    
+    DiscreteDistribution discrete2(3);
+    discrete2.setProbability(0, 0.5);
+    discrete2.setProbability(1, 0.3);
+    discrete2.setProbability(2, 0.2);
+    
+    DiscreteDistribution discrete3(3);
+    discrete3.setProbability(0, 0.6);
+    discrete3.setProbability(1, 0.2);
+    discrete3.setProbability(2, 0.2);
+    
+    DiscreteDistribution discrete4(4);  // Different size
+    
+    // Test equality
+    assert(discrete1 == discrete2);
+    assert(!(discrete1 == discrete3));
+    assert(!(discrete1 == discrete4));
+    
+    // Test inequality
+    assert(!(discrete1 != discrete2));
+    assert(discrete1 != discrete3);
+    assert(discrete1 != discrete4);
+    
+    // Test stream output
+    std::ostringstream oss;
+    oss << discrete1;
+    std::string output = oss.str();
+    assert(!output.empty());
+    assert(output.find("Discrete") != std::string::npos);
+    
+    // Test stream input
+    std::istringstream iss("2 0.7 0.3");
+    DiscreteDistribution inputDiscrete;
+    iss >> inputDiscrete;
+    assert(inputDiscrete.getNumSymbols() == 2);
+    assert(std::abs(inputDiscrete.getProbability(0) - 0.7) < 1e-10);
+    assert(std::abs(inputDiscrete.getProbability(1) - 0.3) < 1e-10);
+    
+    std::cout << "✓ Equality and I/O tests passed" << std::endl;
+}
+
+/**
+ * Test performance characteristics
+ */
+void testPerformance() {
+    std::cout << "Testing performance characteristics..." << std::endl;
+    
+    DiscreteDistribution discrete(100);  // Larger distribution
+    
+    // Time probability calculations
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    const int numIterations = 10000;
+    double sum = 0.0;
+    for (int i = 0; i < numIterations; ++i) {
+        sum += discrete.getProbability(i % 100);  // 0 to 99
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    std::cout << "Computed " << numIterations << " probabilities in " 
+              << duration.count() << " microseconds" << std::endl;
+    std::cout << "Average time per calculation: " 
+              << static_cast<double>(duration.count()) / numIterations << " microseconds" << std::endl;
+    
+    // Should complete in reasonable time (< 1 second)
+    assert(duration.count() < 1000000); // 1 second = 1,000,000 microseconds
+    
+    std::cout << "✓ Performance tests passed" << std::endl;
+}
+
+/**
+ * Test caching mechanism
+ */
+void testCaching() {
+    std::cout << "Testing caching mechanism..." << std::endl;
+    
+    DiscreteDistribution discrete(3);
+    discrete.setProbability(0, 0.4);
+    discrete.setProbability(1, 0.3);
+    discrete.setProbability(2, 0.3);
+    
+    // Test entropy calculation (uses caching)
+    double entropy1 = discrete.getEntropy();
+    double entropy2 = discrete.getEntropy();
+    assert(entropy1 == entropy2);  // Should be identical due to caching
+    
+    // Test probability sum calculation (uses caching)
+    double sum1 = discrete.getProbabilitySum();
+    double sum2 = discrete.getProbabilitySum();
+    assert(sum1 == sum2);  // Should be identical due to caching
+    assert(std::abs(sum1 - 1.0) < 1e-10);  // Should sum to 1
+    
+    // Changing probabilities should invalidate cache
+    discrete.setProbability(0, 0.5);
+    double newEntropy = discrete.getEntropy();
+    assert(newEntropy != entropy1);  // Should be different after change
+    
+    std::cout << "✓ Caching tests passed" << std::endl;
+}
+
 int main() {
     std::cout << "Running Discrete distribution tests..." << std::endl;
     std::cout << "=====================================" << std::endl;
@@ -342,6 +524,13 @@ int main() {
         testResetFunctionality();
         testDiscreteProperties();
         testFittingValidation();
+        
+        // Gold Standard Tests
+        testLogProbability();
+        testCDF();
+        testEqualityAndIO();
+        testPerformance();
+        testCaching();
         
         std::cout << "=====================================" << std::endl;
         std::cout << "✅ All Discrete distribution tests passed!" << std::endl;

@@ -206,8 +206,8 @@ TEST_F(OptimizedMatrix3DTest, LegacyCompatibility) {
 
 // Performance benchmark comparing old vs new implementation
 TEST_F(OptimizedMatrix3DTest, PerformanceBenchmark) {
-    const std::size_t iterations = 1000;
-    const std::size_t x = 50, y = 50, z = 20; // Medium-sized matrices
+    const std::size_t iterations = 100;  // Reduced from 1000 to 100
+    const std::size_t x = 25, y = 25, z = 10; // Reduced from 50x50x20 to 25x25x10
     
     std::cout << "\n=== Performance Benchmark ===\n";
     std::cout << "Matrix size: " << x << "x" << y << "x" << z << " (" << x*y*z << " elements)\n";

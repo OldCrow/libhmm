@@ -40,7 +40,7 @@ double GaussianDistribution::getProbability(double x) {
  * Returns the log probability density function value for numerical stability.
  * Formula: log PDF(x) = -½log(2π) - log(σ) - ½((x-μ)/σ)²
  */
-double GaussianDistribution::getLogProbability(double x) noexcept {
+double GaussianDistribution::getLogProbability(double x) const noexcept {
     // Validate input
     if (std::isnan(x) || std::isinf(x)) {
         return -std::numeric_limits<double>::infinity();

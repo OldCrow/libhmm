@@ -4,6 +4,9 @@
 #include <cassert>
 #include <stdexcept>
 #include <limits>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 #include "libhmm/distributions/binomial_distribution.h"
 
 using libhmm::BinomialDistribution;
@@ -342,6 +345,174 @@ void testStatisticalMoments() {
     std::cout << "✓ Statistical moments tests passed" << std::endl;
 }
 
+/**
+ * Test log probability calculations
+ */
+void testLogProbability() {
+    std::cout << "Testing log probability calculations..." << std::endl;
+    
+    BinomialDistribution binomial(10, 0.5);
+    
+    // Test valid values
+    double logProb5 = binomial.getLogProbability(5.0);
+    double prob5 = binomial.getProbability(5.0);
+    
+    // log(prob) should equal logProb (within numerical precision)
+    assert(std::abs(std::log(prob5) - logProb5) < 1e-10);
+    
+    // Test out of range (should return -infinity)
+    double logProbNeg = binomial.getLogProbability(-1.0);
+    double logProbHigh = binomial.getLogProbability(11.0);
+    assert(std::isinf(logProbNeg) && logProbNeg < 0);
+    assert(std::isinf(logProbHigh) && logProbHigh < 0);
+    
+    // Test with invalid inputs
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+    assert(std::isinf(binomial.getLogProbability(nan_val)) && binomial.getLogProbability(nan_val) < 0);
+    assert(std::isinf(binomial.getLogProbability(inf_val)) && binomial.getLogProbability(inf_val) < 0);
+    
+    std::cout << "✓ Log probability tests passed" << std::endl;
+}
+
+/**
+ * Test CDF calculations
+ */
+void testCDF() {
+    std::cout << "Testing CDF calculations..." << std::endl;
+    
+    BinomialDistribution binomial(10, 0.5);
+    
+    // Test basic properties
+    double cdf0 = binomial.CDF(0.0);
+    double cdf5 = binomial.CDF(5.0);
+    double cdf10 = binomial.CDF(10.0);
+    
+    assert(cdf0 >= 0.0 && cdf0 <= 1.0);
+    assert(cdf5 >= 0.0 && cdf5 <= 1.0);
+    assert(cdf10 >= 0.0 && cdf10 <= 1.0);
+    
+    // CDF should be monotonic
+    assert(cdf0 <= cdf5);
+    assert(cdf5 <= cdf10);
+    
+    // CDF at maximum should be 1.0
+    assert(std::abs(cdf10 - 1.0) < 1e-10);
+    
+    // Test boundary cases
+    assert(binomial.CDF(-1.0) == 0.0);
+    assert(binomial.CDF(15.0) == 1.0);
+    
+    // Test invalid inputs
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+    assert(binomial.CDF(nan_val) == 0.0);
+    assert(binomial.CDF(inf_val) == 0.0);
+    
+    std::cout << "✓ CDF tests passed" << std::endl;
+}
+
+/**
+ * Test equality and I/O operators
+ */
+void testEqualityAndIO() {
+    std::cout << "Testing equality and I/O operators..." << std::endl;
+    
+    BinomialDistribution binomial1(10, 0.5);
+    BinomialDistribution binomial2(10, 0.5);
+    BinomialDistribution binomial3(10, 0.6);
+    BinomialDistribution binomial4(15, 0.5);
+    
+    // Test equality
+    assert(binomial1 == binomial2);
+    assert(!(binomial1 == binomial3));
+    assert(!(binomial1 == binomial4));
+    
+    // Test inequality
+    assert(!(binomial1 != binomial2));
+    assert(binomial1 != binomial3);
+    assert(binomial1 != binomial4);
+    
+    // Test stream output
+    std::ostringstream oss;
+    oss << binomial1;
+    std::string output = oss.str();
+    assert(!output.empty());
+    assert(output.find("Binomial") != std::string::npos);
+    
+    // Test stream input
+    std::istringstream iss("20 0.7");
+    BinomialDistribution inputBinomial;
+    iss >> inputBinomial;
+    assert(inputBinomial.getN() == 20);
+    assert(std::abs(inputBinomial.getP() - 0.7) < 1e-10);
+    
+    std::cout << "✓ Equality and I/O tests passed" << std::endl;
+}
+
+/**
+ * Test performance characteristics
+ */
+void testPerformance() {
+    std::cout << "Testing performance characteristics..." << std::endl;
+    
+    BinomialDistribution binomial(100, 0.3);
+    
+    // Time probability calculations
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    const int numIterations = 10000;
+    double sum = 0.0;
+    for (int i = 0; i < numIterations; ++i) {
+        sum += binomial.getProbability(i % 101);  // 0 to 100
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    std::cout << "Computed " << numIterations << " probabilities in " 
+              << duration.count() << " microseconds" << std::endl;
+    std::cout << "Average time per calculation: " 
+              << static_cast<double>(duration.count()) / numIterations << " microseconds" << std::endl;
+    
+    // Should complete in reasonable time (< 1 second)
+    assert(duration.count() < 1000000); // 1 second = 1,000,000 microseconds
+    
+    std::cout << "✓ Performance tests passed" << std::endl;
+}
+
+/**
+ * Test caching mechanism
+ */
+void testCaching() {
+    std::cout << "Testing caching mechanism..." << std::endl;
+    
+    BinomialDistribution binomial(10, 0.3);
+    
+    // First calculation should populate cache
+    double prob1 = binomial.getProbability(3.0);
+    
+    // Second calculation should use cache (should be identical)
+    double prob2 = binomial.getProbability(3.0);
+    assert(prob1 == prob2);
+    
+    // Changing parameters should invalidate cache - use value closer to expected mean
+    binomial.setP(0.7);  // Changes mean from 3.0 to 7.0
+    double prob3 = binomial.getProbability(3.0);  // Now far from new mean
+    
+    // The probabilities should be different (0.3 vs 0.7 is a significant change)
+    // For Binomial(10, 0.3): P(X=3) ≈ 0.267, mean = 3
+    // For Binomial(10, 0.7): P(X=3) ≈ 0.009, mean = 7
+    assert(std::abs(prob3 - prob1) > 1e-6);  // Should be significantly different
+    
+    // Test that log probability also works with caching
+    double logProb1 = binomial.getLogProbability(3.0);
+    double logProb2 = binomial.getLogProbability(3.0);
+    assert(logProb1 == logProb2);
+    
+    std::cout << "✓ Caching tests passed" << std::endl;
+}
+
 int main() {
     std::cout << "Running Binomial distribution tests..." << std::endl;
     std::cout << "=====================================" << std::endl;
@@ -358,6 +529,13 @@ int main() {
         testBinomialProperties();
         testFittingValidation();
         testStatisticalMoments();
+        
+        // Gold Standard Tests
+        testLogProbability();
+        testCDF();
+        testEqualityAndIO();
+        testPerformance();
+        testCaching();
         
         std::cout << "=====================================" << std::endl;
         std::cout << "✅ All Binomial distribution tests passed!" << std::endl;

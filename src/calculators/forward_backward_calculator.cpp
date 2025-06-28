@@ -1,5 +1,7 @@
 #include "libhmm/calculators/forward_backward_calculator.h"
 #include <iostream>
+#include <vector>
+#include <cmath>
 
 namespace libhmm
 {

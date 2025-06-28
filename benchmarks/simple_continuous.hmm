@@ -1,0 +1,42 @@
+#STOCHHMM MODEL FILE
+
+<MODEL INFORMATION>
+======================================================
+MODEL_NAME: Simple Continuous Gaussian Test
+MODEL_DESCRIPTION: Two-state Gaussian HMM for testing
+MODEL_CREATION_DATE: 2024-06-28
+
+<TRACK SYMBOL DEFINITIONS>
+======================================================
+REAL_TRACK: REAL
+
+<STATE DEFINITIONS>
+####################################################################################################
+STATE:
+    NAME: INIT
+TRANSITION: STANDARD: P(X)
+    STATE1: 0.6
+    STATE2: 0.4
+
+####################################################################################################
+STATE:
+    NAME: STATE1
+    PATH_LABEL: S1
+TRANSITION: STANDARD: P(X)
+    STATE1: 0.5
+    STATE2: 0.5
+    END: 1
+EMISSION: REAL_TRACK: CONTINUOUS: PDF: NORMAL: PARAMETERS: 0.0 1.0
+
+####################################################################################################
+STATE:
+    NAME: STATE2
+    PATH_LABEL: S2
+TRANSITION: STANDARD: P(X)
+    STATE1: 0.4
+    STATE2: 0.6
+    END: 1
+EMISSION: REAL_TRACK: CONTINUOUS: PDF: NORMAL: PARAMETERS: 3.0 1.414
+
+####################################################################################################
+//END

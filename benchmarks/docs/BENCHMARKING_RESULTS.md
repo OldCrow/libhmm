@@ -78,10 +78,10 @@ To ensure fair comparison and detect numerical issues:
 
 | Rank | Library | Avg Throughput | Speedup vs libhmm |
 |------|---------|----------------|-------------------|
-| 1 | **GHMM** | 23,806 obs/ms | **22.8x faster** |
-| 2 | **HMMLib** | 19,490 obs/ms | **17.9x faster** |
-| 3 | **StochHMM** | 2,090 obs/ms | **1.9x faster** |
-| 4 | **libhmm** | 1,045 obs/ms | *baseline* |
+| 1 | **GHMM** | 25,164.9 obs/ms | **24.25x faster** |
+| 2 | **HMMLib** | 18,889.2 obs/ms | **17.83x faster** |
+| 3 | **StochHMM** | 2,075.7 obs/ms | **2.10x faster** |
+| 4 | **libhmm** | 1,037.6 obs/ms | *baseline* |
 | 5 | **HTK** | Variable* | *See scaling analysis* |
 
 *HTK shows unique scaling characteristics - see detailed analysis below.
@@ -255,3 +255,86 @@ This comprehensive validation confirms that libhmm's implementation is mathemati
 ### Library-Specific Notes
 
 **HTK Implementation**: HTK's use of rounded log-probabilities reflects its optimization for speech recognition applications where computational efficiency and relative likelihood comparisons are more important than absolute precision. This is a valid design choice for its intended domain but should be considered when selecting HTK for applications requiring exact likelihood values.
+
+---
+
+## Continuous Distribution Benchmarking Results (HTK vs libhmm)
+
+### Test Configuration
+**Problems Tested:**
+- **Gaussian Speech**: 2-state vowel/consonant model (means: 2.0, 8.0; variances: 0.5, 1.0)
+- **Gaussian Temperature**: 2-state normal/overheating model (means: 22.0, 45.0; variances: 2.0, 8.0)
+
+**Sequence Lengths:** 100, 500, 1,000, 5,000, 10,000, 50,000, 100,000, 500,000, 1,000,000 observations
+
+### Continuous HMM Performance Results
+
+#### Performance Crossover Analysis
+| Sequence Length | libhmm Performance | HTK Performance | Winner |
+|-----------------|--------------------|-----------------|---------|
+| 100 obs         | 20-40x faster      | High overhead   | **libhmm** |
+| 500 obs         | 9-10x faster       | Moderate overhead| **libhmm** |
+| 1,000 obs       | 4-5x faster        | Approaching parity| **libhmm** |
+| 5,000 obs       | ~1x (equal)        | ~1x (equal)     | **Equal** |
+| 10,000 obs      | 0.5x               | 2x faster       | **HTK** |
+| 50,000 obs      | 0.1x               | 10x faster      | **HTK** |
+| 100,000 obs     | 0.05x              | 20x faster      | **HTK** |
+| 500,000 obs     | 0.01x              | 100x faster     | **HTK** |
+| 1,000,000 obs   | 0.006x             | 177x faster     | **HTK** |
+
+#### Key Performance Insights
+
+**HTK Scaling Characteristics:**
+- **Constant overhead**: ~4-5ms regardless of sequence length
+- **Excellent scaling**: Near-constant time complexity for very long sequences
+- **Peak throughput**: Up to 201,734 observations/ms for 1M observation sequences
+- **Architecture**: Likely uses streaming/batched algorithms optimized for speech recognition
+
+**libhmm Scaling Characteristics:**
+- **Linear scaling**: Traditional O(n) HMM algorithms with SIMD optimization
+- **SIMD benefits**: Consistent 1.65x performance improvement over baseline
+- **Small-scale excellence**: Dominates performance for research-scale problems
+- **Precision focus**: More accurate log-likelihood values (vs HTK's rounded estimates)
+
+#### Numerical Accuracy Comparison
+**libhmm**: Provides precise log-likelihood values (e.g., -1.774e+02)
+**HTK**: Uses rounded log-likelihood estimates (e.g., -2.000e+02) for computational efficiency
+
+**Implication**: HTK sacrifices some numerical precision for dramatic performance gains on large sequences
+
+### Continuous vs Discrete Performance
+
+#### Continuous Distribution Support
+| Library | 1D Gaussian | Multi-D Gaussian | Other Continuous |
+|---------|-------------|------------------|-----------------|
+| **libhmm** | ✅ Full | ❌ Not yet | ✅ Many distributions |
+| **HTK** | ✅ Full | ✅ Full | ✅ Speech-focused |
+
+**Note**: libhmm currently supports 1D continuous distributions only, while HTK provides full multi-dimensional continuous distribution support optimized for speech recognition.
+
+### Architecture Trade-offs
+
+#### libhmm Strengths
+- **Research-friendly**: Precise numerical computations
+- **Modern C++**: Easy integration and maintenance
+- **Small-scale performance**: Excellent for sequences < 5,000 observations
+- **SIMD optimization**: Effective vectorization for appropriate problem sizes
+
+#### HTK Strengths
+- **Production-ready**: Industrial-strength scaling for speech recognition
+- **Large-scale performance**: Unmatched for sequences > 10,000 observations
+- **Mature ecosystem**: Decades of optimization for speech processing workflows
+- **Multi-dimensional support**: Full continuous distribution capabilities
+
+### Updated Recommendation Matrix
+
+| Use Case | Sequence Length | Precision Needs | Distribution Type | Recommended Library |
+|----------|----------------|-----------------|-------------------|--------------------|
+| Research | < 5,000 obs | High precision | Any | **libhmm** |
+| Prototyping | < 1,000 obs | Moderate | Discrete/1D Continuous | **libhmm** |
+| Production Speech | > 10,000 obs | Relative comparisons | Multi-D Continuous | **HTK** |
+| Batch Processing | > 50,000 obs | Efficiency focus | Any | **HTK** |
+| Multi-dimensional | Any length | Continuous features | Multi-D Gaussian | **HTK** |
+| Modern C++ Integration | Any length | Developer productivity | Discrete/1D Continuous | **libhmm** |
+
+This comprehensive continuous distribution analysis establishes the performance envelope for both libraries and provides clear guidance for selecting the appropriate tool based on specific application requirements.

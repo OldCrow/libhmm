@@ -5,6 +5,8 @@
 #include <sstream>
 #include <string>
 #include <memory>
+#include <limits>
+#include <cmath>
 #include "libhmm/common/common.h"
 // Removed Boost includes - using C++17 serialization
 #include "libhmm/common/string_tokenizer.h"
@@ -74,6 +76,16 @@ public:
      * Returns the probability of an Observation.
      */
     virtual double getProbability(Observation val) = 0;
+    
+    /*
+     * Returns the log probability of an Observation.
+     * Default implementation uses log(getProbability(val)) but derived classes
+     * can override for better numerical stability and performance.
+     */
+    virtual double getLogProbability(Observation val) const {
+        const double prob = const_cast<ProbabilityDistribution*>(this)->getProbability(val);
+        return (prob > 0.0) ? std::log(prob) : -std::numeric_limits<double>::infinity();
+    }
 
     /*
      * Fits the values to match the distribution.

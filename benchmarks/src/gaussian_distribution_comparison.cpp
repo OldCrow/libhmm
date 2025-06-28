@@ -65,7 +65,7 @@ DistributionResult testLibhmmGaussian(const GaussianTestCase& test_case) {
     return result;
 }
 
-// Test GHMM Gaussian distribution
+// Test GHMM Gaussian distribution using proper API
 DistributionResult testGhmmGaussian(const GaussianTestCase& test_case) {
     DistributionResult result;
     result.library = "GHMM";
@@ -73,14 +73,43 @@ DistributionResult testGhmmGaussian(const GaussianTestCase& test_case) {
     result.success = false;
     
     try {
-        // GHMM uses standard deviation, not variance
-        double std_dev = sqrt(test_case.variance);
+        // Initialize GHMM state and emission following the example pattern
+        ghmm_cstate single_state;
+        ghmm_c_emission state_emission;
         
+        // Set up transition arrays (self-transition)
+        double trans_prob = 1.0;
+        double* trans_prob_array = &trans_prob;
+        int trans_id = 0;
+        
+        // Set up emission parameters
+        double c_weight = 1.0;  // Component weight
+        
+        // Initialize the emission
+        state_emission.type = normal;
+        state_emission.dimension = 1;
+        state_emission.mean.val = test_case.mean;
+        state_emission.variance.val = test_case.variance;
+        state_emission.fixed = 0;
+        
+        // Initialize the state
+        single_state.pi = 1.0;
+        single_state.M = 1;  // One mixture component
+        single_state.c = &c_weight;
+        single_state.e = &state_emission;
+        single_state.out_id = &trans_id;
+        single_state.in_id = &trans_id;
+        single_state.out_a = &trans_prob_array;
+        single_state.in_a = &trans_prob_array;
+        single_state.out_states = 1;
+        single_state.in_states = 1;
+        single_state.fix = 0;
+        
+        // Test PDF evaluation using GHMM's API
         for (double x : test_case.test_values) {
-            // Calculate PDF using GHMM's normal distribution function
-            // Note: GHMM might have specific functions for this, but we'll use standard formula
-            double pdf = (1.0 / (std_dev * sqrt(2 * M_PI))) * 
-                        exp(-0.5 * pow((x - test_case.mean) / std_dev, 2));
+            // Use GHMM's continuous emission probability function
+            double omega = x;
+            double pdf = ghmm_cmodel_calc_b(&single_state, &omega);  // Returns density (PDF)
             result.pdf_values.push_back(pdf);
             
             // Calculate log-PDF
