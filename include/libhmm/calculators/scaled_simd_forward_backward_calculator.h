@@ -9,7 +9,7 @@
 #include <cmath>
 #include <vector>
 #include <memory>
-#include <immintrin.h>
+// SIMD headers are now conditionally included in common.h based on platform
 
 namespace libhmm {
 
