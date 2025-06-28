@@ -105,7 +105,7 @@ BenchmarkResult runLibhmmGaussian(const ContinuousGaussianProblems::GaussianSign
         for (int state = 0; state < model.num_states; ++state) {
             auto gaussian = make_unique<GaussianDistribution>(
                 model.means[state], 
-                model.variances[state]
+                sqrt(model.variances[state])  // Convert variance to std_dev
             );
             hmm->setProbabilityDistribution(state, move(gaussian));
         }

@@ -4,6 +4,9 @@
 #include <cassert>
 #include <stdexcept>
 #include <limits>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 #include "libhmm/distributions/poisson_distribution.h"
 
 using libhmm::PoissonDistribution;
@@ -207,6 +210,160 @@ void testNumericalStability() {
     std::cout << "✓ Numerical stability tests passed" << std::endl;
 }
 
+/**
+ * Test log probability calculations
+ */
+void testLogProbability() {
+    std::cout << "Testing log probability calculations..." << std::endl;
+    
+    PoissonDistribution poisson(2.0);
+    
+    // Test valid values
+    double logProb2 = poisson.getLogProbability(2.0);
+    double prob2 = poisson.getProbability(2.0);
+    
+    // log(prob) should equal logProb (within numerical precision)
+    assert(std::abs(std::log(prob2) - logProb2) < 1e-10);
+    
+    // Test invalid inputs (should return -infinity)
+    double logProbNeg = poisson.getLogProbability(-1.0);
+    double logProbFloat = poisson.getLogProbability(2.5);
+    assert(std::isinf(logProbNeg) && logProbNeg < 0);
+    assert(std::isinf(logProbFloat) && logProbFloat < 0);
+    
+    // Test with invalid inputs
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+    assert(std::isinf(poisson.getLogProbability(nan_val)) && poisson.getLogProbability(nan_val) < 0);
+    assert(std::isinf(poisson.getLogProbability(inf_val)) && poisson.getLogProbability(inf_val) < 0);
+    
+    std::cout << "✓ Log probability tests passed" << std::endl;
+}
+
+/**
+ * Test CDF calculations
+ */
+void testCDF() {
+    std::cout << "Testing CDF calculations..." << std::endl;
+    
+    PoissonDistribution poisson(2.0);
+    
+    // Test basic properties
+    double cdf0 = poisson.CDF(0.0);
+    double cdf2 = poisson.CDF(2.0);
+    double cdf10 = poisson.CDF(10.0);
+    
+    assert(cdf0 >= 0.0 && cdf0 <= 1.0);
+    assert(cdf2 >= 0.0 && cdf2 <= 1.0);
+    assert(cdf10 >= 0.0 && cdf10 <= 1.0);
+    
+    // CDF should be monotonic
+    assert(cdf0 <= cdf2);
+    assert(cdf2 <= cdf10);
+    
+    // CDF should approach 1 for large values
+    assert(cdf10 > 0.99);
+    
+    // Test boundary cases
+    assert(poisson.CDF(-1.0) == 0.0);
+    
+    // Test large lambda normal approximation
+    PoissonDistribution poissonLarge(200.0);
+    double cdfLarge = poissonLarge.CDF(200.0);
+    assert(cdfLarge >= 0.0 && cdfLarge <= 1.0);
+    
+    std::cout << "✓ CDF tests passed" << std::endl;
+}
+
+/**
+ * Test equality and I/O operators
+ */
+void testEqualityAndIO() {
+    std::cout << "Testing equality and I/O operators..." << std::endl;
+    
+    PoissonDistribution poisson1(2.5);
+    PoissonDistribution poisson2(2.5);
+    PoissonDistribution poisson3(3.0);
+    
+    // Test equality
+    assert(poisson1 == poisson2);
+    assert(!(poisson1 == poisson3));
+    
+    // Test inequality
+    assert(!(poisson1 != poisson2));
+    assert(poisson1 != poisson3);
+    
+    // Test stream output
+    std::ostringstream oss;
+    oss << poisson1;
+    std::string output = oss.str();
+    assert(!output.empty());
+    assert(output.find("Poisson") != std::string::npos);
+    
+    std::cout << "✓ Equality and I/O tests passed" << std::endl;
+}
+
+/**
+ * Test performance characteristics
+ */
+void testPerformance() {
+    std::cout << "Testing performance characteristics..." << std::endl;
+    
+    PoissonDistribution poisson(10.0);
+    
+    // Time probability calculations
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    const int numIterations = 10000;
+    double sum = 0.0;
+    for (int i = 0; i < numIterations; ++i) {
+        sum += poisson.getProbability(i % 50);  // 0 to 49
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    std::cout << "Computed " << numIterations << " probabilities in " 
+              << duration.count() << " microseconds" << std::endl;
+    std::cout << "Average time per calculation: " 
+              << static_cast<double>(duration.count()) / numIterations << " microseconds" << std::endl;
+    
+    // Should complete in reasonable time (< 1 second)
+    assert(duration.count() < 1000000); // 1 second = 1,000,000 microseconds
+    
+    std::cout << "✓ Performance tests passed" << std::endl;
+}
+
+/**
+ * Test caching mechanism
+ */
+void testCaching() {
+    std::cout << "Testing caching mechanism..." << std::endl;
+    
+    PoissonDistribution poisson(3.0);
+    
+    // First calculation should populate cache
+    double prob1 = poisson.getProbability(3.0);
+    
+    // Second calculation should use cache (should be identical)
+    double prob2 = poisson.getProbability(3.0);
+    assert(prob1 == prob2);
+    
+    // Changing parameters should invalidate cache
+    poisson.setLambda(5.0);
+    double prob3 = poisson.getProbability(3.0);
+    
+    // The probabilities should be different (λ=3 vs λ=5 significantly affects P(X=3))
+    assert(std::abs(prob3 - prob1) > 1e-6);
+    
+    // Test that log probability also works with caching
+    double logProb1 = poisson.getLogProbability(3.0);
+    double logProb2 = poisson.getLogProbability(3.0);
+    assert(logProb1 == logProb2);
+    
+    std::cout << "✓ Caching tests passed" << std::endl;
+}
+
 int main() {
     std::cout << "Running Poisson distribution tests..." << std::endl;
     std::cout << "=====================================" << std::endl;
@@ -219,6 +376,13 @@ int main() {
         testStringRepresentation();
         testCopyMoveSemantics();
         testNumericalStability();
+        
+        // Gold Standard Tests
+        testLogProbability();
+        testCDF();
+        testEqualityAndIO();
+        testPerformance();
+        testCaching();
         
         std::cout << "=====================================" << std::endl;
         std::cout << "✅ All Poisson distribution tests passed!" << std::endl;

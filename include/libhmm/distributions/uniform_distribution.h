@@ -33,9 +33,14 @@ private:
     double a_;  ///< Lower bound
     double b_;  ///< Upper bound
     
-    // Cached values for performance
+    // Comprehensive cached values for maximum performance
     mutable double cached_pdf_;         ///< Cached PDF value: 1/(b-a)
     mutable double cached_log_pdf_;     ///< Cached log PDF value: log(1/(b-a))
+    mutable double cached_range_;       ///< Cached range: (b-a)
+    mutable double cached_inv_range_;   ///< Cached inverse range: 1/(b-a)
+    mutable double cached_mean_;        ///< Cached mean: (a+b)/2
+    mutable double cached_variance_;    ///< Cached variance: (b-a)²/12
+    mutable double cached_std_dev_;     ///< Cached standard deviation: (b-a)/√12
     mutable bool cache_valid_;          ///< Flag indicating if cache is valid
     
     /**
@@ -103,7 +108,7 @@ public:
      * @param val Value to evaluate
      * @return Log probability density at x
      */
-    double getLogProbability(Observation val) const;
+    double getLogProbability(Observation val) const noexcept override;
     
     /**
      * @brief Calculate cumulative distribution function at x

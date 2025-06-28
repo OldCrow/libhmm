@@ -18,11 +18,12 @@ StateSequence ViterbiCalculator::decode() {
     // psi( 0, i ) = 0
     for (std::size_t i = 0; i < numStates; ++i) {
         const double piProb = hmm_->getPi()(i);
-        const double emisProb = hmm_->getProbabilityDistribution(static_cast<int>(i))->getProbability(observations_(0));
+        
+        // Use optimized getLogProbability for better performance and numerical stability
+        const double logEmis = hmm_->getProbabilityDistribution(static_cast<int>(i))->getLogProbability(observations_(0));
         
         // Handle zero probabilities to avoid log(0)
         const double logPi = (piProb > 0.0) ? std::log(piProb) : std::log(ZERO);
-        const double logEmis = (emisProb > 0.0) ? std::log(emisProb) : std::log(ZERO);
         
         delta_(0, i) = logPi + logEmis;
         psi_(0, i) = 0;
@@ -59,8 +60,8 @@ StateSequence ViterbiCalculator::decode() {
             // Store the best previous state
             psi_(t, j) = static_cast<int>(maxIndex);
             
-            const double emisProb = hmm_->getProbabilityDistribution(static_cast<int>(j))->getProbability(o);
-            const double logEmis = (emisProb > 0.0) ? std::log(emisProb) : std::log(ZERO);
+            // Use optimized getLogProbability for better performance and numerical stability
+            const double logEmis = hmm_->getProbabilityDistribution(static_cast<int>(j))->getLogProbability(o);
             
             delta_(t, j) = maxValue + logEmis;
         }

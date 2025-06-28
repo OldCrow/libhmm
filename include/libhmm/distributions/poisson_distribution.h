@@ -5,6 +5,9 @@
 #include <cmath>
 #include <cassert>
 #include <stdexcept>
+#include <sstream>
+#include <iomanip>
+#include <array>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
 
@@ -30,9 +33,19 @@ private:
     double lambda_{1.0};
 
     /**
-     * Cached value of log(lambda) for efficiency in probability calculations
+     * Comprehensive cached values for efficiency in probability calculations
      */
-    mutable double logLambda_{0.0};
+    mutable double logLambda_{0.0};         // log(λ) - used in log probability calculations
+    mutable double expNegLambda_{1.0};      // exp(-λ) - used frequently in PMF calculations
+    mutable double sqrtLambda_{1.0};        // sqrt(λ) - used in standard deviation and CDF
+    mutable double invSqrtLambda_{1.0};     // 1/sqrt(λ) - used in normal approximation
+    mutable double sqrtTwoPiLambda_{1.0};   // sqrt(2πλ) - used in normal approximation
+    
+    /**
+     * Pre-computed small factorial values for efficiency (0! through 12!)
+     * Computing factorials directly for small values is faster than Stirling's approximation
+     */
+    mutable std::array<double, 13> smallFactorials_;
     
     /**
      * Flag to track if cached values need updating
@@ -40,10 +53,23 @@ private:
     mutable bool cacheValid_{false};
     
     /**
-     * Updates cached values when lambda changes
+     * Updates all cached values when lambda changes
+     * Pre-computes expensive calculations to avoid repeated computation
      */
     void updateCache() const noexcept {
         logLambda_ = std::log(lambda_);
+        expNegLambda_ = std::exp(-lambda_);
+        sqrtLambda_ = std::sqrt(lambda_);
+        invSqrtLambda_ = 1.0 / sqrtLambda_;
+        sqrtTwoPiLambda_ = std::sqrt(2.0 * constants::math::PI * lambda_);
+        
+        // Pre-compute small factorials for performance
+        smallFactorials_[0] = 1.0;  // 0! = 1
+        smallFactorials_[1] = 1.0;  // 1! = 1
+        for (int i = 2; i <= 12; ++i) {
+            smallFactorials_[i] = smallFactorials_[i-1] * static_cast<double>(i);
+        }
+        
         cacheValid_ = true;
     }
     
@@ -96,7 +122,11 @@ public:
      * Copy constructor
      */
     PoissonDistribution(const PoissonDistribution& other) 
-        : lambda_{other.lambda_}, logLambda_{other.logLambda_}, cacheValid_{other.cacheValid_} {}
+        : lambda_{other.lambda_}, 
+          logLambda_{other.logLambda_}, expNegLambda_{other.expNegLambda_},
+          sqrtLambda_{other.sqrtLambda_}, invSqrtLambda_{other.invSqrtLambda_},
+          sqrtTwoPiLambda_{other.sqrtTwoPiLambda_}, 
+          smallFactorials_{other.smallFactorials_}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Copy assignment operator
@@ -105,6 +135,11 @@ public:
         if (this != &other) {
             lambda_ = other.lambda_;
             logLambda_ = other.logLambda_;
+            expNegLambda_ = other.expNegLambda_;
+            sqrtLambda_ = other.sqrtLambda_;
+            invSqrtLambda_ = other.invSqrtLambda_;
+            sqrtTwoPiLambda_ = other.sqrtTwoPiLambda_;
+            smallFactorials_ = other.smallFactorials_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -114,7 +149,11 @@ public:
      * Move constructor
      */
     PoissonDistribution(PoissonDistribution&& other) noexcept
-        : lambda_{other.lambda_}, logLambda_{other.logLambda_}, cacheValid_{other.cacheValid_} {}
+        : lambda_{other.lambda_}, 
+          logLambda_{other.logLambda_}, expNegLambda_{other.expNegLambda_},
+          sqrtLambda_{other.sqrtLambda_}, invSqrtLambda_{other.invSqrtLambda_},
+          sqrtTwoPiLambda_{other.sqrtTwoPiLambda_}, 
+          smallFactorials_{std::move(other.smallFactorials_)}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Move assignment operator
@@ -123,10 +162,20 @@ public:
         if (this != &other) {
             lambda_ = other.lambda_;
             logLambda_ = other.logLambda_;
+            expNegLambda_ = other.expNegLambda_;
+            sqrtLambda_ = other.sqrtLambda_;
+            invSqrtLambda_ = other.invSqrtLambda_;
+            sqrtTwoPiLambda_ = other.sqrtTwoPiLambda_;
+            smallFactorials_ = std::move(other.smallFactorials_);
             cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
+    
+    /**
+     * Destructor - explicitly defaulted to satisfy Rule of Five
+     */
+    ~PoissonDistribution() override = default;
 
     /**
      * Computes the probability mass function P(X = k) for the Poisson distribution.
@@ -192,10 +241,48 @@ public:
     
     /**
      * Gets the standard deviation of the distribution (sqrt(λ)).
+     * Uses cached value for efficiency.
      * 
      * @return Standard deviation
      */
-    double getStandardDeviation() const noexcept { return std::sqrt(lambda_); }
+    double getStandardDeviation() const noexcept { 
+        if (!cacheValid_) {
+            updateCache();
+        }
+        return sqrtLambda_; 
+    }
+    
+    /**
+     * Evaluates the logarithm of the probability mass function
+     * More numerically stable for small probabilities
+     * 
+     * @param value The count value k at which to evaluate the log PMF
+     * @return Log probability mass
+     */
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    
+    /**
+     * Evaluates the CDF at k using cumulative sum approach
+     * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
+     * 
+     * @param value The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ value)
+     */
+    [[nodiscard]] double CDF(double value) noexcept;
+    
+    /**
+     * Equality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are equal within tolerance
+     */
+    bool operator==(const PoissonDistribution& other) const;
+    
+    /**
+     * Inequality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are not equal
+     */
+    bool operator!=(const PoissonDistribution& other) const { return !(*this == other); }
 };
 
 /**

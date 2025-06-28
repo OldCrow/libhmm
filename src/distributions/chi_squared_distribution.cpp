@@ -44,7 +44,7 @@ double ChiSquaredDistribution::getProbability(Observation value) {
     return std::exp(log_prob);
 }
 
-double ChiSquaredDistribution::getLogProbability(Observation value) const {
+double ChiSquaredDistribution::getLogProbability(Observation value) const noexcept {
     if (!cache_valid_) {
         updateCache();
     }

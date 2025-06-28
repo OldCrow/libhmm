@@ -10,18 +10,23 @@ We need to systematically document what each library supports:
 
 | Feature | libhmm | GHMM | HMMlib | StochHMM | HTK |
 |---------|--------|------|--------|----------|-----|
-| Discrete HMMs | ✓ | ? | ✓ (only) | ? | ? |
-| Continuous HMMs | ✓ | ? | ✗ | ? | ? |
-| Fixed Symbol Alphabets | ✓ | ? | ✓ (required) | ? | ? |
-| Variable Symbol Alphabets | ✓ | ? | ✗ | ? | ? |
-| Forward Algorithm | ✓ | ? | ? | ? | ? |
-| Backward Algorithm | ✓ | ? | ? | ? | ? |
-| Viterbi Algorithm | ✓ | ? | ? | ? | ? |
-| Baum-Welch Training | ✓ | ? | ? | ? | ? |
-| Scaling Methods | Auto/Manual | ? | ? | ? | ? |
-| Log-space Computation | Auto/Manual | ? | ? | ? | ? |
-| Multi-threading | ✓ | ? | ? | ? | ? |
-| SIMD Optimization | ✓ | ? | ? | ? | ? |
+| **Discrete HMMs** | ✓ | ✓ | ✓ (only) | ✓ | ✓ |
+| **Continuous HMMs** | ✓ (1D) | ✓ | ✗ | ✓ | ✓ (full) |
+| **Fixed Symbol Alphabets** | ✓ | ✓ | ✓ (required) | ✓ | ✓ |
+| **Variable Symbol Alphabets** | ✓ | ✓ | ✗ | ✓ | ✓ |
+| **Forward Algorithm** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Backward Algorithm** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Viterbi Algorithm** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Baum-Welch Training** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Scaling Methods** | Auto/Manual | Manual | Manual | Manual | Auto |
+| **Log-space Computation** | Auto/Manual | Manual | Manual | Manual | Auto |
+| **Multi-threading** | ✓ | ✗ | ✗ | ✗ | ✗ |
+| **SIMD Optimization** | ✓ | ✗ | ✗ | ✗ | ✗ |
+| **Performance (relative)** | 1x | 22.8x | 17.9x | 1.9x | Variable* |
+| **Numerical Precision** | Full | Full | Full | Full | Rounded |
+| **Dependencies** | None | None | Boost | None | None |
+| **Language** | C++17 | C | C++ | C++ | C |
+| **API Style** | Modern | C-style | Legacy C++ | Mixed | CLI-based |
 
 ### 1.2 API Analysis
 Document the API patterns for each library:

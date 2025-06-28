@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.1] - 2025-06-28
+
+### Discrete Distributions Gold Standard & HTK Benchmark Enhancement Release
+
+This release elevates all 4 discrete distributions (Discrete, Binomial, Negative Binomial, Poisson) to the gold standard of exception safety, input validation, and naming consistency. Additionally, the benchmarking suite now distinctly separates discrete from continuous benchmarks and includes extended performance scaling analysis.
+
+### Added
+
+#### Discrete Distribution Enhancements
+- **Gold Standard Upgrades**: All discrete distributions updated to gold standard
+  - Comprehensive exception handling in stream input operators
+  - Input validation for edge cases, e.g., k=0 for Poisson, negative probabilities
+  - Consistent variable naming following the project guidelines
+
+#### Continuous Benchmarking Improvements
+- **HTK Benchmark Separation**: Clean discrete and continuous benchmark separation
+- **Performance Scaling Analysis**: Extended sequences ranging 100 to 1,000,000 observations
+- **Gaussian Distribution Fixes**: Proper handling of mean/variance pairs
+
+### Enhanced
+
+#### Benchmarking and Accuracy
+- **Numerical Validation**: Accurate log-likelihood computation for continuous models
+- **Performance Benchmarking**: Updated benchmarks showcase distinct advantages of libhmm and HTK under different scenarios
+
+#### Code Reliability and Consistency
+- **Error Messages**: Improved clarity and consistency in error reporting
+- **Documentation**: Updated all affected components to align with enhanced functionality
+
+### Fixed
+
+#### Stream I/O and Naming Conventions
+- **Variable Naming**: Consistent patterns across all discrete distributions
+- **Stream Input Resilience**: No crashes on malformed input for discrete distributions
+- **Numerical Accuracy**: Precise computation ensures 100% correctness in tests
+
+### Breaking Changes
+
+**None** - All modifications maintain full backward compatibility and primarily elevate internal robustness.
+
+### Migration Notes
+
+No actions required from prior versions. Code continues to operate correctly with improved internal robustness. Enhanced error safety in all four discrete distributions offers better reliability for production systems.
+
+### Quality Improvements
+
+This release attains the next level of quality, highlighting our ongoing commitment to continuous improvement and excellence in HMM library development:
+- **Systematic Upgrades**: Completing goals outlined in the Q4 roadmap of 2024
+- **Continuous Refactoring**: Focus on internal, non-breaking refactoring for long-term maintainability
+- **Code Quality Enforcements**: Automatized checks via clang-tidy ensure adherence to standards
+
+---
+
 ## [2.7.0] - 2024-06-27
 
 ### Stream I/O Robustness & Code Quality Release

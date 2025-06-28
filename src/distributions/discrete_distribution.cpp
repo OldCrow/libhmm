@@ -1,5 +1,7 @@
 #include "libhmm/distributions/discrete_distribution.h"
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 
 using namespace libhmm::constants;
 
@@ -120,6 +122,115 @@ std::string DiscreteDistribution::toString() const {
         oss << "      P(" << i << ") = " << pdf_[i] << "\n";
     }
     return oss.str();
+}
+
+/**
+ * Evaluates the logarithm of the probability mass function
+ * Uses cached log probabilities for maximum performance
+ */
+double DiscreteDistribution::getLogProbability(double value) const noexcept {
+    // Validate input - discrete distributions only accept non-negative integer values
+    if (std::isnan(value) || std::isinf(value) || value < math::ZERO_DOUBLE) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Convert to integer index
+    const auto index = static_cast<std::size_t>(value);
+    if (!isValidIndex(index)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Ensure cache is valid
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Return cached log probability (O(1) lookup)
+    return cachedLogProbs_[index];
+}
+
+/**
+ * Evaluates the CDF at k using pre-computed cached values
+ * O(1) lookup for maximum performance
+ */
+double DiscreteDistribution::CDF(double value) noexcept {
+    // Validate input
+    if (std::isnan(value) || std::isinf(value)) {
+        return math::ZERO_DOUBLE;
+    }
+    
+    if (value < math::ZERO_DOUBLE) {
+        return math::ZERO_DOUBLE;
+    }
+    
+    const auto k = static_cast<std::size_t>(std::floor(value));
+    
+    // If k is beyond our range, CDF = 1.0
+    if (k >= numSymbols_) {
+        return math::ONE;
+    }
+    
+    // Ensure cache is valid
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Return cached CDF value (O(1) lookup)
+    return cachedCDF_[k];
+}
+
+/**
+ * Equality comparison operator with numerical tolerance
+ */
+bool DiscreteDistribution::operator==(const DiscreteDistribution& other) const {
+    if (numSymbols_ != other.numSymbols_) {
+        return false;
+    }
+    
+    const double tolerance = 1e-10;
+    for (std::size_t i = 0; i < numSymbols_; ++i) {
+        if (std::abs(pdf_[i] - other.pdf_[i]) > tolerance) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * Stream input operator implementation
+ * Expects format with number of symbols followed by probabilities
+ */
+std::istream& operator>>(std::istream& is, libhmm::DiscreteDistribution& distribution) {
+    std::size_t numSymbols;
+    
+    if (!(is >> numSymbols)) {
+        is.setstate(std::ios::failbit);
+        return is;
+    }
+    
+    // Create new distribution with the specified number of symbols
+    try {
+        DiscreteDistribution newDist(numSymbols);
+        
+        // Read probabilities
+        for (std::size_t i = 0; i < numSymbols; ++i) {
+            double prob;
+            if (!(is >> prob)) {
+                is.setstate(std::ios::failbit);
+                return is;
+            }
+            newDist.setProbability(static_cast<double>(i), prob);
+        }
+        
+        // If successful, update the distribution
+        distribution = std::move(newDist);
+        
+    } catch (const std::exception&) {
+        is.setstate(std::ios::failbit);
+    }
+    
+    return is;
 }
 
 std::ostream& operator<<( std::ostream& os, 

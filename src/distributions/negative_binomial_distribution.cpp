@@ -156,6 +156,121 @@ std::string NegativeBinomialDistribution::toString() const {
     return oss.str();
 }
 
+double NegativeBinomialDistribution::getLogProbability(double value) const noexcept {
+    // Validate input - discrete distributions only accept non-negative integer values
+    if (std::isnan(value) || std::isinf(value)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Round to nearest integer and check if it's in valid range
+    int k = static_cast<int>(std::round(value));
+    if (k < 0) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Handle edge cases
+    if (p_ == math::ONE) {
+        return (k == 0) ? math::ZERO_DOUBLE : -std::numeric_limits<double>::infinity();
+    }
+    
+    // Ensure cache is valid
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Compute log probability for numerical stability
+    // log P(X = k) = log C(k+r-1, k) + r*log(p) + k*log(1-p)
+    const double logCoeff = logGeneralizedBinomialCoefficient(k);
+    const double logProb = logCoeff + r_ * logP_ + k * log1MinusP_;
+    
+    return logProb;
+}
+
+double NegativeBinomialDistribution::CDF(double value) noexcept {
+    // Validate input
+    if (std::isnan(value) || std::isinf(value)) {
+        return math::ZERO_DOUBLE;
+    }
+    
+    int k = static_cast<int>(std::floor(value));
+    
+    // Handle boundary cases
+    if (k < 0) {
+        return math::ZERO_DOUBLE;
+    }
+    
+    // Compute CDF as cumulative sum: P(X <= k) = sum_{i=0}^{k} P(X = i)
+    // For efficiency, we limit computation to reasonable range
+    const int maxK = std::min(k, 1000); // Practical upper limit for computation
+    
+    double cdf = math::ZERO_DOUBLE;
+    for (int i = 0; i <= maxK; ++i) {
+        cdf += getProbability(static_cast<double>(i));
+    }
+    
+    return std::min(math::ONE, cdf);
+}
+
+bool NegativeBinomialDistribution::operator==(const NegativeBinomialDistribution& other) const {
+    const double tolerance = 1e-10;
+    return (std::abs(r_ - other.r_) < tolerance) && 
+           (std::abs(p_ - other.p_) < tolerance);
+}
+
+std::istream& operator>>(std::istream& is, libhmm::NegativeBinomialDistribution& distribution) {
+    std::string token;
+    double r, p;
+    
+    // Expected format: "NegativeBinomial(r,p)" or "r p"
+    if (is >> token) {
+        if (token.find("NegativeBinomial") != std::string::npos) {
+            // Parse formatted input: NegativeBinomial(r,p)
+            std::string fullInput = token;
+            std::string remaining;
+            std::getline(is, remaining);
+            fullInput += remaining;
+            
+            // Find the opening and closing parentheses
+            size_t openParen = fullInput.find('(');
+            size_t closeParen = fullInput.find(')');
+            size_t comma = fullInput.find(',');
+            
+            if (openParen != std::string::npos && closeParen != std::string::npos && comma != std::string::npos) {
+                std::string rStr = fullInput.substr(openParen + 1, comma - openParen - 1);
+                std::string pStr = fullInput.substr(comma + 1, closeParen - comma - 1);
+                
+                try {
+                    r = std::stod(rStr);
+                    p = std::stod(pStr);
+                } catch (const std::exception&) {
+                    is.setstate(std::ios::failbit);
+                    return is;
+                }
+            } else {
+                is.setstate(std::ios::failbit);
+                return is;
+            }
+        } else {
+            // Assume first token is r
+            try {
+                r = std::stod(token);
+                is >> p;
+            } catch (const std::exception&) {
+                is.setstate(std::ios::failbit);
+                return is;
+            }
+        }
+        
+        try {
+            distribution.setParameters(r, p);
+        } catch (const std::exception&) {
+            is.setstate(std::ios::failbit);
+        }
+    }
+    
+    return is;
+}
+
 std::ostream& operator<<(std::ostream& os, 
         const libhmm::NegativeBinomialDistribution& distribution) {
     os << "Negative Binomial Distribution:" << std::endl;

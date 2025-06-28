@@ -186,7 +186,7 @@ public:
      * @param value The value at which to evaluate the log-PDF (should be in [0,1])
      * @return Natural logarithm of the probability density, or -∞ for invalid values
      */
-    double getLogProbability(double value) const noexcept;
+    double getLogProbability(double value) const noexcept override;
 
     /**
      * Fits the distribution parameters to the given data using method of moments.

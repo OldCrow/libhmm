@@ -5,6 +5,10 @@
 #include <cmath>
 #include <cassert>
 #include <stdexcept>
+#include <sstream>
+#include <iomanip>
+#include <vector>
+#include <limits>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
 
@@ -160,6 +164,11 @@ public:
     }
     
     /**
+     * Destructor - explicitly defaulted to satisfy Rule of Five
+     */
+    ~NegativeBinomialDistribution() override = default;
+    
+    /**
      * Computes the probability mass function for the Negative Binomial distribution.
      * 
      * @param value The value at which to evaluate the PMF (will be rounded to nearest integer)
@@ -270,6 +279,75 @@ public:
         p_ = p;
         cacheValid_ = false;
     }
+    
+    /**
+     * Evaluates the logarithm of the probability mass function
+     * More numerically stable for small probabilities
+     * 
+     * @param value The value at which to evaluate the log PMF
+     * @return Log probability mass
+     */
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    
+    /**
+     * Evaluates the CDF at k using cumulative sum approach
+     * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
+     * 
+     * @param value The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ value)
+     */
+    [[nodiscard]] double CDF(double value) noexcept;
+    
+    /**
+     * Gets the mode of the distribution.
+     * For Negative Binomial distribution, mode = floor((r-1)*(1-p)/p) if r > 1, else 0
+     * 
+     * @return Mode value
+     */
+    int getMode() const noexcept {
+        if (r_ <= 1.0) {
+            return 0;
+        }
+        return static_cast<int>(std::floor((r_ - 1.0) * (1.0 - p_) / p_));
+    }
+    
+    /**
+     * Gets the skewness of the distribution.
+     * For Negative Binomial distribution, skewness = (2-p)/sqrt(r*(1-p))
+     * 
+     * @return Skewness value
+     */
+    double getSkewness() const noexcept {
+        return (2.0 - p_) / std::sqrt(r_ * (1.0 - p_));
+    }
+    
+    /**
+     * Gets the kurtosis of the distribution.
+     * For Negative Binomial distribution, kurtosis = 3 + (6/r) + (p²/(r*(1-p)))
+     * 
+     * @return Kurtosis value
+     */
+    double getKurtosis() const noexcept {
+        return 3.0 + (6.0 / r_) + (p_ * p_) / (r_ * (1.0 - p_));
+    }
+    
+    /**
+     * Equality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are equal within tolerance
+     */
+    bool operator==(const NegativeBinomialDistribution& other) const;
+    
+    /**
+     * Inequality comparison operator
+     * @param other Other distribution to compare with
+     * @return true if parameters are not equal
+     */
+    bool operator!=(const NegativeBinomialDistribution& other) const { return !(*this == other); }
+    
+private:
+    friend std::istream& operator>>(std::istream& is,
+            libhmm::NegativeBinomialDistribution& distribution);
 };
 
 std::ostream& operator<<(std::ostream&, const libhmm::NegativeBinomialDistribution&);

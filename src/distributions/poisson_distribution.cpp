@@ -13,20 +13,20 @@ namespace libhmm
 
 /*
  * Computes log(k!) efficiently using:
- * - Direct computation for small k (k <= 12)
+ * - Pre-computed cached values for small k (k <= 12)
  * - Stirling's approximation for large k: log(k!) ≈ k*log(k) - k + 0.5*log(2πk)
  */
 double PoissonDistribution::logFactorial(int k) const noexcept {
     if (k < 0) return -std::numeric_limits<double>::infinity();
-    if (k == 0 || k == 1) return 0.0;
     
-    // For small k, use direct computation (more accurate)
+    // Ensure cache is valid
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // For small k, use pre-computed cached values (fastest)
     if (k <= 12) {
-        double result = 0.0;
-        for (int i = 2; i <= k; ++i) {
-            result += std::log(static_cast<double>(i));
-        }
-        return result;
+        return std::log(smallFactorials_[k]);
     }
     
     // For large k, use Stirling's approximation
@@ -51,9 +51,9 @@ double PoissonDistribution::getProbability(double value) {
         updateCache();
     }
     
-    // Handle edge cases
+    // Handle edge cases - use cached exp(-lambda) for efficiency
     if (k == 0) {
-        return std::exp(-lambda_);
+        return expNegLambda_;
     }
     
     // For very large lambda or k, check for potential overflow/underflow
@@ -77,6 +77,7 @@ double PoissonDistribution::getProbability(double value) {
 /*
  * Fits the Poisson distribution to data using Maximum Likelihood Estimation.
  * For Poisson, MLE of λ is simply the sample mean: λ̂ = (1/n) * Σ(x_i)
+ * Uses single-pass algorithm for efficiency.
  */
 void PoissonDistribution::fit(const std::vector<Observation>& values) {
     if (values.empty()) {
@@ -84,19 +85,26 @@ void PoissonDistribution::fit(const std::vector<Observation>& values) {
         return;
     }
     
-    // Validate that all values are non-negative counts
+    // Single-pass validation and computation for efficiency
+    double sum = math::ZERO_DOUBLE;
+    std::size_t validCount = 0;
+    
     for (const auto& val : values) {
-        if (val < 0.0 || !std::isfinite(val)) {
+        // Validate input
+        if (val < math::ZERO_DOUBLE || !std::isfinite(val)) {
             throw std::invalid_argument("Poisson distribution requires non-negative finite values");
         }
         if (std::floor(val) != val) {
             throw std::invalid_argument("Poisson distribution requires integer count values");
         }
+        
+        // Accumulate sum in single pass
+        sum += val;
+        ++validCount;
     }
     
-    // Compute sample mean (MLE estimator for λ)
-    const double sum = std::accumulate(values.begin(), values.end(), 0.0);
-    const double sampleMean = sum / static_cast<double>(values.size());
+    // Compute MLE estimate: λ̂ = sample_mean
+    const double sampleMean = sum / static_cast<double>(validCount);
     
     // Ensure lambda is positive (handle edge case of all zeros)
     lambda_ = std::max(sampleMean, precision::ZERO);
@@ -130,6 +138,82 @@ std::string PoissonDistribution::toString() const {
 std::ostream& operator<<(std::ostream& os, const libhmm::PoissonDistribution& distribution) {
     os << distribution.toString();
     return os;
+}
+
+/*
+ * Evaluates the logarithm of the probability mass function
+ * Formula: log P(X = k) = k*log(λ) - λ - log(k!)
+ * More numerically stable for small probabilities
+ */
+double PoissonDistribution::getLogProbability(double value) const noexcept {
+    // Validate input - must be non-negative integer
+    if (!isValidCount(value)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    const int k = static_cast<int>(value);
+    
+    // Update cache if needed
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Compute log probability: log P(X = k) = k*log(λ) - λ - log(k!)
+    const double logProb = k * logLambda_ - lambda_ - logFactorial(k);
+    
+    return logProb;
+}
+
+/*
+ * Evaluates the CDF at k using cumulative sum approach
+ * For large k, uses asymptotic approximation for efficiency
+ */
+double PoissonDistribution::CDF(double value) noexcept {
+    // Validate input
+    if (std::isnan(value) || std::isinf(value)) {
+        return math::ZERO_DOUBLE;
+    }
+    
+    if (value < math::ZERO_DOUBLE) {
+        return math::ZERO_DOUBLE;
+    }
+    
+    const int k = static_cast<int>(std::floor(value));
+    
+    // For very large k or lambda, the cumulative sum becomes computationally expensive
+    // and numerically unstable. In such cases, use normal approximation.
+    if (k > 100 && lambda_ > 100.0) {
+        // Ensure cache is valid
+        if (!cacheValid_) {
+            updateCache();
+        }
+        
+        // Normal approximation with continuity correction: P(X ≤ k) ≈ Φ((k + 0.5 - λ) / √λ)
+        // Use cached sqrt(lambda) for efficiency
+        const double z = (static_cast<double>(k) + 0.5 - lambda_) * invSqrtLambda_;
+        return 0.5 * (1.0 + std::erf(z / math::SQRT_2));
+    }
+    
+    // For moderate values, compute CDF as cumulative sum: P(X ≤ k) = Σ(i=0 to k) P(X = i)
+    double cdf = math::ZERO_DOUBLE;
+    for (int i = 0; i <= k; ++i) {
+        cdf += getProbability(static_cast<double>(i));
+        
+        // Early termination if we've accumulated essentially all probability
+        if (cdf >= 0.999999) {
+            break;
+        }
+    }
+    
+    return std::min(math::ONE, cdf);
+}
+
+/*
+ * Equality comparison operator with numerical tolerance
+ */
+bool PoissonDistribution::operator==(const PoissonDistribution& other) const {
+    const double tolerance = 1e-10;
+    return std::abs(lambda_ - other.lambda_) < tolerance;
 }
 
 /*
