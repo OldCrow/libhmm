@@ -18,11 +18,14 @@
 #endif
 
 // Platform and system headers for SIMD
+// Only include x86 intrinsics on x86/x64 platforms to avoid Apple Silicon issues
 #ifdef _MSC_VER
     #include <intrin.h>
-#elif defined(__GNUC__) || defined(__clang__)
+#elif (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86))
     #include <immintrin.h>
-#include <x86intrin.h>
+    #include <x86intrin.h>
+#elif defined(__ARM_NEON) || defined(__aarch64__)
+    #include <arm_neon.h>
 #endif
 
 #include "common.h"
