@@ -239,6 +239,7 @@ TEST_F(OptimizedMatrix3DTest, PerformanceBenchmark) {
                     }
                 }
             }
+            (void)sum; // Suppress unused variable warning
         }
         
         auto end = std::chrono::high_resolution_clock::now();

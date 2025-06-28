@@ -498,6 +498,8 @@ void testCaching() {
     double prob7 = gaussian.getProbability(0.0);  // Use new mean after reset
     gaussian.reset();
     double prob8 = gaussian.getProbability(0.0);
+    (void)prob7; // Suppress unused variable warning
+    (void)prob8; // Suppress unused variable warning
     // After reset, parameters are already 0,1 so we expect same result
     // Let's change the parameters first then reset
     gaussian.setMean(5.0);

@@ -219,13 +219,11 @@ public:
         std::vector<SwarmObservation> typicalObservations = getTypicalObservations(state);
         
         double boost = 10.0; // Increase probability by this factor
-        double totalBoost = 0.0;
         
         for (const auto& obs : typicalObservations) {
             unsigned int obsValue = obs.toDiscreteValue();
             if (obsValue < static_cast<unsigned int>(numObs)) {
                 dist.setProbability(obsValue, dist.getProbability(obsValue) * boost);
-                totalBoost += dist.getProbability(obsValue) * (boost - 1);
             }
         }
         
