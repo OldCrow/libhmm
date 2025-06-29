@@ -1,7 +1,7 @@
 #include "libhmm/distributions/negative_binomial_distribution.h"
-#include <iostream>
-#include <numeric>
-#include <algorithm>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <algorithm>   // For std::for_each (exists in common.h, included for clarity)
 
 using namespace libhmm::constants;
 
@@ -68,44 +68,37 @@ double NegativeBinomialDistribution::getProbability(double value) {
  * @param values Vector of observed data points
  */                   
 void NegativeBinomialDistribution::fit(const std::vector<Observation>& values) {
-    const auto N = values.size();
-
-    // Handle edge cases: empty data or single data point
-    if (N == 0) {
+    // Handle edge case: empty data
+    if (values.empty()) {
         reset();
         return;
     }
     
-    if (N == 1) {
-        // For single point, use default parameters as estimation is not meaningful
-        reset();
-        return;
-    }
-
-    // Filter valid non-negative observations
-    std::vector<double> validObs;
+    // Single-pass Welford's algorithm for mean and variance calculation
+    double mean = math::ZERO_DOUBLE;
+    double m2 = math::ZERO_DOUBLE;  // Sum of squared differences from current mean
+    std::size_t validCount = 0;
+    
     for (const auto& val : values) {
-        if (val >= math::ZERO_DOUBLE && !std::isnan(val) && !std::isinf(val)) {
-            validObs.push_back(val);
+        // Validate: finite non-negative values only
+        if (val >= math::ZERO_DOUBLE && std::isfinite(val)) {
+            ++validCount;
+            const double delta = val - mean;
+            mean += delta / static_cast<double>(validCount);
+            const double delta2 = val - mean;
+            m2 += delta * delta2;
         }
     }
     
-    if (validObs.size() < 2) {
+    // Handle edge cases: insufficient valid data
+    if (validCount < 2) {
         reset(); // Need at least 2 points for variance estimation
         return;
     }
-
-    // Calculate sample mean
-    const double sum = std::accumulate(validObs.begin(), validObs.end(), math::ZERO_DOUBLE);
-    const double sampleMean = sum / static_cast<double>(validObs.size());
     
-    // Calculate sample variance (using sample variance with N-1 denominator)
-    double sumSquaredDiffs = math::ZERO_DOUBLE;
-    for (const auto& val : validObs) {
-        const double diff = val - sampleMean;
-        sumSquaredDiffs += diff * diff;
-    }
-    const double sampleVariance = sumSquaredDiffs / static_cast<double>(validObs.size() - 1);
+    // Calculate sample variance using Bessel's correction (N-1)
+    const double sampleMean = mean;
+    const double sampleVariance = m2 / static_cast<double>(validCount - 1);
     
     // Check if negative binomial is appropriate (requires variance > mean for over-dispersion)
     if (sampleVariance <= sampleMean || sampleMean <= math::ZERO_DOUBLE) {

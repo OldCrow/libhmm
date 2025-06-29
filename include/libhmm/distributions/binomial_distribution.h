@@ -1,14 +1,9 @@
 #ifndef BINOMIAL_DISTRIBUTION_H_
 #define BINOMIAL_DISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
-#include <sstream>
-#include <iomanip>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
 
 namespace libhmm {
 
@@ -296,7 +291,7 @@ public:
      * @param value The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ value)
      */
-    [[nodiscard]] double CDF(double value) noexcept;
+    [[nodiscard]] double getCumulativeProbability(double value) noexcept;
     
     /**
      * Equality comparison operator

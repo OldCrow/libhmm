@@ -357,36 +357,36 @@ void testCDF() {
     GaussianDistribution gaussian(0.0, 1.0);  // Standard normal
     
     // Test CDF at mean (should be 0.5)
-    double cdfAtMean = gaussian.CDF(0.0);
+    double cdfAtMean = gaussian.getCumulativeProbability(0.0);
     assert(std::abs(cdfAtMean - 0.5) < 1e-6);
     
     // Test CDF symmetry
-    double cdfAt1 = gaussian.CDF(1.0);
-    double cdfAtNeg1 = gaussian.CDF(-1.0);
+    double cdfAt1 = gaussian.getCumulativeProbability(1.0);
+    double cdfAtNeg1 = gaussian.getCumulativeProbability(-1.0);
     assert(std::abs(cdfAt1 + cdfAtNeg1 - 1.0) < 1e-6);  // Should sum to 1
     
     // Test CDF is monotonically increasing
-    assert(gaussian.CDF(-2.0) < gaussian.CDF(-1.0));
-    assert(gaussian.CDF(-1.0) < gaussian.CDF(0.0));
-    assert(gaussian.CDF(0.0) < gaussian.CDF(1.0));
-    assert(gaussian.CDF(1.0) < gaussian.CDF(2.0));
+    assert(gaussian.getCumulativeProbability(-2.0) < gaussian.getCumulativeProbability(-1.0));
+    assert(gaussian.getCumulativeProbability(-1.0) < gaussian.getCumulativeProbability(0.0));
+    assert(gaussian.getCumulativeProbability(0.0) < gaussian.getCumulativeProbability(1.0));
+    assert(gaussian.getCumulativeProbability(1.0) < gaussian.getCumulativeProbability(2.0));
     
     // Test CDF bounds
-    assert(gaussian.CDF(-5.0) >= 0.0 && gaussian.CDF(-5.0) <= 1.0);
-    assert(gaussian.CDF(5.0) >= 0.0 && gaussian.CDF(5.0) <= 1.0);
+    assert(gaussian.getCumulativeProbability(-5.0) >= 0.0 && gaussian.getCumulativeProbability(-5.0) <= 1.0);
+    assert(gaussian.getCumulativeProbability(5.0) >= 0.0 && gaussian.getCumulativeProbability(5.0) <= 1.0);
     
     // Test that CDF approaches bounds
-    assert(gaussian.CDF(-10.0) < 0.001);  // Should be very small
-    assert(gaussian.CDF(10.0) > 0.999);   // Should be very close to 1
+    assert(gaussian.getCumulativeProbability(-10.0) < 0.001);  // Should be very small
+    assert(gaussian.getCumulativeProbability(10.0) > 0.999);   // Should be very close to 1
     
     // Test with different parameters
     GaussianDistribution gaussian2(2.0, 0.5);
-    double cdfAtMean2 = gaussian2.CDF(2.0);
+    double cdfAtMean2 = gaussian2.getCumulativeProbability(2.0);
     assert(std::abs(cdfAtMean2 - 0.5) < 1e-6);
     
     // Test with invalid inputs
     double nan_val = std::numeric_limits<double>::quiet_NaN();
-    assert(gaussian.CDF(nan_val) == 0.0);  // CDF returns 0.0 for NaN input
+    assert(gaussian.getCumulativeProbability(nan_val) == 0.0);  // CDF returns 0.0 for NaN input
     
     std::cout << "✓ CDF calculation tests passed" << std::endl;
 }

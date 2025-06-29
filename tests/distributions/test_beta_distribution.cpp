@@ -497,6 +497,134 @@ void testPerformance() {
     std::cout << "✓ Performance tests passed" << std::endl;
 }
 
+/**
+ * Test CDF calculations (Gold Standard)
+ */
+void testCDFCalculations() {
+    std::cout << "Testing CDF calculations..." << std::endl;
+    
+    BetaDistribution beta(2.0, 3.0);
+    
+    // Test boundary values
+    assert(beta.getCumulativeProbability(-0.1) == 0.0);
+    assert(beta.getCumulativeProbability(0.0) == 0.0);
+    assert(beta.getCumulativeProbability(1.0) == 1.0);
+    assert(beta.getCumulativeProbability(1.1) == 1.0);
+    
+    // Test monotonicity
+    double cdf1 = beta.getCumulativeProbability(0.2);
+    double cdf2 = beta.getCumulativeProbability(0.5);
+    double cdf3 = beta.getCumulativeProbability(0.8);
+    assert(cdf1 < cdf2);
+    assert(cdf2 < cdf3);
+    
+    // Test that CDF values are in [0,1]
+    assert(cdf1 >= 0.0 && cdf1 <= 1.0);
+    assert(cdf2 >= 0.0 && cdf2 <= 1.0);
+    assert(cdf3 >= 0.0 && cdf3 <= 1.0);
+    
+    std::cout << "✓ CDF calculation tests passed" << std::endl;
+}
+
+/**
+ * Test equality and I/O operators (Gold Standard)
+ */
+void testEqualityAndIO() {
+    std::cout << "Testing equality and I/O operators..." << std::endl;
+    
+    BetaDistribution b1(2.0, 1.5);
+    BetaDistribution b2(2.0, 1.5);
+    BetaDistribution b3(3.0, 1.5);
+    
+    assert(b1 == b2);
+    assert(b2 == b1);
+    assert(!(b1 == b3));
+    assert(b1 != b3);
+    
+    std::ostringstream oss;
+    oss << b1;
+    std::string output = oss.str();
+    assert(output.find("Beta Distribution") != std::string::npos);
+    assert(output.find("2.0") != std::string::npos);
+    assert(output.find("1.5") != std::string::npos);
+    
+    std::cout << "✓ Equality and I/O tests passed" << std::endl;
+}
+
+/**
+ * Test numerical stability (Gold Standard)
+ */
+void testNumericalStability() {
+    std::cout << "Testing numerical stability..." << std::endl;
+    
+    // Test extreme parameter values
+    BetaDistribution smallAlpha(0.1, 1.0);
+    BetaDistribution largeAlpha(10.0, 1.0);
+    BetaDistribution largeBoth(10.0, 10.0);
+    
+    double probSmall = smallAlpha.getProbability(0.1);
+    double probLarge = largeAlpha.getProbability(0.1);
+    double probBoth = largeBoth.getProbability(0.5);
+    
+    assert(probSmall > 0.0 && std::isfinite(probSmall));
+    assert(probLarge > 0.0 && std::isfinite(probLarge));
+    assert(probBoth > 0.0 && std::isfinite(probBoth));
+    
+    // Test log probability with extreme values
+    double logProbSmall = smallAlpha.getLogProbability(0.1);
+    double logProbLarge = largeAlpha.getLogProbability(0.1);
+    assert(std::isfinite(logProbSmall));
+    assert(std::isfinite(logProbLarge));
+    
+    std::cout << "✓ Numerical stability tests passed" << std::endl;
+}
+
+/**
+ * Test caching mechanism (Gold Standard)
+ */
+void testCaching() {
+    std::cout << "Testing caching mechanism..." << std::endl;
+    
+    BetaDistribution beta(2.0, 1.0);
+    
+    // Test that calculations work correctly after parameter changes
+    double prob1 = beta.getProbability(0.5);
+    double logProb1 = beta.getLogProbability(0.5);
+    
+    // Change parameters and verify cache is updated
+    beta.setAlpha(3.0);
+    double prob2 = beta.getProbability(0.5);
+    double logProb2 = beta.getLogProbability(0.5);
+    
+    assert(prob1 != prob2);  // Should be different after parameter change
+    assert(logProb1 != logProb2);  // Should be different after parameter change
+    
+    // Change beta parameter
+    beta.setBeta(2.0);
+    double prob3 = beta.getProbability(0.5);
+    double logProb3 = beta.getLogProbability(0.5);
+    
+    assert(prob2 != prob3);  // Should be different after parameter change
+    assert(logProb2 != logProb3);  // Should be different after parameter change
+    
+    // Test that copy constructor preserves cache state
+    BetaDistribution copied(beta);
+    assert(copied.getProbability(0.5) == beta.getProbability(0.5));
+    assert(copied.getLogProbability(0.5) == beta.getLogProbability(0.5));
+    
+    // Test that cached values are consistent
+    double prob4 = beta.getProbability(0.5);
+    double cdf4 = beta.getCumulativeProbability(0.5);
+    double logProb4 = beta.getLogProbability(0.5);
+    
+    // Multiple calls should return identical results (using cache)
+    assert(beta.getProbability(0.5) == prob4);
+    assert(beta.getCumulativeProbability(0.5) == cdf4);
+    assert(beta.getLogProbability(0.5) == logProb4);
+    
+    std::cout << "✓ Caching tests passed" << std::endl;
+}
+
 int main() {
     std::cout << "Running Beta distribution tests..." << std::endl;
     std::cout << "==================================" << std::endl;
@@ -516,8 +644,14 @@ int main() {
         testStatisticalMoments();
         testPerformance();
         
+        // Gold Standard Tests
+        testCDFCalculations();
+        testEqualityAndIO();
+        testNumericalStability();
+        testCaching();
+        
         std::cout << "==================================" << std::endl;
-        std::cout << "✅ All Beta distribution tests passed!" << std::endl;
+        std::cout << "✅ All Beta distribution tests passed (including Gold Standard)!" << std::endl;
         return 0;
         
     } catch (const std::exception& e) {

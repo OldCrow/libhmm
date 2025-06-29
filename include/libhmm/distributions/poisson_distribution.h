@@ -1,15 +1,10 @@
 #ifndef POISSONDISTRIBUTION_H_
 #define POISSONDISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
-#include <sstream>
-#include <iomanip>
-#include <array>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+#include <array>
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
 
 namespace libhmm{
 
@@ -265,10 +260,10 @@ public:
      * Evaluates the CDF at k using cumulative sum approach
      * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
      * 
-     * @param value The value at which to evaluate the CDF
-     * @return Cumulative probability P(X ≤ value)
+     * @param k The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ k)
      */
-    [[nodiscard]] double CDF(double value) noexcept;
+    [[nodiscard]] double getCumulativeProbability(double k) noexcept;
     
     /**
      * Equality comparison operator

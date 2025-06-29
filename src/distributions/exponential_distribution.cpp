@@ -1,7 +1,7 @@
 #include "libhmm/distributions/exponential_distribution.h"
-#include <iostream>
-#include <numeric>
-#include <limits>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
 
 using namespace libhmm::constants;
 
@@ -66,12 +66,15 @@ double ExponentialDistribution::getLogProbability(double value) const noexcept {
     return logLambda_ - lambda_ * value;
 }
 
-/*
- * Evaluates the CDF for the Normal distribution at x.  The CDF is defined as
- *
- *   F(x) = 1 - exp( -lambda * x )
+/**
+ * Evaluates the CDF for the Exponential distribution at x.
+ * 
+ * Formula: F(x) = 1 - exp(-λx) for x ≥ 0
+ * 
+ * @param x The value at which to evaluate the CDF
+ * @return Cumulative probability P(X ≤ x)
  */
-double ExponentialDistribution::CDF(double x) const noexcept {
+double ExponentialDistribution::getCumulativeProbability(double x) const noexcept {
     const double y = math::ONE - std::exp(-lambda_ * x);
     assert(y >= math::ZERO_DOUBLE);
     return y;

@@ -1,12 +1,9 @@
 #ifndef BETADISTRIBUTION_H_
 #define BETADISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
 
 namespace libhmm{
 
@@ -78,6 +75,13 @@ private:
     }
     
     /**
+     * Computes the regularized incomplete beta function I_x(a,b)
+     * using continued fraction expansion for numerical accuracy.
+     * This is essential for the Beta distribution CDF.
+     */
+    double incompleteBeta(double x, double a, double b) const noexcept;
+    
+    /**
      * Validates parameters for the Beta distribution
      * @param alpha Alpha parameter (must be positive and finite)
      * @param beta Beta parameter (must be positive and finite)
@@ -91,12 +95,6 @@ private:
             throw std::invalid_argument("Beta parameter must be a positive finite number");
         }
     }
-
-    /**
-     * Evaluates the CDF at x using the incomplete Beta function
-     * CDF(x) = I_x(α, β) where I_x is the regularized incomplete Beta function
-     */
-    double CDF(double x) noexcept;
 
     friend std::istream& operator>>(std::istream& is,
             libhmm::BetaDistribution& distribution);
@@ -189,6 +187,34 @@ public:
     double getLogProbability(double value) const noexcept override;
 
     /**
+     * Computes the cumulative distribution function for the Beta distribution.
+     * 
+     * Uses the regularized incomplete beta function I_x(α,β)
+     * 
+     * @param value The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ value)
+     */
+    double getCumulativeProbability(double value) const noexcept;
+    
+    /**
+     * Vectorized batch computation of PDF for multiple values.
+     * Optimized for processing many values efficiently with cache reuse.
+     * 
+     * @param values Vector of input values
+     * @param results Output vector for results (will be resized if needed)
+     */
+    void getProbabilityBatch(const std::vector<double>& values, std::vector<double>& results);
+    
+    /**
+     * Vectorized batch computation of log PDF for multiple values.
+     * Optimized for processing many values efficiently with cache reuse.
+     * 
+     * @param values Vector of input values
+     * @param results Output vector for results (will be resized if needed)
+     */
+    void getLogProbabilityBatch(const std::vector<double>& values, std::vector<double>& results) const;
+
+    /**
      * Fits the distribution parameters to the given data using method of moments.
      * 
      * Given sample mean μ and variance σ², the method of moments estimators are:
@@ -276,6 +302,22 @@ public:
      * @return Standard deviation
      */
     double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
+    
+    /**
+     * Equality operator with tolerance for floating-point comparison
+     */
+    bool operator==(const BetaDistribution& other) const noexcept {
+        const double tolerance = 1e-10;
+        return std::abs(alpha_ - other.alpha_) < tolerance &&
+               std::abs(beta_ - other.beta_) < tolerance;
+    }
+
+    /**
+     * Inequality operator
+     */
+    bool operator!=(const BetaDistribution& other) const noexcept {
+        return !(*this == other);
+    }
 };
 
 /**

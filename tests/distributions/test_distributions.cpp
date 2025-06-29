@@ -1088,21 +1088,30 @@ TEST_F(StudentTDistributionTest, ConstructorValidation) {
     }, std::invalid_argument);
 }
 
-TEST_F(StudentTDistributionTest, ProbabilityCalculation) {
+TEST_F(StudentTDistributionTest, ProbabilityAndLogProbabilityCalculation) {
     // t-distribution is symmetric around 0
-    double prob0 = dist_->getProbability(0.0);
-    double prob1 = dist_->getProbability(1.0);
-    double probNeg1 = dist_->getProbability(-1.0);
-    
-    EXPECT_GT(prob0, 0.0);
-    EXPECT_GT(prob1, 0.0);
-    EXPECT_GT(probNeg1, 0.0);
-    
+    double logProb0 = dist_->getLogProbability(0.0);
+    double logProb1 = dist_->getLogProbability(1.0);
+    double logProbNeg1 = dist_->getLogProbability(-1.0);
+
+    EXPECT_GT(logProb0, -std::numeric_limits<double>::infinity());
+    EXPECT_GT(logProb1, -std::numeric_limits<double>::infinity());
+    EXPECT_GT(logProbNeg1, -std::numeric_limits<double>::infinity());
+
+    double prob0 = std::exp(logProb0);
+    double prob1 = std::exp(logProb1);
+    double probNeg1 = std::exp(logProbNeg1);
+
     // Symmetry property
     EXPECT_NEAR(prob1, probNeg1, 1e-10);
-    
+
     // Maximum at x=0
     EXPECT_GT(prob0, prob1);
+
+    // Compare log and exp probabilities
+    EXPECT_NEAR(prob0, dist_->getProbability(0.0), 1e-10);
+    EXPECT_NEAR(prob1, dist_->getProbability(1.0), 1e-10);
+    EXPECT_NEAR(probNeg1, dist_->getProbability(-1.0), 1e-10);
 }
 
 TEST_F(StudentTDistributionTest, InvalidInputHandling) {
@@ -1171,6 +1180,24 @@ TEST_F(StudentTDistributionTest, SpecialCases) {
     double tProb = largeNu.getProbability(1.0);
     double normProb = normal.getProbability(1.0);
     EXPECT_NEAR(tProb, normProb, 0.5);  // Should be reasonably close to normal
+}
+
+TEST_F(StudentTDistributionTest, CumulativeProbabilityCalculation) {
+    double cdf0 = dist_->getCumulativeProbability(0.0);
+    double cdf1 = dist_->getCumulativeProbability(1.0);
+    double cdfMinus1 = dist_->getCumulativeProbability(-1.0);
+
+    EXPECT_GT(cdf0, 0.0);
+    EXPECT_LE(cdf0, 1.0);
+    EXPECT_GT(cdf1, 0.0);
+    EXPECT_LE(cdf1, 1.0);
+    EXPECT_GT(cdfMinus1, 0.0);
+
+    // Ensure symmetry
+    EXPECT_NEAR(1.0 - cdf1, cdfMinus1, 1e-10);
+
+    // CDF at mean should be 0.5
+    EXPECT_NEAR(cdf0, 0.5, 1e-10);
 }
 
 // Chi-squared Distribution Tests

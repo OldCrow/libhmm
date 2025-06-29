@@ -1,14 +1,21 @@
 #include "libhmm/distributions/beta_distribution.h"
-#include <sstream>
-#include <iomanip>
-#include <algorithm>
-#include <numeric>
-#include <limits>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <algorithm>   // For std::for_each (exists in common.h, included for clarity)
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
+
+#include <immintrin.h>  // SSE/AVX
 
 using namespace libhmm::constants;
 
 namespace libhmm {
 
+/**
+ * Computes the probability density function for the Beta distribution.
+ * 
+ * @param value The value at which to evaluate the PDF (should be in [0,1])
+ * @return Probability density, or 0.0 if value is outside [0,1]
+ */
 double BetaDistribution::getProbability(double value) {
     // Beta distribution is only defined on [0,1]
     if (value < math::ZERO_DOUBLE || value > math::ONE || std::isnan(value) || std::isinf(value)) {
@@ -37,22 +44,31 @@ double BetaDistribution::getProbability(double value) {
         // Direct computation for small integer exponents (faster than log/exp)
         double result = invBeta_;
         
-        // Use efficient integer power computation
+        // Use efficient binary exponentiation for integer powers
         int alphaExp = static_cast<int>(alphaMinus1_);
         int betaExp = static_cast<int>(betaMinus1_);
         
-        // Compute x^(α-1) efficiently
-        double xPower = math::ONE;
-        for (int i = 0; i < alphaExp; ++i) {
-            xPower *= value;
-        }
+        // Binary exponentiation for x^(α-1)
+        auto fastPower = [](double base, int exp) -> double {
+            if (exp == 0) return 1.0;
+            if (exp == 1) return base;
+            if (exp == 2) return base * base;
+            if (exp == 3) return base * base * base;
+            if (exp == 4) { double sq = base * base; return sq * sq; }
+            
+            // For larger powers, use binary exponentiation
+            double result = 1.0;
+            double currentPower = base;
+            while (exp > 0) {
+                if (exp & 1) result *= currentPower;
+                currentPower *= currentPower;
+                exp >>= 1;
+            }
+            return result;
+        };
         
-        // Compute (1-x)^(β-1) efficiently
-        double oneMinusX = math::ONE - value;
-        double oneMinusXPower = math::ONE;
-        for (int i = 0; i < betaExp; ++i) {
-            oneMinusXPower *= oneMinusX;
-        }
+        double xPower = fastPower(value, alphaExp);
+        double oneMinusXPower = fastPower(math::ONE - value, betaExp);
         
         return result * xPower * oneMinusXPower;
     } else {
@@ -116,62 +132,93 @@ double BetaDistribution::getLogProbability(double value) const noexcept {
            logBeta_;
 }
 
+
+void BetaDistribution::getProbabilityBatch(const std::vector<double>& values, std::vector<double>& results) {
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Resize the results vector if needed
+    if (results.size() != values.size()) {
+        results.resize(values.size());
+    }
+    
+    auto it = results.begin();
+    for (const double& value : values) {
+        *it++ = getProbability(value);
+    }
+}
+
+void BetaDistribution::getLogProbabilityBatch(const std::vector<double>& values, std::vector<double>& results) const {
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Resize the results vector if needed
+    if (results.size() != values.size()) {
+        results.resize(values.size());
+    }
+    
+    auto it = results.begin();
+    for (const double& value : values) {
+        *it++ = getLogProbability(value);
+    }
+}
+
 void BetaDistribution::fit(const std::vector<Observation>& values) {
     if (values.empty()) {
         reset();
         return;
     }
     
-    // Validate that all values are in [0,1]
+    // Single-pass Welford's algorithm with validation
+    double mean = math::ZERO_DOUBLE;
+    double M2 = math::ZERO_DOUBLE;  // Sum of squared differences from current mean
+    std::size_t validCount = 0;
+    
     for (const auto& val : values) {
-        if (val < 0.0 || val > 1.0 || std::isnan(val) || std::isinf(val)) {
+        // Validate in the loop to avoid extra pass
+        if (val < math::ZERO_DOUBLE || val > math::ONE || std::isnan(val) || std::isinf(val)) {
             throw std::invalid_argument("Beta distribution fitting requires all values to be in [0,1]");
         }
-    }
-    
-    // For single data point, set to default (insufficient data)
-    if (values.size() == 1) {
-        reset();
-        return;
-    }
-    
-    // Use single-pass Welford's algorithm for numerical stability and performance
-    double mean = 0.0;
-    double M2 = 0.0;  // Sum of squared differences from current mean
-    double n = 0.0;
-    
-    for (const auto& val : values) {
-        n += 1.0;
-        double delta = val - mean;
-        mean += delta / n;
-        double delta2 = val - mean;
+        
+        ++validCount;
+        const double delta = val - mean;
+        mean += delta / static_cast<double>(validCount);
+        const double delta2 = val - mean;
         M2 += delta * delta2;
     }
     
-    double variance = (n > 1.0) ? M2 / (n - 1.0) : 0.0;
+    // For single data point, set to default (insufficient data)
+    if (validCount < 2) {
+        reset();
+        return;
+    }
     
-    // Method of moments estimators
-    // α = μ * (μ(1-μ)/σ² - 1)
-    // β = (1-μ) * (μ(1-μ)/σ² - 1)
+    const double variance = M2 / static_cast<double>(validCount - 1);
+    
+    // Method of moments estimators with cached constants
+    // α = μ * (μ(1-μ)/σ² - 1), β = (1-μ) * (μ(1-μ)/σ² - 1)
     
     // Avoid division by zero and ensure valid parameters
-    if (variance <= 0.0 || mean <= 0.0 || mean >= 1.0) {
+    if (variance <= precision::ZERO || mean <= precision::ZERO || mean >= math::ONE) {
         reset();
         return;
     }
     
-    double factor = mean * (1.0 - mean) / variance - 1.0;
-    if (factor <= 0.0) {
+    const double oneMinusMean = math::ONE - mean;
+    const double factor = mean * oneMinusMean / variance - math::ONE;
+    if (factor <= precision::ZERO) {
         reset();
         return;
     }
     
-    double newAlpha = mean * factor;
-    double newBeta = (1.0 - mean) * factor;
+    const double newAlpha = mean * factor;
+    const double newBeta = oneMinusMean * factor;
     
-    // Ensure parameters are positive and reasonable
-    if (newAlpha > 0.0 && newBeta > 0.0 && 
-        newAlpha < 1000.0 && newBeta < 1000.0) {
+    // Ensure parameters are positive and reasonable using constants
+    if (newAlpha > precision::ZERO && newBeta > precision::ZERO && 
+        newAlpha < thresholds::MAX_DISTRIBUTION_PARAMETER && newBeta < thresholds::MAX_DISTRIBUTION_PARAMETER) {
         alpha_ = newAlpha;
         beta_ = newBeta;
         cacheValid_ = false;
@@ -192,20 +239,96 @@ std::string BetaDistribution::toString() const {
     oss << "Beta Distribution:\n";
     oss << "      α (alpha) = " << alpha_ << "\n";
     oss << "      β (beta) = " << beta_ << "\n";
+    oss << "      Mean = " << getMean() << "\n";
+    oss << "      Variance = " << getVariance() << "\n";
     return oss.str();
 }
 
-double BetaDistribution::CDF(double x) noexcept {
+double BetaDistribution::getCumulativeProbability(double value) const noexcept {
+    // Handle boundary cases
+    if (value <= 0.0) return 0.0;
+    if (value >= 1.0) return 1.0;
+    if (std::isnan(value) || std::isinf(value)) return 0.0;
+    
+    // Use the incomplete Beta function I_x(α, β)
+    // CDF(x) = I_x(α, β) 
+    return incompleteBeta(value, alpha_, beta_);
+}
+
+double BetaDistribution::incompleteBeta(double x, double a, double b) const noexcept {
+    // Implementation of regularized incomplete beta function I_x(a,b)
+    // Using continued fraction for better numerical stability
+    
+    // Handle edge cases
     if (x <= 0.0) return 0.0;
     if (x >= 1.0) return 1.0;
+    if (a <= 0.0 || b <= 0.0) return 0.0;
     
-    // Use the incomplete Beta function
-    // CDF(x) = I_x(α, β) = B(x; α, β) / B(α, β)
-    // where B(x; α, β) is the incomplete Beta function
+    // For better numerical stability, use symmetry relation if needed:
+    // I_x(a,b) = 1 - I_{1-x}(b,a)
+    bool use_symmetry = false;
+    double result_x = x;
+    double result_a = a;
+    double result_b = b;
     
-    // For implementation, we use the relationship with the regularized 
-    // incomplete Gamma function that's already available in the base class
-    return gammap(alpha_, -std::log(1.0 - x) * alpha_);
+    if (x > (a + 1.0) / (a + b + 2.0)) {
+        // Use symmetry for better convergence
+        use_symmetry = true;
+        result_x = 1.0 - x;
+        result_a = b;
+        result_b = a;
+    }
+    
+    // Calculate log(B(a,b)) = log(Γ(a)) + log(Γ(b)) - log(Γ(a+b))
+    const double logBetaAB = std::lgamma(result_a) + std::lgamma(result_b) - std::lgamma(result_a + result_b);
+    
+    // Calculate prefix: x^a * (1-x)^b / (a * B(a,b))
+    const double logPrefix = result_a * std::log(result_x) + result_b * std::log(1.0 - result_x) - std::log(result_a) - logBetaAB;
+    const double prefix = std::exp(logPrefix);
+    
+    // Continued fraction evaluation
+    const int maxIter = 200;
+    const double tolerance = 1e-12;
+    
+    double cf = 1.0;
+    double c = 1.0;
+    double d = 1.0 - (result_a + result_b) * result_x / (result_a + 1.0);
+    if (std::abs(d) < 1e-30) d = 1e-30;
+    d = 1.0 / d;
+    cf = d;
+    
+    for (int m = 1; m <= maxIter; ++m) {
+        // Even step (2m)
+        double numerator = m * (result_b - m) * result_x / ((result_a + 2.0 * m - 1.0) * (result_a + 2.0 * m));
+        d = 1.0 + numerator * d;
+        if (std::abs(d) < 1e-30) d = 1e-30;
+        c = 1.0 + numerator / c;
+        if (std::abs(c) < 1e-30) c = 1e-30;
+        d = 1.0 / d;
+        cf *= d * c;
+        
+        // Odd step (2m+1)
+        numerator = -(result_a + m) * (result_a + result_b + m) * result_x / ((result_a + 2.0 * m) * (result_a + 2.0 * m + 1.0));
+        d = 1.0 + numerator * d;
+        if (std::abs(d) < 1e-30) d = 1e-30;
+        c = 1.0 + numerator / c;
+        if (std::abs(c) < 1e-30) c = 1e-30;
+        d = 1.0 / d;
+        const double delta = d * c;
+        cf *= delta;
+        
+        if (std::abs(delta - 1.0) < tolerance) break;
+    }
+    
+    double result = prefix * cf;
+    
+    // Apply symmetry if used
+    if (use_symmetry) {
+        result = 1.0 - result;
+    }
+    
+    // Ensure result is in valid range
+    return std::max(0.0, std::min(1.0, result));
 }
 
 std::ostream& operator<<(std::ostream& os, const BetaDistribution& distribution) {

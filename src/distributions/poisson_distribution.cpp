@@ -1,10 +1,8 @@
 #include "libhmm/distributions/poisson_distribution.h"
-#include <iostream>
-#include <sstream>
-#include <algorithm>
-#include <numeric>
-#include <limits>
-#include <iomanip>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <algorithm>   // For std::max (exists in common.h, included for clarity)
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
 
 using namespace libhmm::constants;
 
@@ -168,7 +166,7 @@ double PoissonDistribution::getLogProbability(double value) const noexcept {
  * Evaluates the CDF at k using cumulative sum approach
  * For large k, uses asymptotic approximation for efficiency
  */
-double PoissonDistribution::CDF(double value) noexcept {
+double PoissonDistribution::getCumulativeProbability(double value) noexcept {
     // Validate input
     if (std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;

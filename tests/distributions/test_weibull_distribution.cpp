@@ -3,7 +3,10 @@
 #include <cmath>
 #include <cassert>
 #include <stdexcept>
-#include <limits>
+#include <climits>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 #include "libhmm/distributions/weibull_distribution.h"
 
 using libhmm::WeibullDistribution;
@@ -411,6 +414,309 @@ void testSpecialCases() {
     std::cout << "✓ Special cases tests passed" << std::endl;
 }
 
+/**
+ * Test log probability calculations (GOLD STANDARD)
+ */
+void testLogProbability() {
+    std::cout << "Testing log probability calculations..." << std::endl;
+    
+    WeibullDistribution weibull(2.0, 1.0);  // k=2, λ=1 (Rayleigh distribution)
+    
+    // Test that log probability is -infinity for negative values
+    assert(weibull.getLogProbability(-0.1) == -std::numeric_limits<double>::infinity());
+    assert(weibull.getLogProbability(-1.0) == -std::numeric_limits<double>::infinity());
+    
+    // Test consistency with regular probability
+    double x = 1.0;
+    double prob = weibull.getProbability(x);
+    double logProb = weibull.getLogProbability(x);
+    
+    if (prob > 0.0) {
+        assert(std::abs(logProb - std::log(prob)) < 1e-10);
+    }
+    
+    // Test that log probability is finite for positive values
+    assert(std::isfinite(weibull.getLogProbability(0.5)));
+    assert(std::isfinite(weibull.getLogProbability(1.0)));
+    assert(std::isfinite(weibull.getLogProbability(2.0)));
+    
+    // Test invalid inputs return -infinity
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+    assert(weibull.getLogProbability(nan_val) == -std::numeric_limits<double>::infinity());
+    assert(weibull.getLogProbability(inf_val) == -std::numeric_limits<double>::infinity());
+    
+    std::cout << "✓ Log probability tests passed" << std::endl;
+}
+
+/**
+ * Test CDF calculations (GOLD STANDARD)
+ */
+void testCDF() {
+    std::cout << "Testing CDF calculations..." << std::endl;
+    
+    WeibullDistribution weibull(2.0, 1.0);  // k=2, λ=1 (Rayleigh distribution)
+    
+    // Test boundary conditions
+    assert(weibull.CDF(-1.0) == 0.0);  // CDF should be 0 for negative values
+    assert(weibull.CDF(0.0) == 0.0);   // CDF should be 0 at x=0
+    
+    // Test monotonicity (CDF should be non-decreasing)
+    double cdf1 = weibull.CDF(0.5);
+    double cdf2 = weibull.CDF(1.0);
+    double cdf3 = weibull.CDF(2.0);
+    
+    assert(cdf1 >= 0.0 && cdf1 <= 1.0);
+    assert(cdf2 >= 0.0 && cdf2 <= 1.0);
+    assert(cdf3 >= 0.0 && cdf3 <= 1.0);
+    assert(cdf1 <= cdf2);
+    assert(cdf2 <= cdf3);
+    
+    // Test that CDF approaches 1 for large values
+    double cdfLarge = weibull.CDF(10.0);
+    assert(cdfLarge > 0.99);  // Should be very close to 1
+    
+    // Test known values for Weibull distribution with k=2, λ=1
+    // CDF(1) = 1 - exp(-(1/1)^2) = 1 - exp(-1) ≈ 0.632
+    double cdfAtScale = weibull.CDF(1.0);
+    if (!(cdfAtScale > 0.63 && cdfAtScale < 0.64)) {
+        std::cerr << "CDF(1.0)=" << cdfAtScale << " did not meet expected range (0.63, 0.64)" << std::endl;
+        assert(false);
+    }
+    
+    std::cout << "✓ CDF tests passed" << std::endl;
+}
+
+/**
+ * Test equality and I/O operators (GOLD STANDARD)
+ */
+void testEqualityAndIO() {
+    std::cout << "Testing equality and I/O operators..." << std::endl;
+    
+    WeibullDistribution weibull1(2.5, 1.5);
+    WeibullDistribution weibull2(2.5, 1.5);
+    WeibullDistribution weibull3(3.0, 2.0);
+    
+    // Test equality operator
+    assert(weibull1 == weibull2);  // Same parameters
+    assert(!(weibull1 == weibull3));  // Different parameters
+    
+    // Test with slightly different parameters (within tolerance)
+    WeibullDistribution weibull4(2.5 + 1e-16, 1.5 + 1e-16);
+    assert(weibull1 == weibull4);  // Should be equal within tolerance
+    
+    // Test stream output operator
+    std::ostringstream oss;
+    oss << weibull1;
+    std::string output = oss.str();
+    assert(!output.empty());
+    assert(output.find("Weibull") != std::string::npos);
+    assert(output.find("2.5") != std::string::npos);
+    assert(output.find("1.5") != std::string::npos);
+    
+    // Test stream input operator
+    std::istringstream iss(output);
+    WeibullDistribution weibullFromStream;
+    iss >> weibullFromStream;
+    
+    if (iss.good() || iss.eof()) {
+        assert(weibullFromStream == weibull1);
+    }
+    
+    std::cout << "✓ Equality and I/O tests passed" << std::endl;
+}
+
+/**
+ * Test performance characteristics and optimizations (GOLD STANDARD)
+ */
+void testPerformanceCharacteristics() {
+    std::cout << "Testing performance characteristics..." << std::endl;
+    
+    WeibullDistribution weibull(2.5, 1.5);
+    
+    // Test parameters
+    const int pdf_iterations = 100000;
+    const int fit_datapoints = 5000;
+    
+    // Generate test values for PDF calls
+    std::vector<double> testValues;
+    testValues.reserve(pdf_iterations);
+    for (int i = 0; i < pdf_iterations; ++i) {
+        // Values > 0 for Weibull distribution
+        double t = static_cast<double>(i + 1) / 1000.0;
+        testValues.push_back(t);
+    }
+    
+    // Test getProbability() performance (should benefit from cached values and optimizations)
+    auto start = std::chrono::high_resolution_clock::now();
+    double sum_pdf = 0.0;
+    for (const auto& val : testValues) {
+        sum_pdf += weibull.getProbability(val);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto pdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    // Test getLogProbability() performance (should benefit from cached kMinus1_, invLambda_)
+    start = std::chrono::high_resolution_clock::now();
+    double sum_log_pdf = 0.0;
+    for (const auto& val : testValues) {
+        sum_log_pdf += weibull.getLogProbability(val);
+    }
+    end = std::chrono::high_resolution_clock::now();
+    auto log_pdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    // Test CDF performance (should benefit from cached values and k=2 optimization)
+    start = std::chrono::high_resolution_clock::now();
+    double sum_cdf = 0.0;
+    for (const auto& val : testValues) {
+        sum_cdf += weibull.CDF(val);
+    }
+    end = std::chrono::high_resolution_clock::now();
+    auto cdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    // Test fitting performance with Welford's algorithm
+    std::vector<Observation> fitData(fit_datapoints);
+    for (size_t i = 0; i < fitData.size(); ++i) {
+        fitData[i] = static_cast<double>(i + 1) / 1000.0;  // Positive values
+    }
+    
+    start = std::chrono::high_resolution_clock::now();
+    weibull.fit(fitData);
+    end = std::chrono::high_resolution_clock::now();
+    auto fit_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    // Calculate timing metrics
+    double pdf_time_per_call = static_cast<double>(pdf_duration.count()) / pdf_iterations;
+    double log_pdf_time_per_call = static_cast<double>(log_pdf_duration.count()) / pdf_iterations;
+    double cdf_time_per_call = static_cast<double>(cdf_duration.count()) / pdf_iterations;
+    double fit_time_per_point = static_cast<double>(fit_duration.count()) / fit_datapoints;
+    
+    std::cout << "  PDF timing:       " << std::fixed << std::setprecision(3) 
+              << pdf_time_per_call << " μs/call (" << pdf_iterations << " calls)" << std::endl;
+    std::cout << "  Log PDF timing:   " << std::fixed << std::setprecision(3) 
+              << log_pdf_time_per_call << " μs/call (" << pdf_iterations << " calls)" << std::endl;
+    std::cout << "  CDF timing:       " << std::fixed << std::setprecision(3) 
+              << cdf_time_per_call << " μs/call (" << pdf_iterations << " calls)" << std::endl;
+    std::cout << "  Fit timing:       " << std::fixed << std::setprecision(3) 
+              << fit_time_per_point << " μs/point (" << fit_datapoints << " points)" << std::endl;
+    
+    // Performance requirements (should be fast due to optimizations)
+    assert(pdf_time_per_call < 1.0);     // Less than 1 μs per PDF call
+    assert(log_pdf_time_per_call < 1.0);  // Less than 1 μs per log PDF call
+    assert(cdf_time_per_call < 1.0);     // Less than 1 μs per CDF call
+    assert(fit_time_per_point < 0.1);    // Less than 0.1 μs per data point for fitting (Welford's is fast)
+    
+    std::cout << "✓ Performance tests passed" << std::endl;
+}
+
+/**
+ * Test numerical stability with extreme values (GOLD STANDARD)
+ */
+void testNumericalStability() {
+    std::cout << "Testing numerical stability..." << std::endl;
+    
+    // Test with very small k parameter
+    WeibullDistribution smallK(0.1, 1.0);
+    double probSmallK = smallK.getProbability(0.5);
+    assert(probSmallK > 0.0);
+    assert(std::isfinite(probSmallK));
+    
+    // Test with very large k parameter
+    WeibullDistribution largeK(100.0, 1.0);
+    double probLargeK = largeK.getProbability(1.0);
+    assert(probLargeK > 0.0);
+    assert(std::isfinite(probLargeK));
+    
+    // Test with very small lambda parameter
+    WeibullDistribution smallLambda(2.0, 0.001);
+    double probSmallLambda = smallLambda.getProbability(0.0001);
+    assert(probSmallLambda > 0.0);
+    assert(std::isfinite(probSmallLambda));
+    
+    // Test with very large lambda parameter
+    WeibullDistribution largeLambda(2.0, 1000.0);
+    double probLargeLambda = largeLambda.getProbability(500.0);
+    assert(probLargeLambda > 0.0);
+    assert(std::isfinite(probLargeLambda));
+    
+    // Test log probability with extreme values
+    double logProbSmallK = smallK.getLogProbability(0.5);
+    double logProbLargeK = largeK.getLogProbability(1.0);
+    assert(std::isfinite(logProbSmallK));
+    assert(std::isfinite(logProbLargeK));
+    
+    // Test special case optimizations (k=1 exponential, k=2 Rayleigh)
+    WeibullDistribution exponential(1.0, 2.0);  // k=1 case
+    WeibullDistribution rayleigh(2.0, 1.0);     // k=2 case
+    
+    double expProb = exponential.getProbability(1.0);
+    double rayProb = rayleigh.getProbability(1.0);
+    double expLogProb = exponential.getLogProbability(1.0);
+    double rayLogProb = rayleigh.getLogProbability(1.0);
+    
+    assert(std::isfinite(expProb) && expProb > 0.0);
+    assert(std::isfinite(rayProb) && rayProb > 0.0);
+    assert(std::isfinite(expLogProb));
+    assert(std::isfinite(rayLogProb));
+    
+    // Test mathematical correctness for special cases
+    // For k=1 (exponential): PDF(x) = (1/λ)exp(-x/λ)
+    double expectedExpProb = (1.0/2.0) * std::exp(-1.0/2.0);
+    assert(std::abs(expProb - expectedExpProb) < 1e-10);
+    
+    // For k=2 (Rayleigh): PDF(x) = (2x/λ²)exp(-(x/λ)²)
+    double expectedRayProb = (2.0 * 1.0 / (1.0 * 1.0)) * std::exp(-(1.0 * 1.0));
+    assert(std::abs(rayProb - expectedRayProb) < 1e-10);
+    
+    std::cout << "✓ Numerical stability tests passed" << std::endl;
+}
+
+/**
+ * Test caching mechanism (GOLD STANDARD)
+ */
+void testCaching() {
+    std::cout << "Testing caching mechanism..." << std::endl;
+    
+    WeibullDistribution weibull(2.0, 1.0);
+    
+    // Test that calculations work correctly after parameter changes
+    double prob1 = weibull.getProbability(1.0);
+    double logProb1 = weibull.getLogProbability(1.0);
+    
+    // Change parameters and verify cache is updated
+    weibull.setK(3.0);
+    double prob2 = weibull.getProbability(1.0);
+    double logProb2 = weibull.getLogProbability(1.0);
+    
+    assert(prob1 != prob2);  // Should be different after parameter change
+    assert(logProb1 != logProb2);  // Should be different after parameter change
+    
+    // Change scale parameter
+    weibull.setLambda(2.0);
+    double prob3 = weibull.getProbability(1.0);
+    double logProb3 = weibull.getLogProbability(1.0);
+    
+    assert(prob2 != prob3);  // Should be different after parameter change
+    assert(logProb2 != logProb3);  // Should be different after parameter change
+    
+    // Test that copy constructor preserves cache state
+    WeibullDistribution copied(weibull);
+    assert(copied.getProbability(1.0) == weibull.getProbability(1.0));
+    assert(copied.getLogProbability(1.0) == weibull.getLogProbability(1.0));
+    
+    // Test that cached values are consistent
+    double prob4 = weibull.getProbability(1.0);
+    double cdf4 = weibull.CDF(1.0);
+    double logProb4 = weibull.getLogProbability(1.0);
+    
+    // Multiple calls should return identical results (using cache)
+    assert(weibull.getProbability(1.0) == prob4);
+    assert(weibull.CDF(1.0) == cdf4);
+    assert(weibull.getLogProbability(1.0) == logProb4);
+    
+    std::cout << "✓ Caching tests passed" << std::endl;
+}
+
 int main() {
     std::cout << "Running Weibull distribution tests..." << std::endl;
     std::cout << "=====================================" << std::endl;
@@ -429,8 +735,16 @@ int main() {
         testStatisticalMoments();
         testSpecialCases();
         
-        std::cout << "=====================================" << std::endl;
-        std::cout << "✅ All Weibull distribution tests passed!" << std::endl;
+        // Gold Standard Tests
+        testLogProbability();
+        testCDF();
+        testEqualityAndIO();
+        testPerformanceCharacteristics();
+        testNumericalStability();
+        testCaching();
+        
+        std::cout << "====================================="<< std::endl;
+        std::cout << "✅ All Weibull distribution tests passed (including Gold Standard)!" << std::endl;
         return 0;
         
     } catch (const std::exception& e) {

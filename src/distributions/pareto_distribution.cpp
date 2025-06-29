@@ -1,8 +1,8 @@
 #include "libhmm/distributions/pareto_distribution.h"
-#include <iostream>
-#include <numeric>
-#include <algorithm>
-#include <cfloat>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <algorithm>   // For std::min_element (exists in common.h, included for clarity)
+#include <cfloat>      // For FLT_* constants (not in common.h)
 
 using namespace libhmm::constants;
 
@@ -12,14 +12,12 @@ namespace libhmm
 /**
  * Computes the probability density function for the Pareto distribution.
  * 
- * For continuous distributions in discrete sampling contexts, we approximate
- * the probability as P(x - ε <= X <= x) = F(x) - F(x - ε) where ε is a small tolerance.
+ * For Pareto distribution: f(x) = (k * x_m^k) / x^(k+1) for x ≥ x_m
  * 
- * This provides a numerically stable approximation of the PDF scaled by the tolerance,
- * which is appropriate for discrete sampling of continuous distributions.
+ * Uses direct PDF calculation for optimal performance, avoiding expensive CDF differences.
  * 
- * @param x The value at which to evaluate the probability
- * @return Approximated probability for discrete sampling
+ * @param x The value at which to evaluate the probability density
+ * @return Probability density for the given value
  */            
 double ParetoDistribution::getProbability(double x) {
     // Pareto distribution has support [x_m, ∞)
@@ -27,6 +25,7 @@ double ParetoDistribution::getProbability(double x) {
         return math::ZERO_DOUBLE;
     }
     
+    // Handle boundary case - PDF is undefined exactly at x_m
     if (x == xm_) {
         return math::ZERO_DOUBLE;
     }
@@ -36,33 +35,69 @@ double ParetoDistribution::getProbability(double x) {
         updateCache();
     }
     
-    double p = 0.0;
-    if (x > xm_ + precision::LIMIT_TOLERANCE) {
-        p = CDF(x) - CDF(x - precision::LIMIT_TOLERANCE);
-    } else if (x > xm_ && x < xm_ + precision::LIMIT_TOLERANCE) {
-        // For values very close to x_m, use the PDF scaled by tolerance
-        // to avoid numerical issues with CDF differences
-        p = precision::LIMIT_TOLERANCE * (k_ * std::pow(xm_, k_)) / std::pow(x, kPlus1_);
-    }
+    // Direct PDF calculation: f(x) = (k * x_m^k) / x^(k+1)
+    // Using cached kXmPowK_ = k * x_m^k and kPlus1_ = k + 1 for efficiency
+    const double pdf = kXmPowK_ / std::pow(x, kPlus1_);
     
     // Ensure numerical stability
-    if (std::isnan(p) || p < math::ZERO_DOUBLE) {
-        p = precision::ZERO;
+    if (std::isnan(pdf) || pdf < math::ZERO_DOUBLE) {
+        return math::ZERO_DOUBLE;
     }
     
-    assert(p <= 1.0);
-    return p;
+    return pdf;
 }
 
-/*
- * Evaluates the CDF for the Pareto distribution at x.  The CDF is defined as
- *
- *   F(x) = 1 - (xm/x)^k
+/**
+ * Computes the logarithm of the probability density function for numerical stability.
+ * 
+ * For Pareto distribution: log(f(x)) = log(k) + k*log(x_m) - (k+1)*log(x) for x ≥ x_m
+ * 
+ * @param value The value at which to evaluate the log-PDF
+ * @return Natural logarithm of the probability density, or -∞ for invalid values
  */
-double ParetoDistribution::CDF(double x) noexcept {
-    const double y = math::ONE - std::pow(xm_ / x, k_);
-    assert(y >= math::ZERO_DOUBLE);
-    return y;
+double ParetoDistribution::getLogProbability(double value) const noexcept {
+    if (std::isnan(value) || std::isinf(value) || value < xm_) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // log(f(x)) = log(k) + k*log(x_m) - (k+1)*log(x)
+    return logK_ + kLogXm_ - kPlus1_ * std::log(value);
+}
+
+/**
+ * Computes the cumulative distribution function for the Pareto distribution.
+ * 
+ * CDF: F(x) = 1 - (x_m/x)^k for x ≥ x_m
+ * 
+ * @param value The value at which to evaluate the CDF
+ * @return Cumulative probability, or 0.0 for values below x_m
+ */
+double ParetoDistribution::getCumulativeProbability(double value) const noexcept {
+    if (std::isnan(value) || value < xm_) {
+        return math::ZERO_DOUBLE;
+    }
+    
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    return math::ONE - std::pow(xm_ / value, k_);
+}
+
+/**
+ * Evaluates the CDF for the Pareto distribution at x.
+ * 
+ * Formula: F(x) = 1 - (x_m/x)^k for x ≥ x_m
+ * 
+ * @param x The value at which to evaluate the CDF
+ * @return Cumulative probability P(X ≤ x)
+ */
+double ParetoDistribution::CDF(double x) const noexcept {
+    return getCumulativeProbability(x);
 }
 
 /**
@@ -145,11 +180,7 @@ std::string ParetoDistribution::toString() const {
 
 std::ostream& operator<<( std::ostream& os, 
         const libhmm::ParetoDistribution& distribution ){
-    os << "Pareto Distribution: " << std::endl;
-    os << "    k = " << distribution.getK( ) << std::endl;
-    os << "    xm = " << distribution.getXm( ) << std::endl;
-    os << std::endl;
-    
+    os << distribution.toString();
     return os;
 }
 

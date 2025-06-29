@@ -1,18 +1,10 @@
 #ifndef DISCRETEDISTRIBUTION_H_
 #define DISCRETEDISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <stdexcept>
-#include <cstddef>
-#include <cassert>
-#include <vector>
-#include <numeric>
-#include <algorithm>
-#include <sstream>
-#include <iomanip>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <stdexcept>, <cstddef>, <cassert>, <vector>, <algorithm>, <sstream>, <iomanip>
+#include <numeric>     // For std::accumulate (not in common.h)
 
 namespace libhmm{
 
@@ -382,7 +374,7 @@ public:
      * @param value The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ value)
      */
-    [[nodiscard]] double CDF(double value) noexcept;
+    [[nodiscard]] double getCumulativeProbability(double value) noexcept;
     
     /**
      * Equality comparison operator

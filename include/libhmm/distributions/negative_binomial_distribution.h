@@ -1,16 +1,9 @@
 #ifndef NEGATIVE_BINOMIAL_DISTRIBUTION_H_
 #define NEGATIVE_BINOMIAL_DISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
-#include <sstream>
-#include <iomanip>
-#include <vector>
-#include <limits>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
 
 namespace libhmm {
 
@@ -54,6 +47,13 @@ private:
     mutable double logGammaR_{0.0};
     
     /**
+     * Cache for log factorial values for small integers (performance optimization)
+     * log(k!) for k = 0, 1, 2, ..., MAX_FACTORIAL_CACHE
+     */
+    static constexpr int MAX_FACTORIAL_CACHE = 170; // lgamma(171) approaches double overflow
+    mutable std::vector<double> logFactorialCache_;
+    
+    /**
      * Flag to track if cached values need updating
      */
     mutable bool cacheValid_{false};
@@ -86,6 +86,7 @@ private:
     /**
      * Computes log of generalized binomial coefficient log(C(k+r-1, k))
      * using the gamma function: C(k+r-1, k) = Γ(k+r) / (Γ(k+1) * Γ(r))
+     * Optimized with factorial caching for small k values
      */
     double logGeneralizedBinomialCoefficient(int k) const {
         if (k < 0) return -std::numeric_limits<double>::infinity();
@@ -98,7 +99,11 @@ private:
         // log C(k+r-1, k) = log Γ(k+r) - log Γ(k+1) - log Γ(r)
         //                 = log Γ(k+r) - log k! - log Γ(r)
         const double logGammaKPlusR = std::lgamma(k + r_);
-        const double logFactorialK = std::lgamma(k + 1); // log k! = log Γ(k+1)
+        
+        // Use cached log factorial for small k, lgamma for large k
+        const double logFactorialK = (k <= MAX_FACTORIAL_CACHE) 
+            ? logFactorialCache_[k] 
+            : std::lgamma(k + 1);
         
         return logGammaKPlusR - logFactorialK - logGammaR_;
     }
@@ -114,6 +119,11 @@ public:
     NegativeBinomialDistribution(double r = 5.0, double p = 0.5)
         : r_{r}, p_{p}, cacheValid_{false} {
         validateParameters(r, p);
+        // Initialize factorial cache
+        logFactorialCache_.resize(MAX_FACTORIAL_CACHE + 1, 0.0);
+        for (int i = 2; i <= MAX_FACTORIAL_CACHE; ++i) {
+            logFactorialCache_[i] = std::lgamma(i + 1);
+        }
         updateCache();
     }
     
@@ -123,7 +133,7 @@ public:
     NegativeBinomialDistribution(const NegativeBinomialDistribution& other)
         : r_{other.r_}, p_{other.p_}, 
           logP_{other.logP_}, log1MinusP_{other.log1MinusP_}, logGammaR_{other.logGammaR_},
-          cacheValid_{other.cacheValid_} {}
+          logFactorialCache_{other.logFactorialCache_}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Copy assignment operator
@@ -135,6 +145,7 @@ public:
             logP_ = other.logP_;
             log1MinusP_ = other.log1MinusP_;
             logGammaR_ = other.logGammaR_;
+            logFactorialCache_ = other.logFactorialCache_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -146,7 +157,7 @@ public:
     NegativeBinomialDistribution(NegativeBinomialDistribution&& other) noexcept
         : r_{other.r_}, p_{other.p_},
           logP_{other.logP_}, log1MinusP_{other.log1MinusP_}, logGammaR_{other.logGammaR_},
-          cacheValid_{other.cacheValid_} {}
+          logFactorialCache_{std::move(other.logFactorialCache_)}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Move assignment operator
@@ -158,6 +169,7 @@ public:
             logP_ = other.logP_;
             log1MinusP_ = other.log1MinusP_;
             logGammaR_ = other.logGammaR_;
+            logFactorialCache_ = std::move(other.logFactorialCache_);
             cacheValid_ = other.cacheValid_;
         }
         return *this;

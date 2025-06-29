@@ -399,13 +399,13 @@ void testCDF() {
     GammaDistribution gamma(2.0, 1.0);  // k=2, theta=1
     
     // Test CDF properties
-    assert(gamma.CDF(-1.0) == 0.0);  // CDF should be 0 for negative values
-    assert(gamma.CDF(0.0) == 0.0);   // CDF should be 0 at x=0
+    assert(gamma.getCumulativeProbability(-1.0) == 0.0);  // CDF should be 0 for negative values
+    assert(gamma.getCumulativeProbability(0.0) == 0.0);   // CDF should be 0 at x=0
     
     // Test CDF values at specific points
-    double cdf1 = gamma.CDF(1.0);
-    double cdf2 = gamma.CDF(2.0);
-    double cdf3 = gamma.CDF(3.0);
+    double cdf1 = gamma.getCumulativeProbability(1.0);
+    double cdf2 = gamma.getCumulativeProbability(2.0);
+    double cdf3 = gamma.getCumulativeProbability(3.0);
     
     // CDF should be monotonically increasing
     assert(cdf1 < cdf2);
@@ -417,12 +417,12 @@ void testCDF() {
     assert(cdf3 > 0.0 && cdf3 < 1.0);
     
     // Test that CDF approaches 1 for large values
-    double cdf_large = gamma.CDF(10.0);
+    double cdf_large = gamma.getCumulativeProbability(10.0);
     assert(cdf_large > 0.95);  // Should be close to 1
     
     // Test with invalid inputs
     double nan_val = std::numeric_limits<double>::quiet_NaN();
-    assert(gamma.CDF(nan_val) == 0.0 || std::isnan(gamma.CDF(nan_val)));
+    assert(gamma.getCumulativeProbability(nan_val) == 0.0 || std::isnan(gamma.getCumulativeProbability(nan_val)));
     
     std::cout << "✓ CDF tests passed" << std::endl;
 }
@@ -580,8 +580,8 @@ void testNumericalStability() {
     assert(std::isfinite(logProb_extreme) || logProb_extreme == -std::numeric_limits<double>::infinity());
     
     // Test CDF stability
-    double cdf_small = gamma_small.CDF(1e-6);
-    double cdf_large = gamma_large.CDF(1000.0);
+    double cdf_small = gamma_small.getCumulativeProbability(1e-6);
+    double cdf_large = gamma_large.getCumulativeProbability(1000.0);
     assert(cdf_small >= 0.0 && cdf_small <= 1.0);
     assert(cdf_large >= 0.0 && cdf_large <= 1.0);
     

@@ -1,8 +1,7 @@
 #include "libhmm/distributions/weibull_distribution.h"
-#include <sstream>
-#include <iomanip>
-#include <algorithm>
-#include <numeric>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <algorithm>   // For std::max, std::min (exists in common.h, included for clarity)
+#include <numeric>     // For std::accumulate (not in common.h)
 
 using namespace libhmm::constants;
 
@@ -21,18 +20,59 @@ double WeibullDistribution::getProbability(double value) {
     
     // Handle boundary case
     if (value == math::ZERO_DOUBLE) {
-        return (k_ == math::ONE) ? (k_ / lambda_) : math::ZERO_DOUBLE;
+        return (k_ == math::ONE) ? kOverLambda_ : math::ZERO_DOUBLE;
     }
     
-    // Compute PDF: f(x) = (k/λ) * (x/λ)^(k-1) * exp(-(x/λ)^k)
-    // In log space: log(f(x)) = log(k) - log(λ) + (k-1)*log(x/λ) - (x/λ)^k
-    
-    double x_over_lambda = value / lambda_;
-    double logPdf = logK_ - logLambda_ + 
-                    (k_ - math::ONE) * (std::log(value) - logLambda_) - 
-                    std::pow(x_over_lambda, k_);
+    // Use optimized log-space calculation then exponentiate
+    // This avoids numerical issues with very small/large values
+    const double logPdf = getLogProbability(value);
+    if (logPdf == -std::numeric_limits<double>::infinity()) {
+        return math::ZERO_DOUBLE;
+    }
     
     return std::exp(logPdf);
+}
+
+double WeibullDistribution::getLogProbability(double value) const noexcept {
+    // Weibull distribution is only defined for x ≥ 0
+    if (value < math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Update cache if needed
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Handle boundary case
+    if (value == math::ZERO_DOUBLE) {
+        if (k_ == math::ONE) {
+            return logK_ - logLambda_;  // log(k/λ)
+        } else {
+            return -std::numeric_limits<double>::infinity();
+        }
+    }
+    
+    // Optimized log PDF computation using cached values:
+    // log(f(x)) = log(k) - log(λ) + (k-1)*log(x) - (k-1)*log(λ) - (x/λ)^k
+    //           = log(k) - k*log(λ) + (k-1)*log(x) - (x*invλ)^k
+    
+    const double logX = std::log(value);
+    const double xTimesInvLambda = value * invLambda_;  // Use cached reciprocal
+    
+    // Use efficient power calculation for common k values
+    double powerTerm;
+    if (k_ == math::ONE) {
+        powerTerm = xTimesInvLambda;  // Linear case
+    } else if (k_ == math::TWO) {
+        powerTerm = xTimesInvLambda * xTimesInvLambda;  // Quadratic case (Rayleigh)
+    } else {
+        powerTerm = std::pow(xTimesInvLambda, k_);  // General case
+    }
+    
+    const double logPdf = logK_ - k_ * logLambda_ + kMinus1_ * logX - powerTerm;
+    
+    return logPdf;
 }
 
 void WeibullDistribution::fit(const std::vector<Observation>& values) {
@@ -54,33 +94,40 @@ void WeibullDistribution::fit(const std::vector<Observation>& values) {
         return;
     }
     
-    // Compute sample statistics
-    double sum = std::accumulate(values.begin(), values.end(), math::ZERO_DOUBLE);
-    double mean = sum / values.size();
+    // Use Welford's algorithm for numerically stable mean and variance calculation
+    // This is more cache-friendly and numerically stable than two-pass methods
+    const auto n = static_cast<double>(values.size());
+    double mean = math::ZERO_DOUBLE;
+    double m2 = math::ZERO_DOUBLE;  // Sum of squared differences from current mean
     
-    double sumSq = std::accumulate(values.begin(), values.end(), math::ZERO_DOUBLE,
-        [mean](double acc, double val) {
-            double diff = val - mean;
-            return acc + diff * diff;
-        });
-    double variance = sumSq / (values.size() - 1);
+    std::size_t count = 0;
+    for (const auto& val : values) {
+        ++count;
+        const double delta = val - mean;
+        mean += delta / static_cast<double>(count);
+        const double delta2 = val - mean;
+        m2 += delta * delta2;
+    }
+    
+    // Sample variance uses Bessel's correction (N-1)
+    const double sampleVariance = m2 / (n - math::ONE);
     
     // Avoid degenerate cases
-    if (variance <= math::ZERO_DOUBLE || mean <= math::ZERO_DOUBLE) {
+    if (sampleVariance <= precision::ZERO || mean <= precision::ZERO) {
         reset();
         return;
     }
     
     // Method of moments approximation for Weibull parameters
     // We use the coefficient of variation to estimate k
-    double cv = std::sqrt(variance) / mean;  // coefficient of variation
+    const double cv = std::sqrt(sampleVariance) / mean;  // coefficient of variation
     
     // For Weibull, CV = sqrt(Γ(1+2/k)/Γ(1+1/k)² - 1)
     // We approximate k using an empirical relationship
     double k_est;
     if (cv < 0.2) {
         // High k (> 5), shape approaches normal
-        k_est = math::ONE / (cv * cv * 6.0);
+        k_est = math::ONE / (cv * cv * math::TEN * 0.6);  // Optimized: 6.0 = 10 * 0.6
     } else if (cv < math::ONE) {
         // Medium k (1-5), use approximation
         k_est = std::pow(1.2 / cv, 1.086);
@@ -89,15 +136,16 @@ void WeibullDistribution::fit(const std::vector<Observation>& values) {
         k_est = math::ONE / cv;
     }
     
-    // Ensure k is reasonable
-    k_est = std::max(0.1, std::min(k_est, 10.0));
+    // Ensure k is reasonable using standardized bounds
+    k_est = std::max(thresholds::MIN_DISTRIBUTION_PARAMETER, 
+                     std::min(k_est, thresholds::MAX_DISTRIBUTION_PARAMETER));
     
     // Estimate λ using the relationship: mean = λ * Γ(1 + 1/k)
-    double gamma_term = std::exp(loggamma(math::ONE + math::ONE/k_est));
-    double lambda_est = mean / gamma_term;
+    const double gamma_term = std::exp(std::lgamma(math::ONE + math::ONE/k_est));
+    const double lambda_est = mean / gamma_term;
     
-    // Ensure λ is positive and reasonable
-    if (lambda_est > math::ZERO_DOUBLE && lambda_est < 1e6) {
+    // Ensure λ is positive and reasonable using standardized bounds
+    if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
         k_ = k_est;
         lambda_ = lambda_est;
         cacheValid_ = false;
@@ -121,12 +169,35 @@ std::string WeibullDistribution::toString() const {
     return oss.str();
 }
 
-double WeibullDistribution::CDF(double x) noexcept {
+double WeibullDistribution::CDF(double x) const noexcept {
     if (x <= math::ZERO_DOUBLE) return math::ZERO_DOUBLE;
     
-    // CDF(x) = 1 - exp(-(x/λ)^k)
-    double x_over_lambda = x / lambda_;
-    return math::ONE - std::exp(-std::pow(x_over_lambda, k_));
+    // Update cache if needed
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // CDF(x) = 1 - exp(-(x/λ)^k) = 1 - exp(-(x*invλ)^k)
+    const double xTimesInvLambda = x * invLambda_;  // Use cached reciprocal
+    
+    // Use efficient power calculation for common k values
+    double powerTerm;
+    if (k_ == math::ONE) {
+        powerTerm = xTimesInvLambda;  // Linear case (Exponential)
+    } else if (k_ == math::TWO) {
+        powerTerm = xTimesInvLambda * xTimesInvLambda;  // Quadratic case (Rayleigh)
+    } else {
+        powerTerm = std::pow(xTimesInvLambda, k_);  // General case
+    }
+    
+    return math::ONE - std::exp(-powerTerm);
+}
+
+bool WeibullDistribution::operator==(const WeibullDistribution& other) const noexcept {
+    // Use tolerance for floating-point comparison
+    const double tolerance = precision::ZERO;
+    return std::abs(k_ - other.k_) < tolerance && 
+           std::abs(lambda_ - other.lambda_) < tolerance;
 }
 
 std::ostream& operator<<(std::ostream& os, const WeibullDistribution& distribution) {

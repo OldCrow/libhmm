@@ -1,10 +1,8 @@
 #include "libhmm/distributions/chi_squared_distribution.h"
-#include <algorithm>
-#include <numeric>
-#include <limits>
-#include <cmath>
-#include <iomanip>
-#include <sstream>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <algorithm>   // For std::remove_if, std::max, std::min (exists in common.h, included for clarity)
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
 
 using namespace libhmm::constants;
 
@@ -76,7 +74,7 @@ double ChiSquaredDistribution::getLogProbability(Observation value) const noexce
     return cached_log_normalization_ + cached_half_k_minus_one_ * std::log(x) - math::HALF * x;
 }
 
-double ChiSquaredDistribution::CDF(double x) {
+double ChiSquaredDistribution::getCumulativeProbability(double x) {
     // Handle invalid inputs
     if (std::isnan(x)) {
         return std::numeric_limits<double>::quiet_NaN();

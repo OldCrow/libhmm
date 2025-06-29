@@ -1,12 +1,9 @@
-#pragma once
+#ifndef UNIFORMDISTRIBUTION_H_
+#define UNIFORMDISTRIBUTION_H_
 
-#include "probability_distribution.h"
-#include <stdexcept>
-#include <string>
-#include <sstream>
-#include <iomanip>
-#include <cmath>
-#include <limits>
+#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/common/common.h"
+// Common.h already includes: <stdexcept>, <string>, <sstream>, <iomanip>, <cmath>, <limits>
 
 namespace libhmm {
 
@@ -232,3 +229,5 @@ std::ostream& operator<<(std::ostream& os, const UniformDistribution& dist);
 std::istream& operator>>(std::istream& is, UniformDistribution& dist);
 
 } // namespace libhmm
+
+#endif // UNIFORMDISTRIBUTION_H_

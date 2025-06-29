@@ -1,8 +1,8 @@
 #include "libhmm/distributions/uniform_distribution.h"
-#include <algorithm>
-#include <numeric>
-#include <cmath>
-#include <limits>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <algorithm>   // For std::minmax_element (exists in common.h, included for clarity)
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
 
 using namespace libhmm::constants;
 
