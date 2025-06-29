@@ -94,6 +94,7 @@ if(GTest_FOUND OR TARGET gtest)
         distributions/test_student_t_distribution.cpp
         distributions/test_uniform_distribution.cpp
         distributions/test_weibull_distribution.cpp
+        distributions/test_rayleigh_distribution.cpp
         distributions/test_distribution_type_safety.cpp
     )
     
