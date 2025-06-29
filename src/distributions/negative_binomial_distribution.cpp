@@ -212,7 +212,7 @@ bool NegativeBinomialDistribution::operator==(const NegativeBinomialDistribution
 
 std::istream& operator>>(std::istream& is, libhmm::NegativeBinomialDistribution& distribution) {
     std::string token;
-    double r, p;
+    double r = 0.0, p = 0.0;
     
     // Expected format: "NegativeBinomial(r,p)" or "r p"
     if (is >> token) {
