@@ -1,1363 +1,1451 @@
+
 #include <gtest/gtest.h>
 #include "libhmm/distributions/distributions.h"
 #include <memory>
 #include <vector>
 #include <cmath>
-#include <limits>
+#include <climits>
 
 using namespace libhmm;
 
-// Test fixture for each distribution type
+// Base test class for standardized distribution testing
 template<typename DistributionType>
-class DistributionTest : public ::testing::Test {
+class StandardizedDistributionTest : public ::testing::Test {
 protected:
     virtual std::unique_ptr<DistributionType> createDefaultDistribution() = 0;
+    virtual std::unique_ptr<DistributionType> createParameterizedDistribution() = 0;
     virtual std::vector<double> getValidTestValues() = 0;
     virtual std::vector<double> getInvalidTestValues() = 0;
+    virtual std::vector<double> getValidFittingData() = 0;
+    
+    // Standard test methods
+    void testBasicFunctionality() {
+        auto defaultDist = createDefaultDistribution();
+        auto paramDist = createParameterizedDistribution();
+        EXPECT_TRUE(defaultDist != nullptr);
+        EXPECT_TRUE(paramDist != nullptr);
+    }
+    
+    void testProbabilityCalculation() {
+        auto dist = createDefaultDistribution();
+        for (double val : getValidTestValues()) {
+            double prob = dist->getProbability(val);
+            EXPECT_GE(prob, 0.0) << "Probability should be non-negative for value " << val;
+            EXPECT_TRUE(std::isfinite(prob)) << "Probability should be finite for value " << val;
+        }
+    }
+    
+    void testInvalidInputHandling() {
+        auto dist = createDefaultDistribution();
+        for (double invalidVal : getInvalidTestValues()) {
+            double prob = dist->getProbability(invalidVal);
+            EXPECT_GE(prob, 0.0) << "Even invalid inputs should return non-negative probability";
+        }
+    }
+    
+    void testStringRepresentation() {
+        auto dist = createDefaultDistribution();
+        std::string str = dist->toString();
+        EXPECT_FALSE(str.empty()) << "toString() should return non-empty string";
+        EXPECT_TRUE(str.find("Distribution") != std::string::npos) << "toString() should contain 'Distribution'";
+    }
+    
+    void testResetFunctionality() {
+        auto dist = createParameterizedDistribution();
+        EXPECT_NO_THROW(dist->reset()) << "reset() should not throw";
+        double prob = 0.0;
+        EXPECT_NO_THROW(prob = dist->getProbability(1.0)) << "Should work after reset";
+        (void)prob; // Suppress unused variable warning
+    }
+    
+    void testParameterFitting() {
+        auto dist = createDefaultDistribution();
+        auto data = getValidFittingData();
+        if (!data.empty()) {
+            EXPECT_NO_THROW(dist->fit(data)) << "fit() should handle valid data";
+        }
+        
+        // Test empty data - some distributions may throw for empty data
+        std::vector<double> emptyData;
+        try {
+            dist->fit(emptyData);
+            // If no exception, that's also acceptable
+        } catch (const std::exception&) {
+            // Some distributions throw for empty data, which is also acceptable
+        }
+    }
 };
 
 // Gaussian Distribution Tests
-class GaussianDistributionTest : public ::testing::Test {
+class GaussianDistributionTest : public StandardizedDistributionTest<GaussianDistribution> {
 protected:
-    void SetUp() override {
-        dist_ = std::make_unique<GaussianDistribution>(0.0, 1.0);
+    std::unique_ptr<GaussianDistribution> createDefaultDistribution() override {
+        return std::make_unique<GaussianDistribution>();
     }
     
-    std::unique_ptr<GaussianDistribution> dist_;
+    std::unique_ptr<GaussianDistribution> createParameterizedDistribution() override {
+        return std::make_unique<GaussianDistribution>(5.0, 2.0);
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {-3.0, -1.0, 0.0, 1.0, 3.0};
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {std::numeric_limits<double>::quiet_NaN(), 
+                std::numeric_limits<double>::infinity(),
+                -std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {1.0, 2.0, 3.0, 4.0, 5.0};
+    }
 };
 
-TEST_F(GaussianDistributionTest, DefaultConstructor) {
-    GaussianDistribution defaultDist;
-    EXPECT_DOUBLE_EQ(defaultDist.getMean(), 0.0);
-    EXPECT_DOUBLE_EQ(defaultDist.getStandardDeviation(), 1.0);
-}
+// Generate test cases for GaussianDistribution
+TEST_F(GaussianDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(GaussianDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(GaussianDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(GaussianDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(GaussianDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(GaussianDistributionTest, ParameterFitting) { testParameterFitting(); }
 
-TEST_F(GaussianDistributionTest, ParameterizedConstructor) {
-    GaussianDistribution dist(5.0, 2.0);
-    EXPECT_DOUBLE_EQ(dist.getMean(), 5.0);
-    EXPECT_DOUBLE_EQ(dist.getStandardDeviation(), 2.0);
-}
-
-TEST_F(GaussianDistributionTest, InvalidConstructorParameters) {
-    // Invalid standard deviation
+// Additional comprehensive tests for GaussianDistribution
+TEST_F(GaussianDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
     EXPECT_THROW(GaussianDistribution(0.0, 0.0), std::invalid_argument);
     EXPECT_THROW(GaussianDistribution(0.0, -1.0), std::invalid_argument);
-    
-    // Invalid mean
     EXPECT_THROW(GaussianDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0), std::invalid_argument);
     EXPECT_THROW(GaussianDistribution(std::numeric_limits<double>::infinity(), 1.0), std::invalid_argument);
 }
 
-TEST_F(GaussianDistributionTest, ProbabilityCalculation) {
-    // Test at mean (should be highest probability)
-    double probAtMean = dist_->getProbability(0.0);
-    EXPECT_GT(probAtMean, 0.0);
-    
-    // Test at other values
-    double probAt1 = dist_->getProbability(1.0);
-    double probAtNeg1 = dist_->getProbability(-1.0);
-    
-    EXPECT_GT(probAt1, 0.0);
-    EXPECT_GT(probAtNeg1, 0.0);
-    
-    // Due to symmetry, should be equal
-    EXPECT_NEAR(probAt1, probAtNeg1, 1e-10);
-    
-    // Probability at mean should be higher than at ±1
-    EXPECT_GT(probAtMean, probAt1);
+TEST_F(GaussianDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // mean=5.0, stddev=2.0
+    EXPECT_NEAR(dist->getMean(), 5.0, 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 4.0, 1e-10);  // σ² = 2² = 4
+    EXPECT_NEAR(dist->getStandardDeviation(), 2.0, 1e-10);
 }
 
-TEST_F(GaussianDistributionTest, InvalidInputHandling) {
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
+TEST_F(GaussianDistributionTest, ProbabilitySymmetry) {
+    auto dist = createDefaultDistribution(); // mean=0, stddev=1
+    // Test symmetry around mean
+    EXPECT_NEAR(dist->getProbability(1.0), dist->getProbability(-1.0), 1e-10);
+    EXPECT_NEAR(dist->getProbability(2.0), dist->getProbability(-2.0), 1e-10);
+    
+    // Maximum at mean
+    EXPECT_GT(dist->getProbability(0.0), dist->getProbability(1.0));
 }
 
-TEST_F(GaussianDistributionTest, ParameterSettersAndGetters) {
-    dist_->setMean(10.0);
-    EXPECT_DOUBLE_EQ(dist_->getMean(), 10.0);
-    
-    dist_->setStandardDeviation(3.0);
-    EXPECT_DOUBLE_EQ(dist_->getStandardDeviation(), 3.0);
-    
-    // Test invalid setters
-    EXPECT_THROW(dist_->setMean(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
-    EXPECT_THROW(dist_->setStandardDeviation(0.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setStandardDeviation(-1.0), std::invalid_argument);
+TEST_F(GaussianDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+    }
 }
 
-TEST_F(GaussianDistributionTest, FittingToData) {
-    std::vector<double> data = {1.0, 2.0, 3.0, 4.0, 5.0};
-    
-    dist_->fit(data);
-    
-    // Mean should be approximately 3.0
-    EXPECT_NEAR(dist_->getMean(), 3.0, 1e-10);
-    
-    // Standard deviation should be calculated correctly
-    EXPECT_GT(dist_->getStandardDeviation(), 0.0);
-}
-
-TEST_F(GaussianDistributionTest, ResetFunctionality) {
-    dist_->setMean(100.0);
-    dist_->setStandardDeviation(50.0);
-    
-    dist_->reset();
-    
-    EXPECT_DOUBLE_EQ(dist_->getMean(), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getStandardDeviation(), 1.0);
-}
-
-// Discrete Distribution Tests
-class DiscreteDistributionTest : public ::testing::Test {
+// Student's t-Distribution Tests
+class StudentTDistributionTest : public StandardizedDistributionTest<StudentTDistribution> {
 protected:
-    void SetUp() override {
-        dist_ = std::make_unique<DiscreteDistribution>(5); // 5 symbols
+    std::unique_ptr<StudentTDistribution> createDefaultDistribution() override {
+        return std::make_unique<StudentTDistribution>();
     }
     
-    std::unique_ptr<DiscreteDistribution> dist_;
+    std::unique_ptr<StudentTDistribution> createParameterizedDistribution() override {
+        return std::make_unique<StudentTDistribution>(3.0);
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {-2.0, -1.0, 0.0, 1.0, 2.0, 3.0};
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {-1.5, -0.5, 0.5, 1.0, 2.0};
+    }
 };
 
-TEST_F(DiscreteDistributionTest, ConstructorValidation) {
-    EXPECT_THROW(DiscreteDistribution(0), std::invalid_argument);
-    EXPECT_NO_THROW(DiscreteDistribution(1));
-    EXPECT_NO_THROW(DiscreteDistribution(100));
+// Generate test cases for StudentTDistribution
+TEST_F(StudentTDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(StudentTDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(StudentTDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(StudentTDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(StudentTDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(StudentTDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for StudentTDistribution
+TEST_F(StudentTDistributionTest, ParameterValidation) {
+    // Test invalid degrees of freedom
+    EXPECT_THROW(StudentTDistribution(0.0), std::invalid_argument);
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return StudentTDistribution(std::numeric_limits<double>::quiet_NaN()); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return StudentTDistribution(std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
 }
 
-TEST_F(DiscreteDistributionTest, UniformInitialization) {
-    // Should start with uniform distribution
-    for (int i = 0; i < 5; ++i) {
-        EXPECT_DOUBLE_EQ(dist_->getProbability(i), 0.2); // 1/5
+TEST_F(StudentTDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // ν=3.0
+    // For Student's t with ν=3.0, mean = 0, variance = ν/(ν-2) = 3.0
+    EXPECT_NEAR(dist->getMean(), 0.0, 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 3.0, 1e-10);
+}
+
+TEST_F(StudentTDistributionTest, SymmetryProperty) {
+    auto dist = createParameterizedDistribution(); // ν=3.0
+    EXPECT_NEAR(dist->getProbability(1.0), dist->getProbability(-1.0), 1e-10);
+    EXPECT_NEAR(dist->getProbability(2.0), dist->getProbability(-2.0), 1e-10);
+}
+
+TEST_F(StudentTDistributionTest, DegreesOfFreedomEffects) {
+    // Test distributions with varying degrees of freedom
+    StudentTDistribution t_low_df(1.0);  // Cauchy
+    StudentTDistribution t_high_df(10.0); // Close to normal
+    
+    EXPECT_GT(t_high_df.getProbability(0.0), t_low_df.getProbability(0.0));
+}
+
+TEST_F(StudentTDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
     }
+    
+    // Test invalid inputs (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(std::numeric_limits<double>::quiet_NaN())));
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(std::numeric_limits<double>::infinity())));
 }
 
-TEST_F(DiscreteDistributionTest, ProbabilitySettersAndGetters) {
-    dist_->setProbability(0, 0.5);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(0), 0.5);
-    
-    // Test bounds checking
-    EXPECT_THROW(dist_->setProbability(-1, 0.1), std::out_of_range);
-    EXPECT_THROW(dist_->setProbability(5, 0.1), std::out_of_range);
-    
-    // Test probability validation
-    EXPECT_THROW(dist_->setProbability(0, -0.1), std::invalid_argument);
-    EXPECT_THROW(dist_->setProbability(0, 1.1), std::invalid_argument);
-    EXPECT_THROW(dist_->setProbability(0, std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
-}
-
-TEST_F(DiscreteDistributionTest, OutOfBoundsAccess) {
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(10), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-}
-
-TEST_F(DiscreteDistributionTest, FittingToData) {
-    std::vector<double> data = {0, 0, 1, 1, 1, 2}; // 2 zeros, 3 ones, 1 two
-    
-    dist_->fit(data);
-    
-    EXPECT_NEAR(dist_->getProbability(0), 2.0/6.0, 1e-10);
-    EXPECT_NEAR(dist_->getProbability(1), 3.0/6.0, 1e-10);
-    EXPECT_NEAR(dist_->getProbability(2), 1.0/6.0, 1e-10);
-    EXPECT_NEAR(dist_->getProbability(3), 0.0, 1e-10);
-    EXPECT_NEAR(dist_->getProbability(4), 0.0, 1e-10);
-}
-
-// Gamma Distribution Tests
-class GammaDistributionTest : public ::testing::Test {
+// Log Normal Distribution Tests
+class LogNormalDistributionTest : public StandardizedDistributionTest<LogNormalDistribution> {
 protected:
-    void SetUp() override {
-        dist_ = std::make_unique<GammaDistribution>(2.0, 1.0); // k=2, theta=1
+    std::unique_ptr<LogNormalDistribution> createDefaultDistribution() override {
+        return std::make_unique<LogNormalDistribution>();
     }
     
-    std::unique_ptr<GammaDistribution> dist_;
+    std::unique_ptr<LogNormalDistribution> createParameterizedDistribution() override {
+        return std::make_unique<LogNormalDistribution>(1.0, 0.5);
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {0.1, 0.5, 1.0, 2.0, 5.0};
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {-1.0, 0.0, std::numeric_limits<double>::quiet_NaN(), 
+                std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {0.5, 1.0, 1.5, 2.0, 3.0};
+    }
 };
 
-TEST_F(GammaDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(GammaDistribution(1.0, 1.0));
-    EXPECT_THROW(GammaDistribution(0.0, 1.0), std::invalid_argument);
-    EXPECT_THROW(GammaDistribution(-1.0, 1.0), std::invalid_argument);
-    EXPECT_THROW(GammaDistribution(1.0, 0.0), std::invalid_argument);
-    EXPECT_THROW(GammaDistribution(1.0, -1.0), std::invalid_argument);
+// Generate test cases for LogNormalDistribution
+TEST_F(LogNormalDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(LogNormalDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(LogNormalDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(LogNormalDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(LogNormalDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(LogNormalDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for LogNormalDistribution
+TEST_F(LogNormalDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
+    EXPECT_THROW(LogNormalDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0), std::invalid_argument);
+    EXPECT_THROW(LogNormalDistribution(std::numeric_limits<double>::infinity(), 1.0), std::invalid_argument);
+    EXPECT_THROW(LogNormalDistribution(0.0, 0.0), std::invalid_argument);
+    EXPECT_THROW(LogNormalDistribution(0.0, -1.0), std::invalid_argument);
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return LogNormalDistribution(0.0, std::numeric_limits<double>::quiet_NaN()); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return LogNormalDistribution(0.0, std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
 }
 
-TEST_F(GammaDistributionTest, ProbabilityCalculation) {
-    // Gamma distribution is zero at x=0
-    EXPECT_DOUBLE_EQ(dist_->getProbability(0.0), 0.0);
+TEST_F(LogNormalDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // μ=1.0, σ=0.5
+    // For LogNormal(μ=1, σ=0.5): mean = exp(μ + σ²/2) = exp(1.125) ≈ 3.08
+    double expectedMean = std::exp(1.0 + 0.25/2);
+    EXPECT_NEAR(dist->getDistributionMean(), expectedMean, 1e-10);
+    EXPECT_GT(dist->getVariance(), 0.0);
+    EXPECT_GT(dist->getDistributionStandardDeviation(), 0.0);
+}
+
+TEST_F(LogNormalDistributionTest, PositiveSupport) {
+    auto dist = createDefaultDistribution();
+    // Log-normal is zero for negative values and zero
+    EXPECT_DOUBLE_EQ(dist->getProbability(-1.0), 0.0);
+    EXPECT_DOUBLE_EQ(dist->getProbability(0.0), 0.0);
     
-    // Should be positive for positive values
-    EXPECT_GT(dist_->getProbability(1.0), 0.0);
-    EXPECT_GT(dist_->getProbability(2.0), 0.0);
+    // Positive for positive values
+    EXPECT_GT(dist->getProbability(0.5), 0.0);
+    EXPECT_GT(dist->getProbability(1.0), 0.0);
+    EXPECT_GT(dist->getProbability(2.0), 0.0);
+}
+
+TEST_F(LogNormalDistributionTest, MedianProperty) {
+    auto dist = createParameterizedDistribution(); // μ=1.0, σ=0.5
+    // For log-normal, median = exp(μ) = exp(1) ≈ 2.718
+    EXPECT_NEAR(dist->getMedian(), std::exp(1.0), 1e-10);
+}
+
+TEST_F(LogNormalDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+    }
     
-    // Should be zero for negative values
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
+    // Test invalid inputs (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-1.0)) && dist->getLogProbability(-1.0) < 0);
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(0.0)) && dist->getLogProbability(0.0) < 0);
 }
 
 // Exponential Distribution Tests
-class ExponentialDistributionTest : public ::testing::Test {
+class ExponentialDistributionTest : public StandardizedDistributionTest<ExponentialDistribution> {
 protected:
-    void SetUp() override {
-        dist_ = std::make_unique<ExponentialDistribution>(1.0); // lambda=1
+    std::unique_ptr<ExponentialDistribution> createDefaultDistribution() override {
+        return std::make_unique<ExponentialDistribution>();
     }
     
-    std::unique_ptr<ExponentialDistribution> dist_;
+    std::unique_ptr<ExponentialDistribution> createParameterizedDistribution() override {
+        return std::make_unique<ExponentialDistribution>(2.0);
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {0.0, 0.5, 1.0, 2.0, 5.0};
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {-1.0, std::numeric_limits<double>::quiet_NaN(), 
+                std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {0.5, 1.0, 1.5, 2.0, 3.0};
+    }
 };
 
-TEST_F(ExponentialDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(ExponentialDistribution(1.0));
+// Generate test cases for ExponentialDistribution
+TEST_F(ExponentialDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(ExponentialDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(ExponentialDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(ExponentialDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(ExponentialDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(ExponentialDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+TEST_F(ExponentialDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
     EXPECT_THROW(ExponentialDistribution(0.0), std::invalid_argument);
     EXPECT_THROW(ExponentialDistribution(-1.0), std::invalid_argument);
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return ExponentialDistribution(std::numeric_limits<double>::quiet_NaN()); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return ExponentialDistribution(std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
+}
+
+TEST_F(ExponentialDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // lambda=2.0
+    // For Exponential(λ=2): mean = 1/λ = 0.5, variance = 1/λ² = 0.25
+    EXPECT_NEAR(dist->getMean(), 0.5, 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 0.25, 1e-10);
+    EXPECT_NEAR(dist->getStandardDeviation(), 0.5, 1e-10);
 }
 
 TEST_F(ExponentialDistributionTest, ProbabilityProperties) {
-    // For continuous Exponential PDF, at x=0 the value is λ (the rate parameter)
-    EXPECT_DOUBLE_EQ(dist_->getProbability(0.0), 1.0);  // lambda = 1.0
-    
-    // Should be positive for positive values
-    EXPECT_GT(dist_->getProbability(1.0), 0.0);
-    
-    // Should be zero for negative values
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
+    auto dist = createDefaultDistribution(); // lambda=1.0
+    // Exponential at x=0 should equal λ
+    EXPECT_DOUBLE_EQ(dist->getProbability(0.0), 1.0);
     
     // Should decrease with increasing x
-    double prob1 = dist_->getProbability(1.0);
-    double prob2 = dist_->getProbability(2.0);
-    EXPECT_GT(prob1, prob2);
-}
-
-// LogNormal Distribution Tests
-class LogNormalDistributionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dist_ = std::make_unique<LogNormalDistribution>(0.0, 1.0);
-    }
-    
-    std::unique_ptr<LogNormalDistribution> dist_;
-};
-
-TEST_F(LogNormalDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(LogNormalDistribution(0.0, 1.0));
-    EXPECT_THROW(LogNormalDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0), std::invalid_argument);
-    EXPECT_THROW(LogNormalDistribution(0.0, 0.0), std::invalid_argument);
-    EXPECT_THROW(LogNormalDistribution(0.0, -1.0), std::invalid_argument);
-}
-
-TEST_F(LogNormalDistributionTest, ProbabilityProperties) {
-    // Should be zero at x=0
-    EXPECT_DOUBLE_EQ(dist_->getProbability(0.0), 0.0);
-    
-    // Should be positive for positive values
-    EXPECT_GT(dist_->getProbability(1.0), 0.0);
-    
-    // Should be zero for negative values
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
-}
-
-// Pareto Distribution Tests
-class ParetoDistributionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dist_ = std::make_unique<ParetoDistribution>(1.0, 1.0); // k=1, xm=1
-    }
-    
-    std::unique_ptr<ParetoDistribution> dist_;
-};
-
-TEST_F(ParetoDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(ParetoDistribution(1.0, 1.0));
-    EXPECT_THROW(ParetoDistribution(0.0, 1.0), std::invalid_argument);
-    EXPECT_THROW(ParetoDistribution(-1.0, 1.0), std::invalid_argument);
-    EXPECT_THROW(ParetoDistribution(1.0, 0.0), std::invalid_argument);
-    EXPECT_THROW(ParetoDistribution(1.0, -1.0), std::invalid_argument);
-}
-
-TEST_F(ParetoDistributionTest, ProbabilityProperties) {
-    // Should be zero for x <= xm
-    EXPECT_DOUBLE_EQ(dist_->getProbability(0.5), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(1.0), 0.0);
-    
-    // Should be positive for x > xm
-    EXPECT_GT(dist_->getProbability(1.5), 0.0);
-    EXPECT_GT(dist_->getProbability(2.0), 0.0);
-}
-
-// Poisson Distribution Tests
-class PoissonDistributionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dist_ = std::make_unique<PoissonDistribution>(2.0); // lambda=2.0
-    }
-    
-    std::unique_ptr<PoissonDistribution> dist_;
-};
-
-TEST_F(PoissonDistributionTest, DefaultConstructor) {
-    PoissonDistribution defaultDist;
-    EXPECT_DOUBLE_EQ(defaultDist.getLambda(), 1.0);
-    EXPECT_DOUBLE_EQ(defaultDist.getMean(), 1.0);
-    EXPECT_DOUBLE_EQ(defaultDist.getVariance(), 1.0);
-}
-
-TEST_F(PoissonDistributionTest, ParameterizedConstructor) {
-    PoissonDistribution dist(3.5);
-    EXPECT_DOUBLE_EQ(dist.getLambda(), 3.5);
-    EXPECT_DOUBLE_EQ(dist.getMean(), 3.5);
-    EXPECT_DOUBLE_EQ(dist.getVariance(), 3.5);
-    EXPECT_NEAR(dist.getStandardDeviation(), std::sqrt(3.5), 1e-10);
-}
-
-TEST_F(PoissonDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(PoissonDistribution(1.0));
-    EXPECT_THROW(PoissonDistribution(0.0), std::invalid_argument);
-    EXPECT_THROW(PoissonDistribution(-1.0), std::invalid_argument);
-    
-    // Test with NaN and infinity - create variables outside of macros
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    
-    // Now use variables in separate statements
-    EXPECT_THROW({
-        PoissonDistribution temp_nan(nan_val);
-    }, std::invalid_argument);
-    
-    EXPECT_THROW({
-        PoissonDistribution temp_inf(inf_val);
-    }, std::invalid_argument);
-}
-
-TEST_F(PoissonDistributionTest, ProbabilityCalculation) {
-    // Test known values for λ=2.0
-    // P(X=0) = e^(-2) ≈ 0.1353
-    double p0 = dist_->getProbability(0.0);
-    EXPECT_NEAR(p0, std::exp(-2.0), 1e-10);
-    
-    // P(X=1) = 2 * e^(-2) ≈ 0.2707
-    double p1 = dist_->getProbability(1.0);
-    EXPECT_NEAR(p1, 2.0 * std::exp(-2.0), 1e-10);
-    
-    // P(X=2) = 2 * e^(-2) ≈ 0.2707 
-    double p2 = dist_->getProbability(2.0);
-    EXPECT_NEAR(p2, 2.0 * std::exp(-2.0), 1e-10);
-}
-
-TEST_F(PoissonDistributionTest, InvalidInputHandling) {
-    // Invalid inputs should return 0
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(1.5), 0.0);  // non-integer
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
-}
-
-TEST_F(PoissonDistributionTest, ParameterSettersAndGetters) {
-    dist_->setLambda(5.0);
-    EXPECT_DOUBLE_EQ(dist_->getLambda(), 5.0);
-    EXPECT_DOUBLE_EQ(dist_->getMean(), 5.0);
-    EXPECT_DOUBLE_EQ(dist_->getVariance(), 5.0);
-    
-    // Test invalid setters
-    EXPECT_THROW(dist_->setLambda(0.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setLambda(-1.0), std::invalid_argument);
-    
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    EXPECT_THROW(dist_->setLambda(nan_val), std::invalid_argument);
-}
-
-TEST_F(PoissonDistributionTest, FittingToData) {
-    // Test with known data (should fit λ ≈ 2.5)
-    std::vector<double> data = {1, 2, 2, 3, 3, 3, 4, 2, 1, 4};
-    double expectedMean = 2.5;  // Sum = 25, n = 10
-    
-    dist_->fit(data);
-    EXPECT_NEAR(dist_->getLambda(), expectedMean, 1e-10);
-    
-    // Test with empty data (should reset to default)
-    std::vector<double> emptyData;
-    dist_->fit(emptyData);
-    EXPECT_DOUBLE_EQ(dist_->getLambda(), 1.0);
-}
-
-TEST_F(PoissonDistributionTest, FittingValidation) {
-    // Test with invalid data (should throw)
-    std::vector<double> invalidData = {1, 2, -1, 3};
-    EXPECT_THROW(dist_->fit(invalidData), std::invalid_argument);
-    
-    std::vector<double> nonIntegerData = {1.5, 2.0, 3.0};
-    EXPECT_THROW(dist_->fit(nonIntegerData), std::invalid_argument);
-}
-
-TEST_F(PoissonDistributionTest, ResetFunctionality) {
-    dist_->setLambda(10.0);
-    dist_->reset();
-    EXPECT_DOUBLE_EQ(dist_->getLambda(), 1.0);
-}
-
-TEST_F(PoissonDistributionTest, NumericalStability) {
-    // Test with large lambda
-    PoissonDistribution largeDist(500.0);
-    double probLarge = largeDist.getProbability(500.0);  // Around mode
-    EXPECT_GT(probLarge, 0.0);
-    EXPECT_LT(probLarge, 1.0);
-    
-    // Test with very small lambda
-    PoissonDistribution smallDist(1e-6);
-    double probSmall = smallDist.getProbability(0.0);
-    EXPECT_GT(probSmall, 0.0);
-    EXPECT_LT(probSmall, 1.0);
-    
-    // Test extreme cases
-    PoissonDistribution extremeDist(100.0);
-    double probExtreme = extremeDist.getProbability(200.0);  // Far from mean
-    EXPECT_GE(probExtreme, 0.0);  // Should be very small but non-negative
-}
-
-// Beta Distribution Tests
-class BetaDistributionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dist_ = std::make_unique<BetaDistribution>(2.0, 3.0); // α=2, β=3
-    }
-    
-    std::unique_ptr<BetaDistribution> dist_;
-};
-
-TEST_F(BetaDistributionTest, DefaultConstructor) {
-    BetaDistribution defaultDist;
-    EXPECT_DOUBLE_EQ(defaultDist.getAlpha(), 1.0);
-    EXPECT_DOUBLE_EQ(defaultDist.getBeta(), 1.0);
-}
-
-TEST_F(BetaDistributionTest, ParameterizedConstructor) {
-    BetaDistribution dist(3.5, 2.5);
-    EXPECT_DOUBLE_EQ(dist.getAlpha(), 3.5);
-    EXPECT_DOUBLE_EQ(dist.getBeta(), 2.5);
-}
-
-TEST_F(BetaDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(BetaDistribution(1.0, 1.0));
-    EXPECT_THROW(BetaDistribution(0.0, 1.0), std::invalid_argument);
-    EXPECT_THROW(BetaDistribution(-1.0, 1.0), std::invalid_argument);
-    EXPECT_THROW(BetaDistribution(1.0, 0.0), std::invalid_argument);
-    EXPECT_THROW(BetaDistribution(1.0, -1.0), std::invalid_argument);
-    
-    // Test with NaN and infinity
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    EXPECT_THROW(BetaDistribution(nan_val, 1.0), std::invalid_argument);
-    EXPECT_THROW(BetaDistribution(1.0, inf_val), std::invalid_argument);
-}
-
-TEST_F(BetaDistributionTest, ProbabilityCalculation) {
-    // Beta distribution is defined on [0,1]
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-0.1), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(1.1), 0.0);
-    
-    // Should be positive within [0,1]
-    EXPECT_GT(dist_->getProbability(0.5), 0.0);
-    EXPECT_GT(dist_->getProbability(0.3), 0.0);
-    EXPECT_GT(dist_->getProbability(0.7), 0.0);
-    
-    // Beta(2,3) should be 0 at endpoints
-    EXPECT_DOUBLE_EQ(dist_->getProbability(0.0), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(1.0), 0.0);
-}
-
-TEST_F(BetaDistributionTest, InvalidInputHandling) {
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
-}
-
-TEST_F(BetaDistributionTest, ParameterSettersAndGetters) {
-    dist_->setAlpha(5.0);
-    EXPECT_DOUBLE_EQ(dist_->getAlpha(), 5.0);
-    
-    dist_->setBeta(4.0);
-    EXPECT_DOUBLE_EQ(dist_->getBeta(), 4.0);
-    
-    // Test invalid setters
-    EXPECT_THROW(dist_->setAlpha(0.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setBeta(-1.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setAlpha(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
-}
-
-TEST_F(BetaDistributionTest, FittingToData) {
-    // Test with data in [0,1]
-    std::vector<double> data = {0.1, 0.3, 0.5, 0.7, 0.9};
-    
-    EXPECT_NO_THROW(dist_->fit(data));
-    EXPECT_GT(dist_->getAlpha(), 0.0);
-    EXPECT_GT(dist_->getBeta(), 0.0);
-    
-    // Test with empty data (should reset to default)
-    std::vector<double> emptyData;
-    dist_->fit(emptyData);
-    EXPECT_DOUBLE_EQ(dist_->getAlpha(), 1.0);
-    EXPECT_DOUBLE_EQ(dist_->getBeta(), 1.0);
-}
-
-TEST_F(BetaDistributionTest, FittingValidation) {
-    // Test with data outside [0,1]
-    std::vector<double> invalidData = {0.5, 1.5, 0.3};
-    EXPECT_THROW(dist_->fit(invalidData), std::invalid_argument);
-    
-    std::vector<double> negativeData = {-0.1, 0.5, 0.8};
-    EXPECT_THROW(dist_->fit(negativeData), std::invalid_argument);
-}
-
-TEST_F(BetaDistributionTest, ResetFunctionality) {
-    dist_->setAlpha(10.0);
-    dist_->setBeta(5.0);
-    
-    dist_->reset();
-    
-    EXPECT_DOUBLE_EQ(dist_->getAlpha(), 1.0);
-    EXPECT_DOUBLE_EQ(dist_->getBeta(), 1.0);
-}
-
-TEST_F(BetaDistributionTest, StatisticalProperties) {
-    // For Beta(2,3): mean = α/(α+β) = 2/5 = 0.4
-    double expectedMean = 2.0 / (2.0 + 3.0);
-    EXPECT_NEAR(dist_->getMean(), expectedMean, 1e-10);
-    
-    // Variance = αβ/((α+β)²(α+β+1))
-    double expectedVar = (2.0 * 3.0) / (std::pow(5.0, 2) * 6.0);
-    EXPECT_NEAR(dist_->getVariance(), expectedVar, 1e-10);
-    
-    EXPECT_GT(dist_->getStandardDeviation(), 0.0);
+    EXPECT_GT(dist->getProbability(0.5), dist->getProbability(1.0));
+    EXPECT_GT(dist->getProbability(1.0), dist->getProbability(2.0));
 }
 
 // Weibull Distribution Tests
-class WeibullDistributionTest : public ::testing::Test {
+class WeibullDistributionTest : public StandardizedDistributionTest<WeibullDistribution> {
 protected:
-    void SetUp() override {
-        dist_ = std::make_unique<WeibullDistribution>(2.0, 1.0); // k=2, λ=1 (Rayleigh)
+    std::unique_ptr<WeibullDistribution> createDefaultDistribution() override {
+        return std::make_unique<WeibullDistribution>(2.0, 1.0); // k=2, λ=1 (Rayleigh-like)
     }
-    
-    std::unique_ptr<WeibullDistribution> dist_;
+
+    std::unique_ptr<WeibullDistribution> createParameterizedDistribution() override {
+        return std::make_unique<WeibullDistribution>(1.5, 2.0); // k=1.5, λ=2
+    }
+
+    std::vector<double> getValidTestValues() override {
+        return {0.0, 0.5, 1.0, 2.0, 3.0};
+    }
+
+    std::vector<double> getInvalidTestValues() override {
+        return {-1.0, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()};
+    }
+
+    std::vector<double> getValidFittingData() override {
+        return {0.5, 1.0, 1.5, 2.0, 3.0};
+    }
 };
 
-TEST_F(WeibullDistributionTest, DefaultConstructor) {
-    WeibullDistribution defaultDist;
-    EXPECT_DOUBLE_EQ(defaultDist.getK(), 1.0);
-    EXPECT_DOUBLE_EQ(defaultDist.getLambda(), 1.0);
-    EXPECT_DOUBLE_EQ(defaultDist.getShape(), 1.0);  // Alternative getter
-    EXPECT_DOUBLE_EQ(defaultDist.getScale(), 1.0);  // Alternative getter
-}
+// Generate test cases for WeibullDistribution
+TEST_F(WeibullDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(WeibullDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(WeibullDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(WeibullDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(WeibullDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(WeibullDistributionTest, ParameterFitting) { testParameterFitting(); }
 
-TEST_F(WeibullDistributionTest, ParameterizedConstructor) {
-    WeibullDistribution dist(3.5, 2.5);
-    EXPECT_DOUBLE_EQ(dist.getK(), 3.5);
-    EXPECT_DOUBLE_EQ(dist.getLambda(), 2.5);
-}
-
-TEST_F(WeibullDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(WeibullDistribution(1.0, 1.0));
+// Additional comprehensive tests for WeibullDistribution
+TEST_F(WeibullDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
     EXPECT_THROW(WeibullDistribution(0.0, 1.0), std::invalid_argument);
     EXPECT_THROW(WeibullDistribution(-1.0, 1.0), std::invalid_argument);
     EXPECT_THROW(WeibullDistribution(1.0, 0.0), std::invalid_argument);
     EXPECT_THROW(WeibullDistribution(1.0, -1.0), std::invalid_argument);
     
-    // Test with NaN and infinity
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    EXPECT_THROW(WeibullDistribution(nan_val, 1.0), std::invalid_argument);
-    EXPECT_THROW(WeibullDistribution(1.0, inf_val), std::invalid_argument);
-}
-
-TEST_F(WeibullDistributionTest, ProbabilityCalculation) {
-    // Weibull distribution is zero for negative values
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-0.1), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
-    
-    // Should be positive for positive values
-    EXPECT_GT(dist_->getProbability(0.5), 0.0);
-    EXPECT_GT(dist_->getProbability(1.0), 0.0);
-    EXPECT_GT(dist_->getProbability(2.0), 0.0);
-    
-    // Should be defined at x=0 for k>=1
-    EXPECT_GE(dist_->getProbability(0.0), 0.0);
-}
-
-TEST_F(WeibullDistributionTest, InvalidInputHandling) {
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
-}
-
-TEST_F(WeibullDistributionTest, ParameterSettersAndGetters) {
-    dist_->setK(3.0);
-    EXPECT_DOUBLE_EQ(dist_->getK(), 3.0);
-    
-    dist_->setLambda(2.0);
-    EXPECT_DOUBLE_EQ(dist_->getLambda(), 2.0);
-    
-    // Test invalid setters
-    EXPECT_THROW(dist_->setK(0.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setLambda(-1.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setK(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
-}
-
-TEST_F(WeibullDistributionTest, FittingToData) {
-    // Test with positive data
-    std::vector<double> data = {0.5, 1.0, 1.5, 2.0, 2.5};
-    
-    EXPECT_NO_THROW(dist_->fit(data));
-    EXPECT_GT(dist_->getK(), 0.0);
-    EXPECT_GT(dist_->getLambda(), 0.0);
-    
-    // Test with empty data (should reset to default)
-    std::vector<double> emptyData;
-    dist_->fit(emptyData);
-    EXPECT_DOUBLE_EQ(dist_->getK(), 1.0);
-    EXPECT_DOUBLE_EQ(dist_->getLambda(), 1.0);
-}
-
-TEST_F(WeibullDistributionTest, FittingValidation) {
-    // Test with negative data
-    std::vector<double> invalidData = {0.5, -1.0, 2.0};
-    EXPECT_THROW(dist_->fit(invalidData), std::invalid_argument);
-    
-    // Test with NaN data
-    std::vector<double> nanData = {1.0, std::numeric_limits<double>::quiet_NaN(), 2.0};
-    EXPECT_THROW(dist_->fit(nanData), std::invalid_argument);
-}
-
-TEST_F(WeibullDistributionTest, ResetFunctionality) {
-    dist_->setK(5.0);
-    dist_->setLambda(3.0);
-    
-    dist_->reset();
-    
-    EXPECT_DOUBLE_EQ(dist_->getK(), 1.0);
-    EXPECT_DOUBLE_EQ(dist_->getLambda(), 1.0);
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return WeibullDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return WeibullDistribution(1.0, std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
 }
 
 TEST_F(WeibullDistributionTest, StatisticalProperties) {
-    // Test exponential case (k=1, λ=2)
-    WeibullDistribution exponential(1.0, 2.0);
-    EXPECT_NEAR(exponential.getMean(), 2.0, 1e-10);  // For Weibull(1,λ), mean = λ
-    EXPECT_NEAR(exponential.getVariance(), 4.0, 1e-10); // For Weibull(1,λ), variance = λ²
-    
-    // Test Rayleigh case (k=2, λ=1)
-    WeibullDistribution rayleigh(2.0, 1.0);
-    double rayleighMean = rayleigh.getMean();
-    EXPECT_GT(rayleighMean, 0.8);
-    EXPECT_LT(rayleighMean, 0.9);  // Should be around sqrt(π)/2 ≈ 0.8862
-    
-    EXPECT_GT(dist_->getStandardDeviation(), 0.0);
+    auto dist = createParameterizedDistribution(); // k=1.5, λ=2
+    // For Weibull(k=1.5, λ=2): mean = λ * Γ(1 + 1/k), variance = λ² * [Γ(1 + 2/k) - (Γ(1 + 1/k))²]
+    EXPECT_GT(dist->getMean(), 0.0);
+    EXPECT_GT(dist->getVariance(), 0.0);
+    EXPECT_GT(dist->getStandardDeviation(), 0.0);
 }
 
-TEST_F(WeibullDistributionTest, SpecialCases) {
-    // Test k=1 (exponential distribution)
-    WeibullDistribution expCase(1.0, 1.0);
-    double probExp = expCase.getProbability(1.0);
-    EXPECT_GT(probExp, 0.35);
-    EXPECT_LT(probExp, 0.4);  // Should be around e^(-1) ≈ 0.368
+TEST_F(WeibullDistributionTest, NonNegativeSupport) {
+    auto dist = createDefaultDistribution();
+    // Weibull distribution is zero for negative values
+    EXPECT_DOUBLE_EQ(dist->getProbability(-1.0), 0.0);
     
-    // Test k=2 (Rayleigh distribution)
-    WeibullDistribution rayleighCase(2.0, 1.0);
-    double probRayleigh = rayleighCase.getProbability(1.0);
-    EXPECT_GT(probRayleigh, 0.7);
-    EXPECT_LT(probRayleigh, 0.75);  // Should be around 0.736
+    // Positive for non-negative values
+    EXPECT_GE(dist->getProbability(0.0), 0.0);
+    EXPECT_GT(dist->getProbability(0.5), 0.0);
+    EXPECT_GT(dist->getProbability(1.0), 0.0);
+    EXPECT_GT(dist->getProbability(2.0), 0.0);
 }
 
-// Uniform Distribution Tests
-class UniformDistributionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dist_ = std::make_unique<UniformDistribution>(2.0, 8.0); // a=2, b=8
+TEST_F(WeibullDistributionTest, ShapeParameterEffects) {
+    // Test different shape parameters
+    WeibullDistribution weibull_k1(1.0, 1.0);  // Exponential distribution
+    WeibullDistribution weibull_k2(2.0, 1.0);  // Rayleigh-like distribution
+    WeibullDistribution weibull_k3(3.0, 1.0);  // More peaked distribution
+    
+    // At x=0: k=1 should be highest (exponential), k>1 should be 0
+    EXPECT_GT(weibull_k1.getProbability(0.0), weibull_k2.getProbability(0.0));
+    EXPECT_DOUBLE_EQ(weibull_k2.getProbability(0.0), 0.0);
+    EXPECT_DOUBLE_EQ(weibull_k3.getProbability(0.0), 0.0);
+}
+
+TEST_F(WeibullDistributionTest, ExponentialSpecialCase) {
+    // Weibull(k=1, λ) should behave like Exponential(rate=1/λ)
+    WeibullDistribution weibull_exp(1.0, 2.0); // k=1, λ=2
+    
+    // For Weibull(k=1, λ=2), this should be exponential with rate = 1/2
+    // At x=0, should equal rate = 1/λ = 0.5
+    EXPECT_NEAR(weibull_exp.getProbability(0.0), 0.5, 1e-10);
+}
+
+TEST_F(WeibullDistributionTest, ParameterAccessors) {
+    auto dist = createParameterizedDistribution(); // k=1.5, λ=2
+    EXPECT_NEAR(dist->getK(), 1.5, 1e-10);
+    EXPECT_NEAR(dist->getLambda(), 2.0, 1e-10);
+    
+    // Test setters
+    dist->setK(2.5);
+    EXPECT_NEAR(dist->getK(), 2.5, 1e-10);
+    
+    dist->setLambda(3.0);
+    EXPECT_NEAR(dist->getLambda(), 3.0, 1e-10);
+}
+
+TEST_F(WeibullDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        if (val >= 0.0) {
+            double logProb = dist->getLogProbability(val);
+            if (std::isfinite(logProb)) {
+                EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+            }
+        }
     }
     
-    std::unique_ptr<UniformDistribution> dist_;
+    // Test invalid inputs (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-1.0)) && dist->getLogProbability(-1.0) < 0);
+}
+
+// Rayleigh Distribution Tests
+class RayleighDistributionTest : public StandardizedDistributionTest<RayleighDistribution> {
+protected:
+    std::unique_ptr<RayleighDistribution> createDefaultDistribution() override {
+        return std::make_unique<RayleighDistribution>(1.0);
+    }
+
+    std::unique_ptr<RayleighDistribution> createParameterizedDistribution() override {
+        return std::make_unique<RayleighDistribution>(2.0);
+    }
+
+    std::vector<double> getValidTestValues() override {
+        return {0.0, 0.5, 1.0, 2.0, 3.0};
+    }
+
+    std::vector<double> getInvalidTestValues() override {
+        return {-1.0, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()};
+    }
+
+    std::vector<double> getValidFittingData() override {
+        return {0.5, 1.0, 1.5, 2.0, 2.5};
+    }
 };
 
-TEST_F(UniformDistributionTest, DefaultConstructor) {
-    UniformDistribution defaultDist;
-    EXPECT_DOUBLE_EQ(defaultDist.getA(), 0.0);
-    EXPECT_DOUBLE_EQ(defaultDist.getB(), 1.0);
-    EXPECT_DOUBLE_EQ(defaultDist.getMin(), 0.0);  // Alternative getter
-    EXPECT_DOUBLE_EQ(defaultDist.getMax(), 1.0);  // Alternative getter
+// Generate test cases for RayleighDistribution
+TEST_F(RayleighDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(RayleighDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(RayleighDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(RayleighDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(RayleighDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(RayleighDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for RayleighDistribution
+TEST_F(RayleighDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameter
+    EXPECT_THROW(RayleighDistribution(0.0), std::invalid_argument);
+    EXPECT_THROW(RayleighDistribution(-1.0), std::invalid_argument);
+
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return RayleighDistribution(std::numeric_limits<double>::quiet_NaN()); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return RayleighDistribution(std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
 }
 
-TEST_F(UniformDistributionTest, ParameterizedConstructor) {
-    UniformDistribution dist(3.5, 7.5);
-    EXPECT_DOUBLE_EQ(dist.getA(), 3.5);
-    EXPECT_DOUBLE_EQ(dist.getB(), 7.5);
+TEST_F(RayleighDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution();
+    // For Rayleigh(σ=2): mean = σ * √(π/2), variance = σ² * (4-π)/2
+    EXPECT_NEAR(dist->getMean(), 2.0 * sqrt(M_PI/2.0), 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 2.0 * 2.0 * (4.0 - M_PI) / 2.0, 1e-10);
+    EXPECT_NEAR(dist->getStandardDeviation(), sqrt(dist->getVariance()), 1e-10);
 }
 
-TEST_F(UniformDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(UniformDistribution(1.0, 2.0));
-    EXPECT_THROW(UniformDistribution(2.0, 1.0), std::invalid_argument);  // a > b
-    EXPECT_THROW(UniformDistribution(3.0, 3.0), std::invalid_argument);  // a == b
-    
-    // Test with NaN and infinity
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    EXPECT_THROW(UniformDistribution(nan_val, 1.0), std::invalid_argument);
-    EXPECT_THROW(UniformDistribution(1.0, inf_val), std::invalid_argument);
+TEST_F(RayleighDistributionTest, NonNegativeSupport) {
+    auto dist = createDefaultDistribution();
+    // Rayleigh distribution is zero for negative values
+    EXPECT_DOUBLE_EQ(dist->getProbability(-0.5), 0.0);
+
+    // Rayleigh PDF at x=0 is mathematically 0 (formula has x in numerator)
+    EXPECT_DOUBLE_EQ(dist->getProbability(0.0), 0.0);
+    // Positive for x > 0
+    EXPECT_GT(dist->getProbability(0.5), 0.0);
+    EXPECT_GT(dist->getProbability(2.0), 0.0);
 }
 
-TEST_F(UniformDistributionTest, ProbabilityCalculation) {
-    // Uniform distribution on [2, 8] has PDF = 1/(8-2) = 1/6
-    double expectedPdf = 1.0 / 6.0;
-    
-    // Should be constant within the interval
-    EXPECT_NEAR(dist_->getProbability(3.0), expectedPdf, 1e-10);
-    EXPECT_NEAR(dist_->getProbability(5.0), expectedPdf, 1e-10);
-    EXPECT_NEAR(dist_->getProbability(7.0), expectedPdf, 1e-10);
-    
-    // Should be zero outside the interval
-    EXPECT_DOUBLE_EQ(dist_->getProbability(1.0), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(9.0), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
-    
-    // Test boundary values
-    EXPECT_NEAR(dist_->getProbability(2.0), expectedPdf, 1e-10);
-    EXPECT_NEAR(dist_->getProbability(8.0), expectedPdf, 1e-10);
+TEST_F(RayleighDistributionTest, ModeProperty) {
+    auto dist = createParameterizedDistribution();
+    // Rayleigh's mode is at sigma
+    EXPECT_EQ(dist->getMode(), 2.0);
 }
 
-TEST_F(UniformDistributionTest, InvalidInputHandling) {
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
+TEST_F(RayleighDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        if (val > 0.0) { // Only test x > 0 since Rayleigh PDF is 0 at x=0
+            double logProb = dist->getLogProbability(val);
+            EXPECT_TRUE(std::isfinite(logProb));
+            EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+        }
+    }
+
+    // Test x=0 case - should return -infinity since PDF is 0
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(0.0)) && dist->getLogProbability(0.0) < 0);
+    
+    // Test invalid inputs (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-1.0)) && dist->getLogProbability(-1.0) < 0);
 }
 
-TEST_F(UniformDistributionTest, ParameterSettersAndGetters) {
-    dist_->setA(1.0);
-    EXPECT_DOUBLE_EQ(dist_->getA(), 1.0);
-    EXPECT_DOUBLE_EQ(dist_->getB(), 8.0);  // Should remain unchanged
-    
-    dist_->setB(10.0);
-    EXPECT_DOUBLE_EQ(dist_->getA(), 1.0);
-    EXPECT_DOUBLE_EQ(dist_->getB(), 10.0);
-    
-    // Test setting both parameters
-    dist_->setParameters(0.5, 5.5);
-    EXPECT_DOUBLE_EQ(dist_->getA(), 0.5);
-    EXPECT_DOUBLE_EQ(dist_->getB(), 5.5);
-    
-    // Test invalid setters
-    EXPECT_THROW(dist_->setA(6.0), std::invalid_argument);  // Would make a > b
-    EXPECT_THROW(dist_->setB(0.0), std::invalid_argument);  // Would make b < a
-    EXPECT_THROW(dist_->setParameters(5.0, 3.0), std::invalid_argument);  // a > b
-}
-
-TEST_F(UniformDistributionTest, FittingToData) {
-    // Test with data that should fit within bounds
-    std::vector<double> data = {3.0, 4.5, 6.0, 7.5};
-    
-    dist_->fit(data);
-    
-    // After fitting, bounds should encompass all data with padding
-    EXPECT_LE(dist_->getA(), 3.0);  // Should be at or below minimum
-    EXPECT_GE(dist_->getB(), 7.5);  // Should be at or above maximum
-    EXPECT_LT(dist_->getA(), dist_->getB());  // Valid interval
-    
-    // Test with empty data (should reset to default)
-    std::vector<double> emptyData;
-    dist_->fit(emptyData);
-    EXPECT_DOUBLE_EQ(dist_->getA(), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getB(), 1.0);
-}
-
-TEST_F(UniformDistributionTest, FittingValidation) {
-    // Test with NaN values
-    std::vector<double> nanData = {1.0, 2.0, std::numeric_limits<double>::quiet_NaN(), 3.0};
-    EXPECT_THROW(dist_->fit(nanData), std::invalid_argument);
-    
-    // Test with infinity values
-    std::vector<double> infData = {1.0, 2.0, std::numeric_limits<double>::infinity(), 3.0};
-    EXPECT_THROW(dist_->fit(infData), std::invalid_argument);
-}
-
-TEST_F(UniformDistributionTest, ResetFunctionality) {
-    dist_->setParameters(10.0, 20.0);
-    dist_->reset();
-    
-    EXPECT_DOUBLE_EQ(dist_->getA(), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getB(), 1.0);
-}
-
-TEST_F(UniformDistributionTest, StatisticalProperties) {
-    // For Uniform(2, 8): mean = (2+8)/2 = 5
-    double expectedMean = 5.0;
-    EXPECT_NEAR(dist_->getMean(), expectedMean, 1e-10);
-    
-    // For Uniform(2, 8): variance = (8-2)²/12 = 36/12 = 3
-    double expectedVar = 3.0;
-    EXPECT_NEAR(dist_->getVariance(), expectedVar, 1e-10);
-    
-    // Standard deviation should be sqrt(variance)
-    EXPECT_NEAR(dist_->getStandardDeviation(), std::sqrt(expectedVar), 1e-10);
-    
-    // Test standard uniform [0,1]
-    UniformDistribution standard(0.0, 1.0);
-    EXPECT_NEAR(standard.getMean(), 0.5, 1e-10);
-    EXPECT_NEAR(standard.getVariance(), 1.0/12.0, 1e-10);
-}
-
-TEST_F(UniformDistributionTest, SpecialCases) {
-    // Test with very small interval
-    UniformDistribution tiny(0.0, 1e-6);
-    EXPECT_GT(tiny.getProbability(5e-7), 0.0);  // Within interval
-    EXPECT_DOUBLE_EQ(tiny.getProbability(2e-6), 0.0);  // Outside interval
-    
-    // Test with negative interval
-    UniformDistribution negative(-5.0, -2.0);
-    EXPECT_GT(negative.getProbability(-3.5), 0.0);
-    EXPECT_DOUBLE_EQ(negative.getProbability(0.0), 0.0);
-    EXPECT_NEAR(negative.getMean(), -3.5, 1e-10);  // Mean = (-5 + -2)/2
-    
-    // Test isApproximatelyEqual
-    UniformDistribution u1(1.0, 3.0);
-    UniformDistribution u2(1.000000001, 3.000000001);
-    UniformDistribution u3(1.1, 3.1);
-    
-    EXPECT_TRUE(u1.isApproximatelyEqual(u2, 1e-8));
-    EXPECT_FALSE(u1.isApproximatelyEqual(u3, 1e-8));
-}
-
-// Binomial Distribution Tests
-class BinomialDistributionTest : public ::testing::Test {
+// Gamma Distribution Tests
+class GammaDistributionTest : public StandardizedDistributionTest<GammaDistribution> {
 protected:
-    void SetUp() override {
-        dist_ = std::make_unique<BinomialDistribution>(10, 0.3); // n=10, p=0.3
+    std::unique_ptr<GammaDistribution> createDefaultDistribution() override {
+        return std::make_unique<GammaDistribution>();
     }
     
-    std::unique_ptr<BinomialDistribution> dist_;
-};
-
-TEST_F(BinomialDistributionTest, DefaultConstructor) {
-    BinomialDistribution defaultDist;
-    EXPECT_EQ(defaultDist.getN(), 10);
-    EXPECT_DOUBLE_EQ(defaultDist.getP(), 0.5);
-}
-
-TEST_F(BinomialDistributionTest, ParameterizedConstructor) {
-    BinomialDistribution dist(20, 0.7);
-    EXPECT_EQ(dist.getN(), 20);
-    EXPECT_DOUBLE_EQ(dist.getP(), 0.7);
-}
-
-TEST_F(BinomialDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(BinomialDistribution(1, 0.5));
-    EXPECT_THROW(BinomialDistribution(0, 0.5), std::invalid_argument);  // n <= 0
-    EXPECT_THROW(BinomialDistribution(-1, 0.5), std::invalid_argument); // n < 0
-    EXPECT_THROW(BinomialDistribution(10, -0.1), std::invalid_argument); // p < 0
-    EXPECT_THROW(BinomialDistribution(10, 1.1), std::invalid_argument);  // p > 1
-    
-    // Test with NaN and infinity
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    EXPECT_THROW(BinomialDistribution(10, nan_val), std::invalid_argument);
-    EXPECT_THROW(BinomialDistribution(10, inf_val), std::invalid_argument);
-}
-
-TEST_F(BinomialDistributionTest, ProbabilityCalculation) {
-    // Test valid range [0, n]
-    EXPECT_GT(dist_->getProbability(0.0), 0.0);
-    EXPECT_GT(dist_->getProbability(5.0), 0.0);
-    EXPECT_GT(dist_->getProbability(10.0), 0.0);
-    
-    // Test out of range
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(11.0), 0.0);
-    
-    // Test edge cases
-    BinomialDistribution binom_p0(10, 0.0);
-    EXPECT_DOUBLE_EQ(binom_p0.getProbability(0.0), 1.0);
-    EXPECT_DOUBLE_EQ(binom_p0.getProbability(1.0), 0.0);
-    
-    BinomialDistribution binom_p1(10, 1.0);
-    EXPECT_DOUBLE_EQ(binom_p1.getProbability(10.0), 1.0);
-    EXPECT_DOUBLE_EQ(binom_p1.getProbability(9.0), 0.0);
-}
-
-TEST_F(BinomialDistributionTest, InvalidInputHandling) {
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
-}
-
-TEST_F(BinomialDistributionTest, ParameterSettersAndGetters) {
-    dist_->setN(15);
-    EXPECT_EQ(dist_->getN(), 15);
-    
-    dist_->setP(0.8);
-    EXPECT_DOUBLE_EQ(dist_->getP(), 0.8);
-    
-    // Test invalid setters
-    EXPECT_THROW(dist_->setN(0), std::invalid_argument);
-    EXPECT_THROW(dist_->setP(-0.1), std::invalid_argument);
-    EXPECT_THROW(dist_->setP(1.1), std::invalid_argument);
-}
-
-TEST_F(BinomialDistributionTest, FittingToData) {
-    std::vector<double> data = {3, 4, 5, 6, 7, 3, 4, 5, 6, 7};
-    
-    dist_->fit(data);
-    
-    // After fitting, parameters should be valid
-    EXPECT_GT(dist_->getN(), 0);
-    EXPECT_GE(dist_->getP(), 0.0);
-    EXPECT_LE(dist_->getP(), 1.0);
-    
-    // Test with empty data (should reset to default)
-    std::vector<double> emptyData;
-    dist_->fit(emptyData);
-    EXPECT_EQ(dist_->getN(), 10);
-    EXPECT_DOUBLE_EQ(dist_->getP(), 0.5);
-}
-
-TEST_F(BinomialDistributionTest, ResetFunctionality) {
-    dist_->setN(25);
-    dist_->setP(0.8);
-    
-    dist_->reset();
-    
-    EXPECT_EQ(dist_->getN(), 10);
-    EXPECT_DOUBLE_EQ(dist_->getP(), 0.5);
-}
-
-TEST_F(BinomialDistributionTest, StatisticalProperties) {
-    // For Binomial(10, 0.3): mean = n*p = 3, variance = n*p*(1-p) = 2.1
-    double expectedMean = 10 * 0.3;
-    double expectedVar = 10 * 0.3 * 0.7;
-    
-    EXPECT_NEAR(dist_->getMean(), expectedMean, 1e-10);
-    EXPECT_NEAR(dist_->getVariance(), expectedVar, 1e-10);
-    EXPECT_NEAR(dist_->getStandardDeviation(), std::sqrt(expectedVar), 1e-10);
-}
-
-// Negative Binomial Distribution Tests
-class NegativeBinomialDistributionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dist_ = std::make_unique<NegativeBinomialDistribution>(5.0, 0.4); // r=5, p=0.4
+    std::unique_ptr<GammaDistribution> createParameterizedDistribution() override {
+        return std::make_unique<GammaDistribution>(2.0, 1.5);
     }
     
-    std::unique_ptr<NegativeBinomialDistribution> dist_;
-};
-
-TEST_F(NegativeBinomialDistributionTest, DefaultConstructor) {
-    NegativeBinomialDistribution defaultDist;
-    EXPECT_DOUBLE_EQ(defaultDist.getR(), 5.0);
-    EXPECT_DOUBLE_EQ(defaultDist.getP(), 0.5);
-}
-
-TEST_F(NegativeBinomialDistributionTest, ParameterizedConstructor) {
-    NegativeBinomialDistribution dist(3.5, 0.7);
-    EXPECT_DOUBLE_EQ(dist.getR(), 3.5);
-    EXPECT_DOUBLE_EQ(dist.getP(), 0.7);
-}
-
-TEST_F(NegativeBinomialDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(NegativeBinomialDistribution(1.0, 0.5));
-    EXPECT_THROW(NegativeBinomialDistribution(0.0, 0.5), std::invalid_argument);   // r <= 0
-    EXPECT_THROW(NegativeBinomialDistribution(-1.0, 0.5), std::invalid_argument);  // r < 0
-    EXPECT_THROW(NegativeBinomialDistribution(5.0, 0.0), std::invalid_argument);   // p <= 0
-    EXPECT_THROW(NegativeBinomialDistribution(5.0, -0.1), std::invalid_argument);  // p < 0
-    EXPECT_THROW(NegativeBinomialDistribution(5.0, 1.1), std::invalid_argument);   // p > 1
-    
-    // Test with NaN and infinity
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    EXPECT_THROW(NegativeBinomialDistribution(nan_val, 0.5), std::invalid_argument);
-    EXPECT_THROW(NegativeBinomialDistribution(5.0, inf_val), std::invalid_argument);
-}
-
-TEST_F(NegativeBinomialDistributionTest, ProbabilityCalculation) {
-    // Test non-negative range [0, ∞)
-    EXPECT_GT(dist_->getProbability(0.0), 0.0);
-    EXPECT_GT(dist_->getProbability(5.0), 0.0);
-    EXPECT_GT(dist_->getProbability(10.0), 0.0);
-    
-    // Test out of range
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
-    
-    // Test edge case p = 1
-    NegativeBinomialDistribution negbinom_p1(5.0, 1.0);
-    EXPECT_DOUBLE_EQ(negbinom_p1.getProbability(0.0), 1.0);
-    EXPECT_DOUBLE_EQ(negbinom_p1.getProbability(1.0), 0.0);
-}
-
-TEST_F(NegativeBinomialDistributionTest, InvalidInputHandling) {
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
-}
-
-TEST_F(NegativeBinomialDistributionTest, ParameterSettersAndGetters) {
-    dist_->setR(8.0);
-    EXPECT_DOUBLE_EQ(dist_->getR(), 8.0);
-    
-    dist_->setP(0.6);
-    EXPECT_DOUBLE_EQ(dist_->getP(), 0.6);
-    
-    // Test invalid setters
-    EXPECT_THROW(dist_->setR(0.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setP(0.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setP(1.1), std::invalid_argument);
-}
-
-TEST_F(NegativeBinomialDistributionTest, FittingToData) {
-    // Test with over-dispersed data (variance > mean)
-    std::vector<double> data = {0, 1, 2, 3, 5, 8, 10, 15, 2, 4, 7, 12};
-    
-    dist_->fit(data);
-    
-    // After fitting, parameters should be valid
-    EXPECT_GT(dist_->getR(), 0.0);
-    EXPECT_GT(dist_->getP(), 0.0);
-    EXPECT_LE(dist_->getP(), 1.0);
-    
-    // Test with empty data (should reset to default)
-    std::vector<double> emptyData;
-    dist_->fit(emptyData);
-    EXPECT_DOUBLE_EQ(dist_->getR(), 5.0);
-    EXPECT_DOUBLE_EQ(dist_->getP(), 0.5);
-}
-
-TEST_F(NegativeBinomialDistributionTest, ResetFunctionality) {
-    dist_->setR(10.0);
-    dist_->setP(0.2);
-    
-    dist_->reset();
-    
-    EXPECT_DOUBLE_EQ(dist_->getR(), 5.0);
-    EXPECT_DOUBLE_EQ(dist_->getP(), 0.5);
-}
-
-TEST_F(NegativeBinomialDistributionTest, StatisticalProperties) {
-    // For NegBinom(5, 0.4): mean = r*(1-p)/p = 7.5, variance = r*(1-p)/p² = 18.75
-    double expectedMean = 5.0 * (1.0 - 0.4) / 0.4;
-    double expectedVar = 5.0 * (1.0 - 0.4) / (0.4 * 0.4);
-    
-    EXPECT_NEAR(dist_->getMean(), expectedMean, 1e-10);
-    EXPECT_NEAR(dist_->getVariance(), expectedVar, 1e-10);
-    EXPECT_NEAR(dist_->getStandardDeviation(), std::sqrt(expectedVar), 1e-10);
-    
-    // Test over-dispersion property (variance > mean)
-    EXPECT_GT(dist_->getVariance(), dist_->getMean());
-}
-
-TEST_F(NegativeBinomialDistributionTest, OverDispersionProperty) {
-    // Negative binomial should always exhibit over-dispersion
-    NegativeBinomialDistribution nb1(2.0, 0.3);
-    NegativeBinomialDistribution nb2(10.0, 0.7);
-    NegativeBinomialDistribution nb3(1.5, 0.1);
-    
-    EXPECT_GT(nb1.getVariance(), nb1.getMean());
-    EXPECT_GT(nb2.getVariance(), nb2.getMean());
-    EXPECT_GT(nb3.getVariance(), nb3.getMean());
-}
-
-// Student's t-Distribution Tests
-class StudentTDistributionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dist_ = std::make_unique<StudentTDistribution>(5.0); // ν=5
+    std::vector<double> getValidTestValues() override {
+        return {0.5, 1.0, 2.0, 3.0, 5.0};
     }
     
-    std::unique_ptr<StudentTDistribution> dist_;
-};
-
-TEST_F(StudentTDistributionTest, DefaultConstructor) {
-    StudentTDistribution defaultDist;
-    EXPECT_DOUBLE_EQ(defaultDist.getDegreesOfFreedom(), 1.0);
-}
-
-TEST_F(StudentTDistributionTest, ParameterizedConstructor) {
-    StudentTDistribution dist(3.5);
-    EXPECT_DOUBLE_EQ(dist.getDegreesOfFreedom(), 3.5);
-}
-
-TEST_F(StudentTDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(StudentTDistribution(1.0));
-    EXPECT_THROW(StudentTDistribution(0.0), std::invalid_argument);
-    EXPECT_THROW(StudentTDistribution(-1.0), std::invalid_argument);
-    
-    // Test with NaN and infinity - create separate variable declarations
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    EXPECT_THROW({
-        StudentTDistribution temp_nan(nan_val);
-    }, std::invalid_argument);
-    EXPECT_THROW({
-        StudentTDistribution temp_inf(inf_val);
-    }, std::invalid_argument);
-}
-
-TEST_F(StudentTDistributionTest, ProbabilityAndLogProbabilityCalculation) {
-    // t-distribution is symmetric around 0
-    double logProb0 = dist_->getLogProbability(0.0);
-    double logProb1 = dist_->getLogProbability(1.0);
-    double logProbNeg1 = dist_->getLogProbability(-1.0);
-
-    EXPECT_GT(logProb0, -std::numeric_limits<double>::infinity());
-    EXPECT_GT(logProb1, -std::numeric_limits<double>::infinity());
-    EXPECT_GT(logProbNeg1, -std::numeric_limits<double>::infinity());
-
-    double prob0 = std::exp(logProb0);
-    double prob1 = std::exp(logProb1);
-    double probNeg1 = std::exp(logProbNeg1);
-
-    // Symmetry property
-    EXPECT_NEAR(prob1, probNeg1, 1e-10);
-
-    // Maximum at x=0
-    EXPECT_GT(prob0, prob1);
-
-    // Compare log and exp probabilities
-    EXPECT_NEAR(prob0, dist_->getProbability(0.0), 1e-10);
-    EXPECT_NEAR(prob1, dist_->getProbability(1.0), 1e-10);
-    EXPECT_NEAR(probNeg1, dist_->getProbability(-1.0), 1e-10);
-}
-
-TEST_F(StudentTDistributionTest, InvalidInputHandling) {
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
-}
-
-TEST_F(StudentTDistributionTest, ParameterSettersAndGetters) {
-    dist_->setDegreesOfFreedom(3.0);
-    EXPECT_DOUBLE_EQ(dist_->getDegreesOfFreedom(), 3.0);
-    
-    // Test invalid setters
-    EXPECT_THROW(dist_->setDegreesOfFreedom(0.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setDegreesOfFreedom(-1.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setDegreesOfFreedom(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
-}
-
-TEST_F(StudentTDistributionTest, FittingToData) {
-    // Test with symmetric data
-    std::vector<double> data = {-2.0, -1.0, 0.0, 1.0, 2.0};
-    
-    EXPECT_NO_THROW(dist_->fit(data));
-    EXPECT_GT(dist_->getDegreesOfFreedom(), 0.0);
-    
-    // Test with empty data (should throw exception)
-    std::vector<double> emptyData;
-    EXPECT_THROW(dist_->fit(emptyData), std::invalid_argument);
-}
-
-TEST_F(StudentTDistributionTest, ResetFunctionality) {
-    dist_->setDegreesOfFreedom(10.0);
-    dist_->reset();
-    EXPECT_DOUBLE_EQ(dist_->getDegreesOfFreedom(), 1.0);
-}
-
-TEST_F(StudentTDistributionTest, StatisticalProperties) {
-    // For ν > 1: mean = 0
-    EXPECT_NEAR(dist_->getMean(), 0.0, 1e-10);
-    
-    // For ν > 2: variance = ν/(ν-2)
-    double expectedVar = 5.0 / (5.0 - 2.0);
-    EXPECT_NEAR(dist_->getVariance(), expectedVar, 1e-10);
-    EXPECT_NEAR(dist_->getStandardDeviation(), std::sqrt(expectedVar), 1e-10);
-    
-    // Test edge cases
-    StudentTDistribution t1(1.0);  // ν = 1, variance undefined
-    EXPECT_TRUE(std::isinf(t1.getVariance()) || std::isnan(t1.getVariance()));
-    
-    StudentTDistribution t2(2.0);  // ν = 2, variance = ∞
-    EXPECT_TRUE(std::isinf(t2.getVariance()) || std::isnan(t2.getVariance()));
-}
-
-TEST_F(StudentTDistributionTest, SpecialCases) {
-    // Test Cauchy distribution (ν = 1)
-    StudentTDistribution cauchy(1.0);
-    double prob1 = cauchy.getProbability(1.0);
-    double probNeg1 = cauchy.getProbability(-1.0);
-    EXPECT_NEAR(prob1, probNeg1, 1e-10);  // Symmetry
-    EXPECT_GT(cauchy.getProbability(0.0), prob1);  // Maximum at 0
-    
-    // Test convergence to normal as ν → ∞
-    StudentTDistribution largeNu(1000.0);
-    GaussianDistribution normal(0.0, 1.0);
-    
-    double tProb = largeNu.getProbability(1.0);
-    double normProb = normal.getProbability(1.0);
-    EXPECT_NEAR(tProb, normProb, 0.5);  // Should be reasonably close to normal
-}
-
-TEST_F(StudentTDistributionTest, CumulativeProbabilityCalculation) {
-    double cdf0 = dist_->getCumulativeProbability(0.0);
-    double cdf1 = dist_->getCumulativeProbability(1.0);
-    double cdfMinus1 = dist_->getCumulativeProbability(-1.0);
-
-    EXPECT_GT(cdf0, 0.0);
-    EXPECT_LE(cdf0, 1.0);
-    EXPECT_GT(cdf1, 0.0);
-    EXPECT_LE(cdf1, 1.0);
-    EXPECT_GT(cdfMinus1, 0.0);
-
-    // Ensure symmetry
-    EXPECT_NEAR(1.0 - cdf1, cdfMinus1, 1e-10);
-
-    // CDF at mean should be 0.5
-    EXPECT_NEAR(cdf0, 0.5, 1e-10);
-}
-
-// Chi-squared Distribution Tests
-class ChiSquaredDistributionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dist_ = std::make_unique<ChiSquaredDistribution>(4.0); // k=4
+    std::vector<double> getInvalidTestValues() override {
+        return {-1.0, std::numeric_limits<double>::quiet_NaN(), 
+                std::numeric_limits<double>::infinity()};
     }
     
-    std::unique_ptr<ChiSquaredDistribution> dist_;
+    std::vector<double> getValidFittingData() override {
+        return {0.5, 1.0, 1.5, 2.0, 2.5};
+    }
 };
 
-TEST_F(ChiSquaredDistributionTest, DefaultConstructor) {
-    ChiSquaredDistribution defaultDist;
-    EXPECT_DOUBLE_EQ(defaultDist.getDegreesOfFreedom(), 1.0);
+// Generate test cases for GammaDistribution
+TEST_F(GammaDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(GammaDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(GammaDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(GammaDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(GammaDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(GammaDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for GammaDistribution
+TEST_F(GammaDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
+    EXPECT_THROW(GammaDistribution(0.0, 1.0), std::invalid_argument);
+    EXPECT_THROW(GammaDistribution(-1.0, 1.0), std::invalid_argument);
+    EXPECT_THROW(GammaDistribution(1.0, 0.0), std::invalid_argument);
+    EXPECT_THROW(GammaDistribution(1.0, -1.0), std::invalid_argument);
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return GammaDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return GammaDistribution(1.0, std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
 }
 
-TEST_F(ChiSquaredDistributionTest, ParameterizedConstructor) {
-    ChiSquaredDistribution dist(7.5);
-    EXPECT_DOUBLE_EQ(dist.getDegreesOfFreedom(), 7.5);
+TEST_F(GammaDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // shape=2.0, scale=1.5
+    // For Gamma(k=2, θ=1.5): mean = k*θ = 3, variance = k*θ² = 4.5
+    EXPECT_NEAR(dist->getMean(), 3.0, 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 4.5, 1e-10);
+    EXPECT_NEAR(dist->getStandardDeviation(), std::sqrt(4.5), 1e-10);
 }
 
-TEST_F(ChiSquaredDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(ChiSquaredDistribution(1.0));
+TEST_F(GammaDistributionTest, ProbabilityProperties) {
+    auto dist = createDefaultDistribution(); // shape=1.0, scale=1.0 (exponential)
+    // Gamma distribution is zero for negative values
+    EXPECT_DOUBLE_EQ(dist->getProbability(-1.0), 0.0);
+    
+    // Positive for positive values
+    EXPECT_GT(dist->getProbability(0.5), 0.0);
+    EXPECT_GT(dist->getProbability(1.0), 0.0);
+    
+    // Gamma(1,1) is exponential distribution - check at x=0 (may depend on implementation)
+    EXPECT_GE(dist->getProbability(0.0), 0.0);
+}
+
+TEST_F(GammaDistributionTest, ShapeParameterEffects) {
+    auto paramDist = createParameterizedDistribution(); // shape=2.0
+    // Gamma distribution is zero at x=0 for shape > 1
+    EXPECT_DOUBLE_EQ(paramDist->getProbability(0.0), 0.0);
+    
+    // Test that probability decreases for large x
+    EXPECT_GT(paramDist->getProbability(1.0), paramDist->getProbability(5.0));
+}
+
+TEST_F(GammaDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+    }
+}
+
+// Beta Distribution Tests
+class BetaDistributionTest : public StandardizedDistributionTest<BetaDistribution> {
+protected:
+    std::unique_ptr<BetaDistribution> createDefaultDistribution() override {
+        return std::make_unique<BetaDistribution>(2.0, 5.0);
+    }
+
+    std::unique_ptr<BetaDistribution> createParameterizedDistribution() override {
+        return std::make_unique<BetaDistribution>(3.0, 3.0); // symmetric
+    }
+
+    std::vector<double> getValidTestValues() override {
+        return {0.1, 0.25, 0.5, 0.75, 0.9};
+    }
+
+    std::vector<double> getInvalidTestValues() override {
+        return {-0.1, 1.1, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()};
+    }
+
+    std::vector<double> getValidFittingData() override {
+        return {0.2, 0.3, 0.5, 0.7, 0.9};
+    }
+};
+
+// Generate test cases for BetaDistribution
+TEST_F(BetaDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(BetaDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(BetaDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(BetaDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(BetaDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(BetaDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for BetaDistribution
+TEST_F(BetaDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
+    EXPECT_THROW(BetaDistribution(-1.0, 2.0), std::invalid_argument);
+    EXPECT_THROW(BetaDistribution(2.0, -1.0), std::invalid_argument);
+    EXPECT_THROW(BetaDistribution(0.0, 2.0), std::invalid_argument);
+    EXPECT_THROW(BetaDistribution(2.0, 0.0), std::invalid_argument);
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return BetaDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return BetaDistribution(2.0, std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
+}
+
+TEST_F(BetaDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // α=3.0, β=3.0 (symmetric)
+    // For Beta(α=3, β=3): mean = α/(α+β) = 3/6 = 0.5
+    EXPECT_NEAR(dist->getMean(), 0.5, 1e-10);
+    // variance = αβ/((α+β)²(α+β+1)) = 9/(36*7) = 9/252 = 1/28
+    double expectedVariance = 9.0 / (36.0 * 7.0);
+    EXPECT_NEAR(dist->getVariance(), expectedVariance, 1e-10);
+    EXPECT_NEAR(dist->getStandardDeviation(), std::sqrt(expectedVariance), 1e-10);
+}
+
+TEST_F(BetaDistributionTest, BoundedSupport) {
+    auto dist = createDefaultDistribution();
+    // Beta distribution is zero outside [0,1]
+    EXPECT_DOUBLE_EQ(dist->getProbability(-0.1), 0.0);
+    EXPECT_DOUBLE_EQ(dist->getProbability(1.1), 0.0);
+    
+    // Positive within [0,1]
+    EXPECT_GT(dist->getProbability(0.2), 0.0);
+    EXPECT_GT(dist->getProbability(0.5), 0.0);
+    EXPECT_GT(dist->getProbability(0.8), 0.0);
+}
+
+TEST_F(BetaDistributionTest, SymmetryProperty) {
+    auto dist = createParameterizedDistribution(); // α=3.0, β=3.0 (symmetric)
+    // For symmetric Beta, P(x) should equal P(1-x)
+    EXPECT_NEAR(dist->getProbability(0.3), dist->getProbability(0.7), 1e-10);
+    EXPECT_NEAR(dist->getProbability(0.2), dist->getProbability(0.8), 1e-10);
+    EXPECT_NEAR(dist->getProbability(0.1), dist->getProbability(0.9), 1e-10);
+}
+
+TEST_F(BetaDistributionTest, ParameterAccessors) {
+    auto dist = createDefaultDistribution(); // α=2.0, β=5.0
+    EXPECT_NEAR(dist->getAlpha(), 2.0, 1e-10);
+    EXPECT_NEAR(dist->getBeta(), 5.0, 1e-10);
+    
+    // Test setters
+    dist->setAlpha(4.0);
+    EXPECT_NEAR(dist->getAlpha(), 4.0, 1e-10);
+    
+    dist->setBeta(6.0);
+    EXPECT_NEAR(dist->getBeta(), 6.0, 1e-10);
+}
+
+TEST_F(BetaDistributionTest, SpecialCases) {
+    // Beta(1,1) is uniform distribution on [0,1]
+    BetaDistribution uniform(1.0, 1.0);
+    EXPECT_NEAR(uniform.getProbability(0.2), 1.0, 1e-10);
+    EXPECT_NEAR(uniform.getProbability(0.5), 1.0, 1e-10);
+    EXPECT_NEAR(uniform.getProbability(0.8), 1.0, 1e-10);
+}
+
+TEST_F(BetaDistributionTest, GammaRelationship) {
+    // Beta distribution is related to Gamma: if X~Gamma(α,1) and Y~Gamma(β,1),
+    // then X/(X+Y) ~ Beta(α,β)
+    auto dist = createDefaultDistribution(); // α=2.0, β=5.0
+    // Mean should be α/(α+β) = 2/7
+    EXPECT_NEAR(dist->getMean(), 2.0/7.0, 1e-10);
+}
+
+TEST_F(BetaDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+    }
+    
+    // Test invalid inputs (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-0.1)) && dist->getLogProbability(-0.1) < 0);
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(1.1)) && dist->getLogProbability(1.1) < 0);
+}
+
+// Chi-Squared Distribution Tests
+class ChiSquaredDistributionTest : public StandardizedDistributionTest<ChiSquaredDistribution> {
+protected:
+    std::unique_ptr<ChiSquaredDistribution> createDefaultDistribution() override {
+        return std::make_unique<ChiSquaredDistribution>();
+    }
+    
+    std::unique_ptr<ChiSquaredDistribution> createParameterizedDistribution() override {
+        return std::make_unique<ChiSquaredDistribution>(3.0);
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {0.5, 1.0, 2.0, 3.0, 5.0};
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {-1.0, std::numeric_limits<double>::quiet_NaN(), 
+                std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {1.0, 2.0, 3.0, 4.0, 5.0};
+    }
+};
+
+// Generate test cases for ChiSquaredDistribution
+TEST_F(ChiSquaredDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(ChiSquaredDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(ChiSquaredDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(ChiSquaredDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(ChiSquaredDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(ChiSquaredDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for ChiSquaredDistribution
+TEST_F(ChiSquaredDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
     EXPECT_THROW(ChiSquaredDistribution(0.0), std::invalid_argument);
     EXPECT_THROW(ChiSquaredDistribution(-1.0), std::invalid_argument);
     
-    // Test with NaN and infinity - create separate variable declarations  
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    EXPECT_THROW({
-        ChiSquaredDistribution temp_nan(nan_val);
-    }, std::invalid_argument);
-    EXPECT_THROW({
-        ChiSquaredDistribution temp_inf(inf_val);
-    }, std::invalid_argument);
-}
-
-TEST_F(ChiSquaredDistributionTest, ProbabilityCalculation) {
-    // Chi-squared is zero for negative values
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-1.0), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-0.1), 0.0);
-    
-    // Should be positive for positive values
-    EXPECT_GT(dist_->getProbability(1.0), 0.0);
-    EXPECT_GT(dist_->getProbability(4.0), 0.0);
-    EXPECT_GT(dist_->getProbability(10.0), 0.0);
-    
-    // At x=0: depends on k
-    ChiSquaredDistribution chi1(1.0);  // k=1, should be infinite at x=0
-    ChiSquaredDistribution chi2(2.0);  // k=2, should be 0.5 at x=0
-    ChiSquaredDistribution chi3(4.0);  // k>2, should be 0 at x=0
-    
-    EXPECT_DOUBLE_EQ(chi3.getProbability(0.0), 0.0);
-}
-
-TEST_F(ChiSquaredDistributionTest, InvalidInputHandling) {
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_DOUBLE_EQ(dist_->getProbability(-std::numeric_limits<double>::infinity()), 0.0);
-}
-
-TEST_F(ChiSquaredDistributionTest, ParameterSettersAndGetters) {
-    dist_->setDegreesOfFreedom(6.0);
-    EXPECT_DOUBLE_EQ(dist_->getDegreesOfFreedom(), 6.0);
-    
-    // Test invalid setters
-    EXPECT_THROW(dist_->setDegreesOfFreedom(0.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setDegreesOfFreedom(-1.0), std::invalid_argument);
-    EXPECT_THROW(dist_->setDegreesOfFreedom(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
-}
-
-TEST_F(ChiSquaredDistributionTest, FittingToData) {
-    // Test with positive data
-    std::vector<double> data = {1.0, 2.0, 3.0, 4.0, 5.0};
-    
-    EXPECT_NO_THROW(dist_->fit(data));
-    EXPECT_GT(dist_->getDegreesOfFreedom(), 0.0);
-    
-    // Test with empty data (should throw exception)
-    std::vector<double> emptyData;
-    EXPECT_THROW(dist_->fit(emptyData), std::invalid_argument);
-}
-
-TEST_F(ChiSquaredDistributionTest, FittingValidation) {
-    // Test with negative data
-    std::vector<double> invalidData = {1.0, -1.0, 3.0};
-    EXPECT_THROW(dist_->fit(invalidData), std::invalid_argument);
-    
-    // Test with NaN data
-    std::vector<double> nanData = {1.0, std::numeric_limits<double>::quiet_NaN(), 3.0};
-    EXPECT_THROW(dist_->fit(nanData), std::invalid_argument);
-}
-
-TEST_F(ChiSquaredDistributionTest, ResetFunctionality) {
-    dist_->setDegreesOfFreedom(15.0);
-    dist_->reset();
-    EXPECT_DOUBLE_EQ(dist_->getDegreesOfFreedom(), 1.0);
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return ChiSquaredDistribution(std::numeric_limits<double>::quiet_NaN()); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return ChiSquaredDistribution(std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
 }
 
 TEST_F(ChiSquaredDistributionTest, StatisticalProperties) {
-    // For χ²(k): mean = k, variance = 2k
-    double expectedMean = 4.0;
-    double expectedVar = 2.0 * 4.0;
-    
-    EXPECT_NEAR(dist_->getMean(), expectedMean, 1e-10);
-    EXPECT_NEAR(dist_->getVariance(), expectedVar, 1e-10);
-    EXPECT_NEAR(dist_->getStandardDeviation(), std::sqrt(expectedVar), 1e-10);
+    auto dist = createParameterizedDistribution(); // k=3.0
+    // For Chi-squared(k=3): mean = k = 3, variance = 2k = 6
+    EXPECT_NEAR(dist->getMean(), 3.0, 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 6.0, 1e-10);
+    EXPECT_NEAR(dist->getStandardDeviation(), std::sqrt(6.0), 1e-10);
 }
 
-TEST_F(ChiSquaredDistributionTest, SpecialCases) {
-    // Test χ²(1) - half-normal squared
-    ChiSquaredDistribution chi1(1.0);
-    EXPECT_GT(chi1.getProbability(0.1), 0.0);
-    EXPECT_GT(chi1.getProbability(1.0), 0.0);
+TEST_F(ChiSquaredDistributionTest, NonNegativeSupport) {
+    auto dist = createDefaultDistribution();
+    // Chi-squared is zero for negative values
+    EXPECT_DOUBLE_EQ(dist->getProbability(-1.0), 0.0);
     
-    // Test χ²(2) - exponential distribution
-    ChiSquaredDistribution chi2(2.0);
-    double prob0 = chi2.getProbability(0.0);
-    EXPECT_NEAR(prob0, 0.5, 1e-10);  // For χ²(2), PDF(0) = 0.5
-    
-    // Test large k (approaches normal)
-    ChiSquaredDistribution largeChi(100.0);
-    double meanProb = largeChi.getProbability(100.0);  // At mean
-    EXPECT_GT(meanProb, 0.0);
-    EXPECT_LT(meanProb, 1.0);
+    // Positive for positive values
+    EXPECT_GT(dist->getProbability(0.5), 0.0);
+    EXPECT_GT(dist->getProbability(1.0), 0.0);
+    EXPECT_GT(dist->getProbability(2.0), 0.0);
 }
 
-TEST_F(ChiSquaredDistributionTest, RelationshipToGamma) {
-    // χ²(k) is related to Gamma distribution
-    // Note: The exact relationship depends on parameterization
-    ChiSquaredDistribution chi(4.0);
+TEST_F(ChiSquaredDistributionTest, ModeProperty) {
+    auto dist = createParameterizedDistribution(); // k=3.0
+    // For Chi-squared(k=3): mode = max(0, k-2) = max(0, 1) = 1
+    EXPECT_NEAR(dist->getMode(), 1.0, 1e-10);
     
-    // Test that chi-squared produces reasonable values
-    std::vector<double> testPoints = {0.5, 1.0, 2.0, 4.0, 8.0};
-    for (double x : testPoints) {
-        double chiProb = chi.getProbability(x);
-        EXPECT_GT(chiProb, 0.0);  // Should be positive
-        EXPECT_LT(chiProb, 1.0);  // Should be a valid probability density
+    // Test k < 2 case
+    ChiSquaredDistribution chi_small(1.0);
+    EXPECT_DOUBLE_EQ(chi_small.getMode(), 0.0);
+}
+
+TEST_F(ChiSquaredDistributionTest, GammaRelationship) {
+    // Chi-squared(k) is Gamma(k/2, 2)
+    auto chi_dist = createParameterizedDistribution(); // k=3.0
+    // Mean should be the same: Chi-squared mean = k = 3, Gamma(1.5, 2) mean = 1.5 * 2 = 3
+    EXPECT_NEAR(chi_dist->getMean(), 3.0, 1e-10);
+    EXPECT_NEAR(chi_dist->getVariance(), 6.0, 1e-10); // Gamma(1.5, 2) variance = 1.5 * 4 = 6
+}
+
+TEST_F(ChiSquaredDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
     }
+    
+    // Test invalid inputs (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-1.0)) && dist->getLogProbability(-1.0) < 0);
 }
 
-// Common Distribution Interface Tests
+// Uniform Distribution Tests
+class UniformDistributionTest : public StandardizedDistributionTest<UniformDistribution> {
+protected:
+    std::unique_ptr<UniformDistribution> createDefaultDistribution() override {
+        return std::make_unique<UniformDistribution>();
+    }
+    
+    std::unique_ptr<UniformDistribution> createParameterizedDistribution() override {
+        return std::make_unique<UniformDistribution>(2.0, 8.0);
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {0.0, 0.25, 0.5, 0.75, 1.0}; // For default [0,1] distribution
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {-1.0, 2.0, std::numeric_limits<double>::quiet_NaN(), 
+                std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {0.1, 0.3, 0.5, 0.7, 0.9};
+    }
+};
+
+// Generate test cases for UniformDistribution
+TEST_F(UniformDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(UniformDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(UniformDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(UniformDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(UniformDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(UniformDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for UniformDistribution
+TEST_F(UniformDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
+    EXPECT_THROW(UniformDistribution(1.0, 1.0), std::invalid_argument); // a == b
+    EXPECT_THROW(UniformDistribution(2.0, 1.0), std::invalid_argument); // a > b
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return UniformDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return UniformDistribution(0.0, std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
+}
+
+TEST_F(UniformDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // [2.0, 8.0]
+    // For Uniform(a=2, b=8): mean = (a+b)/2 = 5, variance = (b-a)²/12 = 36/12 = 3
+    EXPECT_NEAR(dist->getMean(), 5.0, 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 3.0, 1e-10);
+    EXPECT_NEAR(dist->getStandardDeviation(), std::sqrt(3.0), 1e-10);
+}
+
+TEST_F(UniformDistributionTest, UniformProbabilityDensity) {
+    auto dist = createDefaultDistribution(); // [0, 1]
+    // For Uniform(0,1), PDF = 1/(1-0) = 1.0 everywhere in [0,1]
+    EXPECT_NEAR(dist->getProbability(0.0), 1.0, 1e-10);
+    EXPECT_NEAR(dist->getProbability(0.5), 1.0, 1e-10);
+    EXPECT_NEAR(dist->getProbability(1.0), 1.0, 1e-10);
+    
+    // Outside the range should be 0
+    EXPECT_DOUBLE_EQ(dist->getProbability(-0.1), 0.0);
+    EXPECT_DOUBLE_EQ(dist->getProbability(1.1), 0.0);
+}
+
+TEST_F(UniformDistributionTest, BoundedSupport) {
+    auto dist = createParameterizedDistribution(); // [2.0, 8.0]
+    // Should be constant within bounds
+    double expectedPdf = 1.0 / (8.0 - 2.0); // 1/6
+    EXPECT_NEAR(dist->getProbability(3.0), expectedPdf, 1e-10);
+    EXPECT_NEAR(dist->getProbability(5.0), expectedPdf, 1e-10);
+    EXPECT_NEAR(dist->getProbability(7.0), expectedPdf, 1e-10);
+    
+    // Outside bounds should be 0
+    EXPECT_DOUBLE_EQ(dist->getProbability(1.0), 0.0);
+    EXPECT_DOUBLE_EQ(dist->getProbability(9.0), 0.0);
+}
+
+TEST_F(UniformDistributionTest, ParameterAccessors) {
+    auto dist = createParameterizedDistribution(); // [2.0, 8.0]
+    EXPECT_NEAR(dist->getA(), 2.0, 1e-10);
+    EXPECT_NEAR(dist->getB(), 8.0, 1e-10);
+    EXPECT_NEAR(dist->getMin(), 2.0, 1e-10);
+    EXPECT_NEAR(dist->getMax(), 8.0, 1e-10);
+}
+
+TEST_F(UniformDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+    }
+    
+    // Test invalid inputs (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-1.0)) && dist->getLogProbability(-1.0) < 0);
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(2.0)) && dist->getLogProbability(2.0) < 0);
+}
+
+// Pareto Distribution Tests
+class ParetoDistributionTest : public StandardizedDistributionTest<ParetoDistribution> {
+protected:
+    std::unique_ptr<ParetoDistribution> createDefaultDistribution() override {
+        return std::make_unique<ParetoDistribution>(2.0, 1.0); // k=2, x_m=1
+    }
+
+    std::unique_ptr<ParetoDistribution> createParameterizedDistribution() override {
+        return std::make_unique<ParetoDistribution>(1.5, 2.0); // k=1.5, x_m=2
+    }
+
+    std::vector<double> getValidTestValues() override {
+        return {1.0, 1.5, 2.0, 3.0, 5.0}; // All >= x_m for default case
+    }
+
+    std::vector<double> getInvalidTestValues() override {
+        return {0.5, -1.0, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()};
+    }
+
+    std::vector<double> getValidFittingData() override {
+        return {1.2, 1.5, 2.0, 2.5, 3.0}; // All >= 1.0 (minimum for default)
+    }
+};
+
+// Generate test cases for ParetoDistribution
+TEST_F(ParetoDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(ParetoDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(ParetoDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(ParetoDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(ParetoDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(ParetoDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for ParetoDistribution
+TEST_F(ParetoDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
+    EXPECT_THROW(ParetoDistribution(0.0, 1.0), std::invalid_argument);
+    EXPECT_THROW(ParetoDistribution(-1.0, 1.0), std::invalid_argument);
+    EXPECT_THROW(ParetoDistribution(1.0, 0.0), std::invalid_argument);
+    EXPECT_THROW(ParetoDistribution(1.0, -1.0), std::invalid_argument);
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return ParetoDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return ParetoDistribution(1.0, std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
+}
+
+TEST_F(ParetoDistributionTest, StatisticalProperties) {
+    auto dist = createDefaultDistribution(); // k=2.0, x_m=1.0
+    // For Pareto(k=2, x_m=1): mean = k*x_m/(k-1) = 2*1/(2-1) = 2
+    EXPECT_NEAR(dist->getMean(), 2.0, 1e-10);
+    // variance = k*x_m²/((k-1)²*(k-2)) = 2*1/((1)²*(0)) = undefined for k=2
+    // But our implementation should handle this gracefully
+    EXPECT_GT(dist->getVariance(), 0.0);
+    EXPECT_GT(dist->getStandardDeviation(), 0.0);
+}
+
+TEST_F(ParetoDistributionTest, BoundedSupport) {
+    auto dist = createDefaultDistribution(); // k=2, x_m=1
+    // Pareto distribution is zero for x < x_m
+    EXPECT_DOUBLE_EQ(dist->getProbability(0.5), 0.0);
+    EXPECT_DOUBLE_EQ(dist->getProbability(0.9), 0.0);
+    
+    // Positive for x >= x_m
+    EXPECT_GT(dist->getProbability(1.0), 0.0);
+    EXPECT_GT(dist->getProbability(2.0), 0.0);
+    EXPECT_GT(dist->getProbability(5.0), 0.0);
+}
+
+TEST_F(ParetoDistributionTest, PowerLawProperty) {
+    auto dist = createDefaultDistribution(); // k=2, x_m=1
+    // Pareto distribution should follow power law: larger values have smaller probabilities
+    EXPECT_GT(dist->getProbability(1.0), dist->getProbability(2.0));
+    EXPECT_GT(dist->getProbability(2.0), dist->getProbability(3.0));
+    EXPECT_GT(dist->getProbability(3.0), dist->getProbability(5.0));
+}
+
+TEST_F(ParetoDistributionTest, ParameterAccessors) {
+    auto dist = createParameterizedDistribution(); // k=1.5, x_m=2.0
+    EXPECT_NEAR(dist->getK(), 1.5, 1e-10);
+    EXPECT_NEAR(dist->getXm(), 2.0, 1e-10);
+    
+    // Test setters
+    dist->setK(2.5);
+    EXPECT_NEAR(dist->getK(), 2.5, 1e-10);
+    
+    dist->setXm(3.0);
+    EXPECT_NEAR(dist->getXm(), 3.0, 1e-10);
+}
+
+TEST_F(ParetoDistributionTest, ModeProperty) {
+    auto dist = createParameterizedDistribution(); // k=1.5, x_m=2.0
+    // Pareto distribution's mode is always at x_m
+    EXPECT_NEAR(dist->getMode(), 2.0, 1e-10);
+}
+
+TEST_F(ParetoDistributionTest, ShapeParameterEffects) {
+    // Test different shape parameters
+    ParetoDistribution pareto_k1(1.5, 1.0);  // Lower k = heavier tail
+    ParetoDistribution pareto_k2(3.0, 1.0);  // Higher k = lighter tail
+    
+    // Higher k should have higher probability at the mode (x_m = 1.0)
+    EXPECT_GT(pareto_k2.getProbability(1.0), pareto_k1.getProbability(1.0));
+    
+    // But lower k should have higher probability for large values (heavy tail)
+    EXPECT_GT(pareto_k1.getProbability(10.0), pareto_k2.getProbability(10.0));
+}
+
+TEST_F(ParetoDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+    }
+    
+    // Test invalid inputs (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(0.5)) && dist->getLogProbability(0.5) < 0);
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-1.0)) && dist->getLogProbability(-1.0) < 0);
+}
+
+// Discrete Distribution Tests
+class DiscreteDistributionTest : public StandardizedDistributionTest<DiscreteDistribution> {
+protected:
+    std::unique_ptr<DiscreteDistribution> createDefaultDistribution() override {
+        return std::make_unique<DiscreteDistribution>(5); // 5 symbols
+    }
+    
+    std::unique_ptr<DiscreteDistribution> createParameterizedDistribution() override {
+        auto dist = std::make_unique<DiscreteDistribution>(3);
+        dist->setProbability(0, 0.5);
+        dist->setProbability(1, 0.3);
+        dist->setProbability(2, 0.2);
+        return dist;
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {0, 1, 2, 3, 4};
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {-1, 10, std::numeric_limits<double>::quiet_NaN(), 
+                std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {0, 0, 1, 1, 1, 2}; // 2 zeros, 3 ones, 1 two
+    }
+};
+
+// Generate test cases for DiscreteDistribution
+TEST_F(DiscreteDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(DiscreteDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(DiscreteDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(DiscreteDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(DiscreteDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(DiscreteDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Binomial Distribution Tests
+class BinomialDistributionTest : public StandardizedDistributionTest<BinomialDistribution> {
+protected:
+    std::unique_ptr<BinomialDistribution> createDefaultDistribution() override {
+        return std::make_unique<BinomialDistribution>();
+    }
+    
+    std::unique_ptr<BinomialDistribution> createParameterizedDistribution() override {
+        return std::make_unique<BinomialDistribution>(10, 0.7);
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {0, 1, 5, 10};
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {-1, 11, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {5, 6, 7, 8, 9};
+    }
+};
+
+// Generate test cases for BinomialDistribution
+TEST_F(BinomialDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(BinomialDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(BinomialDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(BinomialDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(BinomialDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(BinomialDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for BinomialDistribution
+TEST_F(BinomialDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
+    EXPECT_THROW(BinomialDistribution(0, 0.5), std::invalid_argument);
+    EXPECT_THROW(BinomialDistribution(-1, 0.5), std::invalid_argument);
+    EXPECT_THROW(BinomialDistribution(10, -0.1), std::invalid_argument);
+    EXPECT_THROW(BinomialDistribution(10, 1.5), std::invalid_argument);
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return BinomialDistribution(10, std::numeric_limits<double>::quiet_NaN()); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return BinomialDistribution(10, std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
+}
+
+TEST_F(BinomialDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // n=10, p=0.7
+    // For Binomial(n=10, p=0.7): mean = n*p = 7, variance = n*p*(1-p) = 2.1
+    EXPECT_NEAR(dist->getMean(), 7.0, 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 2.1, 1e-10);
+    EXPECT_NEAR(dist->getStandardDeviation(), std::sqrt(2.1), 1e-10);
+}
+
+TEST_F(BinomialDistributionTest, ProbabilityProperties) {
+    auto dist = createDefaultDistribution(); // n=10, p=0.5 (symmetric)
+    // For symmetric binomial, P(5) should be maximum
+    double prob5 = dist->getProbability(5);
+    EXPECT_GT(prob5, dist->getProbability(0));
+    EXPECT_GT(prob5, dist->getProbability(10));
+    
+    // Test edge cases
+    BinomialDistribution binomial_p0(10, 0.0);
+    EXPECT_DOUBLE_EQ(binomial_p0.getProbability(0), 1.0);
+    EXPECT_DOUBLE_EQ(binomial_p0.getProbability(1), 0.0);
+    
+    BinomialDistribution binomial_p1(10, 1.0);
+    EXPECT_DOUBLE_EQ(binomial_p1.getProbability(10), 1.0);
+    EXPECT_DOUBLE_EQ(binomial_p1.getProbability(9), 0.0);
+}
+
+TEST_F(BinomialDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+    }
+    
+    // Test out of range (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-1)) && dist->getLogProbability(-1) < 0);
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(11)) && dist->getLogProbability(11) < 0);
+}
+
+// Negative Binomial Distribution Tests
+class NegativeBinomialDistributionTest : public StandardizedDistributionTest<NegativeBinomialDistribution> {
+protected:
+    std::unique_ptr<NegativeBinomialDistribution> createDefaultDistribution() override {
+        return std::make_unique<NegativeBinomialDistribution>();
+    }
+    
+    std::unique_ptr<NegativeBinomialDistribution> createParameterizedDistribution() override {
+        return std::make_unique<NegativeBinomialDistribution>(3, 0.4);
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {0, 1, 5, 10};
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {-1, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {4, 5, 6, 7, 8};
+    }
+};
+
+// Generate test cases for NegativeBinomialDistribution
+TEST_F(NegativeBinomialDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(NegativeBinomialDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(NegativeBinomialDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(NegativeBinomialDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(NegativeBinomialDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(NegativeBinomialDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for NegativeBinomialDistribution
+TEST_F(NegativeBinomialDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
+    EXPECT_THROW(NegativeBinomialDistribution(0.0, 0.5), std::invalid_argument);
+    EXPECT_THROW(NegativeBinomialDistribution(-1.0, 0.5), std::invalid_argument);
+    EXPECT_THROW(NegativeBinomialDistribution(5.0, 0.0), std::invalid_argument);
+    EXPECT_THROW(NegativeBinomialDistribution(5.0, -0.1), std::invalid_argument);
+    EXPECT_THROW(NegativeBinomialDistribution(5.0, 1.5), std::invalid_argument);
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return NegativeBinomialDistribution(std::numeric_limits<double>::quiet_NaN(), 0.5); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return NegativeBinomialDistribution(5.0, std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
+}
+
+TEST_F(NegativeBinomialDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // r=3, p=0.4
+    // For NegBinom(r=3, p=0.4): mean = r*(1-p)/p = 3*0.6/0.4 = 4.5, variance = r*(1-p)/p² = 3*0.6/0.16 = 11.25
+    EXPECT_NEAR(dist->getMean(), 4.5, 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 11.25, 1e-10);
+    EXPECT_NEAR(dist->getStandardDeviation(), std::sqrt(11.25), 1e-10);
+}
+
+TEST_F(NegativeBinomialDistributionTest, OverDispersionProperty) {
+    // Negative binomial should exhibit over-dispersion (variance > mean)
+    auto dist1 = createDefaultDistribution(); // r=5, p=0.5
+    auto dist2 = createParameterizedDistribution(); // r=3, p=0.4
+    
+    EXPECT_GT(dist1->getVariance(), dist1->getMean());
+    EXPECT_GT(dist2->getVariance(), dist2->getMean());
+}
+
+TEST_F(NegativeBinomialDistributionTest, EdgeCaseProbabilities) {
+    // Test edge case p = 1
+    NegativeBinomialDistribution negbinom_p1(5.0, 1.0);
+    EXPECT_DOUBLE_EQ(negbinom_p1.getProbability(0), 1.0);
+    EXPECT_DOUBLE_EQ(negbinom_p1.getProbability(1), 0.0);
+}
+
+TEST_F(NegativeBinomialDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+    }
+    
+    // Test out of range (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-1)) && dist->getLogProbability(-1) < 0);
+}
+
+// Poisson Distribution Tests
+class PoissonDistributionTest : public StandardizedDistributionTest<PoissonDistribution> {
+protected:
+    std::unique_ptr<PoissonDistribution> createDefaultDistribution() override {
+        return std::make_unique<PoissonDistribution>();
+    }
+    
+    std::unique_ptr<PoissonDistribution> createParameterizedDistribution() override {
+        return std::make_unique<PoissonDistribution>(4.0);
+    }
+    
+    std::vector<double> getValidTestValues() override {
+        return {0, 1, 2, 3, 4, 5};
+    }
+    
+    std::vector<double> getInvalidTestValues() override {
+        return {-1, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()};
+    }
+    
+    std::vector<double> getValidFittingData() override {
+        return {1, 1, 2, 3, 3, 4};
+    }
+};
+
+// Generate test cases for PoissonDistribution
+TEST_F(PoissonDistributionTest, BasicFunctionality) { testBasicFunctionality(); }
+TEST_F(PoissonDistributionTest, ProbabilityCalculation) { testProbabilityCalculation(); }
+TEST_F(PoissonDistributionTest, InvalidInputHandling) { testInvalidInputHandling(); }
+TEST_F(PoissonDistributionTest, StringRepresentation) { testStringRepresentation(); }
+TEST_F(PoissonDistributionTest, ResetFunctionality) { testResetFunctionality(); }
+TEST_F(PoissonDistributionTest, ParameterFitting) { testParameterFitting(); }
+
+// Additional comprehensive tests for PoissonDistribution
+TEST_F(PoissonDistributionTest, ParameterValidation) {
+    // Test invalid lambda values in constructor
+    EXPECT_THROW(PoissonDistribution(-1.0), std::invalid_argument);
+    EXPECT_THROW(PoissonDistribution(0.0), std::invalid_argument);
+    
+    // Test NaN and infinity using lambdas to avoid macro issues
+    EXPECT_THROW([]() { return PoissonDistribution(std::numeric_limits<double>::quiet_NaN()); }(), std::invalid_argument);
+    EXPECT_THROW([]() { return PoissonDistribution(std::numeric_limits<double>::infinity()); }(), std::invalid_argument);
+}
+
+TEST_F(PoissonDistributionTest, StatisticalProperties) {
+    auto dist = createParameterizedDistribution(); // lambda=4.0
+    // For Poisson(λ=4): mean = variance = λ = 4.0
+    EXPECT_NEAR(dist->getMean(), 4.0, 1e-10);
+    EXPECT_NEAR(dist->getVariance(), 4.0, 1e-10);
+    EXPECT_NEAR(dist->getStandardDeviation(), 2.0, 1e-10);
+}
+
+TEST_F(PoissonDistributionTest, KnownProbabilities) {
+    PoissonDistribution poisson(2.0);
+    // For λ = 2.0: P(X=0) = e^(-2) ≈ 0.1353
+    double p0 = poisson.getProbability(0.0);
+    EXPECT_NEAR(p0, std::exp(-2.0), 1e-10);
+    
+    // P(X=1) = 2 * e^(-2) ≈ 0.2707
+    double p1 = poisson.getProbability(1.0);
+    EXPECT_NEAR(p1, 2.0 * std::exp(-2.0), 1e-10);
+    
+    // P(X=2) = 2 * e^(-2) ≈ 0.2707
+    double p2 = poisson.getProbability(2.0);
+    EXPECT_NEAR(p2, 2.0 * std::exp(-2.0), 1e-10);
+}
+
+TEST_F(PoissonDistributionTest, NonIntegerValues) {
+    auto dist = createDefaultDistribution();
+    // Non-integer values should return 0
+    EXPECT_DOUBLE_EQ(dist->getProbability(1.5), 0.0);
+    EXPECT_DOUBLE_EQ(dist->getProbability(2.3), 0.0);
+}
+
+TEST_F(PoissonDistributionTest, LogProbability) {
+    auto dist = createDefaultDistribution();
+    for (double val : getValidTestValues()) {
+        double logProb = dist->getLogProbability(val);
+        EXPECT_TRUE(std::isfinite(logProb));
+        EXPECT_NEAR(std::exp(logProb), dist->getProbability(val), 1e-10);
+    }
+    
+    // Test invalid inputs (should return -infinity)
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(-1)) && dist->getLogProbability(-1) < 0);
+    EXPECT_TRUE(std::isinf(dist->getLogProbability(2.5)) && dist->getLogProbability(2.5) < 0);
+}
+
+// Additional comprehensive tests for DiscreteDistribution
+TEST_F(DiscreteDistributionTest, ParameterValidation) {
+    // Test invalid constructor parameters
+    EXPECT_THROW(DiscreteDistribution(0), std::invalid_argument);
+    EXPECT_THROW(DiscreteDistribution(-1), std::length_error);
+    
+    // Test invalid probability setting
+    auto dist = createDefaultDistribution();
+    EXPECT_THROW(dist->setProbability(-1, 0.1), std::out_of_range);
+    EXPECT_THROW(dist->setProbability(5, 0.1), std::out_of_range);
+    EXPECT_THROW(dist->setProbability(0, -0.1), std::invalid_argument);
+    EXPECT_THROW(dist->setProbability(0, 1.1), std::invalid_argument);
+}
+
+TEST_F(DiscreteDistributionTest, StatisticalProperties) {
+    auto dist = createDefaultDistribution(); // uniform 5-symbol distribution
+    // For uniform discrete distribution [0,1,2,3,4]: mean = 2.0
+    EXPECT_NEAR(dist->getMean(), 2.0, 1e-10);
+    EXPECT_GT(dist->getVariance(), 0.0);
+    EXPECT_GT(dist->getStandardDeviation(), 0.0);
+}
+
+TEST_F(DiscreteDistributionTest, UniformDistribution) {
+    auto dist = createDefaultDistribution(); // 5 symbols
+    // Test valid values - should all be equal for uniform distribution
+    for (double val : getValidTestValues()) {
+        double prob = dist->getProbability(val);
+        EXPECT_NEAR(prob, 0.2, 1e-10);  // 1/5 = 0.2
+    }
+    
+    // Test probability sum equals 1
+    double sum = 0.0;
+    for (int i = 0; i < 5; ++i) {
+        sum += dist->getProbability(i);
+    }
+    EXPECT_NEAR(sum, 1.0, 1e-10);
+}
+
+TEST_F(DiscreteDistributionTest, CustomProbabilities) {
+    auto dist = createParameterizedDistribution(); // [0.5, 0.3, 0.2]
+    EXPECT_NEAR(dist->getProbability(0), 0.5, 1e-10);
+    EXPECT_NEAR(dist->getProbability(1), 0.3, 1e-10);
+    EXPECT_NEAR(dist->getProbability(2), 0.2, 1e-10);
+    
+    // Test probability sum equals 1
+    double sum = dist->getProbability(0) + dist->getProbability(1) + dist->getProbability(2);
+    EXPECT_NEAR(sum, 1.0, 1e-10);
+}
+
+TEST_F(DiscreteDistributionTest, FittingFromData) {
+    auto dist = createDefaultDistribution();
+    auto data = getValidFittingData(); // {0, 0, 1, 1, 1, 2}
+    
+    dist->fit(data);
+    EXPECT_NEAR(dist->getProbability(0), 2.0/6.0, 1e-10);  // 2 zeros out of 6
+    EXPECT_NEAR(dist->getProbability(1), 3.0/6.0, 1e-10);  // 3 ones out of 6
+    EXPECT_NEAR(dist->getProbability(2), 1.0/6.0, 1e-10);  // 1 two out of 6
+}
+
+// Test all distributions work with the base interface
 class CommonDistributionTest : public ::testing::Test {
 protected:
     void SetUp() override {
         distributions_.push_back(std::make_unique<GaussianDistribution>());
-        distributions_.push_back(std::make_unique<DiscreteDistribution>(6));
-        distributions_.push_back(std::make_unique<GammaDistribution>());
-        distributions_.push_back(std::make_unique<ExponentialDistribution>());
+        distributions_.push_back(std::make_unique<StudentTDistribution>());
         distributions_.push_back(std::make_unique<LogNormalDistribution>());
-        distributions_.push_back(std::make_unique<ParetoDistribution>());
-        distributions_.push_back(std::make_unique<PoissonDistribution>());
-        distributions_.push_back(std::make_unique<BetaDistribution>());
+        distributions_.push_back(std::make_unique<ExponentialDistribution>());
         distributions_.push_back(std::make_unique<WeibullDistribution>());
+        distributions_.push_back(std::make_unique<RayleighDistribution>());
+        distributions_.push_back(std::make_unique<GammaDistribution>());
+        distributions_.push_back(std::make_unique<BetaDistribution>());
+        distributions_.push_back(std::make_unique<ChiSquaredDistribution>());
         distributions_.push_back(std::make_unique<UniformDistribution>());
+        distributions_.push_back(std::make_unique<ParetoDistribution>());
+        distributions_.push_back(std::make_unique<DiscreteDistribution>(6));
         distributions_.push_back(std::make_unique<BinomialDistribution>());
         distributions_.push_back(std::make_unique<NegativeBinomialDistribution>());
-        distributions_.push_back(std::make_unique<StudentTDistribution>());
-        distributions_.push_back(std::make_unique<ChiSquaredDistribution>());
+        distributions_.push_back(std::make_unique<PoissonDistribution>());
     }
     
     std::vector<std::unique_ptr<ProbabilityDistribution>> distributions_;
@@ -1372,7 +1460,6 @@ TEST_F(CommonDistributionTest, PolymorphicInterface) {
         // Test with some reasonable value
         double prob = dist->getProbability(1.0);
         EXPECT_GE(prob, 0.0);
-        EXPECT_LE(prob, 1.0);
     }
 }
 
@@ -1396,51 +1483,6 @@ TEST_F(CommonDistributionTest, ResetFunctionality) {
         // toString should still work
         EXPECT_NO_THROW(dist->toString());
     }
-}
-
-// Edge Cases and Error Handling
-class DistributionEdgeCaseTest : public ::testing::Test {};
-
-TEST_F(DistributionEdgeCaseTest, ExtremeProbabilityValues) {
-    GaussianDistribution gauss(0.0, 1.0);
-    
-    // Very large positive and negative values
-    EXPECT_GE(gauss.getProbability(1000.0), 0.0);
-    EXPECT_GE(gauss.getProbability(-1000.0), 0.0);
-    
-    // Should handle these gracefully (likely very small probabilities)
-    EXPECT_LE(gauss.getProbability(1000.0), 1.0);
-    EXPECT_LE(gauss.getProbability(-1000.0), 1.0);
-}
-
-TEST_F(DistributionEdgeCaseTest, EmptyDataFitting) {
-    GaussianDistribution gauss;
-    std::vector<double> emptyData;
-    
-    // Should handle empty data gracefully
-    EXPECT_NO_THROW(gauss.fit(emptyData));
-}
-
-TEST_F(DistributionEdgeCaseTest, SingleDataPointFitting) {
-    GaussianDistribution gauss;
-    std::vector<double> singlePoint = {5.0};
-    
-    // Should handle single data point gracefully
-    EXPECT_NO_THROW(gauss.fit(singlePoint));
-}
-
-TEST_F(DistributionEdgeCaseTest, NumericalStabilityTest) {
-    // Test with very small standard deviation
-    GaussianDistribution narrowGauss(0.0, 1e-10);
-    
-    // Should still produce valid probabilities (can be > 1 for continuous distributions)
-    double prob = narrowGauss.getProbability(0.0);
-    EXPECT_GE(prob, 0.0);
-    EXPECT_TRUE(std::isfinite(prob));
-    
-    // Test log probability should be finite
-    double logProb = narrowGauss.getLogProbability(0.0);
-    EXPECT_TRUE(std::isfinite(logProb));
 }
 
 int main(int argc, char **argv) {

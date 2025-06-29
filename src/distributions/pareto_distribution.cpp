@@ -25,11 +25,6 @@ double ParetoDistribution::getProbability(double x) {
         return math::ZERO_DOUBLE;
     }
     
-    // Handle boundary case - PDF is undefined exactly at x_m
-    if (x == xm_) {
-        return math::ZERO_DOUBLE;
-    }
-    
     // Ensure cache is valid
     if (!cacheValid_) {
         updateCache();
