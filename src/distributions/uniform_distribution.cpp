@@ -213,7 +213,7 @@ std::ostream& operator<<(std::ostream& os, const UniformDistribution& dist) {
 
 std::istream& operator>>(std::istream& is, UniformDistribution& dist) {
     std::string token;
-    double a, b;
+    double a = 0.0, b = 0.0;
     
     try {
         // Expected format: "Uniform Distribution: a = <value>, b = <value>"
