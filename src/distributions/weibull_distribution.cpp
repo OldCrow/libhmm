@@ -206,7 +206,7 @@ std::ostream& operator<<(std::ostream& os, const WeibullDistribution& distributi
 
 std::istream& operator>>(std::istream& is, WeibullDistribution& distribution) {
     std::string token;
-    double k, lambda;
+    double k = 0.0, lambda = 0.0;
     
     try {
         // Expected format: "Weibull Distribution: k (shape) = <value> λ (scale) = <value>"
