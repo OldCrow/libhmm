@@ -26,16 +26,8 @@
 #include <cstddef>
 #include <limits>
 
-// Platform and system headers - SIMD support
-// Only include x86 intrinsics on x86/x64 platforms to avoid Apple Silicon issues
-#ifdef _MSC_VER
-    #include <intrin.h>
-#elif (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86))
-    #include <immintrin.h>
-    #include <x86intrin.h>
-#elif defined(__ARM_NEON) || defined(__aarch64__)
-    #include <arm_neon.h>
-#endif
+// Platform-specific headers moved to libhmm/performance/simd_platform.h
+// Include that header if you need SIMD intrinsics
 
 namespace libhmm
 {
@@ -257,6 +249,20 @@ namespace constants {
         inline constexpr double TEN = 10.0;
         inline constexpr double HUNDRED = 100.0;
         inline constexpr double THOUSAND = 1000.0;
+        
+        /// Additional mathematical constants for distributions
+        
+        /// Square root of π/2 (used in Rayleigh distribution mean)
+        /// Mean of Rayleigh = σ * √(π/2)
+        inline constexpr double SQRT_PI_OVER_TWO = 1.2533141373155003;
+        
+        /// (4-π)/2 (used in Rayleigh distribution variance)
+        /// Variance of Rayleigh = σ² * (4-π)/2
+        inline constexpr double FOUR_MINUS_PI_OVER_TWO = 0.4292036732051033;
+        
+        /// Square root of 2*ln(2) (used in Rayleigh distribution median)
+        /// Median of Rayleigh = σ * √(2*ln(2))
+        inline constexpr double SQRT_TWO_LN_TWO = 1.1774100225154747;
     }
     
     /// Algorithm-specific thresholds
