@@ -102,7 +102,7 @@ void RayleighDistribution::reset() noexcept {
 }
 
 std::string RayleighDistribution::toString() const {
-    std::ostringstream oss;
+    std::ostringstream oss{};
     oss << std::fixed << std::setprecision(6);
     oss << "Rayleigh Distribution:\n";
     oss << "      σ (scale parameter) = " << sigma_ << "\n";

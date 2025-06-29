@@ -161,7 +161,7 @@ void WeibullDistribution::reset() noexcept {
 }
 
 std::string WeibullDistribution::toString() const {
-    std::ostringstream oss;
+    std::ostringstream oss{};
     oss << std::fixed << std::setprecision(6);
     oss << "Weibull Distribution:\n";
     oss << "      k (shape) = " << k_ << "\n";

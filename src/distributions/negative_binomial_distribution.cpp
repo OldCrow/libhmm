@@ -24,7 +24,7 @@ double NegativeBinomialDistribution::getProbability(double value) {
     }
     
     // Round to nearest integer and check if it's in valid range
-    int k = static_cast<int>(std::round(value));
+    auto k = static_cast<int>(std::round(value));
     if (k < 0) {
         return math::ZERO_DOUBLE;
     }
@@ -139,7 +139,7 @@ void NegativeBinomialDistribution::reset() noexcept {
  * @return String describing the distribution parameters and statistics
  */
 std::string NegativeBinomialDistribution::toString() const {
-    std::ostringstream oss;
+    std::ostringstream oss{};
     oss << std::fixed << std::setprecision(6);
     oss << "Negative Binomial Distribution:\n";
     oss << "      r (successes) = " << r_ << "\n";
@@ -156,7 +156,7 @@ double NegativeBinomialDistribution::getLogProbability(double value) const noexc
     }
     
     // Round to nearest integer and check if it's in valid range
-    int k = static_cast<int>(std::round(value));
+    auto k = static_cast<int>(std::round(value));
     if (k < 0) {
         return -std::numeric_limits<double>::infinity();
     }
@@ -185,7 +185,7 @@ double NegativeBinomialDistribution::CDF(double value) noexcept {
         return math::ZERO_DOUBLE;
     }
     
-    int k = static_cast<int>(std::floor(value));
+    auto k = static_cast<int>(std::floor(value));
     
     // Handle boundary cases
     if (k < 0) {

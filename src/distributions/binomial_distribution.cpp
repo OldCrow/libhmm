@@ -24,7 +24,7 @@ double BinomialDistribution::getProbability(double value) {
     }
     
     // Round to nearest integer and check if it's in valid range
-    int k = static_cast<int>(std::round(value));
+    auto k = static_cast<int>(std::round(value));
     if (k < 0 || k > n_) {
         return math::ZERO_DOUBLE;
     }
@@ -84,7 +84,7 @@ void BinomialDistribution::fit(const std::vector<Observation>& values) {
     for (const auto& val : values) {
         // Validate: finite non-negative values only
         if (val >= math::ZERO_DOUBLE && std::isfinite(val)) {
-            const int intVal = static_cast<int>(std::round(val));
+            const auto intVal = static_cast<int>(std::round(val));
             maxObs = std::max(maxObs, intVal);
             sum += static_cast<double>(intVal);
             ++validCount;
@@ -147,7 +147,7 @@ void BinomialDistribution::reset() noexcept {
  * @return String describing the distribution parameters and statistics
  */
 std::string BinomialDistribution::toString() const {
-    std::ostringstream oss;
+    std::ostringstream oss{};
     oss << std::fixed << std::setprecision(6);
     oss << "Binomial Distribution:\n";
     oss << "      n (trials) = " << n_ << "\n";
@@ -164,7 +164,7 @@ double BinomialDistribution::getLogProbability(double value) const noexcept {
     }
     
     // Round to nearest integer and check if it's in valid range
-    int k = static_cast<int>(std::round(value));
+    auto k = static_cast<int>(std::round(value));
     if (k < 0 || k > n_) {
         return -std::numeric_limits<double>::infinity();
     }
@@ -196,7 +196,7 @@ double BinomialDistribution::getCumulativeProbability(double value) noexcept {
         return math::ZERO_DOUBLE;
     }
     
-    int k = static_cast<int>(std::floor(value));
+    auto k = static_cast<int>(std::floor(value));
     
     // Handle boundary cases
     if (k < 0) {

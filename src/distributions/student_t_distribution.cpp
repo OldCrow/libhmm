@@ -65,7 +65,7 @@ double StudentTDistribution::getProbability(Observation value) {
         updateCache();
     }
     
-    double x = static_cast<double>(value);
+    auto x = static_cast<double>(value);
     
     // Handle invalid inputs
     if (!std::isfinite(x)) {
@@ -169,7 +169,7 @@ void StudentTDistribution::fit(const std::vector<Observation>& values) {
     
     // Check for invalid values
     for (Observation obs : values) {
-        double val = static_cast<double>(obs);
+        auto val = static_cast<double>(obs);
         if (!std::isfinite(val)) {
             throw std::invalid_argument("Observations contain non-finite values");
         }
@@ -193,7 +193,7 @@ void StudentTDistribution::fit(const std::vector<Observation>& values) {
     double count = 0.0;
     
     for (Observation obs : values) {
-        double val = static_cast<double>(obs);
+        auto val = static_cast<double>(obs);
         count += 1.0;
         double delta = val - mean;
         mean += delta / count;
