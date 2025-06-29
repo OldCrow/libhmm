@@ -1,14 +1,12 @@
 #include "libhmm/calculators/log_simd_viterbi_calculator.h"
 #include "libhmm/common/common.h"
+#include "libhmm/performance/parallel_constants.h"
 #include <algorithm>
 #include <cassert>
 #include <stdexcept>
 
-#ifdef LIBHMM_HAS_AVX
-#include <immintrin.h>
-#elif defined(LIBHMM_HAS_SSE2)
-#include <emmintrin.h>
-#endif
+// SIMD intrinsics now centralized in simd_platform.h
+#include "libhmm/performance/simd_platform.h"
 
 namespace libhmm {
 
@@ -277,9 +275,17 @@ void LogSIMDViterbiCalculator::findMaxSIMD(const double* values, std::size_t siz
 }
 
 void LogSIMDViterbiCalculator::computeLogEmissionProbabilities(Observation observation, double* logEmisProbs) const {
-    // Use optimized getLogProbability for better performance and numerical stability
-    for (std::size_t i = 0; i < numStates_; ++i) {
-        logEmisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))->getLogProbability(observation);
+    // Use parallel computation for larger state spaces
+    if (numStates_ >= performance::parallel::MIN_STATES_FOR_EMISSION_PARALLEL) {
+        // Parallel emission probability computation
+        performance::ParallelUtils::parallelFor(0, numStates_, [&](std::size_t i) {
+            logEmisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))->getLogProbability(observation);
+        }, performance::parallel::SIMPLE_OPERATION_GRAIN_SIZE);
+    } else {
+        // Sequential computation for smaller state spaces
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            logEmisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))->getLogProbability(observation);
+        }
     }
 }
 
