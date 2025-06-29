@@ -166,21 +166,21 @@ double PoissonDistribution::getLogProbability(double value) const noexcept {
  * Evaluates the CDF at k using cumulative sum approach
  * For large k, uses asymptotic approximation for efficiency
  */
-double PoissonDistribution::getCumulativeProbability(double value) noexcept {
+double PoissonDistribution::getCumulativeProbability(double k) noexcept {
     // Validate input
-    if (std::isnan(value) || std::isinf(value)) {
+    if (std::isnan(k) || std::isinf(k)) {
         return math::ZERO_DOUBLE;
     }
     
-    if (value < math::ZERO_DOUBLE) {
+    if (k < math::ZERO_DOUBLE) {
         return math::ZERO_DOUBLE;
     }
     
-    const auto k = static_cast<int>(std::floor(value));
+    const auto kInt = static_cast<int>(std::floor(k));
     
     // For very large k or lambda, the cumulative sum becomes computationally expensive
     // and numerically unstable. In such cases, use normal approximation.
-    if (k > 100 && lambda_ > 100.0) {
+    if (kInt > 100 && lambda_ > 100.0) {
         // Ensure cache is valid
         if (!cacheValid_) {
             updateCache();
@@ -188,13 +188,13 @@ double PoissonDistribution::getCumulativeProbability(double value) noexcept {
         
         // Normal approximation with continuity correction: P(X ≤ k) ≈ Φ((k + 0.5 - λ) / √λ)
         // Use cached sqrt(lambda) for efficiency
-        const double z = (static_cast<double>(k) + 0.5 - lambda_) * invSqrtLambda_;
+        const double z = (static_cast<double>(kInt) + 0.5 - lambda_) * invSqrtLambda_;
         return 0.5 * (1.0 + std::erf(z / math::SQRT_2));
     }
     
     // For moderate values, compute CDF as cumulative sum: P(X ≤ k) = Σ(i=0 to k) P(X = i)
     double cdf = math::ZERO_DOUBLE;
-    for (int i = 0; i <= k; ++i) {
+    for (int i = 0; i <= kInt; ++i) {
         cdf += getProbability(static_cast<double>(i));
         
         // Early termination if we've accumulated essentially all probability
