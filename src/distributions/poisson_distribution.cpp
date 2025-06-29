@@ -220,7 +220,7 @@ bool PoissonDistribution::operator==(const PoissonDistribution& other) const {
  */
 std::istream& operator>>(std::istream& is, libhmm::PoissonDistribution& distribution) {
     std::string token;
-    double lambda;
+    double lambda = 0.0;
     
     try {
         // Skip "Poisson Distribution: λ ="

@@ -189,7 +189,7 @@ std::ostream& operator<<(std::ostream& os, const ChiSquaredDistribution& dist) {
 
 std::istream& operator>>(std::istream& is, ChiSquaredDistribution& dist) {
     std::string token;
-    double k;
+    double k = 0.0;
     
     try {
         // Expected format: "ChiSquared Distribution: k = <value>"
