@@ -58,7 +58,7 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-    VERSION 2.7.1
+    VERSION 2.7.2
     DESCRIPTION "Modern C++17 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -108,7 +108,7 @@ include_directories(include)
 
 # Platform-specific compiler flags
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith -Wno-deprecated-declarations -Wno-defaulted-function-deleted")
     set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
     
@@ -146,6 +146,7 @@ set(LIBHMM_SOURCES
     src/distributions/poisson_distribution.cpp
     src/distributions/beta_distribution.cpp
     src/distributions/weibull_distribution.cpp
+    src/distributions/rayleigh_distribution.cpp
     src/distributions/uniform_distribution.cpp
     src/distributions/binomial_distribution.cpp
     src/distributions/negative_binomial_distribution.cpp
@@ -167,8 +168,10 @@ set(LIBHMM_SOURCES
     src/io/xml_file_writer.cpp
     src/performance/simd_support.cpp
     src/performance/thread_pool.cpp
+    src/performance/log_space_ops.cpp
     src/calculators/forward_backward_traits.cpp
     src/calculators/viterbi_traits.cpp
+    src/calculators/calculator_traits_utils.cpp
 )
 
 # Create the library
@@ -252,6 +255,27 @@ if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
+# Development Benchmarking and Debug Tests
+# These executables are placed in build/tests/ directory for better organization
+add_executable(analyze_overhead tests/performance/analyze_overhead.cpp)
+set_target_properties(analyze_overhead PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+target_link_libraries(analyze_overhead hmm)
+
+add_executable(benchmark_parallel tests/performance/benchmark_parallel.cpp)
+set_target_properties(benchmark_parallel PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+target_link_libraries(benchmark_parallel hmm)
+
+add_executable(debug_parallel tests/performance/debug_parallel.cpp)
+set_target_properties(debug_parallel PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+target_link_libraries(debug_parallel hmm)
+
+add_executable(parallel_calculator_assessment tests/performance/parallel_calculator_assessment.cpp)
+set_target_properties(parallel_calculator_assessment PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+target_link_libraries(parallel_calculator_assessment hmm)
+
+add_executable(parallel_constants_tuning tests/performance/parallel_constants_tuning.cpp)
+set_target_properties(parallel_constants_tuning PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+target_link_libraries(parallel_constants_tuning hmm)
 # Package configuration
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(

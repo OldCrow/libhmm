@@ -3,14 +3,14 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.15%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.7.1-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Version](https://img.shields.io/badge/Version-2.7.2-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
 [![Tests](https://img.shields.io/badge/Tests-31/31_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX%2FSSE2%2FNEON-blue.svg)](src/performance/)
 [![Threading](https://img.shields.io/badge/Threading-C%2B%2B17-orange.svg)](src/performance/thread_pool.cpp)
 
 A modern, high-performance C++17 implementation of Hidden Markov Models with advanced statistical distributions, SIMD optimization, and parallel processing capabilities.
 
-**🚀 Latest Release v2.7.1**: Discrete distributions gold standard upgrade and HTK benchmarking enhancement release. Brings all 4 discrete distributions (Discrete, Binomial, Negative Binomial, Poisson) to gold standard with comprehensive exception handling, robust boundary value management, and consistent variable naming. Enhances benchmarking suite with clean discrete/continuous HTK separation and performance scaling analysis. Maintains 100% test pass rate while significantly improving discrete distribution reliability and numerical robustness.
+**🚀 Latest Release v2.7.2**: Complete Gold Standard distribution optimizations with significant performance improvements. Features comprehensive optimizations across all probability distributions including 24% Beta PDF improvement, 62% Log-Normal PDF enhancement, and proper mathematical correctness fixes. Adds new Rayleigh distribution and vectorized batch processing. Replaces custom mathematical functions with optimized standard library implementations. Maintains sub-microsecond performance while enhancing numerical accuracy and adding new functionality.
 
 ## Major Achievements
 
