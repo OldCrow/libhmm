@@ -41,6 +41,7 @@
 #include "libhmm/distributions/beta_distribution.h"
 #include "libhmm/distributions/uniform_distribution.h"
 #include "libhmm/distributions/weibull_distribution.h"
+#include "libhmm/distributions/rayleigh_distribution.h"
 #include "libhmm/distributions/student_t_distribution.h"
 #include "libhmm/distributions/chi_squared_distribution.h"
 
