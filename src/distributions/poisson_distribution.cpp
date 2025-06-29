@@ -28,7 +28,7 @@ double PoissonDistribution::logFactorial(int k) const noexcept {
     }
     
     // For large k, use Stirling's approximation
-    const double kd = static_cast<double>(k);
+    const auto kd = static_cast<double>(k);
     return kd * std::log(kd) - kd + 0.5 * std::log(2.0 * math::PI * kd);
 }
 
@@ -42,7 +42,7 @@ double PoissonDistribution::getProbability(double value) {
         return 0.0;
     }
     
-    const int k = static_cast<int>(value);
+    const auto k = static_cast<int>(value);
     
     // Update cache if needed
     if (!cacheValid_) {
@@ -121,7 +121,7 @@ void PoissonDistribution::reset() noexcept {
  * Creates a string representation of the Poisson distribution.
  */
 std::string PoissonDistribution::toString() const {
-    std::ostringstream oss;
+    std::ostringstream oss{};
     oss << "Poisson Distribution:\n";
     oss << "      λ (rate parameter) = " << std::fixed << std::setprecision(6) << lambda_ << "\n";
     oss << "      Mean = " << std::fixed << std::setprecision(6) << getMean() << "\n";
@@ -149,7 +149,7 @@ double PoissonDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
     
-    const int k = static_cast<int>(value);
+    const auto k = static_cast<int>(value);
     
     // Update cache if needed
     if (!cacheValid_) {
@@ -176,7 +176,7 @@ double PoissonDistribution::getCumulativeProbability(double value) noexcept {
         return math::ZERO_DOUBLE;
     }
     
-    const int k = static_cast<int>(std::floor(value));
+    const auto k = static_cast<int>(std::floor(value));
     
     // For very large k or lambda, the cumulative sum becomes computationally expensive
     // and numerically unstable. In such cases, use normal approximation.
