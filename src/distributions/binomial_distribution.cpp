@@ -1,7 +1,7 @@
 #include "libhmm/distributions/binomial_distribution.h"
-#include <iostream>
-#include <numeric>
-#include <algorithm>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <algorithm>   // For std::for_each, std::max_element (exists in common.h, included for clarity)
 
 using namespace libhmm::constants;
 
@@ -70,20 +70,38 @@ double BinomialDistribution::getProbability(double value) {
  * @param values Vector of observed data points
  */                   
 void BinomialDistribution::fit(const std::vector<Observation>& values) {
-    const auto N = values.size();
-
-    // Handle edge cases: empty data or single data point
-    if (N == 0) {
+    // Handle edge case: empty data
+    if (values.empty()) {
         reset();
         return;
     }
     
-    if (N == 1) {
+    // Single-pass algorithm: compute max, sum, and count simultaneously
+    int maxObs = 0;
+    double sum = math::ZERO_DOUBLE;
+    std::size_t validCount = 0;
+    
+    for (const auto& val : values) {
+        // Validate: finite non-negative values only
+        if (val >= math::ZERO_DOUBLE && std::isfinite(val)) {
+            const int intVal = static_cast<int>(std::round(val));
+            maxObs = std::max(maxObs, intVal);
+            sum += static_cast<double>(intVal);
+            ++validCount;
+        }
+    }
+    
+    // Handle edge cases: no valid data or single data point
+    if (validCount == 0) {
+        reset(); // No valid data
+        return;
+    }
+    
+    if (validCount == 1) {
         // For single point, estimate n as that value and p = 1 (degenerate case)
-        const int observedValue = static_cast<int>(std::round(values[0]));
-        if (observedValue >= 0) {
-            n_ = std::max(1, observedValue);
-            p_ = (observedValue == 0) ? math::ZERO_DOUBLE : math::ONE;
+        if (maxObs >= 0) {
+            n_ = std::max(1, maxObs);
+            p_ = (maxObs == 0) ? math::ZERO_DOUBLE : math::ONE;
             cacheValid_ = false;
         } else {
             reset(); // Invalid data
@@ -91,31 +109,17 @@ void BinomialDistribution::fit(const std::vector<Observation>& values) {
         return;
     }
 
-    // Filter valid integer observations
-    std::vector<int> validObs;
-    for (const auto& val : values) {
-        if (val >= math::ZERO_DOUBLE && !std::isnan(val) && !std::isinf(val)) {
-            validObs.push_back(static_cast<int>(std::round(val)));
-        }
-    }
-    
-    if (validObs.empty()) {
-        reset(); // No valid data
-        return;
-    }
-
-    // Estimate n as the maximum observed value (common approach when n is unknown)
-    const int maxObs = *std::max_element(validObs.begin(), validObs.end());
+    // Estimate parameters using maximum likelihood
     if (maxObs == 0) {
         // All observations are 0
         n_ = 1;
         p_ = math::ZERO_DOUBLE;
     } else {
+        // Estimate n as the maximum observed value (common approach when n is unknown)
         n_ = maxObs;
         
-        // Calculate sample mean
-        const double sum = std::accumulate(validObs.begin(), validObs.end(), math::ZERO_DOUBLE);
-        const double sampleMean = sum / static_cast<double>(validObs.size());
+        // Calculate sample mean efficiently
+        const double sampleMean = sum / static_cast<double>(validCount);
         
         // MLE estimate: p = sample_mean / n
         p_ = sampleMean / static_cast<double>(n_);
@@ -186,7 +190,7 @@ double BinomialDistribution::getLogProbability(double value) const noexcept {
     return logProb;
 }
 
-double BinomialDistribution::CDF(double value) noexcept {
+double BinomialDistribution::getCumulativeProbability(double value) noexcept {
     // Validate input
     if (std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;

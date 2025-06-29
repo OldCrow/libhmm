@@ -1,13 +1,9 @@
 #ifndef PARETODISTRIBUTION_H_
 #define PARETODISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
-#include <limits>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
 
 namespace libhmm{
 
@@ -64,6 +60,21 @@ private:
     mutable double kPlus1_{2.0};
     
     /**
+     * Cached value of k * x_m^k for efficiency in PDF calculations
+     */
+    mutable double kXmPowK_{1.0};
+    
+    /**
+     * Cached value of -k for efficiency in CDF calculations
+     */
+    mutable double negK_{-1.0};
+    
+    /**
+     * Cached value of log(x_m) for efficiency in log probability calculations
+     */
+    mutable double logXm_{0.0};
+    
+    /**
      * Flag to track if cached values need updating
      */
     mutable bool cacheValid_{false};
@@ -73,8 +84,11 @@ private:
      */
     void updateCache() const noexcept {
         logK_ = std::log(k_);
-        kLogXm_ = k_ * std::log(xm_);
-        kPlus1_ = k_ + 1.0;
+        logXm_ = std::log(xm_);
+        kLogXm_ = k_ * logXm_;
+        kPlus1_ = k_ + constants::math::ONE;
+        kXmPowK_ = k_ * std::pow(xm_, k_);
+        negK_ = -k_;
         cacheValid_ = true;
     }
     
@@ -96,7 +110,7 @@ private:
     /**
      * Evaluates the CDF at x using the standard Pareto CDF formula
      */
-    double CDF(double x) noexcept;
+    double CDF(double x) const noexcept;
 
     friend std::istream& operator>>(std::istream& is,
             libhmm::ParetoDistribution& distribution);
@@ -121,6 +135,7 @@ public:
     ParetoDistribution(const ParetoDistribution& other) 
         : k_{other.k_}, xm_{other.xm_}, logK_{other.logK_}, 
           kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_}, 
+          kXmPowK_{other.kXmPowK_}, negK_{other.negK_}, logXm_{other.logXm_},
           cacheValid_{other.cacheValid_} {}
     
     /**
@@ -133,6 +148,9 @@ public:
             logK_ = other.logK_;
             kLogXm_ = other.kLogXm_;
             kPlus1_ = other.kPlus1_;
+            kXmPowK_ = other.kXmPowK_;
+            negK_ = other.negK_;
+            logXm_ = other.logXm_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -144,6 +162,7 @@ public:
     ParetoDistribution(ParetoDistribution&& other) noexcept
         : k_{other.k_}, xm_{other.xm_}, logK_{other.logK_}, 
           kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_}, 
+          kXmPowK_{other.kXmPowK_}, negK_{other.negK_}, logXm_{other.logXm_},
           cacheValid_{other.cacheValid_} {}
     
     /**
@@ -156,6 +175,9 @@ public:
             logK_ = other.logK_;
             kLogXm_ = other.kLogXm_;
             kPlus1_ = other.kPlus1_;
+            kXmPowK_ = other.kXmPowK_;
+            negK_ = other.negK_;
+            logXm_ = other.logXm_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -168,6 +190,26 @@ public:
      * @return Probability density (or approximated probability for discrete sampling)
      */
     double getProbability(double value) override;
+
+    /**
+     * Computes the logarithm of the probability density function for numerical stability.
+     * 
+     * For Pareto distribution: log(f(x)) = log(k) + k*log(x_m) - (k+1)*log(x) for x ≥ x_m
+     * 
+     * @param value The value at which to evaluate the log-PDF
+     * @return Natural logarithm of the probability density, or -∞ for invalid values
+     */
+    double getLogProbability(double value) const noexcept override;
+
+    /**
+     * Computes the cumulative distribution function for the Pareto distribution.
+     * 
+     * CDF: F(x) = 1 - (x_m/x)^k for x ≥ x_m
+     * 
+     * @param value The value at which to evaluate the CDF
+     * @return Cumulative probability, or 0.0 for values below x_m
+     */
+    double getCumulativeProbability(double value) const noexcept;
 
     /**
      * Fits the distribution parameters to the given data using maximum likelihood estimation.
@@ -296,14 +338,29 @@ public:
      * @return Median value
      */
     double getMedian() const noexcept {
-        return xm_ * std::pow(2.0, 1.0 / k_);
+        return xm_ * std::pow(constants::math::TWO, constants::math::ONE / k_);
+    }
+
+    /**
+     * Equality operator with tolerance for floating-point comparison
+     */
+    bool operator==(const ParetoDistribution& other) const noexcept {
+        return std::abs(k_ - other.k_) < constants::precision::ULTRA_HIGH_PRECISION_TOLERANCE &&
+               std::abs(xm_ - other.xm_) < constants::precision::ULTRA_HIGH_PRECISION_TOLERANCE;
+    }
+
+    /**
+     * Inequality operator
+     */
+    bool operator!=(const ParetoDistribution& other) const noexcept {
+        return !(*this == other);
     }
 
 };
 
 std::ostream& operator<<( std::ostream&, 
         const libhmm::ParetoDistribution& );
-//std::istream& operator>>( std::istream&,
-//        const libhmm::ParetoDistribution& );
+std::istream& operator>>( std::istream&,
+        libhmm::ParetoDistribution& );
 } // namespace
 #endif

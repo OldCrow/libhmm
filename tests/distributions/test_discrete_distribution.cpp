@@ -375,10 +375,10 @@ void testCDF() {
     discrete.setProbability(3, 0.4);
     
     // Test basic properties
-    double cdf0 = discrete.CDF(0.0);
-    double cdf1 = discrete.CDF(1.0);
-    double cdf2 = discrete.CDF(2.0);
-    double cdf3 = discrete.CDF(3.0);
+    double cdf0 = discrete.getCumulativeProbability(0.0);
+    double cdf1 = discrete.getCumulativeProbability(1.0);
+    double cdf2 = discrete.getCumulativeProbability(2.0);
+    double cdf3 = discrete.getCumulativeProbability(3.0);
     
     assert(std::abs(cdf0 - 0.1) < 1e-10);
     assert(std::abs(cdf1 - 0.3) < 1e-10);  // 0.1 + 0.2
@@ -391,8 +391,8 @@ void testCDF() {
     assert(cdf2 <= cdf3);
     
     // Test boundary cases
-    assert(discrete.CDF(-1.0) == 0.0);
-    assert(discrete.CDF(10.0) == 1.0);
+    assert(discrete.getCumulativeProbability(-1.0) == 0.0);
+    assert(discrete.getCumulativeProbability(10.0) == 1.0);
     
     std::cout << "✓ CDF tests passed" << std::endl;
 }
@@ -456,25 +456,54 @@ void testPerformance() {
     
     DiscreteDistribution discrete(100);  // Larger distribution
     
-    // Time probability calculations
+    // Test PDF timing
     auto start = std::chrono::high_resolution_clock::now();
+    const int pdfIterations = 10000;
+    volatile double sum = 0.0;  // volatile to prevent optimization
     
-    const int numIterations = 10000;
-    double sum = 0.0;
-    for (int i = 0; i < numIterations; ++i) {
+    for (int i = 0; i < pdfIterations; ++i) {
         sum += discrete.getProbability(i % 100);  // 0 to 99
     }
     
     auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    auto pdfDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    double pdfTimePerCall = static_cast<double>(pdfDuration.count()) / pdfIterations;
     
-    std::cout << "Computed " << numIterations << " probabilities in " 
-              << duration.count() << " microseconds" << std::endl;
-    std::cout << "Average time per calculation: " 
-              << static_cast<double>(duration.count()) / numIterations << " microseconds" << std::endl;
+    // Test Log PDF timing
+    start = std::chrono::high_resolution_clock::now();
+    volatile double logSum = 0.0;
     
-    // Should complete in reasonable time (< 1 second)
-    assert(duration.count() < 1000000); // 1 second = 1,000,000 microseconds
+    for (int i = 0; i < pdfIterations; ++i) {
+        logSum += discrete.getLogProbability(i % 100);  // 0 to 99
+    }
+    
+    end = std::chrono::high_resolution_clock::now();
+    auto logPdfDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    double logPdfTimePerCall = static_cast<double>(logPdfDuration.count()) / pdfIterations;
+    
+    // Test fitting timing
+    std::vector<Observation> fitData(1000);
+    for (size_t i = 0; i < fitData.size(); ++i) {
+        fitData[i] = static_cast<double>(i % 20);  // Values 0-19
+    }
+    
+    start = std::chrono::high_resolution_clock::now();
+    discrete.fit(fitData);
+    end = std::chrono::high_resolution_clock::now();
+    auto fitDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    double fitTimePerPoint = static_cast<double>(fitDuration.count()) / fitData.size();
+    
+    std::cout << "  PDF timing:       " << std::fixed << std::setprecision(3) 
+              << pdfTimePerCall << " μs/call (" << pdfIterations << " calls)" << std::endl;
+    std::cout << "  Log PDF timing:   " << std::fixed << std::setprecision(3) 
+              << logPdfTimePerCall << " μs/call (" << pdfIterations << " calls)" << std::endl;
+    std::cout << "  Fit timing:       " << std::fixed << std::setprecision(3) 
+              << fitTimePerPoint << " μs/point (" << fitData.size() << " points)" << std::endl;
+    
+    // Performance requirements (should be reasonable)
+    assert(pdfTimePerCall < 2.0);     // Less than 2 μs per PDF call (discrete should be very fast)
+    assert(logPdfTimePerCall < 2.0);  // Less than 2 μs per log PDF call
+    assert(fitTimePerPoint < 2.0);    // Less than 2 μs per data point for fitting (discrete fitting is simple)
     
     std::cout << "✓ Performance tests passed" << std::endl;
 }

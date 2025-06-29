@@ -1,12 +1,9 @@
 #ifndef EXPONENTIALDISTRIBUTION_H_
 #define EXPONENTIALDISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
 
 namespace libhmm{
 
@@ -275,7 +272,7 @@ public:
      * @param x The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ x)
      */
-    double CDF(double x) const noexcept;
+    double getCumulativeProbability(double x) const noexcept;
     
     /**
      * Equality comparison operator

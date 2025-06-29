@@ -1,12 +1,9 @@
 #ifndef LOGNORMALDISTRIBUTION_H_
 #define LOGNORMALDISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <stdexcept>
-#include <cassert>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -68,11 +65,14 @@ private:
     
     /**
      * Updates cached values when parameters change
+     * Optimized to use constants and avoid repeated calculations
      */
     void updateCache() const noexcept {
-        double sigma2 = standardDeviation_ * standardDeviation_;
-        logNormalizationConstant_ = std::log(standardDeviation_ * std::sqrt(2.0 * M_PI));
-        negHalfSigmaSquaredInv_ = -0.5 / sigma2;
+        const double sigma2 = standardDeviation_ * standardDeviation_;
+        // Efficiently compute ln(σ√(2π)) = ln(σ) + ½*ln(2π)
+        // Use precomputed constant from common.h
+        logNormalizationConstant_ = std::log(standardDeviation_) + constants::math::HALF_LN_2PI;
+        negHalfSigmaSquaredInv_ = -constants::math::HALF / sigma2;
         cacheValid_ = true;
     }
     
@@ -90,11 +90,6 @@ private:
             throw std::invalid_argument("Standard deviation must be a positive finite number");
         }
     }
-
-    /**
-     * Evaluates the CDF at x using the error function
-     */
-    double CDF(double x) noexcept;
 
     friend std::istream& operator>>(std::istream& is,
             libhmm::LogNormalDistribution& distribution);
@@ -167,6 +162,26 @@ public:
      * @return Probability density (or approximated probability for discrete sampling)
      */
     double getProbability(double value) override;
+
+    /**
+     * Computes the logarithm of the probability density function for numerical stability.
+     * 
+     * For Log-Normal distribution: log(f(x)) = -ln(x) - ln(σ√(2π)) - ½((ln(x)-μ)/σ)²
+     * 
+     * @param value The value at which to evaluate the log-PDF
+     * @return Natural logarithm of the probability density, or -∞ for invalid values
+     */
+    double getLogProbability(double value) const noexcept override;
+
+    /**
+     * Computes the cumulative distribution function for the Log-Normal distribution.
+     * 
+     * Uses the error function relationship: CDF(x) = ½(1 + erf((ln(x)-μ)/(σ√2)))
+     * 
+     * @param value The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ value)
+     */
+    double getCumulativeProbability(double value) const noexcept;
 
     /**
      * Fits the distribution parameters to the given data using maximum likelihood estimation.
@@ -291,6 +306,22 @@ public:
      */
     double getMedian() const noexcept {
         return std::exp(mean_);
+    }
+    
+    /**
+     * Equality operator with tolerance for floating-point comparison
+     */
+    bool operator==(const LogNormalDistribution& other) const noexcept {
+        const double tolerance = 1e-10;
+        return std::abs(mean_ - other.mean_) < tolerance &&
+               std::abs(standardDeviation_ - other.standardDeviation_) < tolerance;
+    }
+
+    /**
+     * Inequality operator
+     */
+    bool operator!=(const LogNormalDistribution& other) const noexcept {
+        return !(*this == other);
     }
 
 };

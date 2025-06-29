@@ -524,37 +524,36 @@ void testCDF() {
     
     // For exponential distribution: F(x) = 1 - exp(-λx)
     // Test at various points
-    double cdfAt0 = exponential.CDF(0.0);
+    double cdfAt0 = exponential.getCumulativeProbability(0.0);
     assert(std::abs(cdfAt0 - 0.0) < 1e-10);  // F(0) = 0
     
-    double cdfAt1 = exponential.CDF(1.0);
+    double cdfAt1 = exponential.getCumulativeProbability(1.0);
     double expectedCdf1 = 1.0 - std::exp(-1.0);  // 1 - e^(-1)
     assert(std::abs(cdfAt1 - expectedCdf1) < 1e-10);
     
-    double cdfAt2 = exponential.CDF(2.0);
+    double cdfAt2 = exponential.getCumulativeProbability(2.0);
     double expectedCdf2 = 1.0 - std::exp(-2.0);  // 1 - e^(-2)
     assert(std::abs(cdfAt2 - expectedCdf2) < 1e-10);
     
     // Test CDF is monotonically increasing
-    assert(exponential.CDF(0.0) < exponential.CDF(1.0));
-    assert(exponential.CDF(1.0) < exponential.CDF(2.0));
-    assert(exponential.CDF(2.0) < exponential.CDF(3.0));
+    assert(exponential.getCumulativeProbability(1.0) < exponential.getCumulativeProbability(2.0));
+    assert(exponential.getCumulativeProbability(2.0) < exponential.getCumulativeProbability(3.0));
     
     // Test CDF bounds
-    assert(exponential.CDF(0.0) >= 0.0 && exponential.CDF(0.0) <= 1.0);
-    assert(exponential.CDF(10.0) >= 0.0 && exponential.CDF(10.0) <= 1.0);
+    assert(exponential.getCumulativeProbability(0.0) >= 0.0 && exponential.getCumulativeProbability(0.0) <= 1.0);
+    assert(exponential.getCumulativeProbability(10.0) >= 0.0 && exponential.getCumulativeProbability(10.0) <= 1.0);
     
     // Test that CDF approaches 1 for large values
-    assert(exponential.CDF(10.0) > 0.99995);  // Should be very close to 1 (for λ=1, F(10) ≈ 0.99995)
+    assert(exponential.getCumulativeProbability(10.0) > 0.99995);  // Should be very close to 1 (for λ=1, F(10) ≈ 0.99995)
     
     // Test with different parameters
     ExponentialDistribution exponential2(2.0);
-    double cdf2At1 = exponential2.CDF(1.0);
+    double cdf2At1 = exponential2.getCumulativeProbability(1.0);
     double expectedCdf2At1 = 1.0 - std::exp(-2.0);  // 1 - e^(-2)
     assert(std::abs(cdf2At1 - expectedCdf2At1) < 1e-10);
     
     // CDF for λ=2 should be higher than for λ=1 at same x
-    assert(exponential2.CDF(1.0) > exponential.CDF(1.0));
+    assert(exponential2.getCumulativeProbability(1.0) > exponential.getCumulativeProbability(1.0));
     
     std::cout << "✓ CDF calculation tests passed" << std::endl;
 }

@@ -1,14 +1,9 @@
 #ifndef GAUSSIANDISTRIBUTION_H_
 #define GAUSSIANDISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
-#include <sstream>
-#include <iomanip>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
 
 namespace libhmm{
 
@@ -203,7 +198,7 @@ public:
      * @param x The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ x)
      */
-    [[nodiscard]] double CDF(double x) noexcept;
+    [[nodiscard]] double getCumulativeProbability(double x) noexcept;
 
     /**
      * Fits the distribution parameters to the given data using maximum likelihood estimation.

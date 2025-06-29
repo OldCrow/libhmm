@@ -1,7 +1,7 @@
 #include "libhmm/distributions/log_normal_distribution.h"
-#include <iostream>
-#include <numeric>
-#include <algorithm>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <algorithm>   // For std::for_each (exists in common.h, included for clarity)
 
 using namespace libhmm::constants;
 
@@ -22,8 +22,8 @@ namespace libhmm
  */            
 double LogNormalDistribution::getProbability(double x) {
     // Log-Normal distribution has support (0, ∞)
-    if (std::isnan(x) || std::isinf(x) || x <= 0.0) {
-        return 0.0;
+    if (std::isnan(x) || std::isinf(x) || x <= math::ZERO_DOUBLE) {
+        return math::ZERO_DOUBLE;
     }
     
     // Ensure cache is valid
@@ -31,34 +31,63 @@ double LogNormalDistribution::getProbability(double x) {
         updateCache();
     }
     
-    double p = 0.0;
-    if (x > precision::LIMIT_TOLERANCE) {
-        p = CDF(x) - CDF(x - precision::LIMIT_TOLERANCE);
-    } else if (x > 0 && x < precision::LIMIT_TOLERANCE) {
-        // For very small positive values, use the PDF scaled by tolerance
-        // to avoid numerical issues with CDF differences
-        const double logX = std::log(x);
-        const double standardized = (logX - mean_) / standardDeviation_;
-        p = precision::LIMIT_TOLERANCE * std::exp(negHalfSigmaSquaredInv_ * standardized * standardized) /
-            (x * std::exp(logNormalizationConstant_));
-    }
+    // Use direct PDF calculation for better performance
+    // f(x) = 1/(x*σ*√(2π)) * exp(-½*((ln(x)-μ)/σ)²)
+    // Optimize by using cached values and avoiding repeated calculations
+    
+    const double logX = std::log(x);
+    const double standardized = (logX - mean_) / standardDeviation_;
+    const double standardizedSquared = standardized * standardized;
+    
+    // Use cached values: negHalfSigmaSquaredInv_ = -1/(2σ²), logNormalizationConstant_ = ln(σ√(2π))
+    // f(x) = exp(-ln(x) - logNormalizationConstant_ + negHalfSigmaSquaredInv_ * standardizedSquared * 2σ²)
+    //      = exp(-ln(x) - logNormalizationConstant_ - ½*standardizedSquared)
+    const double logPdf = -logX - logNormalizationConstant_ + negHalfSigmaSquaredInv_ * standardizedSquared;
+    
+    const double pdf = std::exp(logPdf);
     
     // Ensure numerical stability
-    if (std::isnan(p) || p < 0.0) {
-        p = precision::ZERO;
+    if (std::isnan(pdf) || pdf < math::ZERO_DOUBLE) {
+        return math::ZERO_DOUBLE;
     }
     
-    assert(p <= 1.0);
-    return p;
+    return pdf;
 }
 
-double LogNormalDistribution::CDF(double x) noexcept {
-    const double y = 0.5 + 0.5 * 
-        errorf((std::log(x) - mean_) / (standardDeviation_ * math::SQRT_2));
-
-    assert(y <= 1.0);
-    return y;
+double LogNormalDistribution::getLogProbability(double value) const noexcept {
+    // Log-normal distribution is only defined for positive values
+    if (value <= 0.0 || std::isnan(value) || std::isinf(value)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    
+    // Ensure cache is valid
+    if (!cacheValid_) {
+        updateCache();
+    }
+    
+    // Log PDF: log(f(x)) = -ln(x) - ln(σ√(2π)) - ½((ln(x)-μ)/σ)²
+    double logX = std::log(value);
+    double standardized = (logX - mean_) / standardDeviation_;
+    
+    return -logX - logNormalizationConstant_ + negHalfSigmaSquaredInv_ * standardized * standardized;
 }
+
+double LogNormalDistribution::getCumulativeProbability(double value) const noexcept {
+    // Handle boundary cases
+    if (value <= 0.0) {
+        return 0.0;
+    }
+    if (std::isnan(value) || std::isinf(value)) {
+        return (std::isinf(value) && value > 0.0) ? 1.0 : 0.0;
+    }
+    
+    // CDF: F(x) = ½(1 + erf((ln(x)-μ)/(σ√2)))
+    double logX = std::log(value);
+    double standardized = (logX - mean_) / (standardDeviation_ * std::sqrt(2.0));
+    
+    return 0.5 * (1.0 + std::erf(standardized));
+}
+
 
 /**
  * Fits the distribution parameters to the given data using maximum likelihood estimation.
@@ -77,69 +106,52 @@ void LogNormalDistribution::fit(const std::vector<Observation>& values) {
         return;
     }
     
-    if (values.size() == 1) {
-        // For a single data point, set mean to ln(value) and use a small stddev
-        // This matches legacy behavior expectations
-        const double value = values[0];
-        if (value > 0.0) {
-            mean_ = std::log(value);
-            standardDeviation_ = precision::ZERO; // Use very small value as in legacy behavior
-            cacheValid_ = false;
-        } else {
-            reset(); // Fall back to default if invalid data
-        }
-        return;
-    }
-
-    double sum = 0.0;
+    // Single-pass Welford's algorithm for log-transformed data
+    double mean = math::ZERO_DOUBLE;
+    double M2 = math::ZERO_DOUBLE;  // Sum of squared differences from current mean
     std::size_t validCount = 0;
     
-    // Calculate sum of log values for positive values only
     for (const auto& val : values) {
-        if (val > 0.0) {
-            sum += std::log(val);
-            validCount++;
+        // Only process positive values (support of Log-Normal distribution)
+        if (val > math::ZERO_DOUBLE && std::isfinite(val)) {
+            const double logVal = std::log(val);
+            ++validCount;
+            const double delta = logVal - mean;
+            mean += delta / static_cast<double>(validCount);
+            const double delta2 = logVal - mean;
+            M2 += delta * delta2;
         }
-        // Skip zero or negative values as they're not in the support of Log-Normal distribution
+        // Skip zero or negative values as they're not in the support
     }
     
+    // Handle edge cases
     if (validCount == 0) {
         reset(); // Fall back to default if no valid data
         return;
     }
     
     if (validCount == 1) {
-        reset(); // Need at least 2 points for variance estimation
+        // For a single data point, set mean to ln(value) and use a small stddev
+        mean_ = mean;
+        standardDeviation_ = precision::LIMIT_TOLERANCE; // Use small but non-zero value
+        cacheValid_ = false;
         return;
     }
-
-    // Calculate mean of log values
-    mean_ = sum / static_cast<double>(validCount);
     
-    // Validate computed mean
-    if (std::isnan(mean_) || std::isinf(mean_)) {
-        reset(); // Fall back to default
-        return;
-    }
-
-    // Calculate standard deviation of log values
-    double sumDeviance = 0.0;
-    for (const auto& val : values) {
-        if (val > 0.0) {
-            const double logVal = std::log(val);
-            sumDeviance += (logVal - mean_) * (logVal - mean_);
-        }
-    }
+    // Calculate sample variance using Bessel's correction (N-1)
+    const double variance = M2 / static_cast<double>(validCount - 1);
+    const double stddev = std::sqrt(variance);
     
-    // Use sample standard deviation (N-1 in denominator)
-    standardDeviation_ = std::sqrt(sumDeviance / static_cast<double>(validCount - 1));
-    
-    // Validate computed standard deviation
-    if (std::isnan(standardDeviation_) || std::isinf(standardDeviation_) || standardDeviation_ <= 0.0) {
+    // Validate computed parameters using constants
+    if (std::isnan(mean) || std::isinf(mean) || 
+        std::isnan(stddev) || std::isinf(stddev) || stddev <= precision::ZERO) {
         reset(); // Fall back to default
         return;
     }
     
+    // Update parameters
+    mean_ = mean;
+    standardDeviation_ = stddev;
     cacheValid_ = false; // Invalidate cache since parameters changed
 }
 
@@ -159,7 +171,7 @@ std::string LogNormalDistribution::toString() const {
     oss << "LogNormal Distribution:\n";
     oss << "      μ (log mean) = " << mean_ << "\n";
     oss << "      σ (log std. deviation) = " << standardDeviation_ << "\n";
-    oss << "      Mean = " << getMean() << "\n";
+    oss << "      Mean = " << getDistributionMean() << "\n";
     oss << "      Variance = " << getVariance() << "\n";
     return oss.str();
 }

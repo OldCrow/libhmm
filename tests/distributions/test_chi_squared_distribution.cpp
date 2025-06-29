@@ -392,24 +392,24 @@ void testCDF() {
     ChiSquaredDistribution chi_dist(4.0);
     
     // Test CDF values at boundaries
-    assert(chi_dist.CDF(-1.0) == 0.0);  // Below support
-    assert(chi_dist.CDF(0.0) == 0.0);   // At lower bound
+    assert(chi_dist.getCumulativeProbability(-1.0) == 0.0);  // Below support
+    assert(chi_dist.getCumulativeProbability(0.0) == 0.0);   // At lower bound
     
     // Test CDF is monotonically increasing
-    assert(chi_dist.CDF(1.0) < chi_dist.CDF(2.0));
-    assert(chi_dist.CDF(2.0) < chi_dist.CDF(4.0));
-    assert(chi_dist.CDF(4.0) < chi_dist.CDF(8.0));
+    assert(chi_dist.getCumulativeProbability(1.0) < chi_dist.getCumulativeProbability(2.0));
+    assert(chi_dist.getCumulativeProbability(2.0) < chi_dist.getCumulativeProbability(4.0));
+    assert(chi_dist.getCumulativeProbability(4.0) < chi_dist.getCumulativeProbability(8.0));
     
     // Test CDF approaches 1 for large values
-    assert(chi_dist.CDF(100.0) > 0.99);
+    assert(chi_dist.getCumulativeProbability(100.0) > 0.99);
     
     // Test with NaN
-    assert(std::isnan(chi_dist.CDF(std::numeric_limits<double>::quiet_NaN())));
+    assert(std::isnan(chi_dist.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN())));
     
     // Test known values for Chi-squared(2) which is exponential-like
     ChiSquaredDistribution chi_2(2.0);
     // For Chi-squared(2): CDF(x) = 1 - exp(-x/2)
-    double cdf_at_2 = chi_2.CDF(2.0);
+    double cdf_at_2 = chi_2.getCumulativeProbability(2.0);
     double expected_cdf = 1.0 - std::exp(-1.0);  // 1 - exp(-2/2)
     
     std::cout << "CDF at x=2: " << cdf_at_2 << ", Expected: " << expected_cdf 
@@ -501,23 +501,56 @@ void testPerformance() {
     
     ChiSquaredDistribution chi_dist(4.0);
     
-    // Time multiple probability calculations
+    // Test PDF timing
     auto start = std::chrono::high_resolution_clock::now();
+    const int pdfIterations = 10000;
+    volatile double sum = 0.0;  // volatile to prevent optimization
     
-    for (int i = 0; i < 10000; ++i) {
-        double x = 0.1 * i;
-        chi_dist.getProbability(x);
-        chi_dist.getLogProbability(x);
+    for (int i = 0; i < pdfIterations; ++i) {
+        double x = static_cast<double>(i) / 1000.0;  // Range 0 to 10
+        sum += chi_dist.getProbability(x);
     }
     
     auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    auto pdfDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    double pdfTimePerCall = static_cast<double>(pdfDuration.count()) / pdfIterations;
     
-    std::cout << "10,000 probability calculations took " << duration << " μs" << std::endl;
+    // Test Log PDF timing
+    start = std::chrono::high_resolution_clock::now();
+    volatile double logSum = 0.0;
     
-    // Verify calculations are still correct after performance test
-    assert(std::isfinite(chi_dist.getProbability(1.0)));
-    assert(std::isfinite(chi_dist.getLogProbability(1.0)));
+    for (int i = 0; i < pdfIterations; ++i) {
+        double x = static_cast<double>(i) / 1000.0;  // Range 0 to 10
+        logSum += chi_dist.getLogProbability(x);
+    }
+    
+    end = std::chrono::high_resolution_clock::now();
+    auto logPdfDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    double logPdfTimePerCall = static_cast<double>(logPdfDuration.count()) / pdfIterations;
+    
+    // Test fitting timing
+    std::vector<Observation> fitData(1000);
+    for (size_t i = 0; i < fitData.size(); ++i) {
+        fitData[i] = static_cast<double>(i + 1) / 100.0;  // Positive values
+    }
+    
+    start = std::chrono::high_resolution_clock::now();
+    chi_dist.fit(fitData);
+    end = std::chrono::high_resolution_clock::now();
+    auto fitDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    double fitTimePerPoint = static_cast<double>(fitDuration.count()) / fitData.size();
+    
+    std::cout << "  PDF timing:       " << std::fixed << std::setprecision(3) 
+              << pdfTimePerCall << " μs/call (" << pdfIterations << " calls)" << std::endl;
+    std::cout << "  Log PDF timing:   " << std::fixed << std::setprecision(3) 
+              << logPdfTimePerCall << " μs/call (" << pdfIterations << " calls)" << std::endl;
+    std::cout << "  Fit timing:       " << std::fixed << std::setprecision(3) 
+              << fitTimePerPoint << " μs/point (" << fitData.size() << " points)" << std::endl;
+    
+    // Performance requirements (should be reasonable)
+    assert(pdfTimePerCall < 5.0);     // Less than 5 μs per PDF call
+    assert(logPdfTimePerCall < 3.0);  // Less than 3 μs per log PDF call
+    assert(fitTimePerPoint < 10.0);   // Less than 10 μs per data point for fitting
     
     std::cout << "✓ Performance tests passed" << std::endl;
 }

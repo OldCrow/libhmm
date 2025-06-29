@@ -1,12 +1,9 @@
 #ifndef WEIBULLDISTRIBUTION_H_
 #define WEIBULLDISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>
 
 namespace libhmm{
 
@@ -59,16 +56,34 @@ private:
     mutable double logLambda_{0.0};
     
     /**
+     * Cached value of (k-1) for efficiency in probability calculations
+     */
+    mutable double kMinus1_{0.0};
+    
+    /**
+     * Cached value of 1/λ for efficiency (multiply instead of divide)
+     */
+    mutable double invLambda_{1.0};
+    
+    /**
+     * Cached value of k/λ for PDF normalization
+     */
+    mutable double kOverLambda_{1.0};
+    
+    /**
      * Flag to track if cached values need updating
      */
     mutable bool cacheValid_{false};
     
     /**
-     * Updates cached values when parameters change
+     * Updates cached values when parameters change using optimized calculations
      */
-    void updateCache() noexcept {
+    void updateCache() const noexcept {
         logK_ = std::log(k_);
         logLambda_ = std::log(lambda_);
+        kMinus1_ = k_ - 1.0;
+        invLambda_ = 1.0 / lambda_;  // Cache reciprocal for multiplication
+        kOverLambda_ = k_ * invLambda_;  // Cache normalization constant
         cacheValid_ = true;
     }
     
@@ -86,12 +101,6 @@ private:
             throw std::invalid_argument("Scale parameter lambda must be a positive finite number");
         }
     }
-
-    /**
-     * Evaluates the CDF at x
-     * CDF(x) = 1 - exp(-(x/λ)^k) for x ≥ 0
-     */
-    double CDF(double x) noexcept;
 
     friend std::istream& operator>>(std::istream& is,
             libhmm::WeibullDistribution& distribution);
@@ -115,7 +124,8 @@ public:
      */
     WeibullDistribution(const WeibullDistribution& other) 
         : k_{other.k_}, lambda_{other.lambda_}, 
-          logK_{other.logK_}, logLambda_{other.logLambda_}, cacheValid_{other.cacheValid_} {}
+          logK_{other.logK_}, logLambda_{other.logLambda_}, kMinus1_{other.kMinus1_},
+          invLambda_{other.invLambda_}, kOverLambda_{other.kOverLambda_}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Copy assignment operator
@@ -126,6 +136,9 @@ public:
             lambda_ = other.lambda_;
             logK_ = other.logK_;
             logLambda_ = other.logLambda_;
+            kMinus1_ = other.kMinus1_;
+            invLambda_ = other.invLambda_;
+            kOverLambda_ = other.kOverLambda_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -136,7 +149,8 @@ public:
      */
     WeibullDistribution(WeibullDistribution&& other) noexcept
         : k_{other.k_}, lambda_{other.lambda_}, 
-          logK_{other.logK_}, logLambda_{other.logLambda_}, cacheValid_{other.cacheValid_} {}
+          logK_{other.logK_}, logLambda_{other.logLambda_}, kMinus1_{other.kMinus1_},
+          invLambda_{other.invLambda_}, kOverLambda_{other.kOverLambda_}, cacheValid_{other.cacheValid_} {}
     
     /**
      * Move assignment operator
@@ -147,6 +161,9 @@ public:
             lambda_ = other.lambda_;
             logK_ = other.logK_;
             logLambda_ = other.logLambda_;
+            kMinus1_ = other.kMinus1_;
+            invLambda_ = other.invLambda_;
+            kOverLambda_ = other.kOverLambda_;
             cacheValid_ = other.cacheValid_;
         }
         return *this;
@@ -159,6 +176,15 @@ public:
      * @return Probability density, or 0.0 if value is negative
      */
     double getProbability(double value) override;
+    
+    /**
+     * Computes the log probability density function for the Weibull distribution.
+     * Uses log-space calculations for better numerical stability.
+     * 
+     * @param value The value at which to evaluate the log PDF (should be ≥ 0)
+     * @return Log probability density, or -infinity if value is negative
+     */
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
     /**
      * Fits the distribution parameters to the given data using method of moments.
@@ -185,6 +211,22 @@ public:
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
+    
+    /**
+     * Computes the cumulative distribution function (CDF) for the Weibull distribution.
+     * 
+     * @param x The value at which to evaluate the CDF (should be ≥ 0)
+     * @return Cumulative probability P(X ≤ x), or 0.0 if x is negative
+     */
+    [[nodiscard]] double CDF(double x) const noexcept;
+    
+    /**
+     * Equality comparison operator with tolerance for floating-point comparison.
+     * 
+     * @param other Distribution to compare with
+     * @return true if distributions have the same parameters within tolerance
+     */
+    bool operator==(const WeibullDistribution& other) const noexcept;
 
     /**
      * Gets the shape parameter k.
@@ -231,7 +273,7 @@ public:
      * @return Mean value
      */
     double getMean() const noexcept { 
-        return lambda_ * std::exp(loggamma(1.0 + 1.0/k_));
+        return lambda_ * std::exp(std::lgamma(1.0 + 1.0/k_));
     }
     
     /**
@@ -241,8 +283,8 @@ public:
      * @return Variance value
      */
     double getVariance() const noexcept { 
-        double gamma1 = std::exp(loggamma(1.0 + 1.0/k_));
-        double gamma2 = std::exp(loggamma(1.0 + 2.0/k_));
+        double gamma1 = std::exp(std::lgamma(1.0 + 1.0/k_));
+        double gamma2 = std::exp(std::lgamma(1.0 + 2.0/k_));
         return lambda_ * lambda_ * (gamma2 - gamma1 * gamma1);
     }
     
@@ -274,6 +316,11 @@ public:
  * Stream output operator for Weibull distribution.
  */
 std::ostream& operator<<(std::ostream& os, const libhmm::WeibullDistribution& distribution);
+
+/**
+ * Stream input operator for Weibull distribution.
+ */
+std::istream& operator>>(std::istream& is, libhmm::WeibullDistribution& distribution);
 
 } // namespace libhmm
 

@@ -1,10 +1,8 @@
 #include "libhmm/distributions/gaussian_distribution.h"
-#include <iostream>
-#include <numeric>
-#include <algorithm>
-#include <sstream>
-#include <iomanip>
-#include <limits>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <algorithm>   // For std::for_each (exists in common.h, included for clarity)
+#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
 
 using namespace libhmm::constants;
 
@@ -14,7 +12,7 @@ namespace libhmm
  * Returns the probability density function value for the Gaussian distribution.
  * 
  * Formula: PDF(x) = (1/σ√(2π)) * exp(-½((x-μ)/σ)²)
- */            
+ */
 double GaussianDistribution::getProbability(double x) {
     // Validate input
     if (std::isnan(x) || std::isinf(x)) {
@@ -29,13 +27,6 @@ double GaussianDistribution::getProbability(double x) {
     return normalizationConstant_ * std::exp(exponent);
 }
 
-/*
- * Evaluates the CDF for the Normal distribution at x.  The CDF is defined as
- *
- *          1             x - mean
- *   F(x) = -( 1 + erf(---------------) )
- *          2           sigma*sqrt(2)
- */
 /**
  * Returns the log probability density function value for numerical stability.
  * Formula: log PDF(x) = -½log(2π) - log(σ) - ½((x-μ)/σ)²
@@ -57,7 +48,14 @@ double GaussianDistribution::getLogProbability(double x) const noexcept {
     return logPdf;
 }
 
-double GaussianDistribution::CDF(double x) noexcept {
+/**
+ * Evaluates the CDF for the Normal distribution at x.  The CDF is defined as
+ *
+ *          1             x - mean
+ *   F(x) = -( 1 + erf(---------------) )
+ *          2           sigma*sqrt(2)
+ */
+double GaussianDistribution::getCumulativeProbability(double x) noexcept {
     // Handle problematic inputs
     if (std::isnan(x) || std::isnan(mean_) || std::isnan(standardDeviation_)) {
         return 0.0;
@@ -74,7 +72,7 @@ double GaussianDistribution::CDF(double x) noexcept {
     }
     
     // Use cached sigma*sqrt(2) for efficiency
-    const double y = 0.5 * (1 + errorf((x - mean_) / sigmaSqrt2_));
+    const double y = 0.5 * (1 + std::erf((x - mean_) / sigmaSqrt2_));
     
     // Ensure valid probability range
     if (std::isnan(y) || y < 0.0) {
@@ -138,8 +136,9 @@ void GaussianDistribution::fit(const std::vector<Observation>& values) {
     cacheValid_ = false;
 }
 
-/*
- * Resets the the distribution to some default value. 
+/**
+ * Resets the distribution to default parameters (μ = 0.0, σ = 1.0).
+ * This corresponds to the standard normal distribution.
  */
 void GaussianDistribution::reset() noexcept {
     mean_ = 0.0;

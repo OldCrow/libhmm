@@ -1,4 +1,4 @@
- # LibHMM Gold Standard Distribution Implementation Checklist
+# LibHMM Gold Standard Distribution Implementation Checklist
 
 This document tracks the implementation status of all probability distributions in libhmm according to our "Gold Standard" requirements, based on the Gaussian and Exponential distributions as reference implementations.
 
@@ -8,6 +8,7 @@ This document tracks the implementation status of all probability distributions 
 - ✅ **Core Methods:**
   - `getProbability()` - Probability density/mass function
   - `getLogProbability()` - Log probability with numerical stability
+  - `getCumulativeProbability()` method (where mathematically meaningful)
   - `fit()` - Parameter estimation using Welford's algorithm where applicable
   - `reset()` - Reset to default parameters
   - `toString()` - Human-readable string representation
@@ -33,11 +34,10 @@ This document tracks the implementation status of all probability distributions 
   - All numeric literals replaced with constants from `libhmm::constants`
   - No hardcoded magic numbers
   
-- ✅ **I/O & Operators:**
+- ✅ **I/O  Operators:**
   - `operator==` - Equality comparison with tolerance
-  - `operator<<` - Stream output
-  - `operator>>` - Stream input (recommended)
-  - `CDF()` method (where mathematically meaningful)
+  - `operator<<` - Stream output
+  - `operator>>` - Stream input (recommended)
 
 ### Test Requirements
 - ✅ **Core Tests:**
@@ -68,55 +68,55 @@ This document tracks the implementation status of all probability distributions 
 
 ### Feature Implementation Status
 
-| Feature | Gaussian | Exponential | Gamma | Uniform | Chi-Squared | Weibull | Binomial | Negative-Binomial | Student-t | Beta | Log-Normal | Pareto | Poisson | Discrete |
-|---------|----------|-------------|-------|---------|-------------|---------|----------|-------------------|-----------|------|------------|--------|---------|----------|
-| **Core Methods** |
-| `getProbability()` | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| `getLogProbability()` | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| `CDF()` | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| `fit()` (Welford) | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| `reset()` | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| `toString()` | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| **Rule of Five** |
-| Copy Constructor | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Move Constructor | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Copy Assignment | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Move Assignment | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Destructor | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| **Caching** |
-| Comprehensive Cache | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Cache Validation | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Auto-invalidation | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| **I/O & Operators** |
-| `operator==` | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| `operator<<` | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| `operator>>` | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| **Constants** |
-| Uses `libhmm::constants` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Feature | Gaussian | Exponential | Gamma | Uniform | Chi-Squared | Weibull | Rayleigh | Binomial | Negative-Binomial | Student-t | Beta | Log-Normal | Pareto | Poisson | Discrete |
+||----------|------------|---------------|----------|-----------|----------------|----------|-----------|------------|----------------------|-------------|------|---------------|----------|----------|-----------|
+|| **Core Methods** |
+|| `getProbability()` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| `getLogProbability()` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| `getCumulativeDensity()` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| `fit()` (Welford) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| `reset()` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| `toString()` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| **Rule of Five** |
+|| Copy Constructor | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Move Constructor | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Copy Assignment | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Move Assignment | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Destructor | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| **Caching** |
+|| Comprehensive Cache | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Cache Validation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Auto-invalidation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| **I/O  Operators** |
+|| `operator==` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| `operator<<` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| `operator>>` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| **Constants** |
+|| Uses `libhmm::constants` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ### Test Coverage Status
 
-| Test Category | Gaussian | Exponential | Gamma | Uniform | Chi-Squared | Weibull | Binomial | Negative-Binomial | Student-t | Beta | Log-Normal | Pareto | Poisson | Discrete |
-|---------------|----------|-------------|-------|---------|-------------|---------|----------|-------------------|-----------|------|------------|--------|---------|----------|
-| **Core Tests** |
-| Basic Functionality | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Probability Calculations | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Parameter Fitting | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Parameter Validation | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Copy/Move Semantics | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Invalid Input Handling | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Reset Functionality | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| **Advanced Tests** |
-| Log Probability | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| String Representation | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Performance Tests | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Mathematical Correctness | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Fitting Validation | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Numerical Stability | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| **Gold Standard Tests** |
-| CDF Tests | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Equality/I-O Tests | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
-| Caching Tests | ✅ | ✅ | ✅ | ✅ | ✅ | ❓ | ✅ | ✅ | ❓ | ❓ | ❓ | ❓ | ✅ | ✅ |
+|| Test Category | Gaussian | Exponential | Gamma | Uniform | Chi-Squared | Weibull | Rayleigh | Binomial | Negative-Binomial | Student-t | Beta | Log-Normal | Pareto | Poisson | Discrete |
+||---------------|----------|-------------|-------|---------|-------------|---------|----------|----------|-------------------|-----------|------|------------|--------|---------|----------|
+|| **Core Tests** |
+|| Basic Functionality | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Probability Calculations | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Parameter Fitting | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Parameter Validation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Copy/Move Semantics | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Invalid Input Handling | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Reset Functionality | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| **Advanced Tests** |
+|| Log Probability | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅| ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| String Representation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅| ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Performance Tests | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Mathematical Correctness | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |  ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Fitting Validation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Numerical Stability | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| **Gold Standard Tests** |
+|| CDF Tests | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Equality/I-O Tests | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+|| Caching Tests | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -128,11 +128,11 @@ This document tracks the implementation status of all probability distributions 
 
 ---
 
-## Current Issues & Action Items
+## Current Issues  Action Items
 
 ### High Priority (Missing Features)
 1. **✅ COMPLETED: `operator==` implemented in:** Gaussian, Exponential, Gamma
-2. **✅ COMPLETED: `operator>>` implemented in:** Exponential, Gamma  
+2. **✅ COMPLETED: `operator` implemented in:** Exponential, Gamma  
 3. **✅ COMPLETED: `CDF()` implemented in:** Gamma
 
 ### Medium Priority (Missing Tests)
@@ -153,19 +153,21 @@ This document tracks the implementation status of all probability distributions 
 3. ✅ **Gamma** - Updated (constants applied, comprehensive tests verified)
 4. ✅ **Uniform** - Updated (constants applied, comprehensive tests verified, performance tests added)
 5. ✅ **Chi-squared** - Updated to Gold standard (constants applied, comprehensive tests verified)
-6. **Weibull** - (constants applied, needs assessment)
-7. ✅ **Binomial** - Updated to Gold standard (all features implemented, comprehensive tests verified)
-8. ✅ **Negative Binomial** - Updated to Gold standard (all features implemented, comprehensive tests verified)
-9. **Student-t** - (constants applied, needs assessment)
-10. **Beta** - (constants applied, needs assessment)
-11. **Log-Normal** - (constants applied, needs assessment)
-12. **Pareto** - (constants applied, needs assessment)
-13. ✅ **Poisson** - Updated to Gold standard (all features implemented, comprehensive tests verified)
-14. ✅ **Discrete** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+6. ✅ **Weibull** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+7. ✅ **Rayleigh** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+8. ✅ **Pareto** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+8. ✅ **Binomial** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+9. ✅ **Negative Binomial** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+10. ✅ **Student-t** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+11. ✅ **Beta** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+12. ✅ **Log-Normal** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+13. ✅ **Pareto** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+14. ✅ **Poisson** - Updated to Gold standard (all features implemented, comprehensive tests verified)
+15. ✅ **Discrete** - Updated to Gold standard (all features implemented, comprehensive tests verified)
 
 ---
 
-## Notes & Conventions
+## Notes  Conventions
 
 ### C++17 Features to Use
 - `[[nodiscard]]` for getter methods
@@ -188,9 +190,9 @@ This document tracks the implementation status of all probability distributions 
 - Verify numerical accuracy with known values
 
 ### Variable Naming Conventions
-- Standardize common meaningful internal variable names, such as using "token" for discardable tokens in the >> operator implementation
+- Standardize common meaningful internal variable names, such as using "token" for discardable tokens in the  operator implementation
 
 ---
 
-*Last Updated: 2025-06-28 03:02*
+*Last Updated: 2025-06-29 03:54*
 *Next Review: After each distribution update*

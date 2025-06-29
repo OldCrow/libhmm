@@ -6,25 +6,7 @@ using namespace libhmm::constants;
 namespace libhmm
 {
 
-double ProbabilityDistribution::loggamma(double xx) const noexcept {
-    double x, y, tmp, ser;
-    static constexpr double cof[6] = { 76.18009172947146,
-                                      -86.50532032941677,
-                                       24.01409824083091,
-                                      -1.231739572450155,
-                                   0.1208650973866179e-2,
-                                     -0.5395239384953e-5 };
-   
-    y = x = xx;
-    tmp = x + 5.5;
-    tmp -= (x + math::HALF)*std::log(tmp);
-    ser = 1.000000000190015;
-    for(int j = 0; j <= 5; j++) {
-        ser += cof[j]/++y;
-    }
-    return -tmp + std::log(2.5066282746310005*ser/x);
-}
-   
+// Replaced by standard library lgamma function with improved efficiency
 
 double ProbabilityDistribution::gammap(double a, double x) noexcept {
     double gamser, gammcf, gln;
@@ -48,7 +30,7 @@ double ProbabilityDistribution::gammap(double a, double x) noexcept {
 void ProbabilityDistribution::gcf(double& gammcf, double a, double x, double& gln) noexcept {
     double an, b, c, d, del, h;
 
-    gln = loggamma(a);
+    gln = std::lgamma(a);
     b = x + math::ONE - a;
     c = math::ONE / precision::ZERO;
     d = math::ONE / b;
@@ -75,7 +57,7 @@ void ProbabilityDistribution::gcf(double& gammcf, double a, double x, double& gl
 void ProbabilityDistribution::gser(double& gamser, double a, double x, double& gln) noexcept {
     double sum, del, ap;
 
-    gln = loggamma(a);
+    gln = std::lgamma(a);
 
     if(x <= math::ZERO_DOUBLE) {
         if(x < math::ZERO_DOUBLE)
@@ -100,12 +82,10 @@ void ProbabilityDistribution::gser(double& gamser, double a, double x, double& g
 }
 
 double ProbabilityDistribution::errorf(double x) noexcept {
-    return x < math::ZERO_DOUBLE ? -gammap(math::HALF, x * x) : gammap(math::HALF, x * x);
+    return std::erf(x);
 }
 
-/* This code is adapted from 
- * http://www.codecogs.com/d-ox/maths/special/errorfn_inv.php
- */
+// This code is removed in favor of standard library's erf.
 double ProbabilityDistribution::errorf_inv(double y) noexcept {
     double s, t, u, w, x, z;
 

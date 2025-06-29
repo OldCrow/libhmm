@@ -623,39 +623,54 @@ void testPerformance() {
     
     NegativeBinomialDistribution negbinom(8.0, 0.4);
     
-    // Time probability calculations
+    // Test PDF timing
     auto start = std::chrono::high_resolution_clock::now();
+    const int pdfIterations = 10000;
+    volatile double sum = 0.0;  // volatile to prevent optimization
     
-    const int numIterations = 10000;
-    double sum = 0.0;
-    for (int i = 0; i < numIterations; ++i) {
+    for (int i = 0; i < pdfIterations; ++i) {
         sum += negbinom.getProbability(i % 30);  // 0 to 29
     }
     
     auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    auto pdfDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    double pdfTimePerCall = static_cast<double>(pdfDuration.count()) / pdfIterations;
     
-    std::cout << "Computed " << numIterations << " probabilities in " 
-              << duration.count() << " microseconds" << std::endl;
-    std::cout << "Average time per calculation: " 
-              << static_cast<double>(duration.count()) / numIterations << " microseconds" << std::endl;
+    // Test Log PDF timing
+    start = std::chrono::high_resolution_clock::now();
+    volatile double logSum = 0.0;
     
-    // Should complete in reasonable time (< 1 second)
-    assert(duration.count() < 1000000); // 1 second = 1,000,000 microseconds
-    
-    // Test log probability performance
-    auto logStart = std::chrono::high_resolution_clock::now();
-    double logSum = 0.0;
-    for (int i = 0; i < numIterations; ++i) {
-        logSum += negbinom.getLogProbability(i % 30);
+    for (int i = 0; i < pdfIterations; ++i) {
+        logSum += negbinom.getLogProbability(i % 30);  // 0 to 29
     }
-    auto logEnd = std::chrono::high_resolution_clock::now();
-    auto logDuration = std::chrono::duration_cast<std::chrono::microseconds>(logEnd - logStart);
     
-    std::cout << "Log probability performance: " << logDuration.count() << " microseconds" << std::endl;
+    end = std::chrono::high_resolution_clock::now();
+    auto logPdfDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    double logPdfTimePerCall = static_cast<double>(logPdfDuration.count()) / pdfIterations;
     
-    // Log probability should be reasonably fast (similar to regular probability due to caching)
-    assert(logDuration.count() < 2000000); // Allow 2x regular probability time
+    // Test fitting timing
+    std::vector<Observation> fitData(1000);
+    for (size_t i = 0; i < fitData.size(); ++i) {
+        fitData[i] = static_cast<double>(i % 15);  // Values 0-14
+    }
+    
+    start = std::chrono::high_resolution_clock::now();
+    negbinom.fit(fitData);
+    end = std::chrono::high_resolution_clock::now();
+    auto fitDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    double fitTimePerPoint = static_cast<double>(fitDuration.count()) / fitData.size();
+    
+    std::cout << "  PDF timing:       " << std::fixed << std::setprecision(3) 
+              << pdfTimePerCall << " μs/call (" << pdfIterations << " calls)" << std::endl;
+    std::cout << "  Log PDF timing:   " << std::fixed << std::setprecision(3) 
+              << logPdfTimePerCall << " μs/call (" << pdfIterations << " calls)" << std::endl;
+    std::cout << "  Fit timing:       " << std::fixed << std::setprecision(3) 
+              << fitTimePerPoint << " μs/point (" << fitData.size() << " points)" << std::endl;
+    
+    // Performance requirements (should be reasonable)
+    assert(pdfTimePerCall < 10.0);    // Less than 10 μs per PDF call
+    assert(logPdfTimePerCall < 5.0);  // Less than 5 μs per log PDF call
+    assert(fitTimePerPoint < 20.0);   // Less than 20 μs per data point for fitting
     
     std::cout << "✓ Performance tests passed" << std::endl;
 }

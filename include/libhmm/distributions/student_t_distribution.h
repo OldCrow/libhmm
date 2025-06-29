@@ -1,12 +1,9 @@
 #ifndef STUDENT_T_DISTRIBUTION_H_
 #define STUDENT_T_DISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <string>, <sstream>, <iomanip>
 
 namespace libhmm {
 
@@ -60,9 +57,34 @@ private:
     mutable double cached_log_gamma_half_nu_{0.0};
     
     /**
-     * Cached log normalization constant
+     * Cached log normalization constant for PDF
      */
     mutable double cached_log_normalization_{0.0};
+    
+    /**
+     * Cached normalization factor for direct PDF calculation (exp of log normalization)
+     */
+    mutable double cached_normalization_factor_{1.0};
+    
+    /**
+     * Cached value of (ν+1)/2 for efficiency in PDF calculations
+     */
+    mutable double cached_half_nu_plus_one_{1.0};
+    
+    /**
+     * Cached value of ν/2 for efficiency
+     */
+    mutable double cached_half_nu_{0.5};
+    
+    /**
+     * Cached value of 1/σ for efficiency (multiply instead of divide)
+     */
+    mutable double cached_inv_scale_{1.0};
+    
+    /**
+     * Cached value of log(σ) for log probability calculations
+     */
+    mutable double cached_log_scale_{0.0};
     
     /**
      * Flag to track if cached values need updating
@@ -70,33 +92,16 @@ private:
     mutable bool cache_valid_{false};
 
     /**
-     * Updates cached values when parameters change
+     * Updates cached values when parameters change using optimized calculations
      */
-    void updateCache() const noexcept {
-        double half_nu = 0.5 * degrees_of_freedom_;
-        double half_nu_plus_one = half_nu + 0.5;
-        
-        cached_log_gamma_half_nu_plus_one_ = loggamma(half_nu_plus_one);
-        cached_log_gamma_half_nu_ = loggamma(half_nu);
-        
-        // Log normalization: log(Γ((ν+1)/2) / (√(νπ) * Γ(ν/2)))
-        cached_log_normalization_ = cached_log_gamma_half_nu_plus_one_ 
-                                   - cached_log_gamma_half_nu_ 
-                                   - 0.5 * (std::log(degrees_of_freedom_) + std::log(M_PI));
-        
-        cache_valid_ = true;
-    }
+    void updateCache() const;
     
     /**
      * Validates parameters for the Student's t-distribution
      * @param degrees_of_freedom Degrees of freedom parameter (must be positive and finite)
      * @throws std::invalid_argument if parameter is invalid
      */
-    void validateParameters(double degrees_of_freedom) const {
-        if (std::isnan(degrees_of_freedom) || std::isinf(degrees_of_freedom) || degrees_of_freedom <= 0.0) {
-            throw std::invalid_argument("Degrees of freedom must be a positive finite number");
-        }
-    }
+    void validateParameters(double degrees_of_freedom) const;
 
 public:
     /**
@@ -142,6 +147,28 @@ public:
      * @return Probability density f(value|ν)
      */
     double getProbability(Observation value) override;
+
+    /**
+     * Computes the logarithm of the probability density function for numerical stability.
+     * 
+     * For Student's t-distribution: log(f(x)) = log(Γ((ν+1)/2)) - log(Γ(ν/2)) - log(σ)
+     *                                          - (1/2)*log(νπ) - ((ν+1)/2)*log(1 + ((x-μ)/σ)²/ν)
+     * 
+     * @param value The value at which to evaluate the log-PDF
+     * @return Natural logarithm of the probability density
+     */
+    double getLogProbability(double value) const noexcept override;
+
+    /**
+     * Computes the cumulative distribution function for the Student's t-distribution.
+     * 
+     * Uses the relationship with the incomplete beta function:
+     * CDF(t) = 1/2 + (t/√(ν)) * B(1/2, ν/2) / B(1/2, ν/2) for standardized t
+     * 
+     * @param value The value at which to evaluate the CDF
+     * @return Cumulative probability P(X ≤ value)
+     */
+    double getCumulativeProbability(double value) const noexcept;
 
     /**
      * Fits the distribution parameters to the given data using method of moments estimation.
@@ -255,7 +282,9 @@ public:
      * @param other Other distribution to compare with
      * @return true if parameters are not equal
      */
-    bool operator!=(const StudentTDistribution& other) const { return !(*this == other); }
+    bool operator!=(const StudentTDistribution& other) const;
+
+friend std::istream& operator>>(std::istream& is, StudentTDistribution& distribution);
 
 private:
     static constexpr double PARAMETER_TOLERANCE = 1e-10;  ///< Tolerance for parameter comparison

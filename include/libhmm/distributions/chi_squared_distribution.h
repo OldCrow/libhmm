@@ -1,12 +1,9 @@
 #ifndef CHI_SQUARED_DISTRIBUTION_H_
 #define CHI_SQUARED_DISTRIBUTION_H_
 
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <stdexcept>
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
+// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <string>, <sstream>, <iomanip>
 
 namespace libhmm {
 
@@ -66,7 +63,7 @@ private:
     void updateCache() const noexcept {
         double half_k = 0.5 * degrees_of_freedom_;
         
-        cached_log_gamma_half_k_ = loggamma(half_k);
+        cached_log_gamma_half_k_ = std::lgamma(half_k);
         cached_half_k_minus_one_ = half_k - 1.0;
         
         // Log normalization: -log(2^(k/2) * Γ(k/2)) = -k/2 * log(2) - log(Γ(k/2))
@@ -174,7 +171,7 @@ public:
      * @param x The value at which to evaluate the CDF
      * @return P(X ≤ x) for the Chi-squared distribution
      */
-    double CDF(double x);
+    double getCumulativeProbability(double x);
 
     /**
      * Fits the distribution parameters to the given data using method of moments estimation.

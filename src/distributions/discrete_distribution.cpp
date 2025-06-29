@@ -1,7 +1,5 @@
 #include "libhmm/distributions/discrete_distribution.h"
-#include <iostream>
-#include <sstream>
-#include <iomanip>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 
 using namespace libhmm::constants;
 
@@ -153,7 +151,7 @@ double DiscreteDistribution::getLogProbability(double value) const noexcept {
  * Evaluates the CDF at k using pre-computed cached values
  * O(1) lookup for maximum performance
  */
-double DiscreteDistribution::CDF(double value) noexcept {
+double DiscreteDistribution::getCumulativeProbability(double value) noexcept {
     // Validate input
     if (std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;

@@ -1,11 +1,9 @@
 #include "libhmm/distributions/gamma_distribution.h"
-#include <iostream>
-#include <cfloat>
-#include <numeric>
-#include <algorithm>
-#include <limits>
-#include <sstream>
-#include <iomanip>
+// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
+#include <cfloat>      // For FLT_* constants (not in common.h)
+#include <numeric>     // For std::accumulate (not in common.h)
+#include <algorithm>   // For std::for_each (exists in common.h, included for clarity)
+#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
 
 using namespace libhmm::constants;
 
@@ -73,18 +71,15 @@ double GammaDistribution::getLogProbability(double x) const noexcept {
     return logPdf;
 }
 
-/*
- * Returns the value of the CDF of the gamma distribution.
- *
- * The CDF is given as 
- *
- *          ligamma( k, x / theta )
- *   F(x) = -----------------------
- *                gamma( k )
- *
- * We have P( a, x ) and loggamma( a ).
+/**
+ * Evaluates the CDF at x using the incomplete gamma function
+ * Formula: CDF(x) = P(k, x/θ) = γ(k, x/θ) / Γ(k)
+ * where P is the regularized incomplete gamma function
+ * 
+ * @param x The value at which to evaluate the CDF
+ * @return Cumulative probability P(X ≤ x)
  */
-double GammaDistribution::CDF(double x) noexcept {
+double GammaDistribution::getCumulativeProbability(double x) noexcept {
     if (x <= 0) return 0.0;
 
     double i = gammap(k_, x / theta_);
@@ -96,7 +91,7 @@ double GammaDistribution::CDF(double x) noexcept {
     return i;
 }
 
-/*
+/**
  * Returns the value of the LOWER INCOMPLETE gamma function given a and x.
  */
 double GammaDistribution::ligamma(double a, double x) noexcept {
@@ -104,34 +99,6 @@ double GammaDistribution::ligamma(double a, double x) noexcept {
 }
 
 
-/*
- * Sets k and theta such that the resulting Gamma distribution fits the data.
- *
- * Wikipedia states that there is no closed form value of k, but we can
- * approximate to 1.5% if we use the value
- *
- *   s = ln( sum( x_i, i = 1..N ) / N ) - sum( ln( x_i ), i = 1..N ) / N
- *
- * where x_i is a data  point to use in setting the PDF and N is the total
- * number of values of x.  k can then be computed as 
- *
- *   k ~= 3 - s + sqrt( (s - 3)^2 + 24s )
- *        ---------------------------------
- *                        12s
- * 
- * Using k, theta is defined as
- *
- *   theta = sum( x_i, i = 1..N )
- *           --------------------
- *                   kN
- * 
- * Note that the presence of a zero in the list of values will tend to screw
- * with things because log( 0 ) is undefined (it approaches -infinity).  I've
- * written an approximation that if there is a zero, to add libhmm::ZERO to the
- * sum and logsum values, but that's something that should really be solved with
- * some more intensive numerical methods.  Perhaps the logsum value should be
- * increased by -REALLY_BIG_NUMBER.                  
- */                   
 /**
  * Fits the distribution parameters to the given data using method of moments estimation.
  * 
