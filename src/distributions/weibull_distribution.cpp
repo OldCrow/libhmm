@@ -61,7 +61,7 @@ double WeibullDistribution::getLogProbability(double value) const noexcept {
     const double xTimesInvLambda = value * invLambda_;  // Use cached reciprocal
     
     // Use efficient power calculation for common k values
-    double powerTerm;
+    double powerTerm = 0.0;
     if (k_ == math::ONE) {
         powerTerm = xTimesInvLambda;  // Linear case
     } else if (k_ == math::TWO) {
@@ -124,7 +124,7 @@ void WeibullDistribution::fit(const std::vector<Observation>& values) {
     
     // For Weibull, CV = sqrt(Γ(1+2/k)/Γ(1+1/k)² - 1)
     // We approximate k using an empirical relationship
-    double k_est;
+    double k_est = 1.0;
     if (cv < 0.2) {
         // High k (> 5), shape approaches normal
         k_est = math::ONE / (cv * cv * math::TEN * 0.6);  // Optimized: 6.0 = 10 * 0.6
@@ -181,7 +181,7 @@ double WeibullDistribution::CDF(double x) const noexcept {
     const double xTimesInvLambda = x * invLambda_;  // Use cached reciprocal
     
     // Use efficient power calculation for common k values
-    double powerTerm;
+    double powerTerm = 0.0;
     if (k_ == math::ONE) {
         powerTerm = xTimesInvLambda;  // Linear case (Exponential)
     } else if (k_ == math::TWO) {

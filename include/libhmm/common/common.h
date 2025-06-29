@@ -25,6 +25,7 @@
 #include <climits>
 #include <cstddef>
 #include <limits>
+#include <cassert>
 
 // Platform-specific headers moved to libhmm/performance/simd_platform.h
 // Include that header if you need SIMD intrinsics

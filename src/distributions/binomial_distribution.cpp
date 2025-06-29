@@ -223,14 +223,14 @@ bool BinomialDistribution::operator==(const BinomialDistribution& other) const {
 
 std::istream& operator>>(std::istream& is, libhmm::BinomialDistribution& distribution) {
     std::string token;
-    int n;
-    double p;
+    int n = 0;
+    double p = 0.0;
     
     // Expected format: "Binomial(n,p)" or "n p"
     if (is >> token) {
         if (token.find("Binomial") != std::string::npos) {
             // Skip to parameters
-            char ch;
+            char ch = '\0';
             is >> ch >> n >> ch >> p >> ch; // Read (n,p)
         } else {
             // Assume first token is n
