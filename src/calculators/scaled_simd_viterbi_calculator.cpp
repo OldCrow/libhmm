@@ -1,14 +1,12 @@
 #include "libhmm/calculators/scaled_simd_viterbi_calculator.h"
 #include "libhmm/common/common.h"
+#include "libhmm/performance/parallel_constants.h"
 #include <algorithm>
 #include <cassert>
 #include <stdexcept>
 
-#ifdef LIBHMM_HAS_AVX
-#include <immintrin.h>
-#elif defined(LIBHMM_HAS_SSE2)
-#include <emmintrin.h>
-#endif
+// SIMD intrinsics now centralized in simd_platform.h
+#include "libhmm/performance/simd_platform.h"
 
 namespace libhmm {
 
@@ -94,8 +92,8 @@ void ScaledSIMDViterbiCalculator::initializeFirstStep() {
         const double emisProb = tempProbs_[i];
         
         // Use log probabilities to avoid underflow
-        const double logPi = (piProb > ZERO) ? std::log(piProb) : std::log(ZERO);
-        const double logEmis = (emisProb > ZERO) ? std::log(emisProb) : std::log(ZERO);
+        const double logPi = (piProb > constants::precision::ZERO) ? std::log(piProb) : std::log(constants::precision::ZERO);
+        const double logEmis = (emisProb > constants::precision::ZERO) ? std::log(emisProb) : std::log(constants::precision::ZERO);
         
         delta_[getMatrixIndex(0, i)] = logPi + logEmis;
         psi_[getMatrixIndex(0, i)] = 0; // No previous state
@@ -124,7 +122,7 @@ void ScaledSIMDViterbiCalculator::computeForwardStepSIMD(std::size_t t) {
         // Compute transition scores from all previous states to state j
         for (std::size_t i = 0; i < numStates_; ++i) {
             const double transProb = trans(i, j);
-            const double logTrans = (transProb > ZERO) ? std::log(transProb) : std::log(ZERO);
+            const double logTrans = (transProb > constants::precision::ZERO) ? std::log(transProb) : std::log(constants::precision::ZERO);
             tempScores_[i] = prevDelta[i] + logTrans;
         }
         
@@ -142,7 +140,7 @@ void ScaledSIMDViterbiCalculator::computeForwardStepSIMD(std::size_t t) {
         
         // Add emission probability
         const double emisProb = tempProbs_[j];
-        const double logEmis = (emisProb > ZERO) ? std::log(emisProb) : std::log(ZERO);
+        const double logEmis = (emisProb > constants::precision::ZERO) ? std::log(emisProb) : std::log(constants::precision::ZERO);
         
         delta_[getMatrixIndex(t, j)] = maxScore + logEmis;
         psi_[getMatrixIndex(t, j)] = static_cast<int>(bestPrevState);
@@ -163,7 +161,7 @@ void ScaledSIMDViterbiCalculator::computeForwardStepScalar(std::size_t t) {
         // Find best previous state
         for (std::size_t i = 0; i < numStates_; ++i) {
             const double transProb = trans(i, j);
-            const double logTrans = (transProb > ZERO) ? std::log(transProb) : std::log(ZERO);
+            const double logTrans = (transProb > constants::precision::ZERO) ? std::log(transProb) : std::log(constants::precision::ZERO);
             const double score = delta_[getMatrixIndex(t - 1, i)] + logTrans;
             
             if (score > maxScore) {
@@ -174,7 +172,7 @@ void ScaledSIMDViterbiCalculator::computeForwardStepScalar(std::size_t t) {
         
         // Add emission probability
         const double emisProb = tempProbs_[j];
-        const double logEmis = (emisProb > ZERO) ? std::log(emisProb) : std::log(ZERO);
+        const double logEmis = (emisProb > constants::precision::ZERO) ? std::log(emisProb) : std::log(constants::precision::ZERO);
         
         delta_[getMatrixIndex(t, j)] = maxScore + logEmis;
         psi_[getMatrixIndex(t, j)] = static_cast<int>(bestPrevState);
@@ -285,8 +283,17 @@ void ScaledSIMDViterbiCalculator::findMinSIMD(const double* values, std::size_t 
 }
 
 void ScaledSIMDViterbiCalculator::computeEmissionProbabilities(Observation observation, double* emisProbs) const {
-    for (std::size_t i = 0; i < numStates_; ++i) {
-        emisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))->getProbability(observation);
+    // Use parallel computation for larger state spaces
+    if (numStates_ >= performance::parallel::MIN_STATES_FOR_EMISSION_PARALLEL) {
+        // Parallel emission probability computation
+        performance::ParallelUtils::parallelFor(0, numStates_, [&](std::size_t i) {
+            emisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))->getProbability(observation);
+        }, performance::parallel::SIMPLE_OPERATION_GRAIN_SIZE);
+    } else {
+        // Sequential computation for smaller state spaces
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            emisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))->getProbability(observation);
+        }
     }
 }
 
