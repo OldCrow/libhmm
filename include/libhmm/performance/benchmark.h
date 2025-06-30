@@ -9,12 +9,13 @@
 #include <map>
 #include <iostream>
 
+// Include common types to avoid forward declaration conflicts
+#include "libhmm/common/common.h"
+
 namespace libhmm {
 
-// Forward declarations
+// Forward declaration for Hmm class only
 class Hmm;
-class ObservationSet;
-using ObservationLists = std::vector<ObservationSet>;
 
 namespace performance {
 

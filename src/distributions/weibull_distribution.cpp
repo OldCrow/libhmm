@@ -61,7 +61,7 @@ double WeibullDistribution::getLogProbability(double value) const noexcept {
     const double xTimesInvLambda = value * invLambda_;  // Use cached reciprocal
     
     // Use efficient power calculation for common k values
-    double powerTerm;
+    double powerTerm = 0.0;
     if (k_ == math::ONE) {
         powerTerm = xTimesInvLambda;  // Linear case
     } else if (k_ == math::TWO) {
@@ -124,7 +124,7 @@ void WeibullDistribution::fit(const std::vector<Observation>& values) {
     
     // For Weibull, CV = sqrt(Γ(1+2/k)/Γ(1+1/k)² - 1)
     // We approximate k using an empirical relationship
-    double k_est;
+    double k_est = 1.0;
     if (cv < 0.2) {
         // High k (> 5), shape approaches normal
         k_est = math::ONE / (cv * cv * math::TEN * 0.6);  // Optimized: 6.0 = 10 * 0.6
@@ -161,7 +161,7 @@ void WeibullDistribution::reset() noexcept {
 }
 
 std::string WeibullDistribution::toString() const {
-    std::ostringstream oss;
+    std::ostringstream oss{};
     oss << std::fixed << std::setprecision(6);
     oss << "Weibull Distribution:\n";
     oss << "      k (shape) = " << k_ << "\n";
@@ -181,7 +181,7 @@ double WeibullDistribution::CDF(double x) const noexcept {
     const double xTimesInvLambda = x * invLambda_;  // Use cached reciprocal
     
     // Use efficient power calculation for common k values
-    double powerTerm;
+    double powerTerm = 0.0;
     if (k_ == math::ONE) {
         powerTerm = xTimesInvLambda;  // Linear case (Exponential)
     } else if (k_ == math::TWO) {
@@ -206,7 +206,7 @@ std::ostream& operator<<(std::ostream& os, const WeibullDistribution& distributi
 
 std::istream& operator>>(std::istream& is, WeibullDistribution& distribution) {
     std::string token;
-    double k, lambda;
+    double k = 0.0, lambda = 0.0;
     
     try {
         // Expected format: "Weibull Distribution: k (shape) = <value> λ (scale) = <value>"

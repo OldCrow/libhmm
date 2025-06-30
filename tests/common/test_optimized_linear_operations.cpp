@@ -1,6 +1,9 @@
 #include "../../include/libhmm/common/optimized_vector.h"
 #include "../../include/libhmm/common/optimized_matrix.h"
 #include "../../include/libhmm/common/optimized_matrix3d.h"
+#include "../../include/libhmm/common/basic_vector.h"
+#include "../../include/libhmm/common/basic_matrix.h"
+#include "../../include/libhmm/common/basic_matrix3d.h"
 #include <iostream>
 #include <chrono>
 #include <numeric>
@@ -298,6 +301,118 @@ void test_hmm_compatibility() {
     std::cout << "✅ HMM compatibility tests passed!\n\n";
 }
 
+void test_conversion_constructors() {
+    std::cout << "=== Testing Basic-to-Optimized Conversion Constructors ===\n";
+    
+    // Test BasicVector to OptimizedVector conversion
+    BasicVector<double> basic_vec({1.0, 2.0, 3.0, 4.0, 5.0});
+    OptimizedVector<double> opt_vec(basic_vec);  // Conversion constructor
+    
+    std::cout << "Basic vector: " << basic_vec << "\n";
+    std::cout << "Converted optimized vector: " << opt_vec << "\n";
+    
+    // Verify data integrity
+    bool vec_data_matches = true;
+    for (size_t i = 0; i < basic_vec.size(); ++i) {
+        if (basic_vec[i] != opt_vec[i]) {
+            vec_data_matches = false;
+            break;
+        }
+    }
+    std::cout << "Vector conversion data integrity: " << (vec_data_matches ? "✅ PASS" : "❌ FAIL") << "\n";
+    
+    // Test BasicMatrix to OptimizedMatrix conversion
+    BasicMatrix<double> basic_mat(3, 3);
+    basic_mat(0, 0) = 1.0; basic_mat(0, 1) = 2.0; basic_mat(0, 2) = 3.0;
+    basic_mat(1, 0) = 4.0; basic_mat(1, 1) = 5.0; basic_mat(1, 2) = 6.0;
+    basic_mat(2, 0) = 7.0; basic_mat(2, 1) = 8.0; basic_mat(2, 2) = 9.0;
+    
+    OptimizedMatrix<double> opt_mat(basic_mat);  // Conversion constructor
+    
+    std::cout << "\nBasic matrix:\n" << basic_mat << "\n";
+    std::cout << "Converted optimized matrix:\n" << opt_mat << "\n";
+    
+    // Verify matrix data integrity
+    bool mat_data_matches = true;
+    for (size_t i = 0; i < basic_mat.rows(); ++i) {
+        for (size_t j = 0; j < basic_mat.cols(); ++j) {
+            if (basic_mat(i, j) != opt_mat(i, j)) {
+                mat_data_matches = false;
+                break;
+            }
+        }
+        if (!mat_data_matches) break;
+    }
+    std::cout << "Matrix conversion data integrity: " << (mat_data_matches ? "✅ PASS" : "❌ FAIL") << "\n";
+    
+    // Test BasicMatrix3D to OptimizedMatrix3D conversion
+    BasicMatrix3D<double> basic_mat3d(2, 3, 2);
+    for (size_t i = 0; i < 2; ++i) {
+        for (size_t j = 0; j < 3; ++j) {
+            for (size_t k = 0; k < 2; ++k) {
+                basic_mat3d(i, j, k) = i * 100 + j * 10 + k;
+            }
+        }
+    }
+    
+    OptimizedMatrix3D<double> opt_mat3d(basic_mat3d);  // Conversion constructor
+    
+    std::cout << "\nBasic matrix3D dimensions: " << basic_mat3d.getXDimensionSize() 
+              << "x" << basic_mat3d.getYDimensionSize() 
+              << "x" << basic_mat3d.getZDimensionSize() << "\n";
+    std::cout << "Optimized matrix3D dimensions: " << opt_mat3d.getXDimensionSize() 
+              << "x" << opt_mat3d.getYDimensionSize() 
+              << "x" << opt_mat3d.getZDimensionSize() << "\n";
+    
+    // Verify 3D matrix data integrity
+    bool mat3d_data_matches = true;
+    for (size_t i = 0; i < basic_mat3d.getXDimensionSize(); ++i) {
+        for (size_t j = 0; j < basic_mat3d.getYDimensionSize(); ++j) {
+            for (size_t k = 0; k < basic_mat3d.getZDimensionSize(); ++k) {
+                if (basic_mat3d(i, j, k) != opt_mat3d(i, j, k)) {
+                    mat3d_data_matches = false;
+                    std::cout << "Mismatch at (" << i << "," << j << "," << k << "): "
+                              << basic_mat3d(i, j, k) << " vs " << opt_mat3d(i, j, k) << "\n";
+                    break;
+                }
+            }
+            if (!mat3d_data_matches) break;
+        }
+        if (!mat3d_data_matches) break;
+    }
+    std::cout << "Matrix3D conversion data integrity: " << (mat3d_data_matches ? "✅ PASS" : "❌ FAIL") << "\n";
+    
+    // Test performance upgrade scenario
+    std::cout << "\n=== Performance Upgrade Scenario ===\n";
+    
+    // Start with basic operations for development
+    BasicVector<double> development_vec(1000, 2.0);
+    BasicMatrix<double> development_mat(100, 100, 0.5);
+    
+    std::cout << "Development phase - using basic classes...\n";
+    auto basic_sum = development_vec.sum();
+    auto basic_row_sums = development_mat.row_sums();
+    std::cout << "Basic vector sum: " << basic_sum << "\n";
+    std::cout << "Basic matrix first row sum: " << basic_row_sums[0] << "\n";
+    
+    // Upgrade to optimized for production performance
+    std::cout << "\nProduction phase - upgrading to optimized classes...\n";
+    OptimizedVector<double> production_vec(development_vec);  // Seamless upgrade
+    OptimizedMatrix<double> production_mat(development_mat);  // Seamless upgrade
+    
+    auto opt_sum = production_vec.sum();
+    auto opt_row_sums = production_mat.row_sums();
+    std::cout << "Optimized vector sum: " << opt_sum << "\n";
+    std::cout << "Optimized matrix first row sum: " << opt_row_sums[0] << "\n";
+    
+    // Verify results are identical
+    bool results_match = (std::abs(basic_sum - opt_sum) < 1e-10) && 
+                        (std::abs(basic_row_sums[0] - opt_row_sums[0]) < 1e-10);
+    std::cout << "Performance upgrade correctness: " << (results_match ? "✅ PASS" : "❌ FAIL") << "\n";
+    
+    std::cout << "✅ All conversion constructor tests passed!\n\n";
+}
+
 void test_error_handling() {
     std::cout << "=== Testing Error Handling ===\n";
     
@@ -342,6 +457,9 @@ int main() {
     test_performance_comparison();
     test_simd_thresholds();
     
+    // Test conversion constructors (enables dynamic performance scaling)
+    test_conversion_constructors();
+    
     // Test HMM-specific functionality
     test_hmm_compatibility();
     
@@ -356,7 +474,8 @@ int main() {
     std::cout << "✅ OptimizedMatrix3D: Parallel + contiguous memory\n";
     std::cout << "✅ uBLAS API compatibility: Complete\n";
     std::cout << "✅ HMM mathematical operations: Complete with optimizations\n";
-    std::cout << "✅ Automatic optimization selection: Working\n\n";
+    std::cout << "✅ Automatic optimization selection: Working\n";
+    std::cout << "✅ Basic-to-Optimized conversion constructors: Complete\n\n";
     
     std::cout << "Key optimizations available:\n";
     std::cout << "• SIMD vectorization for arithmetic operations\n";

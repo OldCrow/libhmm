@@ -200,7 +200,7 @@ bool DiscreteDistribution::operator==(const DiscreteDistribution& other) const {
  * Expects format with number of symbols followed by probabilities
  */
 std::istream& operator>>(std::istream& is, libhmm::DiscreteDistribution& distribution) {
-    std::size_t numSymbols;
+    std::size_t numSymbols = 0;
     
     if (!(is >> numSymbols)) {
         is.setstate(std::ios::failbit);
@@ -213,7 +213,7 @@ std::istream& operator>>(std::istream& is, libhmm::DiscreteDistribution& distrib
         
         // Read probabilities
         for (std::size_t i = 0; i < numSymbols; ++i) {
-            double prob;
+            double prob = 0.0;
             if (!(is >> prob)) {
                 is.setstate(std::ios::failbit);
                 return is;

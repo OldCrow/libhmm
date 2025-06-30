@@ -9,31 +9,14 @@
 #include <iostream>
 #include <iomanip>
 
-// Check for C++17 parallel execution support
-#ifdef __cpp_lib_execution
-#include <execution>
-#define LIBHMM_HAS_PARALLEL_EXECUTION 1
-#else
-#define LIBHMM_HAS_PARALLEL_EXECUTION 0
-#endif
-
-// Platform and system headers for SIMD
-// Only include x86 intrinsics on x86/x64 platforms to avoid Apple Silicon issues
-#ifdef _MSC_VER
-    #include <intrin.h>
-#elif (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86))
-    #include <immintrin.h>
-    #include <x86intrin.h>
-#elif defined(__ARM_NEON) || defined(__aarch64__)
-    #include <arm_neon.h>
-#endif
-
+// Use robust performance infrastructure (includes parallel execution detection)
+#include "libhmm/performance/simd_support.h"
+#include "libhmm/performance/parallel_constants.h"
 #include "common.h"
+#include "basic_matrix.h"  // Forward declaration for conversion constructor
+#include "optimized_vector.h"  // Include OptimizedVector definition
 
 namespace libhmm {
-
-// Forward declaration for compatibility
-template<typename T> class OptimizedVector;
 
 /**
  * High-performance Matrix class with SIMD optimizations and parallel execution
@@ -54,9 +37,9 @@ private:
     std::size_t rows_;
     std::size_t cols_;
     
-    /// SIMD optimization parameters
+    /// SIMD optimization parameters using robust performance infrastructure
     static constexpr std::size_t SIMD_BLOCK_SIZE = constants::simd::DEFAULT_BLOCK_SIZE;
-    static constexpr std::size_t PARALLEL_THRESHOLD = 10000; // Use parallel ops for matrices > 10k elements
+    static constexpr std::size_t PARALLEL_THRESHOLD = performance::parallel::MIN_STATES_FOR_EMISSION_PARALLEL; // Use parallel ops for large matrices
     static constexpr std::size_t CACHE_BLOCK_SIZE = constants::simd::MAX_BLOCK_SIZE;
 
 public:
@@ -76,6 +59,13 @@ public:
         
     OptimizedMatrix(size_type rows, size_type cols, const T& value)
         : data_(rows * cols, value), rows_(rows), cols_(cols) {}
+    
+    // Conversion constructor from BasicMatrix (enables dynamic upgrading)
+    explicit OptimizedMatrix(const BasicMatrix<T>& basic_matrix) 
+        : data_(basic_matrix.size()), rows_(basic_matrix.rows()), cols_(basic_matrix.cols()) {
+        // Copy data from BasicMatrix to enable seamless transition to optimized operations
+        std::copy(basic_matrix.data(), basic_matrix.data() + basic_matrix.size(), data_.data());
+    }
         
     // Default copy/move operations
     OptimizedMatrix(const OptimizedMatrix&) = default;
@@ -155,11 +145,8 @@ public:
             throw std::invalid_argument("Matrix dimensions must match for addition");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            add_simd(other);
-        } else {
-            add_serial(other);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        add_serial(other);
         return *this;
     }
 
@@ -168,20 +155,14 @@ public:
             throw std::invalid_argument("Matrix dimensions must match for subtraction");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            subtract_simd(other);
-        } else {
-            subtract_serial(other);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        subtract_serial(other);
         return *this;
     }
 
     OptimizedMatrix& operator*=(const T& scalar) {
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            scale_simd(scalar);
-        } else {
-            scale_serial(scalar);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        scale_serial(scalar);
         return *this;
     }
 
@@ -208,11 +189,8 @@ public:
         
         OptimizedVector<T> result(rows_);
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            multiply_vector_simd(vec, result);
-        } else {
-            multiply_vector_serial(vec, result);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        multiply_vector_serial(vec, result);
         
         return result;
     }
@@ -305,11 +283,8 @@ public:
             throw std::invalid_argument("Matrix dimensions must match for element-wise multiplication");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            hadamard_simd(other);
-        } else {
-            hadamard_serial(other);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        hadamard_serial(other);
         return *this;
     }
 
@@ -326,8 +301,6 @@ public:
     T sum() const {
         if (data_.size() > PARALLEL_THRESHOLD) {
             return sum_parallel();
-        } else if (data_.size() > SIMD_BLOCK_SIZE) {
-            return sum_simd();
         } else {
             return sum_serial();
         }
@@ -335,11 +308,8 @@ public:
 
     /// Frobenius norm (matrix norm)
     T norm() const {
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            return norm_simd();
-        } else {
-            return norm_serial();
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        return norm_serial();
     }
 
     /// Apply function to all elements

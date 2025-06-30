@@ -1,5 +1,6 @@
 #include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 #include "libhmm/common/common.h"
+#include "libhmm/performance/parallel_constants.h"
 #include "libhmm/hmm.h"
 #include <algorithm>
 #include <cstring>
@@ -129,25 +130,55 @@ void ScaledSIMDForwardBackwardCalculator::computeForwardStepScalar(std::size_t t
     computeEmissionProbabilities(observations_(t), tempEmissions_.data());
     
     // Forward step: alpha(t, j) = b_j(O_t) * sum_i(alpha(t-1, i) * trans(i, j))
-    double scaleFactor = 0.0;
-    for (std::size_t j = 0; j < numStates_; ++j) {
-        double sum = 0.0;
+    // Use parallel computation for large state spaces (increased threshold to avoid overhead)
+    if (numStates_ >= performance::parallel::MIN_STATES_FOR_CALCULATOR_PARALLEL) {
+        // Parallel computation of forward variables
+        std::vector<double> partialSums(numStates_);
         
-        for (std::size_t i = 0; i < numStates_; ++i) {
-            sum += forwardVariables_[prevIdx + i] * trans(i, j);
+        performance::ParallelUtils::parallelFor(0, numStates_, [&](std::size_t j) {
+            double sum = 0.0;
+            for (std::size_t i = 0; i < numStates_; ++i) {
+                sum += forwardVariables_[prevIdx + i] * trans(i, j);
+            }
+            const double value = tempEmissions_[j] * sum;
+            forwardVariables_[currIdx + j] = value;
+            partialSums[j] = value;
+        }, performance::parallel::CALCULATOR_GRAIN_SIZE); // Larger grain size to reduce overhead
+        
+        // Compute scale factor as sum of all values
+        double scaleFactor = std::accumulate(partialSums.begin(), partialSums.end(), 0.0);
+        
+        // Apply scaling if needed
+        if (scaleFactor > SCALING_THRESHOLD) {
+            scalingFactors_[t] = scaleFactor;
+            const double invScale = 1.0 / scaleFactor;
+            
+            performance::ParallelUtils::parallelFor(0, numStates_, [&](std::size_t j) {
+                forwardVariables_[currIdx + j] *= invScale;
+            }, 8); // Larger grain size for simple operations
+        }
+    } else {
+        // Sequential computation for smaller state spaces
+        double scaleFactor = 0.0;
+        for (std::size_t j = 0; j < numStates_; ++j) {
+            double sum = 0.0;
+            
+            for (std::size_t i = 0; i < numStates_; ++i) {
+                sum += forwardVariables_[prevIdx + i] * trans(i, j);
+            }
+            
+            const double value = tempEmissions_[j] * sum;
+            forwardVariables_[currIdx + j] = value;
+            scaleFactor += value;
         }
         
-        const double value = tempEmissions_[j] * sum;
-        forwardVariables_[currIdx + j] = value;
-        scaleFactor += value;
-    }
-    
-    // Apply scaling
-    if (scaleFactor > SCALING_THRESHOLD) {
-        scalingFactors_[t] = scaleFactor;
-        const double invScale = 1.0 / scaleFactor;
-        for (std::size_t j = 0; j < numStates_; ++j) {
-            forwardVariables_[currIdx + j] *= invScale;
+        // Apply scaling
+        if (scaleFactor > SCALING_THRESHOLD) {
+            scalingFactors_[t] = scaleFactor;
+            const double invScale = 1.0 / scaleFactor;
+            for (std::size_t j = 0; j < numStates_; ++j) {
+                forwardVariables_[currIdx + j] *= invScale;
+            }
         }
     }
     
@@ -202,16 +233,31 @@ void ScaledSIMDForwardBackwardCalculator::computeBackwardStepScalar(std::size_t 
     computeEmissionProbabilities(observations_(t + 1), tempEmissions_.data());
     
     // Backward step: beta(t, i) = (1/c(t)) * sum_j(trans(i, j) * b_j(O_{t+1}) * beta(t+1, j))
-    for (std::size_t i = 0; i < numStates_; ++i) {
-        double sum = 0.0;
-        
-        for (std::size_t j = 0; j < numStates_; ++j) {
-            sum += trans(i, j) * tempEmissions_[j] * backwardVariables_[nextIdx + j];
+    // Use parallel computation for large state spaces
+    const double invScale = (scalingFactors_[t] > 0.0) ? 1.0 / scalingFactors_[t] : 1.0;
+    
+    if (numStates_ >= performance::parallel::MIN_STATES_FOR_CALCULATOR_PARALLEL) {
+        // Parallel computation of backward variables
+        performance::ParallelUtils::parallelFor(0, numStates_, [&](std::size_t i) {
+            double sum = 0.0;
+            
+            for (std::size_t j = 0; j < numStates_; ++j) {
+                sum += trans(i, j) * tempEmissions_[j] * backwardVariables_[nextIdx + j];
+            }
+            
+            backwardVariables_[currIdx + i] = sum * invScale;
+        }, performance::parallel::CALCULATOR_GRAIN_SIZE); // Larger grain size to reduce overhead
+    } else {
+        // Sequential computation for smaller state spaces
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            double sum = 0.0;
+            
+            for (std::size_t j = 0; j < numStates_; ++j) {
+                sum += trans(i, j) * tempEmissions_[j] * backwardVariables_[nextIdx + j];
+            }
+            
+            backwardVariables_[currIdx + i] = sum * invScale;
         }
-        
-        // Apply scaling
-        const double invScale = (scalingFactors_[t] > 0.0) ? 1.0 / scalingFactors_[t] : 1.0;
-        backwardVariables_[currIdx + i] = sum * invScale;
     }
     
     // Zero-pad for alignment
@@ -223,10 +269,25 @@ void ScaledSIMDForwardBackwardCalculator::computeBackwardStepScalar(std::size_t 
 void ScaledSIMDForwardBackwardCalculator::computeEmissionProbabilities(
     Observation observation, double* emisProbs) const {
     
-    for (std::size_t i = 0; i < numStates_; ++i) {
-        const double prob = hmm_->getProbabilityDistribution(static_cast<int>(i))
-                               ->getProbability(observation);
-        emisProbs[i] = prob;
+    // Use parallel computation for larger state spaces
+    if (numStates_ >= performance::parallel::MIN_STATES_FOR_CALCULATOR_PARALLEL) {
+        // Parallel emission probability computation
+        performance::ParallelUtils::parallelFor(0, numStates_, [&](std::size_t i) {
+            // Use optimized getLogProbability when appropriate, then convert to probability
+            // This leverages the caching and numerical stability improvements
+            const auto* dist = hmm_->getProbabilityDistribution(static_cast<int>(i));
+            
+            // For numerical stability, use log probabilities when dealing with very small values
+            const double logProb = dist->getLogProbability(observation);
+            emisProbs[i] = std::exp(logProb);
+        }, performance::parallel::SIMPLE_OPERATION_GRAIN_SIZE); // Small grain size since emission computations can be expensive
+    } else {
+        // Sequential computation for smaller state spaces
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            const auto* dist = hmm_->getProbabilityDistribution(static_cast<int>(i));
+            const double logProb = dist->getLogProbability(observation);
+            emisProbs[i] = std::exp(logProb);
+        }
     }
     
     // Zero-pad for alignment
