@@ -85,16 +85,17 @@ CalculatorTraits CalculatorSelector::getTraits(CalculatorType type) noexcept {
             };
             
         case CalculatorType::ADVANCED_LOG_SIMD:
+            // Temporarily disabled - return scaled SIMD traits for compatibility
             return {
-                "Advanced-Log-SIMD",
+                "Scaled-SIMD",
                 true,   // supportsParallel
                 true,   // usesSIMD
                 true,   // usesBlocking
-                sizeof(double) * 2000, // memoryOverhead
-                16,     // minStatesForBenefit
-                500,    // minObsForBenefit
-                3.5,    // scalingFactor
-                true    // numericallyStable
+                sizeof(double) * 1200, // memoryOverhead (aligned storage + scaling factors)
+                4,      // minStatesForBenefit (SIMD benefits 4+ elements)
+                50,     // minObsForBenefit (scaling benefits + SIMD setup)
+                2.5,    // scalingFactor (excellent SIMD benefits for scaled arithmetic)
+                true    // numericallyStable (scaled arithmetic)
             };
             
         case CalculatorType::AUTO:

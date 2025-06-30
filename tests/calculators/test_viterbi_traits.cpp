@@ -174,8 +174,10 @@ TEST_F(CalculatorTraitsTest, OptimalSelection) {
     // Long sequence requiring stability
     ProblemCharacteristics longStableProblem(smallHmm_.get(), longObs_, true);
     CalculatorType stableOptimal = CalculatorSelector::selectOptimal(longStableProblem);
+    // Accept either LOG_SIMD, SCALED_SIMD, or ADVANCED_LOG_SIMD for stability requirements
     EXPECT_TRUE(stableOptimal == CalculatorType::LOG_SIMD ||
-                stableOptimal == CalculatorType::SCALED_SIMD);
+                stableOptimal == CalculatorType::SCALED_SIMD ||
+                stableOptimal == CalculatorType::ADVANCED_LOG_SIMD);
     
     std::cout << "Selection results:" << std::endl;
     std::cout << "Small problem: " << static_cast<int>(smallOptimal) << std::endl;

@@ -145,7 +145,14 @@ public class JAHMMBenchmarkRunner {
         
         // Set emission probabilities
         for (int i = 0; i < config.numStates; i++) {
-            OpdfDiscrete<ObsSymbol> opdf = new OpdfDiscrete<ObsSymbol>(ObsSymbol.class, config.emissionMatrix[i]);
+            // Create emission probability array padded to enum size (8)
+            double[] paddedEmissions = new double[8];
+            System.arraycopy(config.emissionMatrix[i], 0, paddedEmissions, 0, config.alphabetSize);
+            // Fill remaining with zeros (they won't be used anyway)
+            for (int j = config.alphabetSize; j < 8; j++) {
+                paddedEmissions[j] = 0.0;
+            }
+            OpdfDiscrete<ObsSymbol> opdf = new OpdfDiscrete<ObsSymbol>(ObsSymbol.class, paddedEmissions);
             hmm.setOpdf(i, opdf);
         }
         
@@ -156,9 +163,21 @@ public class JAHMMBenchmarkRunner {
                                             List<ObservationDiscrete<ObsSymbol>> observations) {
         TimingResult result = new TimingResult();
         
+        // JVM warmup - run a few iterations to warm up the JIT compiler
+        for (int warmup = 0; warmup < 3; warmup++) {
+            hmm.probability(observations);
+            hmm.mostLikelyStateSequence(observations);
+        }
+        
         // Benchmark Forward-Backward algorithm
         long startTime = System.nanoTime();
-        result.likelihood = hmm.probability(observations);
+        double probability = hmm.probability(observations);
+        // Handle very small probabilities that might cause underflow
+        if (probability <= 0.0 || Double.isNaN(probability) || Double.isInfinite(probability)) {
+            result.likelihood = Double.NEGATIVE_INFINITY;
+        } else {
+            result.likelihood = Math.log(probability); // Convert to log probability like libhmm
+        }
         long endTime = System.nanoTime();
         result.forwardTime = (endTime - startTime) / 1000000.0; // Convert to milliseconds
         
