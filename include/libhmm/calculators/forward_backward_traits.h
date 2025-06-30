@@ -34,6 +34,7 @@ enum class CalculatorType {
     STANDARD,           ///< Standard forward-backward calculator (unscaled)
     SCALED_SIMD,       ///< Scaled SIMD-optimized calculator (scaling + SIMD + fallback)
     LOG_SIMD,          ///< Log-space SIMD-optimized calculator (log-space + SIMD + fallback)
+    ADVANCED_LOG_SIMD, ///< Advanced log-space SIMD calculator (maximum optimizations)
     AUTO               ///< Automatic selection based on problem characteristics
 };
 
