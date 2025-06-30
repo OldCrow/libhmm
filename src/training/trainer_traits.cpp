@@ -1,4 +1,4 @@
-#include "libhmm/common/trainer_traits.h"
+#include "libhmm/training/trainer_traits.h"
 #include "libhmm/hmm.h"
 #include "libhmm/training/hmm_trainer.h"
 #include "libhmm/training/viterbi_trainer.h"

@@ -3,6 +3,9 @@
 
 #include <cstddef>
 
+// Include C++17 parallel execution policy detection and utilities
+#include "libhmm/performance/parallel_execution.h"
+
 namespace libhmm {
 namespace performance {
 

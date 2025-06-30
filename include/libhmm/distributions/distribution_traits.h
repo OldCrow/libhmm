@@ -16,6 +16,7 @@ class LogNormalDistribution;
 class ParetoDistribution;
 class BetaDistribution;
 class WeibullDistribution;
+class RayleighDistribution;
 class UniformDistribution;
 class BinomialDistribution;
 class NegativeBinomialDistribution;
@@ -73,6 +74,9 @@ struct is_continuous_distribution<StudentTDistribution> : std::true_type {};
 
 template<>
 struct is_continuous_distribution<ChiSquaredDistribution> : std::true_type {};
+
+template<>
+struct is_continuous_distribution<RayleighDistribution> : std::true_type {};
 
 /// Type trait to detect if a type supports fitting
 template<typename T, typename = void>

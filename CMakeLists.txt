@@ -135,7 +135,9 @@ set(LIBHMM_SOURCES
     src/common/common.cpp
     src/common/string_tokenizer.cpp
     src/common/numerical_stability.cpp
-    src/common/trainer_traits.cpp
+    src/common/optimized_vector_simd.cpp
+    src/common/optimized_matrix_simd.cpp
+    src/training/trainer_traits.cpp
     src/distributions/probability_distribution.cpp
     src/distributions/discrete_distribution.cpp
     src/distributions/gaussian_distribution.cpp

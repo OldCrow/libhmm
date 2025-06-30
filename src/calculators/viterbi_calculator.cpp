@@ -1,7 +1,20 @@
+/**
+ * @file viterbi_calculator.cpp
+ * @brief Implementation of the standard Viterbi algorithm
+ * 
+ * This file implements the ViterbiCalculator class, providing the
+ * classic Viterbi algorithm for finding the most likely state sequence
+ * in Hidden Markov Models. The implementation uses log-space computation
+ * for numerical stability and caches probabilities for efficiency.
+ */
+
 #include "libhmm/calculators/viterbi_calculator.h"
-#include <cfloat>
-#include <cmath>
-#include <algorithm>
+
+// Standard library dependencies (organized)
+#include <algorithm>      // For std::max
+#include <cfloat>         // For DBL_MAX
+#include <cmath>          // For std::log
+#include <vector>         // For std::vector
 
 namespace libhmm{
 
@@ -9,23 +22,39 @@ namespace libhmm{
  * Finds the optimal state sequence for an ObservationSet.
  */    
 StateSequence ViterbiCalculator::decode() {
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
+    const Hmm& hmm = getHmmRef();  // Modern type-safe access
+    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
     const auto obsSize = observations_.size();
-    const Matrix a = hmm_->getTrans();
+    
+    // Cache const references to avoid repeated function calls
+    const Matrix& trans = hmm.getTrans();
+    const Vector& pi = hmm.getPi();
+    
+    // Pre-compute log transition probabilities for better performance
+    std::vector<std::vector<double>> logTrans(numStates, std::vector<double>(numStates));
+    for (std::size_t i = 0; i < numStates; ++i) {
+        for (std::size_t j = 0; j < numStates; ++j) {
+            const double transProb = trans(i, j);
+            logTrans[i][j] = (transProb > constants::math::ZERO_DOUBLE) ? std::log(transProb) : constants::probability::MIN_LOG_PROBABILITY;
+        }
+    }
+    
+    // Pre-compute log initial probabilities
+    std::vector<double> logPi(numStates);
+    for (std::size_t i = 0; i < numStates; ++i) {
+        const double piProb = pi(i);
+        logPi[i] = (piProb > constants::math::ZERO_DOUBLE) ? std::log(piProb) : constants::probability::MIN_LOG_PROBABILITY;
+    }
+    
+    // Cache emission log probabilities for better performance
+    std::vector<double> logEmissionProbs(numStates);
 
     // Step 1: Initialization
-    // delta( 0, i ) = ln( pi( i ) ) + ln( b( i, O_1 ) )
-    // psi( 0, i ) = 0
+    // delta(0, i) = ln(pi(i)) + ln(b_i(O_0))
+    // psi(0, i) = 0
     for (std::size_t i = 0; i < numStates; ++i) {
-        const double piProb = hmm_->getPi()(i);
-        
-        // Use optimized getLogProbability for better performance and numerical stability
-        const double logEmis = hmm_->getProbabilityDistribution(static_cast<int>(i))->getLogProbability(observations_(0));
-        
-        // Handle zero probabilities to avoid log(0)
-        const double logPi = (piProb > 0.0) ? std::log(piProb) : std::log(ZERO);
-        
-        delta_(0, i) = logPi + logEmis;
+        logEmissionProbs[i] = hmm.getProbabilityDistribution(static_cast<int>(i))->getLogProbability(observations_(0));
+        delta_(0, i) = logPi[i] + logEmissionProbs[i];
         psi_(0, i) = 0;
     }
 
@@ -39,17 +68,19 @@ StateSequence ViterbiCalculator::decode() {
     //     psi( t, j ) = arg max(delta(t-1,i) + ln(a(i,j)),i=1..N)
     //
     for (std::size_t t = 1; t < obsSize; ++t) {
-        const Observation o = observations_(t);
+        // Cache emission probabilities for current observation
+        for (std::size_t j = 0; j < numStates; ++j) {
+            logEmissionProbs[j] = hmm.getProbabilityDistribution(static_cast<int>(j))->getLogProbability(observations_(t));
+        }
         
         for (std::size_t j = 0; j < numStates; ++j) {
-            // Find the maximum log probability
-            double maxValue = -DBL_MAX;
-            std::size_t maxIndex = 0;
+        // Find the maximum log probability using cached values
+        // Use constant instead of DBL_MAX for consistency
+        double maxValue = constants::probability::MIN_LOG_PROBABILITY;
+        std::size_t maxIndex = 0;
             
             for (std::size_t i = 0; i < numStates; ++i) {
-                const double transProb = a(i, j);
-                const double logTrans = (transProb > 0.0) ? std::log(transProb) : std::log(ZERO);
-                const double temp = delta_(t - 1, i) + logTrans;
+                const double temp = delta_(t - 1, i) + logTrans[i][j];
                 
                 if (maxValue < temp) {
                     maxValue = temp;
@@ -60,10 +91,8 @@ StateSequence ViterbiCalculator::decode() {
             // Store the best previous state
             psi_(t, j) = static_cast<int>(maxIndex);
             
-            // Use optimized getLogProbability for better performance and numerical stability
-            const double logEmis = hmm_->getProbabilityDistribution(static_cast<int>(j))->getLogProbability(o);
-            
-            delta_(t, j) = maxValue + logEmis;
+            // Use cached emission log probability
+            delta_(t, j) = maxValue + logEmissionProbs[j];
         }
     }
 
@@ -71,7 +100,7 @@ StateSequence ViterbiCalculator::decode() {
     //  P* = max( delta( T, i ), i=1..N )
     //  q* = arg max( delta( T, i ), i = 1..N )
     //  q is the last state
-    logProbability_ = -DBL_MAX;
+    logProbability_ = constants::probability::MIN_LOG_PROBABILITY;
     const auto lastIndex = obsSize - 1;
     
     for (std::size_t i = 0; i < numStates; ++i) {
@@ -90,4 +119,4 @@ StateSequence ViterbiCalculator::decode() {
     return sequence_;
 }
 
-}// namespace
+} // namespace libhmm
