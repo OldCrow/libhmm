@@ -13,7 +13,7 @@ double ChiSquaredDistribution::getProbability(Observation value) {
         updateCache();
     }
     
-    double x = static_cast<double>(value);
+    auto x = static_cast<double>(value);
     
     // Handle invalid inputs
     if (!std::isfinite(x)) {
@@ -47,7 +47,7 @@ double ChiSquaredDistribution::getLogProbability(Observation value) const noexce
         updateCache();
     }
     
-    double x = static_cast<double>(value);
+    auto x = static_cast<double>(value);
     
     // Handle invalid inputs
     if (!std::isfinite(x)) {
@@ -102,7 +102,7 @@ void ChiSquaredDistribution::fit(const std::vector<Observation>& values) {
     
     // Check for invalid values and ensure non-negative
     for (Observation obs : values) {
-        double val = static_cast<double>(obs);
+        auto val = static_cast<double>(obs);
         if (!std::isfinite(val) || val < math::ZERO_DOUBLE) {
             throw std::invalid_argument("Chi-squared distribution requires non-negative finite values");
         }
@@ -115,7 +115,7 @@ void ChiSquaredDistribution::fit(const std::vector<Observation>& values) {
     size_t n = values.size();
     
     // Convert to double and calculate sample mean
-    std::vector<double> double_values;
+    std::vector<double> double_values{};
     double_values.reserve(n);
     for (Observation obs : values) {
         double_values.push_back(static_cast<double>(obs));
@@ -139,7 +139,7 @@ void ChiSquaredDistribution::reset() noexcept {
 }
 
 std::string ChiSquaredDistribution::toString() const {
-    std::ostringstream oss;
+    std::ostringstream oss{};
     oss << "ChiSquared Distribution:\n";
     oss << "  k (degrees of freedom) = " << std::fixed << std::setprecision(6) << degrees_of_freedom_;
     return oss.str();
@@ -189,7 +189,7 @@ std::ostream& operator<<(std::ostream& os, const ChiSquaredDistribution& dist) {
 
 std::istream& operator>>(std::istream& is, ChiSquaredDistribution& dist) {
     std::string token;
-    double k;
+    double k = 0.0;
     
     try {
         // Expected format: "ChiSquared Distribution: k = <value>"

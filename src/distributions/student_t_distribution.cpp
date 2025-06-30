@@ -65,7 +65,7 @@ double StudentTDistribution::getProbability(Observation value) {
         updateCache();
     }
     
-    double x = static_cast<double>(value);
+    auto x = static_cast<double>(value);
     
     // Handle invalid inputs
     if (!std::isfinite(x)) {
@@ -132,10 +132,9 @@ double StudentTDistribution::getCumulativeProbability(double value) const noexce
     // If X ~ t_ν, then X² / (ν + X²) ~ Beta(1/2, ν/2)
     
     const double t_squared = t * t;
-    const double beta_x = t_squared / (degrees_of_freedom_ + t_squared);
     
     // Use incomplete beta function I_x(a,b) where x = t²/(ν + t²), a = 1/2, b = ν/2
-    double incomplete_beta_val;
+    double incomplete_beta_val = 0.0;
     try {
         // Note: This is a simplified approximation. For production code,
         // you would use a proper incomplete beta function implementation
@@ -170,7 +169,7 @@ void StudentTDistribution::fit(const std::vector<Observation>& values) {
     
     // Check for invalid values
     for (Observation obs : values) {
-        double val = static_cast<double>(obs);
+        auto val = static_cast<double>(obs);
         if (!std::isfinite(val)) {
             throw std::invalid_argument("Observations contain non-finite values");
         }
@@ -194,7 +193,7 @@ void StudentTDistribution::fit(const std::vector<Observation>& values) {
     double count = 0.0;
     
     for (Observation obs : values) {
-        double val = static_cast<double>(obs);
+        auto val = static_cast<double>(obs);
         count += 1.0;
         double delta = val - mean;
         mean += delta / count;
@@ -378,7 +377,7 @@ std::istream& operator>>(std::istream& is, StudentTDistribution& dist) {
         } else {
             // Default case - just parse the first number if any
             std::istringstream number_stream(line);
-            double value;
+            double value = 0.0;
             if (number_stream >> value) {
                 dist = StudentTDistribution(value);
             } else {

@@ -8,26 +8,11 @@
 #include <numeric>
 #include <cmath>
 
-// Check for C++17 parallel execution support
-#ifdef __cpp_lib_execution
-#include <execution>
-#define LIBHMM_HAS_PARALLEL_EXECUTION 1
-#else
-#define LIBHMM_HAS_PARALLEL_EXECUTION 0
-#endif
-
-// Platform and system headers for SIMD
-// Only include x86 intrinsics on x86/x64 platforms to avoid Apple Silicon issues
-#ifdef _MSC_VER
-    #include <intrin.h>
-#elif (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86))
-    #include <immintrin.h>
-    #include <x86intrin.h>
-#elif defined(__ARM_NEON) || defined(__aarch64__)
-    #include <arm_neon.h>
-#endif
-
+// Use robust performance infrastructure (includes parallel execution detection)
+#include "libhmm/performance/simd_support.h"
+#include "libhmm/performance/parallel_constants.h"
 #include "common.h"
+#include "basic_vector.h"  // Forward declaration for conversion constructor
 
 namespace libhmm {
 
@@ -47,10 +32,10 @@ class OptimizedVector {
 private:
     std::vector<T> data_;
     
-    /// SIMD optimization parameters
+    /// SIMD optimization parameters using robust performance infrastructure
     static constexpr std::size_t SIMD_BLOCK_SIZE = constants::simd::DEFAULT_BLOCK_SIZE;
-    static constexpr std::size_t PARALLEL_THRESHOLD = 1000; // Use parallel ops for vectors > 1000 elements
-    static constexpr std::size_t SIMD_ALIGNMENT = constants::simd::SIMD_ALIGNMENT;
+    static constexpr std::size_t PARALLEL_THRESHOLD = performance::parallel::MIN_WORK_PER_THREAD; // Use parallel ops for large vectors
+    static constexpr std::size_t SIMD_ALIGNMENT = performance::simd::optimal_alignment();
 
 public:
     // Type aliases for compatibility
@@ -72,6 +57,12 @@ public:
     OptimizedVector(std::vector<T>&& vec) noexcept : data_(std::move(vec)) {}
     
     OptimizedVector(std::initializer_list<T> init) : data_(init) {}
+    
+    // Conversion constructor from BasicVector (enables dynamic upgrading)
+    explicit OptimizedVector(const BasicVector<T>& basic_vec) 
+        : data_(basic_vec.get_data()) {
+        // Copy data from BasicVector to enable seamless transition to optimized operations
+    }
     
     // Default copy/move operations
     OptimizedVector(const OptimizedVector&) = default;
@@ -131,11 +122,8 @@ public:
             throw std::invalid_argument("Vector dimensions must match for addition");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            add_simd(other);
-        } else {
-            add_serial(other);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        add_serial(other);
         return *this;
     }
 
@@ -144,20 +132,14 @@ public:
             throw std::invalid_argument("Vector dimensions must match for subtraction");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            subtract_simd(other);
-        } else {
-            subtract_serial(other);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        subtract_serial(other);
         return *this;
     }
 
     OptimizedVector& operator*=(const T& scalar) {
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            scale_simd(scalar);
-        } else {
-            scale_serial(scalar);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        scale_serial(scalar);
         return *this;
     }
 
@@ -180,8 +162,6 @@ public:
     T sum() const {
         if (data_.size() > PARALLEL_THRESHOLD) {
             return sum_parallel();
-        } else if (data_.size() > SIMD_BLOCK_SIZE) {
-            return sum_simd();
         } else {
             return sum_serial();
         }
@@ -189,11 +169,8 @@ public:
 
     /// Product of all elements
     T product() const {
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            return product_simd();
-        } else {
-            return product_serial();
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        return product_serial();
     }
 
     /// Dot product with another vector (SIMD-optimized)
@@ -202,20 +179,14 @@ public:
             throw std::invalid_argument("Vector dimensions must match for dot product");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            return dot_simd(other);
-        } else {
-            return dot_serial(other);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        return dot_serial(other);
     }
 
     /// L2 norm (Euclidean norm) - SIMD optimized
     T norm() const {
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            return norm_simd();
-        } else {
-            return norm_serial();
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        return norm_serial();
     }
 
     /// Normalize vector to unit length
@@ -233,11 +204,8 @@ public:
             throw std::invalid_argument("Vector dimensions must match for element-wise multiplication");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            hadamard_simd(other);
-        } else {
-            hadamard_serial(other);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        hadamard_serial(other);
         return *this;
     }
     
@@ -252,11 +220,8 @@ public:
             throw std::invalid_argument("Vector dimensions must match for element-wise division");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            element_divide_simd(other);
-        } else {
-            element_divide_serial(other);
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        element_divide_serial(other);
         return *this;
     }
 
@@ -266,11 +231,8 @@ public:
             throw std::runtime_error("Cannot find maximum of empty vector");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            return max_element_simd();
-        } else {
-            return max_element_serial();
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        return max_element_serial();
     }
 
     /// Find minimum element and its index
@@ -279,11 +241,8 @@ public:
             throw std::runtime_error("Cannot find minimum of empty vector");
         }
         
-        if (data_.size() > SIMD_BLOCK_SIZE) {
-            return min_element_simd();
-        } else {
-            return min_element_serial();
-        }
+        // Temporarily use only serial implementation until SIMD infrastructure is complete
+        return min_element_serial();
     }
 
     /// Fill with value (parallel for large vectors)

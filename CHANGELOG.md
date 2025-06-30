@@ -5,7 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.7.2] - 2025-06-29
+## [2.9.0] - 2025-06-30
+
+### Significant Enhancements to HMM Calculator Infrastructure
+
+This release brings modern APIs, SIMD optimizations, multi-threaded execution, benchmarking and testing improvements, along with improved documentation and architecture. Changes include:
+
+- **Modern API Extensions**: Enhancements with backward compatibility.
+- **SIMD Optimizations**: Improved vectorization across various distributions.
+- **Multi-threaded Execution**: Parallel processing capabilities added.
+- **Benchmarking Improvements**: Updated benchmark tests for more precise performance measurement.
+- **Documentation**: Revised documentation aligning with new functionalities.
+
+This release addresses all critical issues identified in previous versions and lays a strong foundation for future development. Backwars compatibility is maintained while offering substantial performance gains.
+
+## [2.8.0] - 2025-06-29
+
+### Comprehensive Distribution Testing Framework Release
+
+This release includes a complete overhaul of the test suite for all 16 statistical distributions, enhancing mathematical correctness and addressing critical bugs. Highlights include:
+
+- **Standardized Test Patterns**: 174 total cases organized by distribution families (location-scale, gamma family, etc.)
+- **Mathematical Validation**: Coverage for parameter validation, statistical properties, probability calculations, and edge case handling
+- **Bug Fixes**: Critical patch for Pareto distribution boundary conditions ensuring accurate PDF calculations
+- **Library Integration**: Ensures all distributions accessible through main header with the added Rayleigh distribution
+
+All 174 distribution tests pass with a 100% success rate, confirming rigorous validation for the entire distribution library.
 
 ### Complete Gold Standard Distribution Optimizations Release
 

@@ -4,7 +4,8 @@
 #include <numeric>     // For std::accumulate (not in common.h)
 #include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
 
-#include <immintrin.h>  // SSE/AVX
+// SIMD support now provided via simd_platform.h if needed
+// #include "libhmm/performance/simd_platform.h"  // Uncomment if using SIMD operations
 
 using namespace libhmm::constants;
 

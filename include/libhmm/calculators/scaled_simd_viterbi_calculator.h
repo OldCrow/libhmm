@@ -4,6 +4,7 @@
 #include "libhmm/hmm.h"
 #include "libhmm/calculators/calculator.h"
 #include "libhmm/performance/simd_support.h"
+#include "libhmm/performance/thread_pool.h"
 #include <cfloat>
 #include <cmath>
 #include <vector>

@@ -5,31 +5,16 @@
 #include <memory>
 #include <type_traits>
 
-// Platform-specific SIMD includes
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
-    #include <immintrin.h>
-    #define LIBHMM_HAS_SSE2
-    #if defined(__SSE4_1__)
-        #define LIBHMM_HAS_SSE4_1
-    #endif
-    #if defined(__AVX__)
-        #define LIBHMM_HAS_AVX
-    #endif
-    #if defined(__AVX2__)
-        #define LIBHMM_HAS_AVX2
-    #endif
-#elif defined(__ARM_NEON) || defined(__aarch64__)
-    #include <arm_neon.h>
-    #define LIBHMM_HAS_NEON
-#endif
+// Import all SIMD platform detection and intrinsics
+#include "libhmm/performance/simd_platform.h"
 
 namespace libhmm {
 namespace performance {
 
-/// SIMD vector sizes
-constexpr std::size_t SIMD_ALIGNMENT = 32; // AVX alignment
-constexpr std::size_t DOUBLE_SIMD_WIDTH = 4; // AVX can handle 4 doubles
-constexpr std::size_t FLOAT_SIMD_WIDTH = 8;  // AVX can handle 8 floats
+// Import platform-adaptive SIMD constants from simd_platform.h
+using simd::SIMD_ALIGNMENT;
+using simd::DOUBLE_SIMD_WIDTH;
+using simd::FLOAT_SIMD_WIDTH;
 
 /// Check if SIMD is available at compile time
 constexpr bool simd_available() noexcept {

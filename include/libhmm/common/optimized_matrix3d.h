@@ -7,13 +7,11 @@
 #include <memory>
 #include <numeric>
 
-// Check for C++17 parallel execution support
-#ifdef __cpp_lib_execution
-#include <execution>
-#define LIBHMM_HAS_PARALLEL_EXECUTION 1
-#else
-#define LIBHMM_HAS_PARALLEL_EXECUTION 0
-#endif
+// Use robust performance infrastructure (includes parallel execution detection)
+#include "libhmm/performance/simd_support.h"
+#include "libhmm/performance/parallel_constants.h"
+#include "common.h"
+#include "basic_matrix3d.h"  // Forward declaration for conversion constructor
 
 namespace libhmm {
 
@@ -58,6 +56,26 @@ public:
         }
         
         data_.assign(total_size, init_value);
+    }
+    
+    /// Conversion constructor from BasicMatrix3D (enables dynamic upgrading)
+    explicit OptimizedMatrix3D(const BasicMatrix3D<T>& basic_matrix3d)
+        : x_{basic_matrix3d.getXDimensionSize()}, 
+          y_{basic_matrix3d.getYDimensionSize()}, 
+          z_{basic_matrix3d.getZDimensionSize()},
+          yz_stride_{y_ * z_} {
+        
+        const std::size_t total_size = x_ * y_ * z_;
+        data_.resize(total_size);
+        
+        // Copy data from BasicMatrix3D to enable seamless transition to optimized operations
+        for (std::size_t i = 0; i < x_; ++i) {
+            for (std::size_t j = 0; j < y_; ++j) {
+                for (std::size_t k = 0; k < z_; ++k) {
+                    data_[flatten_index(i, j, k)] = basic_matrix3d(i, j, k);
+                }
+            }
+        }
     }
 
     /// Default destructor

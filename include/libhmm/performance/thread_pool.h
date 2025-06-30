@@ -126,9 +126,12 @@ public:
         if (range == 0) return;
         
         const std::size_t numThreads = ThreadPool::getOptimalThreadCount();
-        const std::size_t actualGrainSize = std::max(grainSize, range / (numThreads * 4));
+        // Much more conservative grain size calculation to avoid overhead
+        const std::size_t minWorkPerThread = std::max(grainSize, std::size_t(50));
+        const std::size_t actualGrainSize = std::max(minWorkPerThread, range / numThreads);
         
-        if (range <= actualGrainSize) {
+        // Only use parallel if we have significant work
+        if (range < minWorkPerThread * numThreads || range <= actualGrainSize) {
             // Execute sequentially for small ranges
             for (std::size_t i = start; i < end; ++i) {
                 task(i);

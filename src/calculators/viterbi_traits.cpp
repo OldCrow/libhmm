@@ -2,9 +2,11 @@
 #include "libhmm/calculators/viterbi_calculator.h"
 #include "libhmm/calculators/log_simd_viterbi_calculator.h"
 #include "libhmm/calculators/scaled_simd_viterbi_calculator.h"
+#include "libhmm/calculators/advanced_log_simd_viterbi_calculator.h"
 #include "libhmm/performance/thread_pool.h"
 #include "libhmm/performance/simd_support.h"
 #include "libhmm/hmm.h"
+#include "libhmm/calculators/calculator_traits_utils.h"
 #include <algorithm>
 #include <sstream>
 #include <chrono>
@@ -82,6 +84,20 @@ CalculatorTraits CalculatorSelector::getTraits(CalculatorType type) noexcept {
                 true    // numericallyStable (log-space arithmetic)
             };
             
+        case CalculatorType::ADVANCED_LOG_SIMD:
+            // Temporarily disabled - return scaled SIMD traits for compatibility
+            return {
+                "Scaled-SIMD",
+                true,   // supportsParallel
+                true,   // usesSIMD
+                true,   // usesBlocking
+                sizeof(double) * 1200, // memoryOverhead (aligned storage + scaling factors)
+                4,      // minStatesForBenefit (SIMD benefits 4+ elements)
+                50,     // minObsForBenefit (scaling benefits + SIMD setup)
+                2.5,    // scalingFactor (excellent SIMD benefits for scaled arithmetic)
+                true    // numericallyStable (scaled arithmetic)
+            };
+            
         case CalculatorType::AUTO:
         default:
             return {"Auto", false, false, false, 0, 1, 1, 1.0, false};
@@ -140,7 +156,8 @@ CalculatorType CalculatorSelector::selectOptimal(const ProblemCharacteristics& c
     const std::vector<CalculatorType> candidates = {
         CalculatorType::STANDARD,
         CalculatorType::SCALED_SIMD,
-        CalculatorType::LOG_SIMD
+        CalculatorType::LOG_SIMD,
+        CalculatorType::ADVANCED_LOG_SIMD
     };
     
     for (CalculatorType type : candidates) {
@@ -166,6 +183,9 @@ std::unique_ptr<Calculator> CalculatorSelector::create(
             
         case CalculatorType::SCALED_SIMD:
             return std::make_unique<ScaledSIMDViterbiCalculator>(hmm, observations);
+
+        case CalculatorType::ADVANCED_LOG_SIMD:
+            return std::make_unique<AdvancedLogSIMDViterbiCalculator>(*hmm, observations);
             
         case CalculatorType::AUTO:
         {
@@ -226,50 +246,15 @@ std::string CalculatorSelector::getPerformanceComparison(const ProblemCharacteri
 //========== Private Helper Methods ==========
 
 double CalculatorSelector::calculateSIMDBenefit(std::size_t numStates, std::size_t seqLength) noexcept {
-    if (!performance::simd_available()) {
-        return 0.8; // Slight penalty for overhead without SIMD
-    }
-    
-    // SIMD benefits scale with problem size
-    const std::size_t problemSize = numStates * seqLength;
-    
-    if (problemSize < 100) {
-        return 0.9; // Small problems have overhead
-    } else if (problemSize < 1000) {
-        return 1.2; // Modest benefit
-    } else if (problemSize < 10000) {
-        return 2.0; // Good benefit
-    } else {
-        return 2.5; // Excellent benefit for large problems
-    }
+    return libhmm::calculator_traits::calculateSIMDBenefit(numStates, seqLength);
 }
 
 double CalculatorSelector::calculateMemoryImpact(std::size_t overhead, double budget) noexcept {
-    if (budget <= 0.0) {
-        return 1.0; // No budget constraint
-    }
-    
-    const double overheadRatio = static_cast<double>(overhead) / budget;
-    
-    if (overheadRatio > 0.5) {
-        return 0.3; // Heavy penalty for excessive memory use
-    } else if (overheadRatio > 0.2) {
-        return 0.7; // Moderate penalty
-    } else {
-        return 1.0; // No penalty for reasonable memory use
-    }
+    return libhmm::calculator_traits::calculateMemoryImpact(overhead, budget);
 }
 
 double CalculatorSelector::calculateStabilityNeed(std::size_t seqLength) noexcept {
-    if (seqLength < 100) {
-        return 0.0; // No stability concerns
-    } else if (seqLength < 500) {
-        return 0.2; // Minor stability concerns
-    } else if (seqLength < 1000) {
-        return 0.5; // Moderate stability concerns
-    } else {
-        return 1.0; // High stability concerns
-    }
+    return libhmm::calculator_traits::calculateStabilityNeed(seqLength);
 }
 
 //========== AutoCalculator Implementation ==========
