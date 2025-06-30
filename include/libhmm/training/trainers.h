@@ -26,6 +26,9 @@
 // Base trainer interface
 #include "libhmm/training/hmm_trainer.h"
 
+// Training type traits and metaprogramming utilities
+#include "libhmm/training/trainer_traits.h"
+
 // Baum-Welch based trainers
 #include "libhmm/training/baum_welch_trainer.h"
 #include "libhmm/training/scaled_baum_welch_trainer.h"

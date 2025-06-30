@@ -1,88 +1,127 @@
+/**
+ * @file forward_backward_calculator.cpp
+ * @brief Implementation of the standard Forward-Backward algorithm
+ * 
+ * This file implements the ForwardBackwardCalculator class, providing the
+ * classic Forward-Backward algorithm for HMM probability computation.
+ * The implementation focuses on clarity and correctness while leveraging
+ * modern C++17 features and performance optimizations.
+ */
+
 #include "libhmm/calculators/forward_backward_calculator.h"
-#include <iostream>
-#include <vector>
-#include <cmath>
+
+// Standard library dependencies (organized)
+#include <algorithm>      // For std::max
+#include <cmath>          // For std::log, std::exp, std::isnan
+#include <iostream>       // For error output
+#include <limits>         // For std::numeric_limits
+#include <stdexcept>      // For std::runtime_error
+#include <vector>         // For std::vector
 
 namespace libhmm
 {
 
 void ForwardBackwardCalculator::forward()
 {
-    Matrix alpha(observations_.size(), hmm_->getNumStates());
-    const Matrix trans = hmm_->getTrans();
-    const Vector pi = hmm_->getPi();
-    
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
+    const Hmm& hmm = getHmmRef();  // Modern type-safe access
+    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
     const auto obsSize = observations_.size();
-
-    // The forward algorithm
-    // Initialization step:
-    //   alpha( 0, i ) = pi( i ) * b_i( O_1 )
-    // or: initial probability of state i times probability that state i 
-    // emitted observation 1
+    
+    // Resize matrices once to avoid reallocation
+    forwardVariables_.resize(obsSize, numStates);
+    
+    // Cache const references to avoid repeated function calls
+    const Matrix& trans = hmm.getTrans();
+    const Vector& pi = hmm.getPi();
+    
+    // Cache emission probabilities for better performance
+    std::vector<double> emissionProbs(numStates);
+    
+    // Initialization step: alpha(0, i) = pi(i) * b_i(O_0)
     for (std::size_t i = 0; i < numStates; ++i) {
-        alpha(0, i) = pi(i) * hmm_->getProbabilityDistribution(static_cast<int>(i))->getProbability(observations_(0));
-        if (alpha(0, i) < ZERO || std::isnan(alpha(0, i))) {
-            alpha(0, i) = ZERO;
+        emissionProbs[i] = hmm.getProbabilityDistribution(static_cast<int>(i))->getProbability(observations_(0));
+        forwardVariables_(0, i) = pi(i) * emissionProbs[i];
+        
+        // Clamp to avoid numerical issues using consolidated constants
+        if (forwardVariables_(0, i) < constants::precision::ZERO || std::isnan(forwardVariables_(0, i))) {
+            forwardVariables_(0, i) = constants::precision::ZERO;
         }
     }
     
-    // Move forward through the list of observations, skipping the first one 
-    // since we already took care of it.
+    // Forward recursion with optimized memory access patterns
     for (std::size_t t = 1; t < obsSize; ++t) {
+        // Cache emission probabilities for current observation
         for (std::size_t j = 0; j < numStates; ++j) {
-            alpha(t, j) = hmm_->getProbabilityDistribution(static_cast<int>(j))->getProbability(observations_(t)) * 
-                         inner_prod(row(alpha, t - 1), column(trans, j));
-            if (alpha(t, j) < ZERO || std::isnan(alpha(t, j))) {
-                alpha(t, j) = ZERO;
+            emissionProbs[j] = hmm.getProbabilityDistribution(static_cast<int>(j))->getProbability(observations_(t));
+        }
+        
+        // Compute forward variables with better cache locality
+        for (std::size_t j = 0; j < numStates; ++j) {
+            double sum = 0.0;
+            
+            // Manual inner product for better performance
+            for (std::size_t i = 0; i < numStates; ++i) {
+                sum += forwardVariables_(t - 1, i) * trans(i, j);
+            }
+            
+            forwardVariables_(t, j) = emissionProbs[j] * sum;
+            
+            // Clamp to avoid numerical issues using consolidated constants
+            if (forwardVariables_(t, j) < constants::precision::ZERO || std::isnan(forwardVariables_(t, j))) {
+                forwardVariables_(t, j) = constants::precision::ZERO;
             }
         }
     }
-    
-    //std::cout << "    alpha: " << alpha << std::endl;
-
-    forwardVariables_ = alpha;
 }
 
 // Implements the Backward algorithm
 //  This is NOT scaled!!
 void ForwardBackwardCalculator::backward() {
-    Matrix beta(observations_.size(), hmm_->getNumStates());
-    const Matrix trans = hmm_->getTrans();
-    
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
+    const Hmm& hmm = getHmmRef();  // Modern type-safe access
+    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
     const auto obsSize = observations_.size();
+    
+    // Resize matrices once to avoid reallocation
+    backwardVariables_.resize(obsSize, numStates);
+    
+    // Cache const reference to avoid repeated function calls
+    const Matrix& trans = hmm.getTrans();
+    
+    // Cache emission probabilities for better performance
+    std::vector<double> emissionProbs(numStates);
 
-    // Zero the beta matrix
-    clear_matrix(beta);
-
-    // Rabiner defines beta_T( i ) to be 1, but does so arbitrarily and admits
-    // it freely.
+    // Initialize: beta_T(i) = 1 for all i (Rabiner's convention)
     for (std::size_t i = 0; i < numStates; ++i) {
-        beta(obsSize - 1, i) = 1.0;
+        backwardVariables_(obsSize - 1, i) = constants::math::ONE;
     }
 
-    // Walk backward through the observation sequence
-    // beta_t(i) = sum( a[i][j]*b_j( O_(t+1) )*beta_(t+1)(j), j=1..N )
-    for (std::size_t t = obsSize - 1; t > 0; --t) { // Use size_t and avoid underflow
+    // Backward recursion: beta_t(i) = sum(a[i][j] * b_j(O_{t+1}) * beta_{t+1}(j))
+    for (std::size_t t = obsSize - 1; t > 0; --t) {
         const std::size_t currentT = t - 1;
+        
+        // Cache emission probabilities for current observation
+        for (std::size_t j = 0; j < numStates; ++j) {
+            emissionProbs[j] = hmm.getProbabilityDistribution(static_cast<int>(j))->getProbability(observations_(t));
+        }
+        
+        // Compute backward variables with better cache locality
         for (std::size_t i = 0; i < numStates; ++i) {
-            // We need to sum over all states j to get a value for state i
+            double sum = 0.0;
+            
+            // Manual summation for better performance
             for (std::size_t j = 0; j < numStates; ++j) {
-                beta(currentT, i) += trans(i, j) * 
-                    hmm_->getProbabilityDistribution(static_cast<int>(j))->getProbability(observations_(t)) * 
-                    beta(t, j);
+                sum += trans(i, j) * emissionProbs[j] * backwardVariables_(t, j);
             }
+            
+            backwardVariables_(currentT, i) = sum;
         }
     }
-
-    //std::cout << "    beta: " << beta << std::endl;
-    backwardVariables_ = beta;
 }
 
 double ForwardBackwardCalculator::probability() {
+    const Hmm& hmm = getHmmRef();  // Modern type-safe access
     double p = 0.0;
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
+    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
     const auto lastObsIndex = observations_.size() - 1;
 
     // Probability of the entire sequence is given by the sum of the elements 
@@ -91,16 +130,56 @@ double ForwardBackwardCalculator::probability() {
         p += forwardVariables_(lastObsIndex, i);
     }
     
-    if (p > 1.0) {
+    if (p > constants::math::ONE) {
         std::cerr << "ForwardBackwardCalculator: Numeric Underflow occurred!" << std::endl;
         std::cerr << "Probability: " << p << std::endl;
         std::cerr << "Observations: " << observations_ << std::endl;
-        std::cerr << "HMM: " << *hmm_ << std::endl;
+        std::cerr << "HMM: " << hmm << std::endl;
         std::cerr << "Forward variables:" << forwardVariables_ << std::endl;
     }
 
-    assert(p <= 1.0);
+    assert(p <= constants::math::ONE);
     return p;    
 }
 
-}// namespace
+double ForwardBackwardCalculator::getLogProbability() const {
+    if (!isComputed()) {
+        throw std::runtime_error("Forward-backward computation not performed");
+    }
+    
+    const auto numStates = forwardVariables_.size2();
+    const auto lastObsIndex = observations_.size() - 1;
+    
+    // Use log-sum-exp for numerical stability
+    double logSum = -std::numeric_limits<double>::infinity();
+    
+    for (std::size_t i = 0; i < numStates; ++i) {
+        const double forwardVal = forwardVariables_(lastObsIndex, i);
+        if (forwardVal > 0.0) {
+            const double logVal = std::log(forwardVal);
+            
+            if (std::isinf(logSum)) {
+                logSum = logVal;
+            } else {
+                // Optimized numerically stable log-sum-exp using precomputed constants
+                const double maxVal = std::max(logSum, logVal);
+                const double diff1 = logSum - maxVal;
+                const double diff2 = logVal - maxVal;
+                
+                // Avoid expensive exp() operations when differences are too small
+                if (diff1 < constants::probability::MIN_LOG_PROBABILITY) {
+                    logSum = maxVal + diff2;  // logSum contribution negligible
+                } else if (diff2 < constants::probability::MIN_LOG_PROBABILITY) {
+                    logSum = maxVal + diff1;  // logVal contribution negligible  
+                } else {
+                    // Standard log-sum-exp when both terms are significant
+                    logSum = maxVal + std::log(std::exp(diff1) + std::exp(diff2));
+                }
+            }
+        }
+    }
+    
+    return logSum;
+}
+
+} // namespace libhmm

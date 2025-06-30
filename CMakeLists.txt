@@ -58,7 +58,7 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-    VERSION 2.7.2
+VERSION 2.9.0
     DESCRIPTION "Modern C++17 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -135,7 +135,9 @@ set(LIBHMM_SOURCES
     src/common/common.cpp
     src/common/string_tokenizer.cpp
     src/common/numerical_stability.cpp
-    src/common/trainer_traits.cpp
+    src/common/optimized_vector_simd.cpp
+    src/common/optimized_matrix_simd.cpp
+    src/training/trainer_traits.cpp
     src/distributions/probability_distribution.cpp
     src/distributions/discrete_distribution.cpp
     src/distributions/gaussian_distribution.cpp

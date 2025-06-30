@@ -173,7 +173,7 @@ public:
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
-    [[nodiscard]] double getProbability(double value) override;
+    [[nodiscard]] double getProbability(double x) override;
     
     /**
      * Evaluates the logarithm of the probability density function
@@ -183,7 +183,7 @@ public:
      * @param x The value at which to evaluate the log PDF
      * @return Log probability density
      */
-    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    [[nodiscard]] double getLogProbability(double x) const noexcept override;
 
     /**
      * Evaluates the CDF at x using the incomplete gamma function

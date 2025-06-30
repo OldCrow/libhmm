@@ -25,17 +25,10 @@
 #include <climits>
 #include <cstddef>
 #include <limits>
+#include <cassert>
 
-// Platform and system headers - SIMD support
-// Only include x86 intrinsics on x86/x64 platforms to avoid Apple Silicon issues
-#ifdef _MSC_VER
-    #include <intrin.h>
-#elif (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86))
-    #include <immintrin.h>
-    #include <x86intrin.h>
-#elif defined(__ARM_NEON) || defined(__aarch64__)
-    #include <arm_neon.h>
-#endif
+// Platform-specific headers moved to libhmm/performance/simd_platform.h
+// Include that header if you need SIMD intrinsics
 
 namespace libhmm
 {
@@ -214,6 +207,18 @@ namespace constants {
         /// Used in information-theoretic calculations
         inline constexpr double LN2 = 0.6931471805599453094172321214581766;
         
+        /// Natural logarithm of 10
+        /// Used for log base conversions
+        inline constexpr double LN_10 = 2.302585092994046;
+        
+        /// Natural logarithm of 0.5 (ln(1/2))
+        /// Precomputed for performance in probability calculations
+        inline constexpr double LN_HALF = -0.6931471805599453;
+        
+        /// log₁₀(e) - logarithm base 10 of e
+        /// Used for converting natural log to log base 10
+        inline constexpr double LOG10_E = 0.4342944819032518;
+        
         /// Euler's number (e)
         /// Used in exponential calculations
         inline constexpr double E = 2.7182818284590452353602874713526625;
@@ -229,6 +234,11 @@ namespace constants {
         /// Square root of 2 (used in Gaussian CDF calculations)
         /// Precomputed for efficiency in error function calculations
         inline constexpr double SQRT_2 = 1.4142135623730950488016887242096981;
+        
+        /// Additional precomputed square roots for performance
+        inline constexpr double SQRT_3 = 1.7320508075688772;    // √3
+        inline constexpr double SQRT_5 = 2.2360679774997897;    // √5
+        inline constexpr double SQRT_10 = 3.1622776601683795;   // √10
         
         /// Half of ln(2π) (used in log-space Gaussian calculations)
         /// Precomputed for efficiency: 0.5 * ln(2π)
@@ -247,6 +257,13 @@ namespace constants {
         inline constexpr double QUARTER = 0.25;
         inline constexpr double THREE_QUARTERS = 0.75;
         
+        /// Precomputed reciprocals to avoid division operations
+        inline constexpr double ONE_THIRD = 1.0/3.0;    // 1/3
+        inline constexpr double ONE_FIFTH = 0.2;        // 1/5
+        inline constexpr double ONE_SIXTH = 1.0/6.0;    // 1/6
+        inline constexpr double ONE_TENTH = 0.1;        // 1/10
+        inline constexpr double ONE_TWELFTH = 1.0/12.0; // 1/12
+        
         /// Commonly used integer constants as doubles
         inline constexpr double ZERO_DOUBLE = 0.0;
         inline constexpr double ONE = 1.0;
@@ -257,6 +274,43 @@ namespace constants {
         inline constexpr double TEN = 10.0;
         inline constexpr double HUNDRED = 100.0;
         inline constexpr double THOUSAND = 1000.0;
+        
+        /// Additional mathematical constants for distributions
+        
+        /// Square root of π/2 (used in Rayleigh distribution mean)
+        /// Mean of Rayleigh = σ * √(π/2)
+        inline constexpr double SQRT_PI_OVER_TWO = 1.2533141373155003;
+        
+        /// (4-π)/2 (used in Rayleigh distribution variance)
+        /// Variance of Rayleigh = σ² * (4-π)/2
+        inline constexpr double FOUR_MINUS_PI_OVER_TWO = 0.4292036732051033;
+        
+        /// Square root of 2*ln(2) (used in Rayleigh distribution median)
+        /// Median of Rayleigh = σ * √(2*ln(2))
+        inline constexpr double SQRT_TWO_LN_TWO = 1.1774100225154747;
+        
+        /// Derived mathematical expressions for HMM algorithm optimizations
+        /// These precomputed values eliminate expensive runtime calculations
+        
+        /// 1/√(2π) - Reciprocal of square root of 2π
+        /// Used in Gaussian probability density function normalization
+        inline constexpr double INV_SQRT_2PI = 1.0 / SQRT_2PI;
+        
+        /// 2π - Two times π
+        /// Used in various distribution calculations
+        inline constexpr double TWO_PI = 2.0 * PI;
+        
+        /// π/2 - Half of π
+        /// Used in trigonometric and distribution calculations
+        inline constexpr double PI_OVER_2 = PI / 2.0;
+        
+        /// π/4 - Quarter of π
+        /// Used in advanced statistical calculations
+        inline constexpr double PI_OVER_4 = PI / 4.0;
+        
+        /// -0.5 * ln(2π) - Negative half of ln(2π)
+        /// Used in log-space Gaussian calculations to avoid repeated computation
+        inline constexpr double NEG_HALF_LN_2PI = -0.5 * LN_2PI;
     }
     
     /// Algorithm-specific thresholds

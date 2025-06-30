@@ -79,7 +79,7 @@ void RayleighDistribution::fit(const std::vector<Observation>& values) {
     }
 
     double sumSq = constants::math::ZERO_DOUBLE;
-    double n = static_cast<double>(values.size());
+    auto n = static_cast<double>(values.size());
 
     for (const auto& value : values) {
         if (value <= constants::math::ZERO_DOUBLE) {
@@ -102,7 +102,7 @@ void RayleighDistribution::reset() noexcept {
 }
 
 std::string RayleighDistribution::toString() const {
-    std::ostringstream oss;
+    std::ostringstream oss{};
     oss << std::fixed << std::setprecision(6);
     oss << "Rayleigh Distribution:\n";
     oss << "      σ (scale parameter) = " << sigma_ << "\n";

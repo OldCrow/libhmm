@@ -210,7 +210,7 @@ public:
      * @param value The discrete value (will be cast to integer index)
      * @return Probability mass for the given value, 0.0 if out of range
      */
-    double getProbability(double value) override;
+    double getProbability(double x) override;
 
     /**
      * Fits the distribution to observed data using maximum likelihood estimation.

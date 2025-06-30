@@ -106,9 +106,13 @@ benchmarks/JAHMM/
 benchmarks/Kaldi/
 benchmarks/LAMP_HMM/
 benchmarks/StochHMM/
+benchmarks/JAHMM/
 benchmarks/libhmm/
 benchmarks/build/
 benchmarks/Makefile
 benchmarks/CMakeCache.txt
 benchmarks/cmake_install.cmake
 benchmarks/CMakeFiles/
+
+# Apache Ant (build tool for JAHMM)
+apache-ant-*/

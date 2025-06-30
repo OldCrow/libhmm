@@ -9,7 +9,7 @@ namespace libhmm
 // Replaced by standard library lgamma function with improved efficiency
 
 double ProbabilityDistribution::gammap(double a, double x) noexcept {
-    double gamser, gammcf, gln;
+    double gamser = 0.0, gammcf = 0.0, gln = 0.0;
 
     if(x < math::ZERO_DOUBLE || a <= math::ZERO_DOUBLE) {
         std::cerr << "Invalid arguments in gammap" << std::endl;
@@ -28,7 +28,7 @@ double ProbabilityDistribution::gammap(double a, double x) noexcept {
 }
 
 void ProbabilityDistribution::gcf(double& gammcf, double a, double x, double& gln) noexcept {
-    double an, b, c, d, del, h;
+    double an = 0.0, b = 0.0, c = 0.0, d = 0.0, del = 0.0, h = 0.0;
 
     gln = std::lgamma(a);
     b = x + math::ONE - a;
@@ -55,7 +55,7 @@ void ProbabilityDistribution::gcf(double& gammcf, double a, double x, double& gl
 }
 
 void ProbabilityDistribution::gser(double& gamser, double a, double x, double& gln) noexcept {
-    double sum, del, ap;
+    double sum = 0.0, del = 0.0, ap = 0.0;
 
     gln = std::lgamma(a);
 
@@ -87,7 +87,7 @@ double ProbabilityDistribution::errorf(double x) noexcept {
 
 // This code is removed in favor of standard library's erf.
 double ProbabilityDistribution::errorf_inv(double y) noexcept {
-    double s, t, u, w, x, z;
+    double s = 0.0, t = 0.0, u = 0.0, w = 0.0, x = 0.0, z = 0.0;
 
     const double k = y; // store y before switching its sign
 

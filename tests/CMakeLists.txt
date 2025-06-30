@@ -58,6 +58,8 @@ if(GTest_FOUND OR TARGET gtest)
         common/test_common.cpp
         common/test_numerical_stability.cpp
         common/test_optimized_matrix3d.cpp
+        common/test_optimized_linear_operations.cpp
+        common/test_linear_operations_classes.cpp
         common/test_modern_constants.cpp
     )
     
@@ -73,6 +75,8 @@ if(GTest_FOUND OR TARGET gtest)
         calculators/test_viterbi_performance.cpp
         calculators/test_viterbi_selection.cpp
         calculators/test_viterbi_traits.cpp
+        calculators/test_modernized_apis.cpp
+        calculators/test_basic_calculator_performance.cpp
     )
     
     # Distribution tests (in distributions/ subdirectory)
@@ -94,6 +98,7 @@ if(GTest_FOUND OR TARGET gtest)
         distributions/test_student_t_distribution.cpp
         distributions/test_uniform_distribution.cpp
         distributions/test_weibull_distribution.cpp
+        distributions/test_rayleigh_distribution.cpp
         distributions/test_distribution_type_safety.cpp
     )
     
