@@ -102,7 +102,9 @@ GITHUB_SETUP.md
 benchmarks/GHMM/
 benchmarks/HMMlib/
 benchmarks/HTK/
+benchmarks/JAHMM/
 benchmarks/Kaldi/
+benchmarks/LAMP_HMM/
 benchmarks/StochHMM/
 benchmarks/libhmm/
 benchmarks/build/
