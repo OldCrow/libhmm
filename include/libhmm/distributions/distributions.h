@@ -26,6 +26,9 @@
 // Base distribution interface
 #include "libhmm/distributions/probability_distribution.h"
 
+// Distribution type traits and metaprogramming utilities
+#include "libhmm/distributions/distribution_traits.h"
+
 // Discrete distributions
 #include "libhmm/distributions/discrete_distribution.h"
 #include "libhmm/distributions/binomial_distribution.h"

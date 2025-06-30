@@ -189,7 +189,7 @@ public:
      * @param x The value at which to evaluate the log PDF
      * @return Log probability density
      */
-    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    [[nodiscard]] double getLogProbability(double x) const noexcept override;
 
     /**
      * Evaluates the CDF at x using the error function

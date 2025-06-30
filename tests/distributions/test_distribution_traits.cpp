@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "libhmm/common/distribution_traits.h"
+#include "libhmm/distributions/distribution_traits.h"
 #include "libhmm/distributions/discrete_distribution.h"
 #include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/distributions/poisson_distribution.h"
@@ -46,6 +46,7 @@ TEST_F(DistributionTraitsTest, ContinuousDistributionDetection) {
     EXPECT_TRUE(is_continuous_distribution_v<UniformDistribution>);
     EXPECT_TRUE(is_continuous_distribution_v<StudentTDistribution>);
     EXPECT_TRUE(is_continuous_distribution_v<ChiSquaredDistribution>);
+    EXPECT_TRUE(is_continuous_distribution_v<RayleighDistribution>);
     
     // Discrete distributions should not be detected as continuous
     EXPECT_FALSE(is_continuous_distribution_v<DiscreteDistribution>);
@@ -223,6 +224,7 @@ TEST_F(DistributionTraitsTest, AllDistributionsCategorized) {
     EXPECT_NE(get_distribution_category<NegativeBinomialDistribution>(), DistributionCategory::Unknown);
     EXPECT_NE(get_distribution_category<StudentTDistribution>(), DistributionCategory::Unknown);
     EXPECT_NE(get_distribution_category<ChiSquaredDistribution>(), DistributionCategory::Unknown);
+    EXPECT_NE(get_distribution_category<RayleighDistribution>(), DistributionCategory::Unknown);
 }
 
 int main(int argc, char **argv) {

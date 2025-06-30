@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "libhmm/common/trainer_traits.h"
+#include "libhmm/training/trainer_traits.h"
 #include "libhmm/two_state_hmm.h"
 #include "libhmm/distributions/distributions.h"
 #include <memory>

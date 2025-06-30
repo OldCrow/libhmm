@@ -2,9 +2,11 @@
 #include "libhmm/calculators/forward_backward_calculator.h"
 #include "libhmm/calculators/log_simd_forward_backward_calculator.h"
 #include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
+// #include "libhmm/calculators/advanced_log_simd_forward_backward_calculator.h"  // Temporarily disabled
 #include "libhmm/performance/thread_pool.h"
 #include "libhmm/performance/simd_support.h"
 #include "libhmm/hmm.h"
+#include "libhmm/calculators/calculator_traits_utils.h"
 #include <algorithm>
 #include <sstream>
 #include <chrono>
@@ -82,6 +84,20 @@ CalculatorTraits CalculatorSelector::getTraits(CalculatorType type) noexcept {
                 true    // numericallyStable (log-space arithmetic)
             };
             
+        case CalculatorType::ADVANCED_LOG_SIMD:
+            // Temporarily disabled - return standard calculator traits
+            return {
+                "Standard", 
+                false,  // supportsParallel
+                false,  // usesSIMD
+                false,  // usesBlocking
+                0,      // memoryOverhead
+                1,      // minStatesForBenefit
+                1,      // minObsForBenefit
+                1.0,    // scalingFactor
+                false   // numericallyStable (can have underflow)
+            };
+            
         case CalculatorType::AUTO:
         default:
             return {"Auto", false, false, false, 0, 1, 1, 1.0, false};
@@ -140,7 +156,8 @@ CalculatorType CalculatorSelector::selectOptimal(const ProblemCharacteristics& c
     const std::vector<CalculatorType> candidates = {
         CalculatorType::STANDARD,
         CalculatorType::SCALED_SIMD,
-        CalculatorType::LOG_SIMD
+        CalculatorType::LOG_SIMD,
+        CalculatorType::ADVANCED_LOG_SIMD
     };
     
     for (CalculatorType type : candidates) {
@@ -172,6 +189,13 @@ std::unique_ptr<Calculator> CalculatorSelector::create(
         {
             auto calc = std::make_unique<ScaledSIMDForwardBackwardCalculator>(hmm, observations);
             calc->compute(); // SIMD calculators need explicit computation
+            return calc;
+        }
+            
+        case CalculatorType::ADVANCED_LOG_SIMD:
+        {
+            // Temporarily disabled - return standard calculator instead
+            auto calc = std::make_unique<ForwardBackwardCalculator>(hmm, observations);
             return calc;
         }
             
@@ -208,7 +232,8 @@ std::string CalculatorSelector::getPerformanceComparison(const ProblemCharacteri
     const std::vector<CalculatorType> types = {
         CalculatorType::STANDARD,
         CalculatorType::LOG_SIMD,
-        CalculatorType::SCALED_SIMD
+        CalculatorType::SCALED_SIMD,
+        CalculatorType::ADVANCED_LOG_SIMD
     };
     
     CalculatorType bestType = CalculatorType::STANDARD;
@@ -234,50 +259,15 @@ std::string CalculatorSelector::getPerformanceComparison(const ProblemCharacteri
 //========== Private Helper Methods ==========
 
 double CalculatorSelector::calculateSIMDBenefit(std::size_t numStates, std::size_t seqLength) noexcept {
-    if (!performance::simd_available()) {
-        return 0.8; // Slight penalty for overhead without SIMD
-    }
-    
-    // SIMD benefits scale with problem size
-    const std::size_t problemSize = numStates * seqLength;
-    
-    if (problemSize < 100) {
-        return 0.9; // Small problems have overhead
-    } else if (problemSize < 1000) {
-        return 1.2; // Modest benefit
-    } else if (problemSize < 10000) {
-        return 2.0; // Good benefit
-    } else {
-        return 2.5; // Excellent benefit for large problems
-    }
+    return calculator_traits::calculateSIMDBenefit(numStates, seqLength);
 }
 
 double CalculatorSelector::calculateMemoryImpact(std::size_t overhead, double budget) noexcept {
-    if (budget <= 0.0) {
-        return 1.0; // No budget constraint
-    }
-    
-    const double overheadRatio = static_cast<double>(overhead) / budget;
-    
-    if (overheadRatio > 0.5) {
-        return 0.3; // Heavy penalty for excessive memory use
-    } else if (overheadRatio > 0.2) {
-        return 0.7; // Moderate penalty
-    } else {
-        return 1.0; // No penalty for reasonable memory use
-    }
+    return calculator_traits::calculateMemoryImpact(overhead, budget);
 }
 
 double CalculatorSelector::calculateStabilityNeed(std::size_t seqLength) noexcept {
-    if (seqLength < 100) {
-        return 0.0; // No stability concerns
-    } else if (seqLength < 500) {
-        return 0.2; // Minor stability concerns
-    } else if (seqLength < 1000) {
-        return 0.5; // Moderate stability concerns
-    } else {
-        return 1.0; // High stability concerns
-    }
+    return calculator_traits::calculateStabilityNeed(seqLength);
 }
 
 //========== AutoCalculator Implementation ==========
@@ -329,6 +319,11 @@ double AutoCalculator::probability() {
         if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator_.get())) {
             return log->probability();
         }
+    } else if (selectedType_ == CalculatorType::ADVANCED_LOG_SIMD) {
+        // Temporarily disabled - fallback to standard calculator
+        if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator_.get())) {
+            return fb->probability();
+        }
     }
     throw std::runtime_error("Unable to compute probability with selected calculator type");
 }
@@ -354,6 +349,15 @@ double AutoCalculator::getLogProbability() {
             // Log calculator has getLogProbability() method for numerical stability
             return log->getLogProbability();
         }
+    } else if (selectedType_ == CalculatorType::ADVANCED_LOG_SIMD) {
+        // Temporarily disabled - fallback to standard calculator
+        if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator_.get())) {
+            double prob = fb->probability();
+            if (prob <= 0.0) {
+                return -std::numeric_limits<double>::infinity();
+            }
+            return std::log(prob);
+        }
     }
     throw std::runtime_error("Unable to compute log probability with selected calculator type");
 }
@@ -371,6 +375,11 @@ Matrix AutoCalculator::getForwardVariables() const {
     } else if (selectedType_ == CalculatorType::LOG_SIMD) {
         if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator_.get())) {
             return log->getForwardVariablesCompat();
+        }
+    } else if (selectedType_ == CalculatorType::ADVANCED_LOG_SIMD) {
+        // Temporarily disabled - fallback to standard calculator
+        if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator_.get())) {
+            return fb->getForwardVariables();
         }
     }
     throw std::runtime_error("Unable to get forward variables with selected calculator type");
@@ -390,6 +399,11 @@ Matrix AutoCalculator::getBackwardVariables() const {
         if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator_.get())) {
             return log->getBackwardVariablesCompat();
         }
+    } else if (selectedType_ == CalculatorType::ADVANCED_LOG_SIMD) {
+        // Temporarily disabled - fallback to standard calculator
+        if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator_.get())) {
+            return fb->getBackwardVariables();
+        }
     }
     throw std::runtime_error("Unable to get backward variables with selected calculator type");
 }
@@ -404,7 +418,8 @@ std::map<CalculatorType, double> CalculatorBenchmark::benchmarkAll(
     const std::vector<CalculatorType> types = {
         CalculatorType::STANDARD,
         CalculatorType::SCALED_SIMD,
-        CalculatorType::LOG_SIMD
+        CalculatorType::LOG_SIMD,
+        CalculatorType::ADVANCED_LOG_SIMD
     };
     
     for (CalculatorType type : types) {
@@ -429,6 +444,11 @@ std::map<CalculatorType, double> CalculatorBenchmark::benchmarkAll(
                 } else if (type == CalculatorType::LOG_SIMD) {
                     if (auto log = dynamic_cast<LogSIMDForwardBackwardCalculator*>(calculator.get())) {
                         prob = log->probability();
+                    }
+                } else if (type == CalculatorType::ADVANCED_LOG_SIMD) {
+                    // Temporarily disabled - fallback to standard calculator
+                    if (auto fb = dynamic_cast<ForwardBackwardCalculator*>(calculator.get())) {
+                        prob = fb->probability();
                     }
                 }
                 (void)prob;

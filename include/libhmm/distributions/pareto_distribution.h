@@ -189,7 +189,7 @@ public:
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
-    double getProbability(double value) override;
+    double getProbability(double x) override;
 
     /**
      * Computes the logarithm of the probability density function for numerical stability.

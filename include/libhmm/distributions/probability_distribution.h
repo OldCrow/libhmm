@@ -102,7 +102,7 @@ public:
      *
      * Source: http://www.codecogs.com/d-ox/maths/special/errorfn_inv.php
      */
-    double errorf_inv(double x) noexcept;
+    double errorf_inv(double y) noexcept;
             
 }; // class Probability Distribution
 
