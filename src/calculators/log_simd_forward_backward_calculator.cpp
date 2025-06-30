@@ -1,5 +1,6 @@
 #include "libhmm/calculators/log_simd_forward_backward_calculator.h"
 #include "libhmm/common/common.h"
+#include "libhmm/performance/parallel_constants.h"
 #include "libhmm/hmm.h"
 #include <algorithm>
 #include <cstring>
@@ -76,34 +77,66 @@ void LogSIMDForwardBackwardCalculator::computeLogForwardStepScalar(std::size_t t
     const std::size_t prevIdx = (t - 1) * numStates_;
     const std::size_t currIdx = t * numStates_;
     
-    // Compute emission probabilities for current observation
+    // Compute log emission probabilities for current observation
     computeLogEmissionProbabilities(observations_(t), tempLogEmissions_.data());
     
-    // Forward step: log_alpha(t, j) = log_b_j(O_t) + elnsum_i(log_alpha(t-1, i) + log_trans(i, j))
-    for (std::size_t j = 0; j < numStates_; ++j) {
-        double logSum = LOGZERO;
-        
-        for (std::size_t i = 0; i < numStates_; ++i) {
-            const double logTrans = (trans(i, j) > 0.0) ? std::log(trans(i, j)) : LOGZERO;
-            const double logPrev = logForwardVariables_[prevIdx + i];
+    // Log forward step: log_alpha(t, j) = log_b_j(O_t) + elnsum_i(log_alpha(t-1, i) + log_trans(i, j))
+    // Use parallel computation for large state spaces
+    if (numStates_ >= performance::parallel::MIN_STATES_FOR_CALCULATOR_PARALLEL) {
+        // Parallel computation of forward variables
+        performance::ParallelUtils::parallelFor(0, numStates_, [&](std::size_t j) {
+            double logSum = LOGZERO;
             
-            if (!std::isnan(logTrans) && !std::isnan(logPrev)) {
-                const double logProduct = logTrans + logPrev;
+            for (std::size_t i = 0; i < numStates_; ++i) {
+                const double logTrans = (trans(i, j) > 0.0) ? std::log(trans(i, j)) : LOGZERO;
+                const double logAlpha = logForwardVariables_[prevIdx + i];
                 
-                if (std::isnan(logSum)) {
-                    logSum = logProduct;
-                } else {
-                    // Log-sum-exp: log(exp(a) + exp(b))
-                    if (logSum > logProduct) {
-                        logSum = logSum + std::log(1.0 + std::exp(logProduct - logSum));
+                if (!std::isnan(logTrans) && !std::isnan(logAlpha)) {
+                    const double logProduct = logAlpha + logTrans;
+                    
+                    if (std::isnan(logSum)) {
+                        logSum = logProduct;
                     } else {
-                        logSum = logProduct + std::log(1.0 + std::exp(logSum - logProduct));
+                        // Stabilized Log-sum-exp: log(exp(a) + exp(b)), refactored for numerical stability 
+                        double maxVal = std::max(logSum, logProduct);
+                        if (maxVal > LOG_MIN_PROBABILITY) {
+                            logSum = maxVal + std::log(std::exp(logSum - maxVal) + std::exp(logProduct - maxVal));
+                        } else {
+                            logSum = maxVal; // Avoid unnecessary computations
+                        }
                     }
                 }
             }
+            
+            logForwardVariables_[currIdx + j] = tempLogEmissions_[j] + logSum;
+        }, performance::parallel::CALCULATOR_GRAIN_SIZE); // Larger grain size to reduce overhead
+    } else {
+        // Sequential computation for smaller state spaces
+        for (std::size_t j = 0; j < numStates_; ++j) {
+            double logSum = LOGZERO;
+            
+            for (std::size_t i = 0; i < numStates_; ++i) {
+                const double logTrans = (trans(i, j) > 0.0) ? std::log(trans(i, j)) : LOGZERO;
+                const double logAlpha = logForwardVariables_[prevIdx + i];
+                
+                if (!std::isnan(logTrans) && !std::isnan(logAlpha)) {
+                    const double logProduct = logAlpha + logTrans;
+                    
+                    if (std::isnan(logSum)) {
+                        logSum = logProduct;
+                    } else {
+                        // Log-sum-exp: log(exp(a) + exp(b))
+                        if (logSum > logProduct) {
+                            logSum = logSum + std::log(1.0 + std::exp(logProduct - logSum));
+                        } else {
+                            logSum = logProduct + std::log(1.0 + std::exp(logSum - logProduct));
+                        }
+                    }
+                }
+            }
+            
+            logForwardVariables_[currIdx + j] = tempLogEmissions_[j] + logSum;
         }
-        
-        logForwardVariables_[currIdx + j] = tempLogEmissions_[j] + logSum;
     }
 }
 
@@ -144,31 +177,63 @@ void LogSIMDForwardBackwardCalculator::computeLogBackwardStepScalar(std::size_t 
     computeLogEmissionProbabilities(observations_(t + 1), tempLogEmissions_.data());
     
     // Backward step: log_beta(t, i) = elnsum_j(log_trans(i, j) + log_b_j(O_{t+1}) + log_beta(t+1, j))
-    for (std::size_t i = 0; i < numStates_; ++i) {
-        double logSum = LOGZERO;
-        
-        for (std::size_t j = 0; j < numStates_; ++j) {
-            const double logTrans = (trans(i, j) > 0.0) ? std::log(trans(i, j)) : LOGZERO;
-            const double logEmis = tempLogEmissions_[j];
-            const double logNext = logBackwardVariables_[nextIdx + j];
+    // Use parallel computation for large state spaces
+    if (numStates_ >= performance::parallel::MIN_STATES_FOR_CALCULATOR_PARALLEL) {
+        // Parallel computation of log backward variables
+        performance::ParallelUtils::parallelFor(0, numStates_, [&](std::size_t i) {
+            double logSum = LOGZERO;
             
-            if (!std::isnan(logTrans) && !std::isnan(logEmis) && !std::isnan(logNext)) {
-                const double logProduct = logTrans + logEmis + logNext;
+            for (std::size_t j = 0; j < numStates_; ++j) {
+                const double logTrans = (trans(i, j) > 0.0) ? std::log(trans(i, j)) : LOGZERO;
+                const double logEmis = tempLogEmissions_[j];
+                const double logNext = logBackwardVariables_[nextIdx + j];
                 
-                if (std::isnan(logSum)) {
-                    logSum = logProduct;
-                } else {
-                    // Log-sum-exp: log(exp(a) + exp(b))
-                    if (logSum > logProduct) {
-                        logSum = logSum + std::log(1.0 + std::exp(logProduct - logSum));
+                if (!std::isnan(logTrans) && !std::isnan(logEmis) && !std::isnan(logNext)) {
+                    const double logProduct = logTrans + logEmis + logNext;
+                    
+                    if (std::isnan(logSum)) {
+                        logSum = logProduct;
                     } else {
-                        logSum = logProduct + std::log(1.0 + std::exp(logSum - logProduct));
+                        // Log-sum-exp: log(exp(a) + exp(b))
+                        if (logSum > logProduct) {
+                            logSum = logSum + std::log(1.0 + std::exp(logProduct - logSum));
+                        } else {
+                            logSum = logProduct + std::log(1.0 + std::exp(logSum - logProduct));
+                        }
                     }
                 }
             }
+            
+            logBackwardVariables_[currIdx + i] = logSum;
+        }, performance::parallel::CALCULATOR_GRAIN_SIZE); // Larger grain size to reduce overhead
+    } else {
+        // Sequential computation for smaller state spaces
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            double logSum = LOGZERO;
+            
+            for (std::size_t j = 0; j < numStates_; ++j) {
+                const double logTrans = (trans(i, j) > 0.0) ? std::log(trans(i, j)) : LOGZERO;
+                const double logEmis = tempLogEmissions_[j];
+                const double logNext = logBackwardVariables_[nextIdx + j];
+                
+                if (!std::isnan(logTrans) && !std::isnan(logEmis) && !std::isnan(logNext)) {
+                    const double logProduct = logTrans + logEmis + logNext;
+                    
+                    if (std::isnan(logSum)) {
+                        logSum = logProduct;
+                    } else {
+                        // Log-sum-exp: log(exp(a) + exp(b))
+                        if (logSum > logProduct) {
+                            logSum = logSum + std::log(1.0 + std::exp(logProduct - logSum));
+                        } else {
+                            logSum = logProduct + std::log(1.0 + std::exp(logSum - logProduct));
+                        }
+                    }
+                }
+            }
+            
+            logBackwardVariables_[currIdx + i] = logSum;
         }
-        
-        logBackwardVariables_[currIdx + i] = logSum;
     }
 }
 
@@ -197,10 +262,20 @@ void LogSIMDForwardBackwardCalculator::computeFinalLogProbability() {
 }
 
 void LogSIMDForwardBackwardCalculator::computeLogEmissionProbabilities(Observation observation, double* logEmisProbs) const {
-    // Leverage optimized getLogProbability methods with caching for better performance and numerical stability
-    for (std::size_t i = 0; i < numStates_; ++i) {
-        logEmisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))
-                             ->getLogProbability(observation);
+    // Use parallel computation for large state spaces to improve emission probability calculation
+    // Use same threshold as main computation for consistency
+    if (numStates_ >= performance::parallel::MIN_STATES_FOR_CALCULATOR_PARALLEL) {
+        // Parallel emission probability computation
+        performance::ParallelUtils::parallelFor(0, numStates_, [&](std::size_t i) {
+            logEmisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))
+                                 ->getLogProbability(observation);
+        }, performance::parallel::CALCULATOR_GRAIN_SIZE); // Same grain size as main computation
+    } else {
+        // Sequential computation for smaller state spaces
+        for (std::size_t i = 0; i < numStates_; ++i) {
+            logEmisProbs[i] = hmm_->getProbabilityDistribution(static_cast<int>(i))
+                                 ->getLogProbability(observation);
+        }
     }
 }
 
