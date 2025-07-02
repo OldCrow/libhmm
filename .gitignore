@@ -106,7 +106,6 @@ benchmarks/JAHMM/
 benchmarks/Kaldi/
 benchmarks/LAMP_HMM/
 benchmarks/StochHMM/
-benchmarks/JAHMM/
 benchmarks/libhmm/
 benchmarks/build/
 benchmarks/Makefile
