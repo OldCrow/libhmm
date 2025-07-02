@@ -12,12 +12,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(Boost REQUIRED)
 
 # Include directories
+# Use modern target-based includes for better control over warning suppression
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/HMMlib)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/StochHMM/source/src)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/GHMM/install/include)
-include_directories(${Boost_INCLUDE_DIRS})
+# External library includes will be added per-target with SYSTEM to suppress warnings
 
 # Platform-specific compiler flags
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -94,6 +92,65 @@ add_executable(diagnostic_accuracy_test src/diagnostic_accuracy_test.cpp)
 add_executable(library_usage_examples src/library_usage_examples.cpp)
 add_executable(stochhmm_api_test src/stochhmm_api_test.cpp)
 
+# Configure target-specific include directories with SYSTEM for external libraries
+# This suppresses warnings from external libraries while keeping libhmm warnings active
+
+# Targets that use HMMlib
+target_include_directories(algorithm_performance_benchmark SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/HMMlib
+    ${Boost_INCLUDE_DIRS}
+)
+target_include_directories(classic_problems_benchmark SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/HMMlib
+    ${Boost_INCLUDE_DIRS}
+)
+target_include_directories(libhmm_vs_hmmlib_benchmark SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/HMMlib
+    ${Boost_INCLUDE_DIRS}
+)
+target_include_directories(threeway_benchmark SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/HMMlib
+    ${CMAKE_CURRENT_SOURCE_DIR}/StochHMM/source/src
+    ${Boost_INCLUDE_DIRS}
+)
+
+# Targets that use StochHMM
+target_include_directories(libhmm_vs_stochhmm_benchmark SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/StochHMM/source/src
+)
+target_include_directories(libhmm_vs_stochhmm_continuous_benchmark SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/StochHMM/source/src
+)
+target_include_directories(stochhmm_api_test SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/StochHMM/source/src
+)
+
+# Targets that use GHMM
+target_include_directories(libhmm_vs_ghmm_benchmark SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/GHMM/install/include
+)
+target_include_directories(libhmm_vs_ghmm_continuous_benchmark SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/GHMM/install/include
+)
+target_include_directories(gaussian_distribution_comparison SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/GHMM/install/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/StochHMM/source/src
+)
+
+# Targets that use both HMMlib and Boost
+target_include_directories(numerical_accuracy_test SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/HMMlib
+    ${Boost_INCLUDE_DIRS}
+)
+target_include_directories(deep_numerical_analysis SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/HMMlib
+    ${Boost_INCLUDE_DIRS}
+)
+target_include_directories(library_usage_examples SYSTEM PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/HMMlib
+    ${Boost_INCLUDE_DIRS}
+)
+
 # Link libraries for all benchmarks
 if(APPLE)
     # Core benchmarks
@@ -105,7 +162,13 @@ if(APPLE)
     
     # Library comparison benchmarks - HMMlib (requires Boost)
     target_link_libraries(libhmm_vs_hmmlib_benchmark ${LIBHMM_LIBRARY} ${Boost_LIBRARIES})
-    target_link_libraries(threeway_benchmark ${LIBHMM_LIBRARY} ${Boost_LIBRARIES})
+    
+    # Three-way benchmark (libhmm + HMMlib + StochHMM)
+    if(STOCHHMM_LIBRARY)
+        target_link_libraries(threeway_benchmark ${LIBHMM_LIBRARY} ${STOCHHMM_LIBRARY} ${Boost_LIBRARIES})
+    else()
+        target_link_libraries(threeway_benchmark ${LIBHMM_LIBRARY} ${Boost_LIBRARIES})
+    endif()
     
     # Library comparison benchmarks - LAMP (file-based interface)
     target_link_libraries(libhmm_vs_lamp_benchmark ${LIBHMM_LIBRARY})
@@ -169,7 +232,13 @@ else()
     
     # Library comparison benchmarks - HMMlib (requires Boost)
     target_link_libraries(libhmm_vs_hmmlib_benchmark ${LIBHMM_LIBRARY} ${Boost_LIBRARIES} m)
-    target_link_libraries(threeway_benchmark ${LIBHMM_LIBRARY} ${Boost_LIBRARIES} m)
+    
+    # Three-way benchmark (libhmm + HMMlib + StochHMM)
+    if(STOCHHMM_LIBRARY)
+        target_link_libraries(threeway_benchmark ${LIBHMM_LIBRARY} ${STOCHHMM_LIBRARY} ${Boost_LIBRARIES} m)
+    else()
+        target_link_libraries(threeway_benchmark ${LIBHMM_LIBRARY} ${Boost_LIBRARIES} m)
+    endif()
     
     # Library comparison benchmarks - LAMP (file-based interface)
     target_link_libraries(libhmm_vs_lamp_benchmark ${LIBHMM_LIBRARY} m)

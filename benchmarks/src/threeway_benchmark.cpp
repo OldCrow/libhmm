@@ -20,7 +20,7 @@
 #include "HMMlib/hmm.hpp"
 
 // StochHMM includes
-#include "../StochHMM/source/src/StochHMMlib.h"
+#include "StochHMMlib.h"
 
 using namespace std;
 using namespace std::chrono;
