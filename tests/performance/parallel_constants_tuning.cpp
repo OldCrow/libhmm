@@ -165,7 +165,6 @@ BenchmarkResult benchmarkConfiguration(const TestConfiguration& config,
     auto observations = createObservations(seqLength);
     
     double totalTime = 0.0;
-    double probability = 0.0;
     bool usedParallel = false;
     
     for (int iter = 0; iter < iterations; ++iter) {
@@ -173,11 +172,13 @@ BenchmarkResult benchmarkConfiguration(const TestConfiguration& config,
         
         if (calculatorType == "Scaled-SIMD") {
             TunableScaledSIMDCalculator calc(hmm.get(), observations, config);
-            probability = calc.getProbability();
+            // Call getProbability() to trigger computation but don't store unused result
+            (void)calc.getProbability();
             usedParallel = calc.wouldUseParallel(numStates);
         } else if (calculatorType == "Log-SIMD") {
             TunableLogSIMDCalculator calc(hmm.get(), observations, config);
-            probability = calc.getProbability();
+            // Call getProbability() to trigger computation but don't store unused result
+            (void)calc.getProbability();
             usedParallel = calc.wouldUseParallel(numStates);
         }
         

@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <cstdlib>
+#include <climits>
 
 // libhmm includes
 #include "libhmm/hmm.h"
@@ -551,16 +552,16 @@ public class JAHMMBenchmarkRunner {
 }
 )";
 
-    // Write Java file to the JAHMM directory
-    string java_file = "/Users/wolfman/libhmm/benchmarks/JAHMM/source/jahmm-0.6.2/src/JAHMMBenchmarkRunner.java";
+    // Write Java file to the JAHMM directory (using relative path from benchmarks directory)
+    string java_file = "../JAHMM/source/jahmm-0.6.2/src/JAHMMBenchmarkRunner.java";
     ofstream out(java_file);
     out << java_code;
     out.close();
     
-    // Compile the Java file
-    string compile_cmd = "cd /Users/wolfman/libhmm/benchmarks/JAHMM/source/jahmm-0.6.2 && "
-                        "export ANT_HOME=/Users/wolfman/libhmm/apache-ant-1.10.15 && "
-                        "export PATH=$ANT_HOME/bin:$PATH && "
+    // Compile the Java file (using relative path with portable Java detection)
+    string compile_cmd = "cd ../JAHMM/source/jahmm-0.6.2 && "
+                        "(export PATH=/opt/homebrew/opt/openjdk/bin:$PATH 2>/dev/null || "
+                        "export PATH=/usr/local/opt/openjdk/bin:$PATH 2>/dev/null || true) && "
                         "javac -cp build src/JAHMMBenchmarkRunner.java -d build";
     
     int result = system(compile_cmd.c_str());
@@ -650,8 +651,11 @@ int main() {
     cout << "Creating and compiling Java benchmark runner..." << endl;
     createJavaRunner();
     
-    // Set up JAHMM path
-    string jahmm_classpath = "/Users/wolfman/libhmm/benchmarks/JAHMM/source/jahmm-0.6.2/build";
+    // Set up JAHMM path (construct absolute path)
+    char* cwd = getcwd(NULL, 0);
+    string current_dir(cwd);
+    free(cwd);
+    string jahmm_classpath = current_dir + "/../JAHMM/source/jahmm-0.6.2/build";
     
     // Create benchmark instances
     LibHMMBenchmark libhmm_bench;

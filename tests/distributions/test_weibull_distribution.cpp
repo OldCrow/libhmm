@@ -549,7 +549,7 @@ void testPerformanceCharacteristics() {
     
     // Test getProbability() performance (should benefit from cached values and optimizations)
     auto start = std::chrono::high_resolution_clock::now();
-    double sum_pdf = 0.0;
+    volatile double sum_pdf = 0.0;  // volatile to prevent optimization
     for (const auto& val : testValues) {
         sum_pdf += weibull.getProbability(val);
     }
@@ -558,7 +558,7 @@ void testPerformanceCharacteristics() {
     
     // Test getLogProbability() performance (should benefit from cached kMinus1_, invLambda_)
     start = std::chrono::high_resolution_clock::now();
-    double sum_log_pdf = 0.0;
+    volatile double sum_log_pdf = 0.0;  // volatile to prevent optimization
     for (const auto& val : testValues) {
         sum_log_pdf += weibull.getLogProbability(val);
     }
@@ -567,7 +567,7 @@ void testPerformanceCharacteristics() {
     
     // Test CDF performance (should benefit from cached values and k=2 optimization)
     start = std::chrono::high_resolution_clock::now();
-    double sum_cdf = 0.0;
+    volatile double sum_cdf = 0.0;  // volatile to prevent optimization
     for (const auto& val : testValues) {
         sum_cdf += weibull.CDF(val);
     }
