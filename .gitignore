@@ -115,4 +115,5 @@ benchmarks/cmake_install.cmake
 benchmarks/CMakeFiles/
 
 # Apache Ant (build tool for JAHMM)
+benchmarks/apache-ant-*
 apache-ant-*/

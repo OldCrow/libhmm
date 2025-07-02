@@ -1,7 +1,25 @@
 # Test configuration for libhmm
 cmake_minimum_required(VERSION 3.14)
 
-# Find required packages
+# Find required packages with architecture-aware paths
+if(APPLE)
+    # Use the same architecture detection as the main CMakeLists.txt
+    execute_process(
+        COMMAND uname -m
+        OUTPUT_VARIABLE APPLE_ARCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    
+    if(APPLE_ARCH STREQUAL "arm64")
+        set(HOMEBREW_PREFIX "/opt/homebrew")
+    else()
+        set(HOMEBREW_PREFIX "/usr/local")
+    endif()
+    
+    # Set GTest search paths to avoid mixing Intel and ARM libraries
+    set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
+endif()
+
 find_package(GTest QUIET)
 find_package(Threads REQUIRED)
 
@@ -36,11 +54,19 @@ if(GTest_FOUND OR TARGET gtest)
         include_directories(${GTEST_INCLUDE_DIRS})
     endif()
     
-    # Common test libraries and dependencies
-    if(TARGET gtest)
-        set(TEST_LIBRARIES gtest gtest_main Threads::Threads hmm)
+    # Common test libraries and dependencies - use modern target-based approach to avoid duplicates
+    if(TARGET GTest::gtest AND TARGET GTest::gtest_main)
+        # Use modern CMake targets (preferred)
+        set(TEST_LIBRARIES GTest::gtest_main GTest::gtest Threads::Threads hmm)
+        message(STATUS "Using modern GTest targets: GTest::gtest_main, GTest::gtest")
+    elseif(TARGET gtest AND TARGET gtest_main)
+        # Use legacy targets
+        set(TEST_LIBRARIES gtest_main gtest Threads::Threads hmm)
+        message(STATUS "Using legacy GTest targets: gtest_main, gtest")
     else()
-        set(TEST_LIBRARIES ${GTEST_LIBRARIES} ${GTEST_MAIN_LIBRARIES} Threads::Threads hmm)
+        # Fallback to library variables
+        set(TEST_LIBRARIES ${GTEST_MAIN_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads hmm)
+        message(STATUS "Using GTest library variables")
     endif()
     
     # Apply LLVM-specific linking flags if needed

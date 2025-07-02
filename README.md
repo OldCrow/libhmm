@@ -3,14 +3,14 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.15%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.9.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Version](https://img.shields.io/badge/Version-2.9.1-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
 [![Tests](https://img.shields.io/badge/Tests-31/31_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX%2FSSE2%2FNEON-blue.svg)](src/performance/)
 [![Threading](https://img.shields.io/badge/Threading-C%2B%2B17-orange.svg)](src/performance/thread_pool.cpp)
 
 A modern, high-performance C++17 implementation of Hidden Markov Models with advanced statistical distributions, SIMD optimization, and parallel processing capabilities.
 
-**🚀 Latest Release v2.8.0**: Comprehensive distribution testing framework with critical bug fixes and enhanced mathematical validation. Features a complete test overhaul with 174 standardized test cases across all 16 distributions, fixing critical Pareto distribution boundary conditions, and establishing gold-standard testing patterns. Provides robust mathematical validation, parameter testing, and statistical property verification with 100% test success rate.
+**🚀 Latest Release v2.9.1**: Cross-platform architecture support with Apple Silicon ecosystem compatibility and zero build warnings. Features ARM64 HMM library ecosystem porting (HMMLib, GHMM, StochHMM, HTK, LAMP HMM, JAHMM), Intel SSE to ARM NEON SIMD optimization, and architecture-aware build system with automatic Homebrew path detection for Apple Silicon vs Intel Mac.
 
 ## Major Achievements
 

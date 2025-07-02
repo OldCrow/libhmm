@@ -58,7 +58,7 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-VERSION 2.9.0
+VERSION 2.9.1
     DESCRIPTION "Modern C++17 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -93,8 +93,26 @@ endif()
 
 # Find required packages with platform-specific handling
 if(APPLE)
-    # On macOS, prefer Homebrew installations
-    set(CMAKE_PREFIX_PATH "/usr/local" "/opt/homebrew" ${CMAKE_PREFIX_PATH})
+    # Architecture-aware Homebrew path detection for macOS
+    execute_process(
+        COMMAND uname -m
+        OUTPUT_VARIABLE APPLE_ARCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    
+    if(APPLE_ARCH STREQUAL "arm64")
+        # Apple Silicon M1/M2/M3 - Homebrew is in /opt/homebrew
+        set(HOMEBREW_PREFIX "/opt/homebrew")
+        message(STATUS "Detected Apple Silicon (${APPLE_ARCH}) - using Homebrew at ${HOMEBREW_PREFIX}")
+    else()
+        # Intel Mac - Homebrew is in /usr/local
+        set(HOMEBREW_PREFIX "/usr/local")
+        message(STATUS "Detected Intel Mac (${APPLE_ARCH}) - using Homebrew at ${HOMEBREW_PREFIX}")
+    endif()
+    
+    # Set architecture-specific CMAKE_PREFIX_PATH
+    set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
+    
 elseif(LINUX)
     # On Linux, check common package manager locations
     set(CMAKE_PREFIX_PATH "/usr" "/usr/local" ${CMAKE_PREFIX_PATH})
