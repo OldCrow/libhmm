@@ -55,6 +55,14 @@ include/libhmm/
 | Machine | OS | CPU | SIMD | Role |
 |---|---|---|---|---|
 | Asus TUF A16 (2025) | Windows 11 Pro | AMD Ryzen 7 7445 (Zen 4) | SSE2 + AVX + AVX2 + AVX-512 | Primary Windows/MSVC dev machine |
+| Intel Mac (available) | macOS | Intel (generation TBD) | SSE2 + AVX/AVX2 | Secondary — macOS/Clang validation |
+| Apple Silicon Mac (available) | macOS | Apple M-series | NEON only | Secondary — ARM/NEON path validation |
+
+Secondary macOS machines are used for cross-platform and cross-architecture validation, not primary development. Build and test commands on macOS follow standard cmake + make patterns; see the libstats `WARP.md` for the macOS session setup pattern (Homebrew path detection, Apple Silicon vs Intel Homebrew prefix).
+
+### CI
+
+GitHub Actions CI will be added at an appropriate point in the refactor — likely after Phase 1 (header reorganization) stabilises the include structure. The CI matrix will cover at minimum: Linux x86-64 (GCC or Clang, AVX2), with Windows and macOS runners added as the build system matures. Until CI is active, cross-platform validation is manual on the machines listed above.
 
 ## Windows Session Setup (Asus TUF A16)
 
