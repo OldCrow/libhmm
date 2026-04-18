@@ -250,6 +250,8 @@ if(LINUX)
 elseif(APPLE)
     # On macOS, math functions are part of the system library
     target_link_libraries(hmm)  # Boost libraries removed
+elseif(WIN32)
+    target_link_libraries(hmm)  # Math functions are part of the MSVC CRT; no separate m.lib exists
 else()
     # Fallback for other Unix systems
     target_link_libraries(hmm m)  # Boost libraries removed
