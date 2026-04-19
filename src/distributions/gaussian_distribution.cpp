@@ -1,8 +1,8 @@
 #include "libhmm/distributions/gaussian_distribution.h"
-// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
-#include <numeric>     // For std::accumulate (not in common.h)
-#include <algorithm>   // For std::for_each (exists in common.h, included for clarity)
-#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
+#include <algorithm>
+#include <limits>
+#include <numeric>
+#include <span>
 
 using namespace libhmm::constants;
 
@@ -13,13 +13,11 @@ namespace libhmm
  * 
  * Formula: PDF(x) = (1/σ√(2π)) * exp(-½((x-μ)/σ)²)
  */
-double GaussianDistribution::getProbability(double x) {
-    // Validate input
+double GaussianDistribution::getProbability(double x) const {
     if (std::isnan(x) || std::isinf(x)) {
         return 0.0;
     }
-    
-    if (!cacheValid_) {
+    if (!isCacheValid()) {
         updateCache();
     }
     
@@ -37,12 +35,11 @@ double GaussianDistribution::getLogProbability(double x) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
     
-    if (!cacheValid_) {
+    if (!isCacheValid()) {
         updateCache();
     }
-    
     // Use cached values for maximum performance
-    const double z = (x - mean_) * invStandardDeviation_;  // Multiply instead of divide
+    const double z = (x - mean_) * invStandardDeviation_;
     const double logPdf = -0.5 * math::LN_2PI - logStandardDeviation_ - 0.5 * z * z;
     
     return logPdf;
@@ -55,7 +52,7 @@ double GaussianDistribution::getLogProbability(double x) const noexcept {
  *   F(x) = -( 1 + erf(---------------) )
  *          2           sigma*sqrt(2)
  */
-double GaussianDistribution::getCumulativeProbability(double x) noexcept {
+double GaussianDistribution::getCumulativeProbability(double x) const noexcept {
     // Handle problematic inputs
     if (std::isnan(x) || std::isnan(mean_) || std::isnan(standardDeviation_)) {
         return 0.0;
@@ -67,10 +64,9 @@ double GaussianDistribution::getCumulativeProbability(double x) noexcept {
         return (x >= mean_) ? 1.0 : 0.0;
     }
     
-    if (!cacheValid_) {
+    if (!isCacheValid()) {
         updateCache();
     }
-    
     // Use cached sigma*sqrt(2) for efficiency
     const double y = 0.5 * (1 + std::erf((x - mean_) / sigmaSqrt2_));
     
@@ -93,47 +89,69 @@ double GaussianDistribution::getCumulativeProbability(double x) noexcept {
  * - Numerically stable for extreme values
  * - O(n) time complexity with single data traversal
  */                   
-void GaussianDistribution::fit(const std::vector<Observation>& values) {
-    // Cannot fit with insufficient data
-    if(values.empty() || values.size() == 1) {
+void GaussianDistribution::fit(std::span<const double> data) {
+    if (data.size() <= 1) {
         reset();
         return;
     }
 
-    // Use Welford's online algorithm for numerically stable mean and variance
-    // This is more cache-friendly and numerically stable than two-pass methods
-    const auto n = static_cast<double>(values.size());
+    // Welford's online algorithm: single-pass, numerically stable
     double mean = 0.0;
-    double m2 = 0.0;  // Sum of squared differences from current mean
-    
+    double m2   = 0.0;
     std::size_t count = 0;
-    for(const auto& val : values) {
+    for (const double val : data) {
         ++count;
-        const double delta = val - mean;
+        const double delta  = val - mean;
         mean += delta / static_cast<double>(count);
         const double delta2 = val - mean;
         m2 += delta * delta2;
     }
-    
-    mean_ = mean;
-    
-    // Sample variance uses Bessel's correction (N-1)
-    const double sampleVariance = m2 / (n - 1.0);
-    standardDeviation_ = std::sqrt(sampleVariance);
 
-    // Handle edge cases using consolidated constants
-    if (standardDeviation_ <= 0.0 || std::isnan(standardDeviation_) || std::isinf(standardDeviation_)) {
-        std::cerr << "Warning: Invalid standard deviation (" << standardDeviation_ 
-                  << ") in GaussianDistribution::fit(). Using minimum value." << std::endl;
-        standardDeviation_ = precision::MIN_STD_DEV;
-    } else if (standardDeviation_ < precision::MIN_STD_DEV) {
-        std::cerr << "Warning: Very small standard deviation (" << standardDeviation_ 
-                  << ") in GaussianDistribution::fit(). Using minimum value." << std::endl;
-        standardDeviation_ = precision::MIN_STD_DEV;
+    mean_ = mean;
+    // Sample variance with Bessel's correction (N-1)
+    double sd = std::sqrt(m2 / (static_cast<double>(count) - 1.0));
+    if (sd <= 0.0 || std::isnan(sd) || std::isinf(sd) || sd < precision::MIN_STD_DEV) {
+        sd = precision::MIN_STD_DEV;
     }
-    
-    // Invalidate cache since parameters changed
-    cacheValid_ = false;
+    standardDeviation_ = sd;
+    invalidateCache();
+}
+
+void GaussianDistribution::fit(std::span<const double> data,
+                               std::span<const double> weights) {
+    // Weighted Gaussian MLE for Baum-Welch M-step.
+    // Weights are unnormalized γ values; we normalize by their sum.
+    const double sumW = [&] {
+        double s = 0.0;
+        for (const double w : weights) s += w;
+        return s;
+    }();
+
+    if (sumW < precision::ZERO || std::isnan(sumW)) {
+        reset();
+        return;
+    }
+
+    // Weighted Welford for numerical stability
+    double mean = 0.0;
+    double m2   = 0.0;
+    double cumW = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        cumW += weights[i];
+        const double delta  = data[i] - mean;
+        mean += (weights[i] / cumW) * delta;
+        const double delta2 = data[i] - mean;
+        m2 += weights[i] * delta * delta2;
+    }
+
+    mean_ = mean;
+    // Population-weighted variance (no Bessel correction for EM)
+    double sd = std::sqrt(m2 / sumW);
+    if (sd <= 0.0 || std::isnan(sd) || std::isinf(sd) || sd < precision::MIN_STD_DEV) {
+        sd = precision::MIN_STD_DEV;
+    }
+    standardDeviation_ = sd;
+    invalidateCache();
 }
 
 /**
@@ -143,7 +161,7 @@ void GaussianDistribution::fit(const std::vector<Observation>& values) {
 void GaussianDistribution::reset() noexcept {
     mean_ = 0.0;
     standardDeviation_ = 1.0;
-    cacheValid_ = false;
+    invalidateCache();
 }
 
 std::string GaussianDistribution::toString() const {

@@ -191,6 +191,7 @@ set(LIBHMM_SOURCES
     src/common/optimized_matrix_simd.cpp
     src/training/trainer_traits.cpp
     src/distributions/probability_distribution.cpp
+    src/distributions/distribution_base.cpp
     src/distributions/discrete_distribution.cpp
     src/distributions/gaussian_distribution.cpp
     src/distributions/gamma_distribution.cpp
