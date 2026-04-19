@@ -1,0 +1,49 @@
+# Pre-commit hooks for libhmm.
+# Install: bash scripts/setup-pre-commit.sh
+# Or manually: pip install pre-commit && pre-commit install
+#
+# Active hooks: hygiene checks + #pragma once enforcement.
+# Deliberately minimal during the active refactor (Phase 2+).
+# Add clang-format and cmake-format enforcement once the refactor stabilises.
+
+default_language_version:
+  python: python3
+
+repos:
+  # ─── General file hygiene ────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: Remove trailing whitespace
+      - id: end-of-file-fixer
+        name: Ensure files end with a newline
+      - id: mixed-line-ending
+        name: Normalise line endings to LF
+        args: ['--fix=lf']
+      - id: check-yaml
+        name: Check YAML syntax
+      - id: check-json
+        name: Check JSON syntax
+      - id: check-added-large-files
+        name: Block large files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+        name: Block merge conflict markers
+
+  # ─── libhmm-specific checks ──────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: check-pragma-once
+        name: Verify #pragma once in headers
+        entry: scripts/check-pragma-once.sh
+        language: script
+        files: \.(h|hpp|hxx)$
+        pass_filenames: true
+
+# Exclude build artifacts and vendored content
+exclude: |
+  (?x)^(
+    build/.*|
+    third_party/.*
+  )$
