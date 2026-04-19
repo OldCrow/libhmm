@@ -1,0 +1,51 @@
+# libhmm .gitattributes
+# Enforce LF line endings in the repository regardless of OS.
+# This prevents the git commit hang that occurs when CRLF conversion
+# processes large numbers of files on Windows.
+
+# Default: auto-detect text files and normalise to LF
+* text=auto eol=lf
+
+# C++ source and headers
+*.h   text eol=lf
+*.hpp text eol=lf
+*.cpp text eol=lf
+*.cc  text eol=lf
+*.cxx text eol=lf
+
+# Build system
+CMakeLists.txt text eol=lf
+*.cmake        text eol=lf
+
+# CI and configuration
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+
+# Documentation
+*.md  text eol=lf
+*.txt text eol=lf
+
+# Scripts — always LF so they run correctly in bash/sh
+*.sh text eol=lf
+
+# Windows-only scripts stay CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# XML (HMM model files)
+*.xml text eol=lf
+
+# Binary files — no line ending conversion
+*.dll    binary
+*.lib    binary
+*.a      binary
+*.so     binary
+*.dylib  binary
+*.exe    binary
+*.o      binary
+*.png    binary
+*.jpg    binary
+*.gif    binary

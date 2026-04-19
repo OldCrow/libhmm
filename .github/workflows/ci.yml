@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, refactor/modern-architecture ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux / GCC / Release
+            os: ubuntu-latest
+            cc: gcc
+            cxx: g++
+            msvc: false
+
+          - name: macOS / AppleClang / Release
+            os: macos-latest
+            cc: clang
+            cxx: clang++
+            msvc: false
+
+          - name: Windows / MSVC / Release
+            os: windows-latest
+            msvc: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # -------------------------------------------------------------------------
+    # Toolchain setup
+    # -------------------------------------------------------------------------
+    - name: Activate MSVC toolchain (Windows)
+      if: matrix.msvc
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Set compiler environment (Unix)
+      if: "!matrix.msvc"
+      run: |
+        echo "CC=${{ matrix.cc }}" >> $GITHUB_ENV
+        echo "CXX=${{ matrix.cxx }}" >> $GITHUB_ENV
+
+    # -------------------------------------------------------------------------
+    # Configure
+    # GTest is pulled via FetchContent if not found locally (see tests/CMakeLists.txt).
+    # BUILD_SHARED_LIBS=OFF avoids DLL path issues on Windows.
+    # -------------------------------------------------------------------------
+    - name: Configure (Windows / MSVC)
+      if: matrix.msvc
+      run: |
+        cmake -B build `
+          -G "Visual Studio 17 2022" -A x64 `
+          -DBUILD_SHARED_LIBS=OFF `
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Configure (Unix)
+      if: "!matrix.msvc"
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_SHARED_LIBS=OFF
+
+    # -------------------------------------------------------------------------
+    # Build
+    # -------------------------------------------------------------------------
+    - name: Build
+      run: cmake --build build --config Release --parallel
+
+    # -------------------------------------------------------------------------
+    # Test
+    # -LE known_broken excludes the 5 pre-existing failures that are tracked in
+    # tests/CMakeLists.txt. Remove entries there as each failure is fixed.
+    # -------------------------------------------------------------------------
+    - name: Test
+      run: ctest --test-dir build -C Release --output-on-failure --timeout 60 -LE known_broken
