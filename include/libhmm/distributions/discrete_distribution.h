@@ -114,28 +114,30 @@ private:
     }
     
     /**
-     * Validates parameters for the Discrete distribution
-     * @param symbols Number of symbols (must be > 0)
-     * @throws std::invalid_argument if parameters are invalid
+     * Validates and converts the symbol count before any allocation occurs.
+     * Taking int (not size_t) prevents silent wrapping of negative values.
+     * Called from the member initializer list so the vector is never allocated
+     * with a garbage size.
+     * @throws std::invalid_argument if symbols <= 0
      */
-    void validateParameters(std::size_t symbols) const {
-        if (symbols == 0) {
+    static std::size_t validateSymbols(int symbols) {
+        if (symbols <= 0) {
             throw std::invalid_argument("Number of symbols must be greater than 0");
         }
+        return static_cast<std::size_t>(symbols);
     }
-    
+
 public:    
     /**
      * Constructs a Discrete distribution with given number of symbols.
      * Initializes to uniform distribution.
-     * 
+     *
      * @param symbols Number of discrete symbols/categories (must be > 0)
-     * @throws std::invalid_argument if symbols == 0
+     * @throws std::invalid_argument if symbols <= 0
      */
-    explicit DiscreteDistribution(std::size_t symbols = 10)
-        : numSymbols_{symbols}, pdf_(numSymbols_), 
+    explicit DiscreteDistribution(int symbols = 10)
+        : numSymbols_{validateSymbols(symbols)}, pdf_(numSymbols_),
           cachedSum_{1.0}, cachedEntropy_{0.0}, cacheValid_{false} {
-        validateParameters(symbols);
         reset();
     }
     
