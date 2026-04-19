@@ -11,9 +11,9 @@
 // Use robust performance infrastructure (includes parallel execution detection)
 #include "libhmm/performance/simd_support.h"
 #include "libhmm/performance/parallel_constants.h"
-#include "common.h"
-#include "basic_matrix.h"  // Forward declaration for conversion constructor
-#include "optimized_vector.h"  // Include OptimizedVector definition
+#include "libhmm/common/common.h"
+#include "libhmm/linalg/basic_matrix.h"  // Forward declaration for conversion constructor
+#include "libhmm/linalg/optimized_vector.h"  // Include OptimizedVector definition
 
 namespace libhmm {
 

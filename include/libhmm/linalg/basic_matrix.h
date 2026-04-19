@@ -7,7 +7,7 @@
 #include <cstring>
 #include <numeric>
 #include <algorithm>
-#include "basic_vector.h"
+#include "libhmm/linalg/basic_vector.h"
 
 namespace libhmm {
 
