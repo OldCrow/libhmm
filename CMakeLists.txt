@@ -128,12 +128,9 @@ include_directories(include)
 # include_directories(${Boost_INCLUDE_DIRS})  # REMOVED: No longer needed
 
 # Platform-specific compiler flags
-if(MSVC)
-    # /W4: strong warnings. /wd4267 silence size_t narrowing, /wd4996 silence deprecated-constructor
-    # warnings that are pre-existing and will be addressed during the refactor.
-    # /permissive- enables stricter C++ standards conformance.
-    add_compile_options(/W4 /wd4267 /wd4996 /permissive-)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+# NOTE: MSVC flags are applied per-target (see after add_library below) so that
+# FetchContent dependencies like GTest are not compiled with /W4.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith -Wno-deprecated-declarations -Wno-defaulted-function-deleted")
     set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
@@ -233,6 +230,14 @@ set(LIBHMM_SOURCES
 
 # Create the library
 add_library(hmm ${LIBHMM_SOURCES})
+
+# MSVC compiler flags — applied only to hmm, not to FetchContent dependencies.
+# /W4: strong warnings. /wd4267 silence size_t narrowing, /wd4996 silence
+# deprecated-constructor warnings that will be cleaned up during the refactor.
+# /permissive- enforces stricter C++ standards conformance.
+if(MSVC)
+    target_compile_options(hmm PRIVATE /W4 /wd4267 /wd4996 /permissive-)
+endif()
 
 # Enable clang-tidy if requested
 if(ENABLE_CLANG_TIDY)
