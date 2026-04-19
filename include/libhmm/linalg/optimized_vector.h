@@ -10,8 +10,8 @@
 // Use robust performance infrastructure (includes parallel execution detection)
 #include "libhmm/performance/simd_support.h"
 #include "libhmm/performance/parallel_constants.h"
-#include "common.h"
-#include "basic_vector.h"  // Forward declaration for conversion constructor
+#include "libhmm/common/common.h"
+#include "libhmm/linalg/basic_vector.h"  // Forward declaration for conversion constructor
 
 namespace libhmm {
 
