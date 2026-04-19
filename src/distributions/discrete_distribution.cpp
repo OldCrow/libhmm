@@ -41,7 +41,12 @@ void DiscreteDistribution::setProbability(Observation o, double value) {
     if (std::isnan(value) || std::isinf(value) || value < math::ZERO_DOUBLE || value > math::ONE) {
         throw std::invalid_argument("Probability value must be between 0 and 1");
     }
-    
+
+    // Guard before cast: converting a negative float to size_t is undefined behaviour.
+    // Do the range check on the double value itself first.
+    if (std::isnan(o) || std::isinf(o) || o < 0.0) {
+        throw std::out_of_range("Observation index out of range");
+    }
     const auto index = static_cast<std::size_t>(o);
     if (!isValidIndex(index)) {
         throw std::out_of_range("Observation index out of range");
