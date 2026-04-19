@@ -1,5 +1,4 @@
-#ifndef BETADISTRIBUTION_H_
-#define BETADISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -327,4 +326,3 @@ std::ostream& operator<<(std::ostream& os, const libhmm::BetaDistribution& distr
 
 } // namespace libhmm
 
-#endif // BETADISTRIBUTION_H_

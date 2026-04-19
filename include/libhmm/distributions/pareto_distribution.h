@@ -1,5 +1,4 @@
-#ifndef PARETODISTRIBUTION_H_
-#define PARETODISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -363,4 +362,3 @@ std::ostream& operator<<( std::ostream&,
 std::istream& operator>>( std::istream&,
         libhmm::ParetoDistribution& );
 } // namespace
-#endif

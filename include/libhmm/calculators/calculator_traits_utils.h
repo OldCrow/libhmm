@@ -1,5 +1,4 @@
-#ifndef CALCULATOR_TRAITS_UTILS_H_
-#define CALCULATOR_TRAITS_UTILS_H_
+#pragma once
 
 #include <cstddef>
 #include "libhmm/common/common.h"
@@ -34,4 +33,3 @@ double calculateStabilityNeed(std::size_t seqLength) noexcept;
 } // namespace calculator_traits
 } // namespace libhmm
 
-#endif // CALCULATOR_TRAITS_UTILS_H_

@@ -1,5 +1,4 @@
-#ifndef LIBHMM_LOG_SIMD_FORWARD_BACKWARD_CALCULATOR_H_
-#define LIBHMM_LOG_SIMD_FORWARD_BACKWARD_CALCULATOR_H_
+#pragma once
 
 #include "libhmm/hmm.h"
 #include "libhmm/calculators/calculator.h"
@@ -315,4 +314,3 @@ public:
 
 } // namespace libhmm
 
-#endif // LIBHMM_LOG_SIMD_FORWARD_BACKWARD_CALCULATOR_H_

@@ -1,5 +1,4 @@
-#ifndef LIBHMM_VITERBI_CALCULATOR_H_
-#define LIBHMM_VITERBI_CALCULATOR_H_
+#pragma once
 
 /**
  * @file viterbi_calculator.h
@@ -156,4 +155,3 @@ public:
 
 } //namespace
 
-#endif

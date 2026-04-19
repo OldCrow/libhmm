@@ -1,5 +1,4 @@
-#ifndef PROBABILITYDISTRIBUTION_H_
-#define PROBABILITYDISTRIBUTION_H_
+#pragma once
 
 #include <iostream>
 #include <sstream>
@@ -108,4 +107,3 @@ public:
 
 }//namespace
 
-#endif

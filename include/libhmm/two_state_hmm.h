@@ -1,5 +1,4 @@
-#ifndef TWO_STATE_HMM_H_
-#define TWO_STATE_HMM_H_
+#pragma once
 
 #include <memory>
 #include <stdexcept>
@@ -118,4 +117,3 @@ inline std::unique_ptr<Hmm> createTwoStateHmm() {
 
 } // namespace libhmm
 
-#endif // TWO_STATE_HMM_H_

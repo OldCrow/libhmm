@@ -1,5 +1,4 @@
-#ifndef CLUSTER_H_
-#define CLUSTER_H_
+#pragma once
 
 #include <vector>
 #include <algorithm>
@@ -111,4 +110,3 @@ public:
 
 } //namespace
 
-#endif

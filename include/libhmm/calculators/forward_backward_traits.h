@@ -1,5 +1,4 @@
-#ifndef LIBHMM_FORWARD_BACKWARD_TRAITS_H_
-#define LIBHMM_FORWARD_BACKWARD_TRAITS_H_
+#pragma once
 
 #include <memory>
 #include <string>
@@ -204,4 +203,3 @@ public:
 } // namespace forwardbackward
 } // namespace libhmm
 
-#endif // LIBHMM_FORWARD_BACKWARD_TRAITS_H_

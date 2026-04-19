@@ -1,5 +1,4 @@
-#ifndef LIBHMM_LOG_SIMD_VITERBI_CALCULATOR_H_
-#define LIBHMM_LOG_SIMD_VITERBI_CALCULATOR_H_
+#pragma once
 
 #include "libhmm/hmm.h"
 #include "libhmm/calculators/calculator.h"
@@ -211,4 +210,3 @@ private:
 
 } // namespace libhmm
 
-#endif // LIBHMM_LOG_SIMD_VITERBI_CALCULATOR_H_

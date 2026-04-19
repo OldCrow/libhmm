@@ -1,5 +1,4 @@
-#ifndef LIBHMM_H_
-#define LIBHMM_H_
+#pragma once
 
 /**
  * @file libhmm.h
@@ -126,4 +125,3 @@
  * - **Performance**: SIMD detection, thread pools, and numerical stability utilities
  */
 
-#endif // LIBHMM_H_

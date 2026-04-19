@@ -1,5 +1,4 @@
-#ifndef DISTRIBUTION_TRAITS_H_
-#define DISTRIBUTION_TRAITS_H_
+#pragma once
 
 #include <type_traits>
 #include <utility>
@@ -198,4 +197,3 @@ inline constexpr int trainer_selector_v = trainer_selector<DistType>::value;
 
 } // namespace libhmm
 
-#endif // DISTRIBUTION_TRAITS_H_

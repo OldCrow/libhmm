@@ -1,5 +1,4 @@
-#ifndef LIBHMM_TRAINER_TRAITS_H_
-#define LIBHMM_TRAINER_TRAITS_H_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -420,4 +419,3 @@ namespace presets {
 } // namespace trainer_traits
 } // namespace libhmm
 
-#endif // LIBHMM_TRAINER_TRAITS_H_

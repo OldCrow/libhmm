@@ -1,5 +1,4 @@
-#ifndef RAYLEIGHDISTRIBUTION_H_
-#define RAYLEIGHDISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -327,4 +326,3 @@ public:
 
 }  // namespace libhmm
 
-#endif  // RAYLEIGHDISTRIBUTION_H_

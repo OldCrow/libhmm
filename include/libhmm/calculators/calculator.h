@@ -1,5 +1,4 @@
-#ifndef CALCULATOR_H_
-#define CALCULATOR_H_
+#pragma once
 
 #include "libhmm/common/common.h"
 #include "libhmm/hmm.h"
@@ -108,4 +107,3 @@ public:
 
 }//namespace
 
-#endif //CALCULATOR_H_

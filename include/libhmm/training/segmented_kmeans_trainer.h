@@ -1,5 +1,4 @@
-#ifndef SEGMENTEDKMEANSTRAINER_H_
-#define SEGMENTEDKMEANSTRAINER_H_
+#pragma once
 
 #include <map>
 #include <vector>
@@ -154,4 +153,3 @@ public:
 
 }//namespace
 
-#endif

@@ -1,5 +1,4 @@
-#ifndef LOGNORMALDISTRIBUTION_H_
-#define LOGNORMALDISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -330,4 +329,3 @@ std::ostream& operator<<( std::ostream&,
         const libhmm::LogNormalDistribution& );
 
 } // namespace
-#endif
