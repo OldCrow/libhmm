@@ -1,5 +1,4 @@
-#ifndef CENTROID_H_
-#define CENTROID_H_
+#pragma once
 
 #include "libhmm/common/common.h"
 #include <cmath>
@@ -124,4 +123,3 @@ public:
 
 }
 
-#endif

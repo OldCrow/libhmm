@@ -1,5 +1,4 @@
-#ifndef VITERBITRAINER_H_
-#define VITERBITRAINER_H_
+#pragma once
 
 #include <unordered_map>
 #include <cassert>
@@ -139,4 +138,3 @@ public:
 
 }//namespace
 
-#endif

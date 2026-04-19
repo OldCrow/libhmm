@@ -1,5 +1,4 @@
-#ifndef LIBHMM_ROBUST_VITERBI_TRAINER_H_
-#define LIBHMM_ROBUST_VITERBI_TRAINER_H_
+#pragma once
 
 #include "libhmm/training/viterbi_trainer.h"
 #include "libhmm/common/numerical_stability.h"
@@ -191,4 +190,3 @@ namespace training_presets {
 
 } // namespace libhmm
 
-#endif // LIBHMM_ROBUST_VITERBI_TRAINER_H_

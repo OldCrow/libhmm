@@ -1,5 +1,4 @@
-#ifndef CHI_SQUARED_DISTRIBUTION_H_
-#define CHI_SQUARED_DISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -289,4 +288,3 @@ std::istream& operator>>(std::istream& is, ChiSquaredDistribution& dist);
 
 } // namespace libhmm
 
-#endif // CHI_SQUARED_DISTRIBUTION_H_

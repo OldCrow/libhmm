@@ -1,5 +1,4 @@
-#ifndef LIBHMM_FORWARD_BACKWARD_CALCULATOR_H_
-#define LIBHMM_FORWARD_BACKWARD_CALCULATOR_H_
+#pragma once
 
 /**
  * @file forward_backward_calculator.h
@@ -147,4 +146,3 @@ public:
 
 }
 
-#endif

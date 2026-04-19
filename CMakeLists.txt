@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
 
 # Set policy for FindBoost to suppress deprecation warning
 if(POLICY CMP0167)
@@ -58,13 +58,13 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-VERSION 2.9.1
-    DESCRIPTION "Modern C++17 Hidden Markov Model Library"
+    VERSION 2.9.1
+    DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
 
-# Set C++17 standard
-set(CMAKE_CXX_STANDARD 17)
+# C++20 standard — required for std::span, concepts, and constexpr improvements
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -80,6 +80,9 @@ option(ENABLE_CPPCHECK "Enable cppcheck analysis" ON)
 if(APPLE)
     set(LIBHMM_PLATFORM "macOS")
     message(STATUS "Building for macOS")
+elseif(WIN32)
+    set(LIBHMM_PLATFORM "Windows")
+    message(STATUS "Building for Windows")
 elseif(LINUX)
     set(LIBHMM_PLATFORM "Linux")
     message(STATUS "Building for Linux")
@@ -125,27 +128,61 @@ include_directories(include)
 # include_directories(${Boost_INCLUDE_DIRS})  # REMOVED: No longer needed
 
 # Platform-specific compiler flags
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith -Wno-deprecated-declarations -Wno-defaulted-function-deleted")
+if(MSVC)
+    # /W4: strong warnings. /wd4267 silence size_t narrowing, /wd4996 silence deprecated-constructor
+    # warnings that are pre-existing and will be addressed during the refactor.
+    # /permissive- enables stricter C++ standards conformance.
+    add_compile_options(/W4 /wd4267 /wd4996 /permissive-)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith -Wno-deprecated-declarations -Wno-defaulted-function-deleted")
     set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-    
-    # Platform-specific flags
-    if(APPLE)
-        # macOS specific flags
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-        # macOS handles undefined symbols dynamically
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
-    elseif(LINUX)
-        # Linux specific flags
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-        # Linux requires all symbols to be defined at link time
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
-    elseif(UNIX)
-        # Generic Unix flags
+
+    # Position-independent code for shared libraries on Unix platforms
+    if(APPLE OR LINUX OR UNIX)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
     endif()
+
+    if(APPLE)
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
+    elseif(LINUX)
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
+    endif()
 endif()
+
+# =============================================================================
+# SIMD DETECTION — compiler capability, NOT build machine CPU
+#
+# Each SIMD ISA is checked against the compiler using check_cxx_compiler_flag.
+# If the compiler can compile the flag, the corresponding source TU is included
+# with that flag set per-TU via set_source_files_properties.
+#
+# This ensures a binary built on any x86-64 machine includes all ISA variants
+# the compiler supports and dispatches at runtime — the build machine's CPU
+# is irrelevant to which variants are compiled in.
+#
+# The dispatch TU (src/performance/simd_support.cpp) is compiled with NO SIMD
+# flags so that the runtime CPUID code cannot itself emit SIMD instructions.
+#
+# NOTE: Per-TU SIMD source files will be added in Phase 3 when the batch
+# distribution interface (getBatchLogProbabilities) is implemented.
+# This scaffolding is here to document the pattern and make Phase 3 simpler.
+# =============================================================================
+include(CheckCXXCompilerFlag)
+
+if(NOT MSVC)
+    check_cxx_compiler_flag("-mavx"   COMPILER_SUPPORTS_AVX)
+    check_cxx_compiler_flag("-mavx2"  COMPILER_SUPPORTS_AVX2)
+    check_cxx_compiler_flag("-msse4.2" COMPILER_SUPPORTS_SSE42)
+else()
+    # MSVC uses /arch: flags; check for AVX support
+    check_cxx_compiler_flag("/arch:AVX"  COMPILER_SUPPORTS_AVX)
+    check_cxx_compiler_flag("/arch:AVX2" COMPILER_SUPPORTS_AVX2)
+    set(COMPILER_SUPPORTS_SSE42 ON)  # SSE4.2 is guaranteed on x64 MSVC
+endif()
+
+message(STATUS "SIMD compiler support — AVX: ${COMPILER_SUPPORTS_AVX}  AVX2: ${COMPILER_SUPPORTS_AVX2}")
+# Phase 3: use COMPILER_SUPPORTS_AVX/AVX2 to conditionally add per-TU SIMD sources
 
 # Source files
 set(LIBHMM_SOURCES
@@ -328,6 +365,8 @@ message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Shared Libraries: ${BUILD_SHARED_LIBS}")
 if(APPLE)
     message(STATUS "Library Type: .dylib (macOS dynamic library)")
+elseif(WIN32)
+    message(STATUS "Library Type: .lib/.dll (Windows)")
 elseif(LINUX)
     message(STATUS "Library Type: .so (Linux shared object)")
 elseif(UNIX)

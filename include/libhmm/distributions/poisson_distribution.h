@@ -1,5 +1,4 @@
-#ifndef POISSONDISTRIBUTION_H_
-#define POISSONDISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -287,4 +286,3 @@ std::ostream& operator<<(std::ostream& os, const libhmm::PoissonDistribution& di
 
 } // namespace libhmm
 
-#endif // POISSONDISTRIBUTION_H_

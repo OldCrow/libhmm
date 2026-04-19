@@ -1,5 +1,4 @@
-#ifndef GAUSSIANDISTRIBUTION_H_
-#define GAUSSIANDISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -304,4 +303,3 @@ std::ostream& operator<<( std::ostream&,
 //std::istream& operator>>( std::istream&,
 //        const libhmm::GaussianDistribution& );
 } // namespace
-#endif

@@ -1,5 +1,4 @@
-#ifndef STUDENT_T_DISTRIBUTION_H_
-#define STUDENT_T_DISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -294,4 +293,3 @@ private:
 
 } // namespace libhmm
 
-#endif // LIBHMM_STUDENT_T_DISTRIBUTION_H

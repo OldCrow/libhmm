@@ -1,5 +1,4 @@
-#ifndef LIBHMM_CALCULATORS_H_
-#define LIBHMM_CALCULATORS_H_
+#pragma once
 
 /**
  * @file calculators.h
@@ -82,4 +81,3 @@ namespace libhmm {
     }
 }
 
-#endif // LIBHMM_CALCULATORS_H_

@@ -1,5 +1,4 @@
-#ifndef NEGATIVE_BINOMIAL_DISTRIBUTION_H_
-#define NEGATIVE_BINOMIAL_DISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -366,4 +365,3 @@ std::ostream& operator<<(std::ostream&, const libhmm::NegativeBinomialDistributi
 
 } // namespace libhmm
 
-#endif

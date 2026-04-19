@@ -1,5 +1,4 @@
-#ifndef SCALEDBAUMWELCHTRAINER_H_
-#define SCALEDBAUMWELCHTRAINER_H_
+#pragma once
 
 #include <cmath>
 #include "libhmm/common/common.h"
@@ -51,4 +50,3 @@ private:
 
 }
 
-#endif /*SCALEDBAUMWELCHTRAINER_H_*/

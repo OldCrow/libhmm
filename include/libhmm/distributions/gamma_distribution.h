@@ -1,5 +1,4 @@
-#ifndef GAMMADISTRIBUTION_H_
-#define GAMMADISTRIBUTION_H_
+#pragma once
 
 #include "libhmm/distributions/probability_distribution.h"
 #include "libhmm/common/common.h"
@@ -344,4 +343,3 @@ std::istream& operator>>( std::istream&,
         libhmm::GammaDistribution& );
 
 } // namespace
-#endif

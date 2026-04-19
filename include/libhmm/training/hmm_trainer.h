@@ -1,5 +1,4 @@
-#ifndef HMMTRAINER_H_
-#define HMMTRAINER_H_
+#pragma once
 
 #include "libhmm/common/common.h"
 #include "libhmm/hmm.h"
@@ -55,5 +54,4 @@ public:
 
 }
 
-#endif
 

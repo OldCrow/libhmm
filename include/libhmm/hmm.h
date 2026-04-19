@@ -1,5 +1,4 @@
-#ifndef HMM_H_
-#define HMM_H_
+#pragma once
 
 #include <iostream>
 #include <memory>
@@ -240,4 +239,3 @@ friend std::istream& operator>>(std::istream&, libhmm::Hmm&);
 std::ostream& operator<<( std::ostream&, const libhmm::Hmm& );
 }
 
-#endif /*HMM_H_*/

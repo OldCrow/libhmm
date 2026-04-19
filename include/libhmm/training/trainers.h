@@ -1,5 +1,4 @@
-#ifndef LIBHMM_TRAINERS_H_
-#define LIBHMM_TRAINERS_H_
+#pragma once
 
 /**
  * @file trainers.h
@@ -90,4 +89,3 @@ namespace libhmm {
     }
 }
 
-#endif // LIBHMM_TRAINERS_H_

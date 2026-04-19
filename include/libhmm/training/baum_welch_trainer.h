@@ -1,5 +1,4 @@
-#ifndef BAUMWELCHTRAINER_H_
-#define BAUMWELCHTRAINER_H_
+#pragma once
 
 #include <cmath>
 #include "libhmm/common/common.h"
@@ -51,4 +50,3 @@ private:
 
 }
 
-#endif /*BAUMWELCHTRAINER_H_*/

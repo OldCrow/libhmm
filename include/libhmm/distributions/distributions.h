@@ -1,5 +1,4 @@
-#ifndef LIBHMM_DISTRIBUTIONS_H_
-#define LIBHMM_DISTRIBUTIONS_H_
+#pragma once
 
 /**
  * @file distributions.h
@@ -90,4 +89,3 @@ namespace libhmm {
     }
 }
 
-#endif // LIBHMM_DISTRIBUTIONS_H_

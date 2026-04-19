@@ -1,5 +1,4 @@
-#ifndef LIBHMM_VITERBI_TRAITS_H_
-#define LIBHMM_VITERBI_TRAITS_H_
+#pragma once
 
 #include <memory>
 #include <string>
@@ -200,4 +199,3 @@ public:
 } // namespace viterbi
 } // namespace libhmm
 
-#endif // LIBHMM_VITERBI_TRAITS_H_
