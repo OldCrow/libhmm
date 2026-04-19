@@ -59,6 +59,7 @@ jobs:
         cmake -B build `
           -G "Visual Studio 17 2022" -A x64 `
           -DBUILD_SHARED_LIBS=OFF `
+          -DBUILD_EXAMPLES=OFF `
           -DCMAKE_BUILD_TYPE=Release
 
     - name: Configure (Unix)
@@ -66,7 +67,8 @@ jobs:
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_SHARED_LIBS=OFF
+          -DBUILD_SHARED_LIBS=OFF \
+          -DBUILD_EXAMPLES=OFF
 
     # -------------------------------------------------------------------------
     # Build
@@ -77,7 +79,16 @@ jobs:
     - name: Build library
       run: cmake --build build --config Release --target hmm --parallel
 
-    - name: Build all targets
+    # On Unix/make, pass -k (keep going) so that linker errors in known-broken
+    # test targets do not stop the rest of the test executables from being built.
+    # MSBuild handles this correctly by default, so Windows does not need -k.
+    - name: Build all targets (Unix)
+      if: "!matrix.msvc"
+      run: cmake --build build --config Release --parallel -- -k
+      continue-on-error: true
+
+    - name: Build all targets (Windows)
+      if: matrix.msvc
       run: cmake --build build --config Release --parallel
       continue-on-error: true
 
