@@ -62,7 +62,15 @@ Secondary macOS machines are used for cross-platform and cross-architecture vali
 
 ### CI
 
-GitHub Actions CI will be added at an appropriate point in the refactor — likely after Phase 1 (header reorganization) stabilises the include structure. The CI matrix will cover at minimum: Linux x86-64 (GCC or Clang, AVX2), with Windows and macOS runners added as the build system matures. Until CI is active, cross-platform validation is manual on the machines listed above.
+GitHub Actions CI is active: `.github/workflows/ci.yml` runs on every push to `main` and `refactor/modern-architecture`, and on PRs to `main`.
+
+| Job | Runner | Compiler | Build |
+|---|---|---|---|
+| Linux | ubuntu-latest | GCC | Release |
+| macOS | macos-latest | AppleClang | Release |
+| Windows | windows-latest | MSVC | Release |
+
+CI uses `ctest -LE known_broken` to exclude the 5 pre-existing failures (tracked in `tests/CMakeLists.txt`). Remove a test from the label when it is fixed. GTest is fetched via CMake `FetchContent` so no local installation is required on CI runners.
 
 ## Windows Session Setup (Asus TUF A16)
 
@@ -86,12 +94,16 @@ cmake --build "$repo\build" --config Release
 
 ### Run Tests
 
-GTest is installed as a DLL. Copy the DLLs alongside test executables before running ctest:
+GTest is installed as a DLL via vcpkg. Copy the DLLs alongside test executables before running ctest. Use `-LE known_broken` to match what CI runs:
 
 ```powershell
-Copy-Item "C:\vcpkg\installed\x64-windows\bin\gtest.dll" "C:\Users\gdwol\Development\libhmm\build\tests\Release\" -Force
+Copy-Item "C:\vcpkg\installed\x64-windows\bin\gtest.dll"      "C:\Users\gdwol\Development\libhmm\build\tests\Release\" -Force
 Copy-Item "C:\vcpkg\installed\x64-windows\bin\gtest_main.dll" "C:\Users\gdwol\Development\libhmm\build\tests\Release\" -Force
 
+# Mirroring CI (excludes known_broken tests)
+ctest --test-dir "C:\Users\gdwol\Development\libhmm\build" -C Release --output-on-failure --timeout 60 -LE known_broken
+
+# Full suite including known failures (for investigating them)
 ctest --test-dir "C:\Users\gdwol\Development\libhmm\build" -C Release --output-on-failure --timeout 60
 ```
 
@@ -116,12 +128,42 @@ Pass `-DCMAKE_PREFIX_PATH=C:/vcpkg/installed/x64-windows` at configure time.
 
 The vcpkg toolchain file (`C:/vcpkg/scripts/buildsystems/vcpkg.cmake`) is present but this vcpkg instance is in manifest mode. Using `CMAKE_PREFIX_PATH` directly is more reliable.
 
+### Git Commits on Windows
+
+Two issues to be aware of:
+
+**GPG signing timeout**: If git has `commit.gpgsign=true` set globally, the GPG agent may timeout in non-interactive shells. Fix per-commit with:
+```powershell
+git -c commit.gpgsign=false commit -m "message"
+```
+
+**CRLF**: `.gitattributes` enforces LF in the repo. New files created on Windows will show CRLF warnings on `git add` — this is normal and correct; git will normalise them on the way in.
+
 ### One-Time Setup Notes
 
 - Visual Studio 2022 Build Tools (not full VS) — sufficient for cmake + MSVC
 - **Smart App Control must be Off** (Windows Security → App & Browser Control → SAC settings). SAC blocks locally compiled executables and cannot be re-enabled without a Windows reset.
 - GTest installed via vcpkg (`gtest:x64-windows`) — headers and DLLs at `C:\vcpkg\installed\x64-windows`
 - CMake 4.x installed
+
+### Pre-commit Hooks
+
+Pre-commit hooks enforce hygiene and the `#pragma once` convention. Requires Python and the `pre-commit` package.
+
+```bash
+# One-time setup (run in Git Bash on Windows)
+bash scripts/setup-pre-commit.sh
+```
+
+Or manually:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Active hooks: trailing whitespace, end-of-file newline, LF normalisation, YAML/JSON syntax, large file check, merge conflict detection, `#pragma once` verification.
+
+To run manually: `pre-commit run --all-files`
 
 ## Test Baseline (Windows/MSVC, 2026-04-18)
 
@@ -146,14 +188,28 @@ These pre-existing failures are **not regressions from the refactor**. The exit 
 ```
 libhmm/
 ├── include/libhmm/     # Public headers
+│   ├── platform/       # SIMD detection, CPU features (moved from performance/ in Phase 1)
+│   ├── math/           # constants.h, log_space_ops.h, numerical_stability.h
+│   ├── linalg/         # matrix/vector types (moved from common/ in Phase 1)
+│   ├── common/         # types, serialization, forwarding stubs
+│   ├── distributions/  # 15 distributions + base
+│   ├── calculators/    # Forward-Backward, Viterbi variants
+│   ├── training/       # Baum-Welch, Viterbi training, K-Means
+│   └── io/             # XML I/O
 ├── src/                # Implementation (mirrors include structure)
 ├── tests/              # GTest-based test suite (mirrors include structure)
-├── examples/           # Usage demonstrations (10 examples, 9 build on Windows)
+├── examples/           # Usage demonstrations
 ├── benchmarks/         # Benchmarking suite
 ├── performance/        # Root-level performance analysis tools
+├── scripts/            # Dev tooling: setup-pre-commit.sh, check-pragma-once.sh
 ├── docs/               # Documentation (GOLD_STANDARD_CHECKLIST.md, STYLE_GUIDE.md, etc.)
 ├── cmake/              # CMake helper files
-├── build_windows.bat   # Windows build helper (configure only — see Session Setup above)
+├── .github/workflows/  # CI: ci.yml (Linux/macOS/Windows)
+├── .gitattributes      # LF enforcement
+├── .pre-commit-config.yaml
+├── .cmake-format.yaml
+├── .markdownlint.yaml
+├── build_windows.bat   # Windows configure helper
 └── WARP.md             # This file
 ```
 
