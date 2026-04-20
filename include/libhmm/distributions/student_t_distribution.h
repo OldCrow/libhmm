@@ -1,8 +1,8 @@
 #pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <string>, <sstream>, <iomanip>
+#include <span>
 
 namespace libhmm {
 
@@ -28,7 +28,7 @@ namespace libhmm {
  * - Financial modeling (fat-tailed distributions)
  * - Robust regression analysis
  */
-class StudentTDistribution : public ProbabilityDistribution {
+class StudentTDistribution : public DistributionBase {
 private:
     /**
      * Degrees of freedom parameter ν - must be positive
@@ -85,22 +85,8 @@ private:
      */
     mutable double cached_log_scale_{0.0};
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cache_valid_{false};
-
-    /**
-     * Updates cached values when parameters change using optimized calculations
-     */
     void updateCache() const;
-    
-    /**
-     * Validates parameters for the Student's t-distribution
-     * @param degrees_of_freedom Degrees of freedom parameter (must be positive and finite)
-     * @throws std::invalid_argument if parameter is invalid
-     */
-    void validateParameters(double degrees_of_freedom) const;
+    static void validateParameters(double degrees_of_freedom);
 
 public:
     /**
@@ -124,20 +110,11 @@ public:
      */
     StudentTDistribution(double degrees_of_freedom, double location, double scale);
 
-    /**
-     * @brief Copy constructor
-     */
     StudentTDistribution(const StudentTDistribution& other);
-
-    /**
-     * @brief Assignment operator
-     */
     StudentTDistribution& operator=(const StudentTDistribution& other);
-
-    /**
-     * @brief Destructor
-     */
-    virtual ~StudentTDistribution() = default;
+    StudentTDistribution(StudentTDistribution&& other) noexcept;
+    StudentTDistribution& operator=(StudentTDistribution&& other) noexcept;
+    ~StudentTDistribution() override = default;
 
     /**
      * Computes the probability density function for the Student's t-distribution.
@@ -145,40 +122,14 @@ public:
      * @param value The value at which to evaluate the PDF
      * @return Probability density f(value|ν)
      */
-    double getProbability(Observation value) override;
+    [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
-    /**
-     * Computes the logarithm of the probability density function for numerical stability.
-     * 
-     * For Student's t-distribution: log(f(x)) = log(Γ((ν+1)/2)) - log(Γ(ν/2)) - log(σ)
-     *                                          - (1/2)*log(νπ) - ((ν+1)/2)*log(1 + ((x-μ)/σ)²/ν)
-     * 
-     * @param value The value at which to evaluate the log-PDF
-     * @return Natural logarithm of the probability density
-     */
-    double getLogProbability(double value) const noexcept override;
-
-    /**
-     * Computes the cumulative distribution function for the Student's t-distribution.
-     * 
-     * Uses the relationship with the incomplete beta function:
-     * CDF(t) = 1/2 + (t/√(ν)) * B(1/2, ν/2) / B(1/2, ν/2) for standardized t
-     * 
-     * @param value The value at which to evaluate the CDF
-     * @return Cumulative probability P(X ≤ value)
-     */
-    double getCumulativeProbability(double value) const noexcept;
-
-    /**
-     * Fits the distribution parameters to the given data using method of moments estimation.
-     * 
-     * Method of moments for t-distribution:
-     * Given sample variance s², estimate ν from: s² = ν/(ν-2)
-     * Solving: ν = 2s²/(s²-1) for s² > 1
-     * 
-     * @param values Vector of observed data
-     */
-    void fit(const std::vector<Observation>& values) override;
+    void fit(std::span<const double> data) override;
+    /** Weighted MOM: location = weighted_mean; ν estimated from weighted variance. */
+    void fit(std::span<const double> data, std::span<const double> weights) override;
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /**
      * Resets the distribution to default parameters (ν = 1.0).

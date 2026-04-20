@@ -63,18 +63,25 @@ public:
                    ->getProbability(static_cast<double>(val));
     }
 
-    /** Shim: converts vector to span and calls new fit(span). */
+    /** Shim: converts vector to span and calls new fit(span). Marked final so derived
+     *  classes cannot accidentally re-implement the old vector interface. The span
+     *  overloads below are separately declared pure virtual so MSVC knows they are
+     *  distinct from this final overload and CAN be overridden. */
     void fit(const std::vector<Observation>& values) final {
         fit(std::span<const double>(values.data(), values.size()));
     }
 
-    // Bring EmissionDistribution methods back into scope.
-    // Without these, the shims above (which introduce members named
-    // 'getProbability' and 'fit') would hide the EmissionDistribution
-    // const/span overloads via C++ name hiding in multiple inheritance.
+    // Explicitly re-declare EmissionDistribution pure virtuals here so that:
+    // (a) name hiding by the vector shim above is resolved, and
+    // (b) MSVC can see that these overloads are NOT final and CAN be overridden
+    //     by concrete distributions.
+    // (Using 'using EmissionDistribution::fit' interacts poorly with 'final' on
+    //  the vector overload in MSVC — it treats final as applying to all fit overloads.)
     using EmissionDistribution::getProbability;    // unhides getProbability(double) const
     using EmissionDistribution::getLogProbability; // resolves ambiguity (same sig in both bases)
-    using EmissionDistribution::fit;               // unhides fit(span) and fit(span, span)
+    virtual void fit(std::span<const double> data) = 0;  // explicitly NOT final
+    virtual void fit(std::span<const double> data,
+                     std::span<const double> weights) = 0;  // explicitly NOT final
 
 protected:
     // =========================================================================

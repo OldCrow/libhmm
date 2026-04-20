@@ -1,9 +1,5 @@
 #include "libhmm/distributions/gamma_distribution.h"
-// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
-#include <cfloat>      // For FLT_* constants (not in common.h)
-#include <numeric>     // For std::accumulate (not in common.h)
-#include <algorithm>   // For std::for_each (exists in common.h, included for clarity)
-#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
+#include <span>
 
 using namespace libhmm::constants;
 
@@ -17,21 +13,10 @@ namespace libhmm
  * @param x The value at which to evaluate the probability
  * @return Probability density
  */            
-double GammaDistribution::getProbability(double x) {
-    // Gamma distribution has support [0, ∞)
-    if (std::isnan(x) || std::isinf(x) || x < 0.0) {
-        return 0.0;
-    }
-    
-    if (x == 0.0) {
-        // Handle x=0 case: PDF is 0 unless k < 1 (then it's infinite)
-        return (k_ < 1.0) ? std::numeric_limits<double>::infinity() : 0.0;
-    }
-    
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
+double GammaDistribution::getProbability(double x) const {
+    if (std::isnan(x) || std::isinf(x) || x < 0.0) return 0.0;
+    if (x == 0.0) return (k_ < 1.0) ? std::numeric_limits<double>::infinity() : 0.0;
+    if (!isCacheValid()) updateCache();
     
     // Use log space for numerical stability then exponentiate
     const double logPdf = getLogProbability(x);
@@ -60,11 +45,7 @@ double GammaDistribution::getLogProbability(double x) const noexcept {
         return (k_ < 1.0) ? std::numeric_limits<double>::infinity() : -std::numeric_limits<double>::infinity();
     }
     
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
+    if (!isCacheValid()) updateCache();
     // log PDF(x) = (k-1)*ln(x) - x/θ - k*ln(θ) - ln(Γ(k))
     const double logPdf = kMinus1_ * std::log(x) - x / theta_ - kLogTheta_ - logGammaK_;
     
@@ -79,7 +60,7 @@ double GammaDistribution::getLogProbability(double x) const noexcept {
  * @param x The value at which to evaluate the CDF
  * @return Cumulative probability P(X ≤ x)
  */
-double GammaDistribution::getCumulativeProbability(double x) noexcept {
+double GammaDistribution::getCumulativeProbability(double x) const noexcept {
     if (x <= 0) return 0.0;
 
     double i = gammap(k_, x / theta_);
@@ -112,59 +93,48 @@ double GammaDistribution::ligamma(double a, double x) noexcept {
  * 
  * @param values Vector of observed data points
  */
-void GammaDistribution::fit(const std::vector<Observation>& values) {
-    // Handle edge cases: empty data or single data point
-    if (values.empty()) {
-        reset();
-        return;
-    }
-    
-    if (values.size() == 1) {
-        reset(); // Cannot estimate both parameters from single point
-        return;
-    }
-
-    // Use Welford's algorithm for numerically stable mean and variance calculation
-    double mean = 0.0;
-    double m2 = 0.0;  // Sum of squared differences from current mean
-    std::size_t validCount = 0;
-
-    for (const auto& val : values) {
-        // Only positive values are valid for Gamma distribution
+void GammaDistribution::fit(std::span<const double> data) {
+    if (data.size() < 2) { reset(); return; }
+    double mean = 0.0, m2 = 0.0;
+    std::size_t count = 0;
+    for (const double val : data) {
         if (val > 0.0 && std::isfinite(val)) {
-            ++validCount;
+            ++count;
             const double delta = val - mean;
-            mean += delta / static_cast<double>(validCount);
-            const double delta2 = val - mean;
-            m2 += delta * delta2;
+            mean += delta / static_cast<double>(count);
+            m2 += delta * (val - mean);
         }
     }
-    
-    if (validCount < 2) {
-        reset(); // Need at least 2 valid points
-        return;
-    }
+    if (count < 2) { reset(); return; }
+    const double var = m2 / (static_cast<double>(count) - 1.0);
+    if (mean <= precision::ZERO || var <= precision::ZERO) { reset(); return; }
+    const double newTheta = var / mean, newK = (mean * mean) / var;
+    if (!std::isfinite(newK) || !std::isfinite(newTheta) || newK <= 0.0 || newTheta <= 0.0) { reset(); return; }
+    theta_ = newTheta; k_ = newK;
+    invalidateCache();
+}
 
-    // Calculate sample variance (with Bessel's correction)
-    const double sampleVariance = m2 / (static_cast<double>(validCount) - 1.0);
-    
-    // Validate statistics using standardized precision constants
-    if (mean <= precision::ZERO || sampleVariance <= precision::ZERO || !std::isfinite(mean) || !std::isfinite(sampleVariance)) {
-        reset(); // Fall back to default if invalid statistics
-        return;
+void GammaDistribution::fit(std::span<const double> data,
+                            std::span<const double> weights) {
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    double mean = 0.0, m2 = 0.0, cumW = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        if (data[i] > 0.0 && std::isfinite(data[i]) && weights[i] > 0.0) {
+            cumW += weights[i];
+            const double delta = data[i] - mean;
+            mean += (weights[i] / cumW) * delta;
+            m2   += weights[i] * delta * (data[i] - mean);
+        }
     }
-
-    // Method of moments estimators
-    theta_ = sampleVariance / mean;
-    k_ = (mean * mean) / sampleVariance;
-    
-    // Validate computed parameters using standardized precision constants
-    if (!std::isfinite(k_) || !std::isfinite(theta_) || k_ <= precision::ZERO || theta_ <= precision::ZERO) {
-        reset(); // Fall back to default if parameters are invalid
-        return;
-    }
-    
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    if (cumW < precision::ZERO) { reset(); return; }
+    const double var = m2 / cumW;
+    if (mean <= precision::ZERO || var <= precision::ZERO) { reset(); return; }
+    const double newTheta = var / mean, newK = (mean * mean) / var;
+    if (!std::isfinite(newK) || !std::isfinite(newTheta) || newK <= 0.0 || newTheta <= 0.0) { reset(); return; }
+    theta_ = newTheta; k_ = newK;
+    invalidateCache();
 }
 
 /**
@@ -172,9 +142,8 @@ void GammaDistribution::fit(const std::vector<Observation>& values) {
  * This corresponds to the standard exponential distribution.
  */
 void GammaDistribution::reset() noexcept {
-    k_ = 1.0;
-    theta_ = 1.0;
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    k_ = 1.0; theta_ = 1.0;
+    invalidateCache();
 }
 
 std::string GammaDistribution::toString() const {

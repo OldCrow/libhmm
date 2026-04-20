@@ -1,36 +1,32 @@
 #include "libhmm/distributions/student_t_distribution.h"
-// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
-#include <algorithm>   // For std::remove_if, std::max, std::min (exists in common.h, included for clarity)
-#include <numeric>     // For std::accumulate (not in common.h)
-#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
+#include <algorithm>
+#include <limits>
+#include <span>
 
 using namespace libhmm::constants;
 
 namespace libhmm {
 
 StudentTDistribution::StudentTDistribution()
-    : degrees_of_freedom_(1.0), location_(0.0), scale_(1.0), cache_valid_(false) {
-}
+    : degrees_of_freedom_(1.0), location_(0.0), scale_(1.0) {}
 
 StudentTDistribution::StudentTDistribution(double degrees_of_freedom)
-    : degrees_of_freedom_(degrees_of_freedom), location_(0.0), scale_(1.0), cache_valid_(false) {
+    : degrees_of_freedom_(degrees_of_freedom), location_(0.0), scale_(1.0) {
     validateParameters(degrees_of_freedom);
     updateCache();
 }
 
 StudentTDistribution::StudentTDistribution(double degrees_of_freedom, double location, double scale)
-    : degrees_of_freedom_(degrees_of_freedom), location_(location), scale_(scale), cache_valid_(false) {
+    : degrees_of_freedom_(degrees_of_freedom), location_(location), scale_(scale) {
     validateParameters(degrees_of_freedom);
-    if (std::isnan(scale) || std::isinf(scale) || scale <= 0.0) {
+    if (std::isnan(scale) || std::isinf(scale) || scale <= 0.0)
         throw std::invalid_argument("Scale parameter must be a positive finite number");
-    }
     updateCache();
 }
 
 StudentTDistribution::StudentTDistribution(const StudentTDistribution& other)
-    : degrees_of_freedom_(other.degrees_of_freedom_),
-      location_(other.location_),
-      scale_(other.scale_),
+    : DistributionBase{other},
+      degrees_of_freedom_(other.degrees_of_freedom_), location_(other.location_), scale_(other.scale_),
       cached_log_gamma_half_nu_plus_one_(other.cached_log_gamma_half_nu_plus_one_),
       cached_log_gamma_half_nu_(other.cached_log_gamma_half_nu_),
       cached_log_normalization_(other.cached_log_normalization_),
@@ -38,39 +34,58 @@ StudentTDistribution::StudentTDistribution(const StudentTDistribution& other)
       cached_half_nu_plus_one_(other.cached_half_nu_plus_one_),
       cached_half_nu_(other.cached_half_nu_),
       cached_inv_scale_(other.cached_inv_scale_),
-      cached_log_scale_(other.cached_log_scale_),
-      cache_valid_(other.cache_valid_) {
-}
+      cached_log_scale_(other.cached_log_scale_) {}
 
 StudentTDistribution& StudentTDistribution::operator=(const StudentTDistribution& other) {
     if (this != &other) {
+        DistributionBase::operator=(other);
         degrees_of_freedom_ = other.degrees_of_freedom_;
-        location_ = other.location_;
-        scale_ = other.scale_;
+        location_ = other.location_; scale_ = other.scale_;
         cached_log_gamma_half_nu_plus_one_ = other.cached_log_gamma_half_nu_plus_one_;
-        cached_log_gamma_half_nu_ = other.cached_log_gamma_half_nu_;
-        cached_log_normalization_ = other.cached_log_normalization_;
-        cached_normalization_factor_ = other.cached_normalization_factor_;
-        cached_half_nu_plus_one_ = other.cached_half_nu_plus_one_;
-        cached_half_nu_ = other.cached_half_nu_;
-        cached_inv_scale_ = other.cached_inv_scale_;
-        cached_log_scale_ = other.cached_log_scale_;
-        cache_valid_ = other.cache_valid_;
+        cached_log_gamma_half_nu_   = other.cached_log_gamma_half_nu_;
+        cached_log_normalization_   = other.cached_log_normalization_;
+        cached_normalization_factor_= other.cached_normalization_factor_;
+        cached_half_nu_plus_one_    = other.cached_half_nu_plus_one_;
+        cached_half_nu_             = other.cached_half_nu_;
+        cached_inv_scale_           = other.cached_inv_scale_;
+        cached_log_scale_           = other.cached_log_scale_;
     }
     return *this;
 }
 
-double StudentTDistribution::getProbability(Observation value) {
-    if (!cache_valid_) {
-        updateCache();
+StudentTDistribution::StudentTDistribution(StudentTDistribution&& other) noexcept
+    : DistributionBase{std::move(other)},
+      degrees_of_freedom_(other.degrees_of_freedom_), location_(other.location_), scale_(other.scale_),
+      cached_log_gamma_half_nu_plus_one_(other.cached_log_gamma_half_nu_plus_one_),
+      cached_log_gamma_half_nu_(other.cached_log_gamma_half_nu_),
+      cached_log_normalization_(other.cached_log_normalization_),
+      cached_normalization_factor_(other.cached_normalization_factor_),
+      cached_half_nu_plus_one_(other.cached_half_nu_plus_one_),
+      cached_half_nu_(other.cached_half_nu_),
+      cached_inv_scale_(other.cached_inv_scale_),
+      cached_log_scale_(other.cached_log_scale_) {}
+
+StudentTDistribution& StudentTDistribution::operator=(StudentTDistribution&& other) noexcept {
+    if (this != &other) {
+        DistributionBase::operator=(std::move(other));
+        degrees_of_freedom_ = other.degrees_of_freedom_;
+        location_ = other.location_; scale_ = other.scale_;
+        cached_log_gamma_half_nu_plus_one_ = other.cached_log_gamma_half_nu_plus_one_;
+        cached_log_gamma_half_nu_   = other.cached_log_gamma_half_nu_;
+        cached_log_normalization_   = other.cached_log_normalization_;
+        cached_normalization_factor_= other.cached_normalization_factor_;
+        cached_half_nu_plus_one_    = other.cached_half_nu_plus_one_;
+        cached_half_nu_             = other.cached_half_nu_;
+        cached_inv_scale_           = other.cached_inv_scale_;
+        cached_log_scale_           = other.cached_log_scale_;
     }
-    
-    auto x = static_cast<double>(value);
-    
-    // Handle invalid inputs
-    if (!std::isfinite(x)) {
-        return math::ZERO_DOUBLE;
-    }
+    return *this;
+}
+
+double StudentTDistribution::getProbability(double value) const {
+    if (!isCacheValid()) updateCache();
+    if (!std::isfinite(value)) return math::ZERO_DOUBLE;
+    const double x = value;
     
     // Direct calculation for better performance
     // Standardize with location and scale: z = (x - μ) / σ
@@ -88,18 +103,10 @@ double StudentTDistribution::getProbability(Observation value) {
  * Computes the logarithm of the probability density function for numerical stability.
  */
 double StudentTDistribution::getLogProbability(double value) const noexcept {
-    if (!std::isfinite(value)) {
-        return -std::numeric_limits<double>::infinity();
-    }
-    
-    if (!cache_valid_) {
-        updateCache();
-    }
-    
-    // Standardize with location and scale: z = (x - μ) / σ
+    if (!std::isfinite(value)) return -std::numeric_limits<double>::infinity();
+    if (!isCacheValid()) updateCache();
     const double z = (value - location_) * cached_inv_scale_;
-    
-    // Optimized log PDF using cached values:
+    // Optimized log PDF
     // log(f(x|ν,μ,σ)) = cached_log_normalization - ((ν+1)/2) * log(1 + z²/ν)
     const double z_squared_over_nu = (z * z) / degrees_of_freedom_;
     const double log_denominator_term = cached_half_nu_plus_one_ * std::log(math::ONE + z_squared_over_nu);
@@ -118,11 +125,7 @@ double StudentTDistribution::getCumulativeProbability(double value) const noexce
                (value < math::ZERO_DOUBLE ? math::ZERO_DOUBLE : math::ONE);
     }
     
-    if (!cache_valid_) {
-        updateCache();
-    }
-    
-    // Standardize: t = (x - μ) / σ
+    if (!isCacheValid()) updateCache();
     const double t = (value - location_) * cached_inv_scale_;
     
     // For standard t-distribution, use the relationship with incomplete beta function:
@@ -162,41 +165,15 @@ double StudentTDistribution::getCumulativeProbability(double value) const noexce
     return std::max(math::ZERO_DOUBLE, std::min(math::ONE, incomplete_beta_val));
 }
 
-void StudentTDistribution::fit(const std::vector<Observation>& values) {
-    if (values.empty()) {
-        throw std::invalid_argument("Cannot fit distribution to empty data");
-    }
-    
-    // Check for invalid values
-    for (Observation obs : values) {
-        auto val = static_cast<double>(obs);
-        if (!std::isfinite(val)) {
-            throw std::invalid_argument("Observations contain non-finite values");
-        }
-    }
-    
-    // Method of moments estimation using efficient Welford's algorithm
-    // For t-distribution: Var[X] = ν/(ν-2) for ν > 2
-    // Solving: sample_variance = ν/(ν-2) gives ν = 2*sample_variance/(sample_variance-1)
-    
-    size_t n = values.size();
-    if (n < 2) {
-        // Not enough data for variance estimation, use default
-        degrees_of_freedom_ = 1.0;
-        cache_valid_ = false;
-        return;
-    }
-    
-    // Use Welford's algorithm for numerical stability and performance
-    double mean = 0.0;
-    double M2 = 0.0;  // Sum of squared differences from current mean
-    double count = 0.0;
-    
-    for (Observation obs : values) {
-        auto val = static_cast<double>(obs);
-        count += 1.0;
-        double delta = val - mean;
-        mean += delta / count;
+void StudentTDistribution::fit(std::span<const double> data) {
+    if (data.size() < 2) { reset(); return; }
+    double mean = 0.0, M2 = 0.0;
+    std::size_t count = 0;
+    for (const double val : data) {
+        if (!std::isfinite(val)) throw std::invalid_argument("Observations contain non-finite values");
+        ++count;
+        const double delta = val - mean;
+        mean += delta / static_cast<double>(count);
         double delta2 = val - mean;
         M2 += delta * delta2;
     }
@@ -218,17 +195,37 @@ void StudentTDistribution::fit(const std::vector<Observation>& values) {
     }
 }
 
+void StudentTDistribution::fit(std::span<const double> data,
+                              std::span<const double> weights) {
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    double mean = 0.0, m2 = 0.0, cumW = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        cumW += weights[i];
+        const double delta = data[i] - mean;
+        mean += (weights[i] / cumW) * delta;
+        m2   += weights[i] * delta * (data[i] - mean);
+    }
+    location_ = mean;
+    const double var = m2 / sumW;
+    if (var > 1.0) {
+        double est = std::max(MIN_DEGREES_OF_FREEDOM, std::min(MAX_DEGREES_OF_FREEDOM, 2.0 * var / (var - 1.0)));
+        setDegreesOfFreedom(est);
+    } else {
+        setDegreesOfFreedom(3.0);
+    }
+}
+
 void StudentTDistribution::reset() noexcept {
-    degrees_of_freedom_ = 1.0;
-    location_ = 0.0;
-    scale_ = 1.0;
-    cache_valid_ = false;
+    degrees_of_freedom_ = 1.0; location_ = 0.0; scale_ = 1.0;
+    invalidateCache();
 }
 
 void StudentTDistribution::setDegreesOfFreedom(double degrees_of_freedom) {
     validateParameters(degrees_of_freedom);
     degrees_of_freedom_ = degrees_of_freedom;
-    cache_valid_ = false;
+    invalidateCache();
 }
 
 void StudentTDistribution::setScale(double scale) {
@@ -403,7 +400,7 @@ std::ostream& operator<<(std::ostream& os, const StudentTDistribution& dist) {
 /**
  * Validates the degrees of freedom parameter.
  */
-void StudentTDistribution::validateParameters(double degrees_of_freedom) const {
+void StudentTDistribution::validateParameters(double degrees_of_freedom) {
     if (std::isnan(degrees_of_freedom) || std::isinf(degrees_of_freedom) || degrees_of_freedom <= 0.0) {
         throw std::invalid_argument("Degrees of freedom must be a positive finite number");
     }
@@ -448,7 +445,7 @@ void StudentTDistribution::updateCache() const {
     // Cache the exponential of the log normalization for direct PDF calculation
     cached_normalization_factor_ = std::exp(cached_log_normalization_);
     
-    cache_valid_ = true;
+    markCacheValid();
 }
 
 } // namespace libhmm
