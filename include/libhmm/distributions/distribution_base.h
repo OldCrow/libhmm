@@ -79,9 +79,9 @@ public:
     //  the vector overload in MSVC — it treats final as applying to all fit overloads.)
     using EmissionDistribution::getProbability;    // unhides getProbability(double) const
     using EmissionDistribution::getLogProbability; // resolves ambiguity (same sig in both bases)
-    virtual void fit(std::span<const double> data) = 0;  // explicitly NOT final
+    virtual void fit(std::span<const double> data) override = 0;
     virtual void fit(std::span<const double> data,
-                     std::span<const double> weights) = 0;  // explicitly NOT final
+                     std::span<const double> weights) override = 0;
 
 protected:
     // =========================================================================
