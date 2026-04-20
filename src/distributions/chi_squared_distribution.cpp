@@ -1,24 +1,15 @@
 #include "libhmm/distributions/chi_squared_distribution.h"
-// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
-#include <algorithm>   // For std::remove_if, std::max, std::min (exists in common.h, included for clarity)
-#include <numeric>     // For std::accumulate (not in common.h)
-#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
+#include <algorithm>
+#include <span>
 
 using namespace libhmm::constants;
 
 namespace libhmm {
 
-double ChiSquaredDistribution::getProbability(Observation value) {
-    if (!cache_valid_) {
-        updateCache();
-    }
-    
-    auto x = static_cast<double>(value);
-    
-    // Handle invalid inputs
-    if (!std::isfinite(x)) {
-        return math::ZERO_DOUBLE;
-    }
+double ChiSquaredDistribution::getProbability(double value) const {
+    if (!isCacheValid()) updateCache();
+    const double x = value;
+    if (!std::isfinite(x)) return math::ZERO_DOUBLE;
     
     // Return 0 for negative values (outside support)
     if (x < math::ZERO_DOUBLE) {
@@ -42,12 +33,9 @@ double ChiSquaredDistribution::getProbability(Observation value) {
     return std::exp(log_prob);
 }
 
-double ChiSquaredDistribution::getLogProbability(Observation value) const noexcept {
-    if (!cache_valid_) {
-        updateCache();
-    }
-    
-    auto x = static_cast<double>(value);
+double ChiSquaredDistribution::getLogProbability(double value) const noexcept {
+    if (!isCacheValid()) updateCache();
+    const double x = value;
     
     // Handle invalid inputs
     if (!std::isfinite(x)) {
@@ -74,7 +62,7 @@ double ChiSquaredDistribution::getLogProbability(Observation value) const noexce
     return cached_log_normalization_ + cached_half_k_minus_one_ * std::log(x) - math::HALF * x;
 }
 
-double ChiSquaredDistribution::getCumulativeProbability(double x) {
+double ChiSquaredDistribution::getCumulativeProbability(double x) const noexcept {
     // Handle invalid inputs
     if (std::isnan(x)) {
         return std::numeric_limits<double>::quiet_NaN();
@@ -95,47 +83,31 @@ double ChiSquaredDistribution::getCumulativeProbability(double x) {
     return gammap(half_k, half_x);
 }
 
-void ChiSquaredDistribution::fit(const std::vector<Observation>& values) {
-    if (values.empty()) {
-        throw std::invalid_argument("Cannot fit distribution to empty data");
-    }
-    
-    // Check for invalid values and ensure non-negative
-    for (Observation obs : values) {
-        auto val = static_cast<double>(obs);
-        if (!std::isfinite(val) || val < math::ZERO_DOUBLE) {
+void ChiSquaredDistribution::fit(std::span<const double> data) {
+    if (data.empty()) throw std::invalid_argument("Cannot fit distribution to empty data");
+    double sum = 0.0;
+    for (const double v : data) {
+        if (!std::isfinite(v) || v < 0.0)
             throw std::invalid_argument("Chi-squared distribution requires non-negative finite values");
-        }
+        sum += v;
     }
-    
-    // Method of moments estimation for degrees of freedom
-    // For Chi-squared distribution: E[X] = k
-    // Therefore: k̂ = sample_mean
-    
-    size_t n = values.size();
-    
-    // Convert to double and calculate sample mean
-    std::vector<double> double_values{};
-    double_values.reserve(n);
-    for (Observation obs : values) {
-        double_values.push_back(static_cast<double>(obs));
-    }
-    
-    double mean = std::accumulate(double_values.begin(), double_values.end(), math::ZERO_DOUBLE) / n;
-    
-    // Estimate degrees of freedom as sample mean
-    double estimated_df = mean;
-    
-    // Clamp to reasonable bounds
-    estimated_df = std::max(thresholds::MIN_DEGREES_OF_FREEDOM, 
-                           std::min(thresholds::MAX_DEGREES_OF_FREEDOM, estimated_df));
-    
-    setDegreesOfFreedom(estimated_df);
+    double est = std::max(MIN_DEGREES_OF_FREEDOM,
+                          std::min(MAX_DEGREES_OF_FREEDOM, sum / static_cast<double>(data.size())));
+    setDegreesOfFreedom(est);
+}
+
+void ChiSquaredDistribution::fit(std::span<const double> data,
+                                 std::span<const double> weights) {
+    double sumW = 0.0, sumWX = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) { sumW += weights[i]; sumWX += weights[i] * data[i]; }
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    double est = std::max(MIN_DEGREES_OF_FREEDOM, std::min(MAX_DEGREES_OF_FREEDOM, sumWX / sumW));
+    setDegreesOfFreedom(est);
 }
 
 void ChiSquaredDistribution::reset() noexcept {
     degrees_of_freedom_ = math::ONE;
-    cache_valid_ = false;
+    invalidateCache();
 }
 
 std::string ChiSquaredDistribution::toString() const {

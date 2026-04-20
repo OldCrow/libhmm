@@ -252,10 +252,10 @@ public:
      * @return Probability for the symbol
      * @throws std::out_of_range if index is out of range
      */
-    double getProbability(std::size_t index) const {
-        if (!isValidIndex(index)) {
+    /** Get probability by direct symbol index (throws std::out_of_range if out of bounds). */
+    double getSymbolProbability(std::size_t index) const {
+        if (!isValidIndex(index))
             throw std::out_of_range("Symbol index out of range");
-        }
         return pdf_[index];
     }
     
