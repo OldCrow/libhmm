@@ -1,7 +1,7 @@
 #include "libhmm/distributions/exponential_distribution.h"
-// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
-#include <numeric>     // For std::accumulate (not in common.h)
-#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
+#include <limits>
+#include <numeric>
+#include <span>
 
 using namespace libhmm::constants;
 
@@ -20,7 +20,7 @@ namespace libhmm
  * @param x The value at which to evaluate the probability
  * @return Approximated probability for discrete sampling
  */            
-double ExponentialDistribution::getProbability(double value) {
+double ExponentialDistribution::getProbability(double value) const {
     // Exponential distribution has support [0, ∞)
     if (value < math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;
@@ -33,13 +33,7 @@ double ExponentialDistribution::getProbability(double value) {
         return lambda_;
     }
     
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Optimized PDF calculation: f(x) = λ * exp(-λx)
-    // Use cached -λ value for efficiency
+    if (!isCacheValid()) updateCache();
     return lambda_ * std::exp(negLambda_ * value);
 }
 
@@ -57,12 +51,7 @@ double ExponentialDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
     
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // For exponential: log(f(x)) = log(λ) - λx
+    if (!isCacheValid()) updateCache();
     return logLambda_ - lambda_ * value;
 }
 
@@ -91,55 +80,41 @@ double ExponentialDistribution::getCumulativeProbability(double x) const noexcep
  *
  * @param values Vector of observed data points
  */                   
-void ExponentialDistribution::fit(const std::vector<Observation>& values) {
-    // Handle edge cases: empty data or single data point
-    if (values.empty()) {
-        reset();
-        return;
-    }
-    
-    if (values.size() == 1) {
-        // For a single data point, MLE is not well-defined.
-        // Following the library's convention, reset to default parameters
-        reset();
-        return;
+void ExponentialDistribution::fit(std::span<const double> data) {
+    if (data.size() <= 1) { reset(); return; }
+
+    double mean = 0.0;
+    std::size_t count = 0;
+    for (const double val : data) {
+        if (val < 0.0 || std::isnan(val) || std::isinf(val)) { reset(); return; }
+        ++count;
+        mean += (val - mean) / static_cast<double>(count);
     }
 
-    // Use Welford's single-pass algorithm for numerical stability and performance
-    // This algorithm provides better numerical accuracy than naive sum-and-divide
-    double mean = math::ZERO_DOUBLE;
-    double n = math::ZERO_DOUBLE;
-    
-    for (const auto& val : values) {
-        // Validate each data point during iteration (fail-fast approach)
-        if (val < math::ZERO_DOUBLE || std::isnan(val) || std::isinf(val)) {
-            reset(); // Invalid data for exponential distribution
-            return;
-        }
-        
-        // Welford's algorithm update
-        n += math::ONE;
-        double delta = val - mean;
-        mean += delta / n;
+    if (mean <= 0.0 || !std::isfinite(mean)) { reset(); return; }
+    const double lam = 1.0 / mean;
+    if (!std::isfinite(lam) || lam <= 0.0) { reset(); return; }
+    lambda_ = lam;
+    invalidateCache();
+}
+
+void ExponentialDistribution::fit(std::span<const double> data,
+                                   std::span<const double> weights) {
+    // Weighted MLE: λ = 1 / weighted_mean
+    double sumW = 0.0, sumWX = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        sumW  += weights[i];
+        sumWX += weights[i] * data[i];
     }
-    
-    // Validate that mean is positive and reasonable
-    if (mean <= math::ZERO_DOUBLE || !std::isfinite(mean)) {
-        reset(); // Fall back to default if computed mean is invalid
-        return;
+    if (sumW < precision::ZERO || std::isnan(sumW) || sumWX <= 0.0) {
+        reset(); return;
     }
-    
-    // Set MLE estimate: λ = 1/mean
-    // For exponential distribution, this is the optimal estimator
-    lambda_ = math::ONE / mean;
-    
-    // Validate the resulting lambda parameter
-    if (!std::isfinite(lambda_) || lambda_ <= math::ZERO_DOUBLE) {
-        reset(); // Fallback if lambda computation fails
-        return;
-    }
-    
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    const double weightedMean = sumWX / sumW;
+    if (weightedMean <= 0.0 || !std::isfinite(weightedMean)) { reset(); return; }
+    const double lam = 1.0 / weightedMean;
+    if (!std::isfinite(lam) || lam <= 0.0) { reset(); return; }
+    lambda_ = lam;
+    invalidateCache();
 }
 
 /**
@@ -148,7 +123,7 @@ void ExponentialDistribution::fit(const std::vector<Observation>& values) {
  */
 void ExponentialDistribution::reset() noexcept {
     lambda_ = math::ONE;
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    invalidateCache();
 }
 
 std::string ExponentialDistribution::toString() const {
