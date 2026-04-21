@@ -7,7 +7,7 @@
 namespace libhmm{
 
 /**
- * Modern C++17 Gamma distribution for modeling continuous non-negative data.
+ * Modern C++20 Gamma distribution for modeling continuous non-negative data.
  * 
  * The Gamma distribution is a versatile continuous probability distribution
  * commonly used to model waiting times, failure rates, and size distributions.

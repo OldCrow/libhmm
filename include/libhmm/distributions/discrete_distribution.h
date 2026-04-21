@@ -8,7 +8,7 @@
 namespace libhmm{
 
 /**
- * Modern C++17 Discrete distribution for modeling categorical data.
+ * Modern C++20 Discrete distribution for modeling categorical data.
  * 
  * The Discrete distribution (also known as Categorical distribution) is a
  * discrete probability distribution that generalizes the Bernoulli distribution.

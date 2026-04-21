@@ -7,7 +7,7 @@
 namespace libhmm{
 
 /**
- * Modern C++17 Rayleigh distribution for modeling magnitudes and speeds.
+ * Modern C++20 Rayleigh distribution for modeling magnitudes and speeds.
  * 
  * The Rayleigh distribution is a continuous probability distribution that arises
  * when modeling the magnitude of a 2D random vector whose components are independent,

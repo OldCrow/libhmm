@@ -7,7 +7,7 @@
 namespace libhmm{
 
 /**
- * Modern C++17 Pareto distribution for modeling power-law phenomena.
+ * Modern C++20 Pareto distribution for modeling power-law phenomena.
  * 
  * The Pareto distribution is a continuous probability distribution commonly
  * used to model income distribution, city population sizes, stock price
