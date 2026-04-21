@@ -7,16 +7,9 @@ using namespace libhmm::constants;
 
 namespace libhmm {
 
-double WeibullDistribution::getProbability(double value) {
-    // Weibull distribution is only defined for x ≥ 0
-    if (value < math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value)) {
-        return math::ZERO_DOUBLE;
-    }
-    
-    // Update cache if needed
-    if (!cacheValid_) {
-        updateCache();
-    }
+double WeibullDistribution::getProbability(double value) const {
+    if (value < math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value)) return math::ZERO_DOUBLE;
+    if (!isCacheValid()) updateCache();
     
     // Handle boundary case
     if (value == math::ZERO_DOUBLE) {
@@ -39,19 +32,9 @@ double WeibullDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
     
-    // Update cache if needed
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Handle boundary case
-    if (value == math::ZERO_DOUBLE) {
-        if (k_ == math::ONE) {
-            return logK_ - logLambda_;  // log(k/λ)
-        } else {
-            return -std::numeric_limits<double>::infinity();
-        }
-    }
+    if (!isCacheValid()) updateCache();
+    if (value == math::ZERO_DOUBLE)
+        return (k_ == math::ONE) ? logK_ - logLambda_ : -std::numeric_limits<double>::infinity();
     
     // Optimized log PDF computation using cached values:
     // log(f(x)) = log(k) - log(λ) + (k-1)*log(x) - (k-1)*log(λ) - (x/λ)^k
@@ -75,89 +58,72 @@ double WeibullDistribution::getLogProbability(double value) const noexcept {
     return logPdf;
 }
 
-void WeibullDistribution::fit(const std::vector<Observation>& values) {
-    if (values.empty()) {
-        reset();
-        return;
-    }
-    
-    // Validate that all values are non-negative
-    for (const auto& val : values) {
-        if (val < math::ZERO_DOUBLE || std::isnan(val) || std::isinf(val)) {
-            throw std::invalid_argument("Weibull distribution fitting requires all values to be non-negative");
-        }
-    }
-    
-    // For single data point, set to default (insufficient data)
-    if (values.size() == 1) {
-        reset();
-        return;
-    }
-    
-    // Use Welford's algorithm for numerically stable mean and variance calculation
-    // This is more cache-friendly and numerically stable than two-pass methods
-    const auto n = static_cast<double>(values.size());
-    double mean = math::ZERO_DOUBLE;
-    double m2 = math::ZERO_DOUBLE;  // Sum of squared differences from current mean
-    
+static void weibull_mom_fit(double mean, double var, double& k_out, double& lambda_out) {
+    // MOM approximation using coefficient of variation
+    const double cv = std::sqrt(var) / mean;
+    double k_est;
+    if (cv < 0.2)
+        k_est = libhmm::constants::math::ONE / (cv * cv * libhmm::constants::math::TEN * 0.6);
+    else if (cv < libhmm::constants::math::ONE)
+        k_est = std::pow(1.2 / cv, 1.086);
+    else
+        k_est = libhmm::constants::math::ONE / cv;
+    k_est = std::max(libhmm::constants::thresholds::MIN_DISTRIBUTION_PARAMETER,
+                     std::min(k_est, libhmm::constants::thresholds::MAX_DISTRIBUTION_PARAMETER));
+    const double gamma_term = std::exp(std::lgamma(libhmm::constants::math::ONE +
+                                                    libhmm::constants::math::ONE / k_est));
+    k_out = k_est;
+    lambda_out = mean / gamma_term;
+}
+
+void WeibullDistribution::fit(std::span<const double> data) {
+    if (data.size() < 2) { reset(); return; }
+    for (const double val : data)
+        if (val < math::ZERO_DOUBLE || std::isnan(val) || std::isinf(val))
+            throw std::invalid_argument("Weibull fitting requires non-negative values");
+    const auto n = static_cast<double>(data.size());
+    double mean = 0.0, m2 = 0.0;
     std::size_t count = 0;
-    for (const auto& val : values) {
+    for (const double val : data) {
         ++count;
         const double delta = val - mean;
         mean += delta / static_cast<double>(count);
-        const double delta2 = val - mean;
-        m2 += delta * delta2;
+        m2 += delta * (val - mean);
     }
-    
-    // Sample variance uses Bessel's correction (N-1)
-    const double sampleVariance = m2 / (n - math::ONE);
-    
-    // Avoid degenerate cases
-    if (sampleVariance <= precision::ZERO || mean <= precision::ZERO) {
-        reset();
-        return;
-    }
-    
-    // Method of moments approximation for Weibull parameters
-    // We use the coefficient of variation to estimate k
-    const double cv = std::sqrt(sampleVariance) / mean;  // coefficient of variation
-    
-    // For Weibull, CV = sqrt(Γ(1+2/k)/Γ(1+1/k)² - 1)
-    // We approximate k using an empirical relationship
-    double k_est = 1.0;
-    if (cv < 0.2) {
-        // High k (> 5), shape approaches normal
-        k_est = math::ONE / (cv * cv * math::TEN * 0.6);  // Optimized: 6.0 = 10 * 0.6
-    } else if (cv < math::ONE) {
-        // Medium k (1-5), use approximation
-        k_est = std::pow(1.2 / cv, 1.086);
-    } else {
-        // Low k (< 1), use simpler approximation
-        k_est = math::ONE / cv;
-    }
-    
-    // Ensure k is reasonable using standardized bounds
-    k_est = std::max(thresholds::MIN_DISTRIBUTION_PARAMETER, 
-                     std::min(k_est, thresholds::MAX_DISTRIBUTION_PARAMETER));
-    
-    // Estimate λ using the relationship: mean = λ * Γ(1 + 1/k)
-    const double gamma_term = std::exp(std::lgamma(math::ONE + math::ONE/k_est));
-    const double lambda_est = mean / gamma_term;
-    
-    // Ensure λ is positive and reasonable using standardized bounds
+    const double var = m2 / (n - math::ONE);
+    if (var <= precision::ZERO || mean <= precision::ZERO) { reset(); return; }
+    double k_est, lambda_est;
+    weibull_mom_fit(mean, var, k_est, lambda_est);
     if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
-        k_ = k_est;
-        lambda_ = lambda_est;
-        cacheValid_ = false;
-    } else {
-        reset();
-    }
+        k_ = k_est; lambda_ = lambda_est; invalidateCache();
+    } else { reset(); }
+}
+
+void WeibullDistribution::fit(std::span<const double> data,
+                              std::span<const double> weights) {
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    double mean = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
+            mean += (weights[i] / sumW) * data[i];
+    double var = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
+            var += weights[i] * (data[i] - mean) * (data[i] - mean);
+    var /= sumW;
+    if (var <= precision::ZERO || mean <= precision::ZERO) { reset(); return; }
+    double k_est, lambda_est;
+    weibull_mom_fit(mean, var, k_est, lambda_est);
+    if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
+        k_ = k_est; lambda_ = lambda_est; invalidateCache();
+    } else { reset(); }
 }
 
 void WeibullDistribution::reset() noexcept {
-    k_ = math::ONE;
-    lambda_ = math::ONE;
-    cacheValid_ = false;
+    k_ = math::ONE; lambda_ = math::ONE;
+    invalidateCache();
 }
 
 std::string WeibullDistribution::toString() const {
@@ -172,12 +138,8 @@ std::string WeibullDistribution::toString() const {
 double WeibullDistribution::CDF(double x) const noexcept {
     if (x <= math::ZERO_DOUBLE) return math::ZERO_DOUBLE;
     
-    // Update cache if needed
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // CDF(x) = 1 - exp(-(x/λ)^k) = 1 - exp(-(x*invλ)^k)
+    if (!isCacheValid()) updateCache();
+    // CDF(x) = 1 - exp(-(x/λ)^k)
     const double xTimesInvLambda = x * invLambda_;  // Use cached reciprocal
     
     // Use efficient power calculation for common k values

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <ccmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
+#include <span>
 
 namespace libhmm{
 
@@ -33,7 +33,7 @@ namespace libhmm{
  * - Materials science (fiber strength)
  * - Communications (fading channel modeling)
  */
-class RayleighDistribution : public ProbabilityDistribution
+class RayleighDistribution : public DistributionBase
 {   
 private:
     /**
@@ -80,15 +80,6 @@ private:
      */
     mutable double variance_{constants::math::FOUR_MINUS_PI_OVER_TWO};
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cacheValid_{false};
-    
-    /**
-     * Updates cached values when parameters change
-     * Computes all derived values to eliminate divisions and operations in hot paths
-     */
     void updateCache() const noexcept {
         logSigma_ = std::log(sigma_);
         invSigma_ = constants::math::ONE / sigma_;
@@ -97,7 +88,7 @@ private:
         negHalfInvSigmaSquared_ = -constants::math::HALF * invSigmaSquared_;
         mean_ = sigma_ * constants::math::SQRT_PI_OVER_TWO;
         variance_ = sigmaSquared_ * constants::math::FOUR_MINUS_PI_OVER_TWO;
-        cacheValid_ = true;
+        markCacheValid();
     }
     
     /**
@@ -130,27 +121,23 @@ public:
     /**
      * Copy constructor
      */
-    RayleighDistribution(const RayleighDistribution& other) 
-        : sigma_{other.sigma_}, logSigma_{other.logSigma_}, 
+    RayleighDistribution(const RayleighDistribution& other)
+        : DistributionBase{other}, sigma_{other.sigma_}, logSigma_{other.logSigma_},
           invSigma_{other.invSigma_}, invSigmaSquared_{other.invSigmaSquared_},
-          negHalfInvSigmaSquared_{other.negHalfInvSigmaSquared_}, 
-          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_}, 
-          variance_{other.variance_}, cacheValid_{other.cacheValid_} {}
+          negHalfInvSigmaSquared_{other.negHalfInvSigmaSquared_},
+          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_},
+          variance_{other.variance_} {}
     
     /**
      * Copy assignment operator
      */
     RayleighDistribution& operator=(const RayleighDistribution& other) {
         if (this != &other) {
-            sigma_ = other.sigma_;
-            logSigma_ = other.logSigma_;
-            invSigma_ = other.invSigma_;
-            invSigmaSquared_ = other.invSigmaSquared_;
+            DistributionBase::operator=(other);
+            sigma_ = other.sigma_; logSigma_ = other.logSigma_;
+            invSigma_ = other.invSigma_; invSigmaSquared_ = other.invSigmaSquared_;
             negHalfInvSigmaSquared_ = other.negHalfInvSigmaSquared_;
-            sigmaSquared_ = other.sigmaSquared_;
-            mean_ = other.mean_;
-            variance_ = other.variance_;
-            cacheValid_ = other.cacheValid_;
+            sigmaSquared_ = other.sigmaSquared_; mean_ = other.mean_; variance_ = other.variance_;
         }
         return *this;
     }
@@ -159,72 +146,39 @@ public:
      * Move constructor
      */
     RayleighDistribution(RayleighDistribution&& other) noexcept
-        : sigma_{other.sigma_}, logSigma_{other.logSigma_}, 
+        : DistributionBase{std::move(other)}, sigma_{other.sigma_}, logSigma_{other.logSigma_},
           invSigma_{other.invSigma_}, invSigmaSquared_{other.invSigmaSquared_},
-          negHalfInvSigmaSquared_{other.negHalfInvSigmaSquared_}, 
-          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_}, 
-          variance_{other.variance_}, cacheValid_{other.cacheValid_} {}
+          negHalfInvSigmaSquared_{other.negHalfInvSigmaSquared_},
+          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_},
+          variance_{other.variance_} {}
     
     /**
      * Move assignment operator
      */
     RayleighDistribution& operator=(RayleighDistribution&& other) noexcept {
         if (this != &other) {
-            sigma_ = other.sigma_;
-            logSigma_ = other.logSigma_;
-            invSigma_ = other.invSigma_;
-            invSigmaSquared_ = other.invSigmaSquared_;
+            DistributionBase::operator=(std::move(other));
+            sigma_ = other.sigma_; logSigma_ = other.logSigma_;
+            invSigma_ = other.invSigma_; invSigmaSquared_ = other.invSigmaSquared_;
             negHalfInvSigmaSquared_ = other.negHalfInvSigmaSquared_;
-            sigmaSquared_ = other.sigmaSquared_;
-            mean_ = other.mean_;
-            variance_ = other.variance_;
-            cacheValid_ = other.cacheValid_;
+            sigmaSquared_ = other.sigmaSquared_; mean_ = other.mean_; variance_ = other.variance_;
         }
         return *this;
     }
 
-    /**
-     * Destructor
-     */
-    ~RayleighDistribution() = default;
+    ~RayleighDistribution() override = default;
 
-    /**
-     * Computes the probability density function for the Rayleigh distribution.
-     * 
-     * PDF: f(x) = (x/σ²) * exp(-x²/(2σ²)) for x ≥ 0
-     * 
-     * @param value The value at which to evaluate the PDF
-     * @return Probability density (or approximated probability for discrete sampling)
-     */
-    double getProbability(double value) override;
+    [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
-    /**
-     * Computes the logarithm of the probability density function for numerical stability.
-     * 
-     * For Rayleigh distribution: log(f(x)) = log(x) - 2*log(σ) - x²/(2σ²) for x > 0
-     * 
-     * @param value The value at which to evaluate the log-PDF
-     * @return Natural logarithm of the probability density, or -∞ for invalid values
-     */
-    double getLogProbability(double value) const noexcept override;
+    /** MLE: σ̂ = √(Σx² / (2n)). */
+    void fit(std::span<const double> data) override;
+    /** Weighted MLE: σ̂ = √(Σ(w_i * x_i²) / (2 * Σw_i)). */
+    void fit(std::span<const double> data, std::span<const double> weights) override;
 
-    /**
-     * Computes the cumulative distribution function for the Rayleigh distribution.
-     * 
-     * CDF: F(x) = 1 - exp(-x²/(2σ²)) for x ≥ 0
-     * 
-     * @param value The value at which to evaluate the CDF
-     * @return Cumulative probability, or 0.0 for negative values
-     */
-    double getCumulativeProbability(double value) const noexcept;
-
-    /**
-     * Fits the distribution parameters to the given data using maximum likelihood estimation.
-     * For Rayleigh distribution, MLE gives σ = √(Σx²/(2n)).
-     * 
-     * @param values Vector of observed data
-     */
-    void fit(const std::vector<Observation>& values) override;
+    /** Returns false — Rayleigh is a continuous distribution. */
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /**
      * Resets the distribution to default parameters (σ = 1.0).
@@ -255,7 +209,7 @@ public:
     void setSigma(double sigma) {
         validateParameters(sigma);
         sigma_ = sigma;
-        cacheValid_ = false;
+        invalidateCache();
     }
     
     /**
@@ -264,21 +218,8 @@ public:
      * 
      * @return Mean value
      */
-    double getMean() const noexcept {
-        if (!cacheValid_) updateCache();
-        return mean_;
-    }
-    
-    /**
-     * Gets the variance of the distribution.
-     * Variance = σ² * (4-π)/2
-     * 
-     * @return Variance value
-     */
-    double getVariance() const noexcept {
-        if (!cacheValid_) updateCache();
-        return variance_;
-    }
+    double getMean()     const noexcept { if (!isCacheValid()) updateCache(); return mean_; }
+    double getVariance() const noexcept { if (!isCacheValid()) updateCache(); return variance_; }
     
     /**
      * Gets the standard deviation of the distribution.
