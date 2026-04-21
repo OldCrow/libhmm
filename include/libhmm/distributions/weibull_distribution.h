@@ -152,6 +152,8 @@ public:
         return *this;
     }
 
+    ~WeibullDistribution() override = default;
+
     /**
      * Computes the probability density function for the Weibull distribution.
      * 

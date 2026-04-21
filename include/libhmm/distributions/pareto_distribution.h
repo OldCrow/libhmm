@@ -162,6 +162,8 @@ public:
         return *this;
     }
 
+    ~ParetoDistribution() override = default;
+
     /**
      * Computes the probability density function for the Pareto distribution.
      * 

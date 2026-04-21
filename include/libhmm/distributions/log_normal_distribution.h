@@ -134,6 +134,8 @@ public:
         return *this;
     }
 
+    ~LogNormalDistribution() override = default;
+
     /**
      * Computes the probability density function for the Log-Normal distribution.
      * 
