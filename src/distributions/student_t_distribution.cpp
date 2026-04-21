@@ -233,7 +233,7 @@ void StudentTDistribution::setScale(double scale) {
         throw std::invalid_argument("Scale parameter must be a positive finite number");
     }
     scale_ = scale;
-    // Note: Scale doesn't affect cached normalization constant (only affects PDF calculation)
+    invalidateCache();  // cached_inv_scale_, cached_log_scale_, cached_log_normalization_, cached_normalization_factor_ all depend on scale_
 }
 
 double StudentTDistribution::getMean() const {

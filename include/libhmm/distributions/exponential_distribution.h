@@ -127,7 +127,7 @@ public:
         return *this;
     }
 
-    ~ExponentialDistribution() = default;
+    ~ExponentialDistribution() override = default;
 
     /**
      * Computes the probability density function for the Exponential distribution.
