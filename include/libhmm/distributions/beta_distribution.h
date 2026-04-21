@@ -177,16 +177,6 @@ public:
     void getLogProbabilityBatch(const std::vector<double>& values, std::vector<double>& results) const;
 
     /**
-     * Fits the distribution parameters to the given data using method of moments.
-     * 
-     * Given sample mean μ and variance σ², the method of moments estimators are:
-     * α̂ = μ * (μ(1-μ)/σ² - 1)
-     * β̂ = (1-μ) * (μ(1-μ)/σ² - 1)
-     * 
-     * @param values Vector of observed data (should be in [0,1])
-     * @throws std::invalid_argument if values contain data outside [0,1]
-     */
-    /**
      * Resets the distribution to default parameters (α = 1.0, β = 1.0).
      * This corresponds to a uniform distribution on [0,1].
      */
