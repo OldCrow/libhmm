@@ -17,7 +17,7 @@ namespace libhmm
  * @param value The value at which to evaluate the PMF (rounded to nearest integer)
  * @return Probability mass for the given value
  */            
-double BinomialDistribution::getProbability(double value) {
+double BinomialDistribution::getProbability(double value) const {
     // Validate input - discrete distributions only accept non-negative integer values
     if (std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;
@@ -38,24 +38,13 @@ double BinomialDistribution::getProbability(double value) {
     }
     
     // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Compute log probability for numerical stability
-    // log P(X = k) = log C(n,k) + k*log(p) + (n-k)*log(1-p)
+    if (!isCacheValid()) updateCache();
     const double logCoeff = logBinomialCoefficient(n_, k);
-    const double logProb = logCoeff + k * logP_ + (n_ - k) * log1MinusP_;
-    
+    const double logProb = logCoeff + static_cast<double>(k) * logP_ +
+                           static_cast<double>(n_ - k) * log1MinusP_;
     const double prob = std::exp(logProb);
-    
-    // Ensure numerical stability
-    if (std::isnan(prob) || prob < math::ZERO_DOUBLE) {
-        return math::ZERO_DOUBLE;
-    }
-    
-    assert(prob <= math::ONE);
-    return prob;
+    if (std::isnan(prob) || prob < math::ZERO_DOUBLE) return math::ZERO_DOUBLE;
+    return std::min(prob, math::ONE);
 }
 
 /**
@@ -69,66 +58,46 @@ double BinomialDistribution::getProbability(double value) {
  * 
  * @param values Vector of observed data points
  */                   
-void BinomialDistribution::fit(const std::vector<Observation>& values) {
-    // Handle edge case: empty data
-    if (values.empty()) {
-        reset();
-        return;
-    }
-    
-    // Single-pass algorithm: compute max, sum, and count simultaneously
+void BinomialDistribution::fit(std::span<const double> data) {
+    if (data.empty()) { reset(); return; }
     int maxObs = 0;
-    double sum = math::ZERO_DOUBLE;
+    double sum = 0.0;
     std::size_t validCount = 0;
-    
-    for (const auto& val : values) {
-        // Validate: finite non-negative values only
-        if (val >= math::ZERO_DOUBLE && std::isfinite(val)) {
+    for (const double val : data) {
+        if (val >= 0.0 && std::isfinite(val)) {
             const auto intVal = static_cast<int>(std::round(val));
             maxObs = std::max(maxObs, intVal);
             sum += static_cast<double>(intVal);
             ++validCount;
         }
     }
-    
-    // Handle edge cases: no valid data or single data point
-    if (validCount == 0) {
-        reset(); // No valid data
-        return;
-    }
-    
-    if (validCount == 1) {
-        // For single point, estimate n as that value and p = 1 (degenerate case)
-        if (maxObs >= 0) {
-            n_ = std::max(1, maxObs);
-            p_ = (maxObs == 0) ? math::ZERO_DOUBLE : math::ONE;
-            cacheValid_ = false;
-        } else {
-            reset(); // Invalid data
-        }
-        return;
-    }
+    if (validCount == 0) { reset(); return; }
+    if (maxObs == 0) { n_ = 1; p_ = math::ZERO_DOUBLE; invalidateCache(); return; }
+    n_ = maxObs;
+    p_ = std::max(math::ZERO_DOUBLE, std::min(math::ONE,
+            (sum / static_cast<double>(validCount)) / static_cast<double>(n_)));
+    invalidateCache();
+}
 
-    // Estimate parameters using maximum likelihood
-    if (maxObs == 0) {
-        // All observations are 0
-        n_ = 1;
-        p_ = math::ZERO_DOUBLE;
-    } else {
-        // Estimate n as the maximum observed value (common approach when n is unknown)
-        n_ = maxObs;
-        
-        // Calculate sample mean efficiently
-        const double sampleMean = sum / static_cast<double>(validCount);
-        
-        // MLE estimate: p = sample_mean / n
-        p_ = sampleMean / static_cast<double>(n_);
-        
-        // Ensure p is in valid range [0,1]
-        p_ = std::max(math::ZERO_DOUBLE, std::min(math::ONE, p_));
+void BinomialDistribution::fit(std::span<const double> data,
+                               std::span<const double> weights) {
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    int maxObs = 0;
+    double sumWX = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0) {
+            const auto intVal = static_cast<int>(std::round(data[i]));
+            maxObs = std::max(maxObs, intVal);
+            sumWX += weights[i] * static_cast<double>(intVal);
+        }
     }
-    
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    if (maxObs == 0) { n_ = 1; p_ = math::ZERO_DOUBLE; invalidateCache(); return; }
+    n_ = maxObs;
+    p_ = std::max(math::ZERO_DOUBLE, std::min(math::ONE,
+            (sumWX / sumW) / static_cast<double>(n_)));
+    invalidateCache();
 }
 
 /**
@@ -138,7 +107,7 @@ void BinomialDistribution::fit(const std::vector<Observation>& values) {
 void BinomialDistribution::reset() noexcept {
     n_ = 10;
     p_ = math::HALF;
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    invalidateCache();
 }
 
 /**
@@ -178,19 +147,13 @@ double BinomialDistribution::getLogProbability(double value) const noexcept {
     }
     
     // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Compute log probability for numerical stability
-    // log P(X = k) = log C(n,k) + k*log(p) + (n-k)*log(1-p)
+    if (!isCacheValid()) updateCache();
     const double logCoeff = logBinomialCoefficient(n_, k);
-    const double logProb = logCoeff + k * logP_ + (n_ - k) * log1MinusP_;
-    
-    return logProb;
+    return logCoeff + static_cast<double>(k) * logP_ +
+           static_cast<double>(n_ - k) * log1MinusP_;
 }
 
-double BinomialDistribution::getCumulativeProbability(double value) noexcept {
+double BinomialDistribution::getCumulativeProbability(double value) const noexcept {
     // Validate input
     if (std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;
