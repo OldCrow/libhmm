@@ -1,8 +1,8 @@
 #pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
+#include <span>
 
 namespace libhmm {
 
@@ -25,7 +25,7 @@ namespace libhmm {
  * - Variance: r * (1-p) / p²
  * - Support: k ∈ {0, 1, 2, ...}
  */
-class NegativeBinomialDistribution : public ProbabilityDistribution
+class NegativeBinomialDistribution : public DistributionBase
 {
 private:
     /**
@@ -52,19 +52,11 @@ private:
     static constexpr int MAX_FACTORIAL_CACHE = 170; // lgamma(171) approaches double overflow
     mutable std::vector<double> logFactorialCache_;
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cacheValid_{false};
-    
-    /**
-     * Updates cached values when parameters change
-     */
     void updateCache() const noexcept {
         logP_ = std::log(p_);
         log1MinusP_ = std::log(1.0 - p_);
         logGammaR_ = std::lgamma(r_);
-        cacheValid_ = true;
+        markCacheValid();
     }
     
     /**
@@ -91,10 +83,7 @@ private:
         if (k < 0) return -std::numeric_limits<double>::infinity();
         
         // Ensure cache is valid
-        if (!cacheValid_) {
-            updateCache();
-        }
-        
+        if (!isCacheValid()) updateCache();
         // log C(k+r-1, k) = log Γ(k+r) - log Γ(k+1) - log Γ(r)
         //                 = log Γ(k+r) - log k! - log Γ(r)
         const double logGammaKPlusR = std::lgamma(k + r_);
@@ -116,7 +105,7 @@ public:
      * @throws std::invalid_argument if parameters are invalid
      */
     NegativeBinomialDistribution(double r = 5.0, double p = 0.5)
-        : r_{r}, p_{p}, cacheValid_{false} {
+        : r_{r}, p_{p} {
         validateParameters(r, p);
         // Initialize factorial cache
         logFactorialCache_.resize(MAX_FACTORIAL_CACHE + 1, 0.0);
@@ -130,22 +119,19 @@ public:
      * Copy constructor
      */
     NegativeBinomialDistribution(const NegativeBinomialDistribution& other)
-        : r_{other.r_}, p_{other.p_}, 
+        : DistributionBase{other}, r_{other.r_}, p_{other.p_},
           logP_{other.logP_}, log1MinusP_{other.log1MinusP_}, logGammaR_{other.logGammaR_},
-          logFactorialCache_{other.logFactorialCache_}, cacheValid_{other.cacheValid_} {}
+          logFactorialCache_{other.logFactorialCache_} {}
     
     /**
      * Copy assignment operator
      */
     NegativeBinomialDistribution& operator=(const NegativeBinomialDistribution& other) {
         if (this != &other) {
-            r_ = other.r_;
-            p_ = other.p_;
-            logP_ = other.logP_;
-            log1MinusP_ = other.log1MinusP_;
-            logGammaR_ = other.logGammaR_;
+            DistributionBase::operator=(other);
+            r_ = other.r_; p_ = other.p_;
+            logP_ = other.logP_; log1MinusP_ = other.log1MinusP_; logGammaR_ = other.logGammaR_;
             logFactorialCache_ = other.logFactorialCache_;
-            cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
@@ -154,22 +140,19 @@ public:
      * Move constructor
      */
     NegativeBinomialDistribution(NegativeBinomialDistribution&& other) noexcept
-        : r_{other.r_}, p_{other.p_},
+        : DistributionBase{std::move(other)}, r_{other.r_}, p_{other.p_},
           logP_{other.logP_}, log1MinusP_{other.log1MinusP_}, logGammaR_{other.logGammaR_},
-          logFactorialCache_{std::move(other.logFactorialCache_)}, cacheValid_{other.cacheValid_} {}
+          logFactorialCache_{std::move(other.logFactorialCache_)} {}
     
     /**
      * Move assignment operator
      */
     NegativeBinomialDistribution& operator=(NegativeBinomialDistribution&& other) noexcept {
         if (this != &other) {
-            r_ = other.r_;
-            p_ = other.p_;
-            logP_ = other.logP_;
-            log1MinusP_ = other.log1MinusP_;
-            logGammaR_ = other.logGammaR_;
+            DistributionBase::operator=(std::move(other));
+            r_ = other.r_; p_ = other.p_;
+            logP_ = other.logP_; log1MinusP_ = other.log1MinusP_; logGammaR_ = other.logGammaR_;
             logFactorialCache_ = std::move(other.logFactorialCache_);
-            cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
@@ -185,18 +168,14 @@ public:
      * @param value The value at which to evaluate the PMF (will be rounded to nearest integer)
      * @return Probability mass
      */
-    double getProbability(double value) override;
-    
-    /**
-     * Fits the distribution parameters to the given data using method of moments.
-     * 
-     * For Negative Binomial distribution:
-     * - p̂ = sample_mean / (sample_mean + sample_variance - sample_mean)
-     * - r̂ = sample_mean² / (sample_variance - sample_mean)
-     * 
-     * @param values Vector of observed data
-     */
-    void fit(const std::vector<Observation>& values) override;
+    [[nodiscard]] double getProbability(double value) const override;
+
+    /** Weighted MOM: p̂ = mean/var, r̂ = mean²/(var-mean). Falls back to reset() if variance ≤ mean. */
+    void fit(std::span<const double> data) override;
+    void fit(std::span<const double> data, std::span<const double> weights) override;
+
+    /** Returns true — Negative Binomial is a discrete distribution. */
+    [[nodiscard]] bool isDiscrete() const noexcept override { return true; }
     
     /**
      * Resets the distribution to default parameters (r = 5.0, p = 0.5).
@@ -226,7 +205,7 @@ public:
     void setR(double r) {
         validateParameters(r, p_);
         r_ = r;
-        cacheValid_ = false;
+        invalidateCache();
     }
     
     /**
@@ -245,7 +224,7 @@ public:
     void setP(double p) {
         validateParameters(r_, p);
         p_ = p;
-        cacheValid_ = false;
+        invalidateCache();
     }
     
     /**
@@ -286,9 +265,8 @@ public:
      */
     void setParameters(double r, double p) {
         validateParameters(r, p);
-        r_ = r;
-        p_ = p;
-        cacheValid_ = false;
+        r_ = r; p_ = p;
+        invalidateCache();
     }
     
     /**
@@ -307,7 +285,7 @@ public:
      * @param value The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ value)
      */
-    [[nodiscard]] double CDF(double value) noexcept;
+    [[nodiscard]] double CDF(double value) const noexcept;
     
     /**
      * Gets the mode of the distribution.
