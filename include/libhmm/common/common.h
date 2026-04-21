@@ -20,6 +20,10 @@
 
 // Mathematical and numerical headers
 #include <cmath>
+// MSVC does not define M_PI by default; guard here once for all consumers.
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <cfloat>
 #include <climits>
 #include <cstddef>
