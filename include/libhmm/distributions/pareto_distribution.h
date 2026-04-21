@@ -1,8 +1,8 @@
 #pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
+#include <span>
 
 namespace libhmm{
 
@@ -25,7 +25,7 @@ namespace libhmm{
  * - Support: x ∈ [x_m, ∞)
  * - Heavy-tailed distribution (polynomial decay)
  */
-class ParetoDistribution : public ProbabilityDistribution
+class ParetoDistribution : public DistributionBase
 {   
 private:
     /**
@@ -73,14 +73,6 @@ private:
      */
     mutable double logXm_{0.0};
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cacheValid_{false};
-    
-    /**
-     * Updates cached values when parameters change
-     */
     void updateCache() const noexcept {
         logK_ = std::log(k_);
         logXm_ = std::log(xm_);
@@ -88,7 +80,7 @@ private:
         kPlus1_ = k_ + constants::math::ONE;
         kXmPowK_ = k_ * std::pow(xm_, k_);
         negK_ = -k_;
-        cacheValid_ = true;
+        markCacheValid();
     }
     
     /**
@@ -123,7 +115,7 @@ public:
      * @throws std::invalid_argument if parameters are invalid
      */
     ParetoDistribution(double k = 1.0, double xm = 1.0)
-        : k_{k}, xm_{xm}, logK_{0.0}, kLogXm_{0.0}, kPlus1_{2.0}, cacheValid_{false} {
+        : k_{k}, xm_{xm} {
         validateParameters(k, xm);
         updateCache();
     }
@@ -131,26 +123,20 @@ public:
     /**
      * Copy constructor
      */
-    ParetoDistribution(const ParetoDistribution& other) 
-        : k_{other.k_}, xm_{other.xm_}, logK_{other.logK_}, 
-          kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_}, 
-          kXmPowK_{other.kXmPowK_}, negK_{other.negK_}, logXm_{other.logXm_},
-          cacheValid_{other.cacheValid_} {}
+    ParetoDistribution(const ParetoDistribution& other)
+        : DistributionBase{other}, k_{other.k_}, xm_{other.xm_},
+          logK_{other.logK_}, kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_},
+          kXmPowK_{other.kXmPowK_}, negK_{other.negK_}, logXm_{other.logXm_} {}
     
     /**
      * Copy assignment operator
      */
     ParetoDistribution& operator=(const ParetoDistribution& other) {
         if (this != &other) {
-            k_ = other.k_;
-            xm_ = other.xm_;
-            logK_ = other.logK_;
-            kLogXm_ = other.kLogXm_;
-            kPlus1_ = other.kPlus1_;
-            kXmPowK_ = other.kXmPowK_;
-            negK_ = other.negK_;
-            logXm_ = other.logXm_;
-            cacheValid_ = other.cacheValid_;
+            DistributionBase::operator=(other);
+            k_ = other.k_; xm_ = other.xm_;
+            logK_ = other.logK_; kLogXm_ = other.kLogXm_; kPlus1_ = other.kPlus1_;
+            kXmPowK_ = other.kXmPowK_; negK_ = other.negK_; logXm_ = other.logXm_;
         }
         return *this;
     }
@@ -159,25 +145,19 @@ public:
      * Move constructor
      */
     ParetoDistribution(ParetoDistribution&& other) noexcept
-        : k_{other.k_}, xm_{other.xm_}, logK_{other.logK_}, 
-          kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_}, 
-          kXmPowK_{other.kXmPowK_}, negK_{other.negK_}, logXm_{other.logXm_},
-          cacheValid_{other.cacheValid_} {}
+        : DistributionBase{std::move(other)}, k_{other.k_}, xm_{other.xm_},
+          logK_{other.logK_}, kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_},
+          kXmPowK_{other.kXmPowK_}, negK_{other.negK_}, logXm_{other.logXm_} {}
     
     /**
      * Move assignment operator
      */
     ParetoDistribution& operator=(ParetoDistribution&& other) noexcept {
         if (this != &other) {
-            k_ = other.k_;
-            xm_ = other.xm_;
-            logK_ = other.logK_;
-            kLogXm_ = other.kLogXm_;
-            kPlus1_ = other.kPlus1_;
-            kXmPowK_ = other.kXmPowK_;
-            negK_ = other.negK_;
-            logXm_ = other.logXm_;
-            cacheValid_ = other.cacheValid_;
+            DistributionBase::operator=(std::move(other));
+            k_ = other.k_; xm_ = other.xm_;
+            logK_ = other.logK_; kLogXm_ = other.kLogXm_; kPlus1_ = other.kPlus1_;
+            kXmPowK_ = other.kXmPowK_; negK_ = other.negK_; logXm_ = other.logXm_;
         }
         return *this;
     }
@@ -188,38 +168,17 @@ public:
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
-    double getProbability(double x) override;
+    [[nodiscard]] double getProbability(double x) const override;
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
-    /**
-     * Computes the logarithm of the probability density function for numerical stability.
-     * 
-     * For Pareto distribution: log(f(x)) = log(k) + k*log(x_m) - (k+1)*log(x) for x ≥ x_m
-     * 
-     * @param value The value at which to evaluate the log-PDF
-     * @return Natural logarithm of the probability density, or -∞ for invalid values
-     */
-    double getLogProbability(double value) const noexcept override;
+    /** MLE: x_m = min(x_i), k̂ = n / Σ(ln(x_i/x_m)). */
+    void fit(std::span<const double> data) override;
+    /** Weighted MLE: x_m = min(x_i), k̂ = Σw_i / Σ(w_i * ln(x_i/x_m)). */
+    void fit(std::span<const double> data, std::span<const double> weights) override;
 
-    /**
-     * Computes the cumulative distribution function for the Pareto distribution.
-     * 
-     * CDF: F(x) = 1 - (x_m/x)^k for x ≥ x_m
-     * 
-     * @param value The value at which to evaluate the CDF
-     * @return Cumulative probability, or 0.0 for values below x_m
-     */
-    double getCumulativeProbability(double value) const noexcept;
-
-    /**
-     * Fits the distribution parameters to the given data using maximum likelihood estimation.
-     * 
-     * For Pareto distribution, the MLE estimators are:
-     * x_m = min(x_i) for all i
-     * k = n / Σ(ln(x_i) - ln(x_m)) for i = 1 to n
-     * 
-     * @param values Vector of observed data
-     */
-    void fit(const std::vector<Observation>& values) override;
+    /** Returns false — Pareto is a continuous distribution. */
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /**
      * Resets the distribution to default parameters (k = 1.0, x_m = 1.0).
@@ -250,7 +209,7 @@ public:
     void setK(double k) {
         validateParameters(k, xm_);
         k_ = k;
-        cacheValid_ = false;
+        invalidateCache();
     }
 
     /**
@@ -269,7 +228,7 @@ public:
     void setXm(double xm) {
         validateParameters(k_, xm);
         xm_ = xm;
-        cacheValid_ = false;
+        invalidateCache();
     }
     
     /**
@@ -281,9 +240,8 @@ public:
      */
     void setParameters(double k, double xm) {
         validateParameters(k, xm);
-        k_ = k;
-        xm_ = xm;
-        cacheValid_ = false;
+        k_ = k; xm_ = xm;
+        invalidateCache();
     }
     
     /**
