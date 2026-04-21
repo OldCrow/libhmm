@@ -1,12 +1,8 @@
 #pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <span>
 
 namespace libhmm{
 
@@ -32,7 +28,7 @@ namespace libhmm{
  * - Mode: exp(μ - σ²)
  * - Support: x ∈ (0, ∞)
  */
-class LogNormalDistribution : public ProbabilityDistribution
+class LogNormalDistribution : public DistributionBase
 {   
 private:
     /**
@@ -57,22 +53,11 @@ private:
      */
     mutable double negHalfSigmaSquaredInv_{0.0};
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cacheValid_{false};
-    
-    /**
-     * Updates cached values when parameters change
-     * Optimized to use constants and avoid repeated calculations
-     */
     void updateCache() const noexcept {
         const double sigma2 = standardDeviation_ * standardDeviation_;
-        // Efficiently compute ln(σ√(2π)) = ln(σ) + ½*ln(2π)
-        // Use precomputed constant from common.h
         logNormalizationConstant_ = std::log(standardDeviation_) + constants::math::HALF_LN_2PI;
         negHalfSigmaSquaredInv_ = -constants::math::HALF / sigma2;
-        cacheValid_ = true;
+        markCacheValid();
     }
     
     /**
@@ -102,8 +87,7 @@ public:
      * @throws std::invalid_argument if parameters are invalid
      */
     LogNormalDistribution(double mean = 0.0, double standardDeviation = 1.0)
-        : mean_{mean}, standardDeviation_{standardDeviation},
-          logNormalizationConstant_{0.0}, negHalfSigmaSquaredInv_{0.0}, cacheValid_{false} {
+        : mean_{mean}, standardDeviation_{standardDeviation} {
         validateParameters(mean, standardDeviation);
         updateCache();
     }
@@ -111,22 +95,20 @@ public:
     /**
      * Copy constructor
      */
-    LogNormalDistribution(const LogNormalDistribution& other) 
-        : mean_{other.mean_}, standardDeviation_{other.standardDeviation_}, 
-          logNormalizationConstant_{other.logNormalizationConstant_}, 
-          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_}, 
-          cacheValid_{other.cacheValid_} {}
+    LogNormalDistribution(const LogNormalDistribution& other)
+        : DistributionBase{other}, mean_{other.mean_}, standardDeviation_{other.standardDeviation_},
+          logNormalizationConstant_{other.logNormalizationConstant_},
+          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_} {}
     
     /**
      * Copy assignment operator
      */
     LogNormalDistribution& operator=(const LogNormalDistribution& other) {
         if (this != &other) {
-            mean_ = other.mean_;
-            standardDeviation_ = other.standardDeviation_;
+            DistributionBase::operator=(other);
+            mean_ = other.mean_; standardDeviation_ = other.standardDeviation_;
             logNormalizationConstant_ = other.logNormalizationConstant_;
             negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
-            cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
@@ -135,21 +117,19 @@ public:
      * Move constructor
      */
     LogNormalDistribution(LogNormalDistribution&& other) noexcept
-        : mean_{other.mean_}, standardDeviation_{other.standardDeviation_}, 
-          logNormalizationConstant_{other.logNormalizationConstant_}, 
-          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_}, 
-          cacheValid_{other.cacheValid_} {}
+        : DistributionBase{std::move(other)}, mean_{other.mean_}, standardDeviation_{other.standardDeviation_},
+          logNormalizationConstant_{other.logNormalizationConstant_},
+          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_} {}
     
     /**
      * Move assignment operator
      */
     LogNormalDistribution& operator=(LogNormalDistribution&& other) noexcept {
         if (this != &other) {
-            mean_ = other.mean_;
-            standardDeviation_ = other.standardDeviation_;
+            DistributionBase::operator=(std::move(other));
+            mean_ = other.mean_; standardDeviation_ = other.standardDeviation_;
             logNormalizationConstant_ = other.logNormalizationConstant_;
             negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
-            cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
@@ -160,35 +140,17 @@ public:
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
-    double getProbability(double x) override;
+    [[nodiscard]] double getProbability(double x) const override;
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+    [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
-    /**
-     * Computes the logarithm of the probability density function for numerical stability.
-     * 
-     * For Log-Normal distribution: log(f(x)) = -ln(x) - ln(σ√(2π)) - ½((ln(x)-μ)/σ)²
-     * 
-     * @param value The value at which to evaluate the log-PDF
-     * @return Natural logarithm of the probability density, or -∞ for invalid values
-     */
-    double getLogProbability(double value) const noexcept override;
+    /** MLE: μ̂ = mean(ln(x_i)), σ̂ = std_dev(ln(x_i)). */
+    void fit(std::span<const double> data) override;
+    /** Weighted MLE: weighted mean and std dev of ln(x). */
+    void fit(std::span<const double> data, std::span<const double> weights) override;
 
-    /**
-     * Computes the cumulative distribution function for the Log-Normal distribution.
-     * 
-     * Uses the error function relationship: CDF(x) = ½(1 + erf((ln(x)-μ)/(σ√2)))
-     * 
-     * @param value The value at which to evaluate the CDF
-     * @return Cumulative probability P(X ≤ value)
-     */
-    double getCumulativeProbability(double value) const noexcept;
-
-    /**
-     * Fits the distribution parameters to the given data using maximum likelihood estimation.
-     * For Log-Normal distribution, MLE gives μ = mean(ln(x_i)) and σ = std_dev(ln(x_i)).
-     * 
-     * @param values Vector of observed data
-     */
-    void fit(const std::vector<Observation>& values) override;
+    /** Returns false — Log-Normal is a continuous distribution. */
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /**
      * Resets the distribution to default parameters (μ = 0.0, σ = 1.0).
@@ -219,7 +181,7 @@ public:
     void setMean(double mean) {
         validateParameters(mean, standardDeviation_);
         mean_ = mean;
-        cacheValid_ = false;
+        invalidateCache();
     }
 
     /**
@@ -238,7 +200,7 @@ public:
     void setStandardDeviation(double stdDev) {
         validateParameters(mean_, stdDev);
         standardDeviation_ = stdDev;
-        cacheValid_ = false;
+        invalidateCache();
     }
     
     /**
@@ -250,9 +212,8 @@ public:
      */
     void setParameters(double mean, double stdDev) {
         validateParameters(mean, stdDev);
-        mean_ = mean;
-        standardDeviation_ = stdDev;
-        cacheValid_ = false;
+        mean_ = mean; standardDeviation_ = stdDev;
+        invalidateCache();
     }
     
     /**
