@@ -7,7 +7,7 @@
 namespace libhmm{
 
 /**
- * Modern C++17 Log-Normal distribution for modeling positive continuous data.
+ * Modern C++20 Log-Normal distribution for modeling positive continuous data.
  * 
  * The Log-Normal distribution is a continuous probability distribution of a
  * random variable whose logarithm is normally distributed. It's commonly used

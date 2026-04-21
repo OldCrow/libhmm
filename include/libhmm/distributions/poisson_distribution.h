@@ -8,7 +8,7 @@
 namespace libhmm{
 
 /**
- * Modern C++17 Poisson distribution for modeling count data and rare events.
+ * Modern C++20 Poisson distribution for modeling count data and rare events.
  * 
  * The Poisson distribution models the number of events occurring in a fixed 
  * interval of time or space, given that these events occur with a known 

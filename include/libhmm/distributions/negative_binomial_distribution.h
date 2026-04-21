@@ -7,7 +7,7 @@
 namespace libhmm {
 
 /**
- * Modern C++17 Negative Binomial distribution for modeling discrete count data.
+ * Modern C++20 Negative Binomial distribution for modeling discrete count data.
  * 
  * The Negative Binomial distribution models the number of failures before 
  * the r-th success in a sequence of independent Bernoulli trials, each with 

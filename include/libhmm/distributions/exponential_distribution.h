@@ -7,7 +7,7 @@
 namespace libhmm{
 
 /**
- * Modern C++17 Exponential distribution for modeling waiting times and decay processes.
+ * Modern C++20 Exponential distribution for modeling waiting times and decay processes.
  * 
  * The Exponential distribution is a continuous probability distribution that describes
  * the time between events in a Poisson point process. It's commonly used to model
