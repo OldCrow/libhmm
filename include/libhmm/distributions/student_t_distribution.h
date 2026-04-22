@@ -124,6 +124,12 @@ public:
      */
     [[nodiscard]] double getProbability(double value) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
+
+    /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
     [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     void fit(std::span<const double> data) override;

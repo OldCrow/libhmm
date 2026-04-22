@@ -277,6 +277,12 @@ public:
      * @return Log probability mass
      */
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
+
+    /// Concrete non-virtual batch log-PMF. Eliminates per-element virtual dispatch.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
     
     /**
      * Evaluates the CDF at k using cumulative sum approach

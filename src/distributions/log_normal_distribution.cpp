@@ -193,5 +193,20 @@ std::istream& operator>>( std::istream& is,
     return is;
 }
 
+void LogNormalDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised log(x): the inner loop is essentially
+    // Gaussian on log(x), so once a vectorised log is available the pattern is
+    // identical to GaussianDistribution tier 2 but with an extra log-transform
+    // step. Available via Intel SVML, GNU libmvec, or Apple Accelerate vvlog,
+    // but not portably without a math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = LogNormalDistribution::getLogProbability(observations[i]);
+    }
+}
 
 }

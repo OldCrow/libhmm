@@ -245,4 +245,18 @@ std::ostream& operator<<(std::ostream& os,
     return os;
 }
 
+void NegativeBinomialDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised generalised log-binomial-coefficient
+    // (uses lgamma internally): available via Intel SVML or platform-specific
+    // math libraries, but not portably without a math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = NegativeBinomialDistribution::getLogProbability(observations[i]);
+    }
+}
+
 } // namespace libhmm

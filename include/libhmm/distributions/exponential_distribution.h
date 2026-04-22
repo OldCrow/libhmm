@@ -138,6 +138,14 @@ public:
     [[nodiscard]] double getProbability(double value) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
+    /// Vectorised batch log-PDF (tier 2 — explicit SIMD intrinsics).
+    /// Uses AVX-512 (8-wide), AVX/AVX2 (4-wide), SSE2 (2-wide), or NEON (2-wide).
+    /// Formula: log(λ) + (−λ)·x for x ≥ 0; -Inf for x < 0 or NaN.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+
     /** Fit λ = 1 / sample_mean (unweighted MLE). */
     void fit(std::span<const double> data) override;
 

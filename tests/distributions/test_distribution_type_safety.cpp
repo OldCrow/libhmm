@@ -207,7 +207,7 @@ TEST_F(DistributionTypeSafetyTest, BetaDistributionValidation) {
 // Integration test for multiple distributions
 TEST_F(DistributionTypeSafetyTest, MultipleDistributionTypeSafety) {
     // Create various distributions
-    std::vector<std::unique_ptr<ProbabilityDistribution>> distributions;
+    std::vector<std::unique_ptr<EmissionDistribution>> distributions;
     
     distributions.push_back(std::make_unique<DiscreteDistribution>(4));
     distributions.push_back(std::make_unique<GaussianDistribution>(0.0, 1.0));

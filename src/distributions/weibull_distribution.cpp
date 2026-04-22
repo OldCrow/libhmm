@@ -191,4 +191,20 @@ std::istream& operator>>(std::istream& is, WeibullDistribution& distribution) {
     return is;
 }
 
+void WeibullDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires both vectorised log(x) and vectorised pow(x, k):
+    // inner loop is log(k) - k*log(λ) + (k-1)*log(x) - (x/λ)^k. Available via
+    // Intel SVML (_mm512_log_pd + _mm512_pow_pd), but not portably without a
+    // math-library dependency. The k=1 (exponential) and k=2 (Rayleigh) special
+    // cases eliminate pow and could be handled without SVML.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = WeibullDistribution::getLogProbability(observations[i]);
+    }
+}
+
 } // namespace libhmm

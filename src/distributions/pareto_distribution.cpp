@@ -169,5 +169,19 @@ std::istream& operator>>( std::istream& is,
     return is;
 }
 
+void ParetoDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised log(x): inner loop is
+    // log(α) + α*log(x_m) - (α+1)*log(x), so a vectorised log is needed.
+    // Available via Intel SVML, GNU libmvec, or Apple Accelerate vvlog, but
+    // not portably without a math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = ParetoDistribution::getLogProbability(observations[i]);
+    }
+}
 
 }

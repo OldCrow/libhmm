@@ -163,6 +163,12 @@ public:
     [[nodiscard]] double getProbability(double value) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
+    /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+
     /** MOM fit using coefficient of variation to estimate k, then λ = mean / Γ(1+1/k). */
     void fit(std::span<const double> data) override;
     /** Weighted MOM: same approach using weighted mean and variance. */

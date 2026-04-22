@@ -164,6 +164,14 @@ public:
      */
     [[nodiscard]] double getLogProbability(double x) const noexcept override;
 
+    /// Vectorised batch log-PDF.
+    /// Uses AVX-512 (8-wide), AVX2 (4-wide), SSE2 (2-wide), or NEON (2-wide) SIMD
+    /// when available; falls back to a scalar tail. NaN inputs yield -Inf output.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+
     /**
      * Evaluates the CDF at x using the error function
      * Formula: CDF(x) = (1/2) * (1 + erf((x-μ)/(σ√2)))

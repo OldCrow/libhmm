@@ -202,4 +202,19 @@ bool GammaDistribution::operator==(const GammaDistribution& other) const {
            std::abs(theta_ - other.theta_) < precision::LIMIT_TOLERANCE;
 }
 
+void GammaDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised log(x): the inner loop contains
+    // (k-1)*log(x) - x/θ, which needs a vectorised log — available via Intel SVML,
+    // GNU libmvec, or Apple Accelerate vvlog, but not portably without a
+    // math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = GammaDistribution::getLogProbability(observations[i]);
+    }
+}
+
 }//namespace

@@ -211,4 +211,19 @@ std::istream& operator>>(std::istream& is, libhmm::PoissonDistribution& distribu
     return is;
 }
 
+void PoissonDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised log-factorial (or lgamma(k+1)): available
+    // via Intel SVML or platform-specific math libraries, but not portably
+    // without a math-library dependency. A small-k lookup table (k ≤ 20) could
+    // serve as a portable partial optimisation.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = PoissonDistribution::getLogProbability(observations[i]);
+    }
+}
+
 } // namespace libhmm

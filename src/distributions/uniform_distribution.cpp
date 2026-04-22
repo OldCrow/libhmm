@@ -216,4 +216,18 @@ std::istream& operator>>(std::istream& is, UniformDistribution& dist) {
     return is;
 }
 
+void UniformDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; the valid-input path reduces to a
+    // constant (-logRange_), so the compiler auto-vectorizes to a compare +
+    // blend under -march=native / /arch:AVX512.
+    // Tier 2 with explicit intrinsics would replicate that same compare/blend
+    // pattern for marginal gain; the auto-vectorized version is near-optimal.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = UniformDistribution::getLogProbability(observations[i]);
+    }
+}
+
 } // namespace libhmm

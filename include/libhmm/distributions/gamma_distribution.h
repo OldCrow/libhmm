@@ -152,6 +152,12 @@ public:
      */
     [[nodiscard]] double getLogProbability(double x) const noexcept override;
 
+    /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+
     /**
      * Evaluates the CDF at x using the incomplete gamma function
      * Formula: CDF(x) = P(k, x/θ) = γ(k, x/θ) / Γ(k)

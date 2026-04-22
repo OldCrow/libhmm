@@ -5,7 +5,7 @@
 #include <vector>
 #include <cmath>
 #include "libhmm/libhmm.h"
-#include "libhmm/two_state_hmm.h"
+#include "two_state_hmm.h"
 #include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
 #include "libhmm/calculators/log_simd_forward_backward_calculator.h"
 
@@ -30,7 +30,7 @@ int main() {
 
     {
         auto hmm = std::make_unique<Hmm>(2);  // Initialize with 2 states
-        prepareTwoStateHmm(hmm.get());
+        libhmm::examples::prepare_two_state_hmm(*hmm);
 
         std::cout << "Occasionally Dishonest Casino" << std::endl;
         std::cout << "-----------------------------" << std::endl;
@@ -38,7 +38,7 @@ int main() {
     }
     {
         auto hmm = std::make_unique<Hmm>(2);  // Initialize with 2 states
-        prepareTwoStateHmm(hmm.get());
+        libhmm::examples::prepare_two_state_hmm(*hmm);
         // A '5' is when the dice rolls a '6'
         ObservationSet set1( 1 );
         set1( 0 ) = 5;

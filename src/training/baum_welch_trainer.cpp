@@ -1,216 +1,157 @@
 #include "libhmm/training/baum_welch_trainer.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
-#include <iostream>
-#include <cassert>
+#include "libhmm/hmm.h"
+#include <cmath>
+#include <limits>
+#include <span>
+#include <stdexcept>
+#include <vector>
 
-namespace libhmm
-{
+namespace libhmm {
 
-// Calculates xi for a given HMM and observation.  (Maybe this should be a 
-// calculator?
-//
-// xi_t( i, j ) is the probability of being in state i at time t and
-// state j at time t + 1, or better written as
-// xi_t( i, j ) = P( q_t = S_i, q_(t+1) = S_j ) | O, lambda )
-BasicMatrix3D<double> BaumWelchTrainer::calculateXi(const ObservationSet& observations)
-{
-    if (observations.size() < 2) {
-        throw std::runtime_error("Observation sequence too short for xi calculation");
-    }
-    
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
-    const auto obsSize = observations.size();
-BasicMatrix3D<double> xi(obsSize - 1, numStates, numStates);
-    const Matrix trans = hmm_->getTrans();
-    
-    // Get Forward (alpha) and Backward (beta) variables
-    ForwardBackwardCalculator fbc(hmm_, observations);
-    const Matrix alpha = fbc.getForwardVariables();
-    const Matrix beta = fbc.getBackwardVariables();
-    
-    // Get the probability of seeing these observations
-    const double probability = fbc.probability();
-    if (probability <= 0.0) {
-        throw std::runtime_error("Invalid probability in xi calculation");
-    }
-    
-    for (std::size_t t = 0; t < obsSize - 1; ++t) {
-        for (std::size_t i = 0; i < numStates; ++i) {
-            for (std::size_t j = 0; j < numStates; ++j) {
-                const double emisProb = hmm_->getProbabilityDistribution(static_cast<int>(j))->getProbability(observations(t + 1));
-                const double xiValue = (alpha(t, i) * trans(i, j) * emisProb * beta(t + 1, j)) / probability;
-                xi.Set(t, i, j, xiValue);
-            }
-        }
-    }
-    
-    return xi;
+namespace {
+    constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
 }
 
-// Calculates Gamma
-//
-// gamma_t( i ) is the probability of being in state i at time t 
-// given observation sequence O and HMM lambda, or:
-// gamma_t( i ) = P( q_t = S_i | O, lambda );
-Matrix BaumWelchTrainer::calculateGamma(const ObservationSet& observations, const BasicMatrix3D<double>& xi)
-{
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
-    const auto obsSize = observations.size();
-    Matrix gamma(obsSize, numStates);
-    clear_matrix(gamma);
-    
-    for (std::size_t t = 0; t < obsSize - 1; ++t) {
-        for (std::size_t i = 0; i < numStates; ++i) {
-            for (std::size_t j = 0; j < numStates; ++j) {
-                gamma(t, i) += xi(t, i, j);
-            }
-        }
-    }
-    
-    // Handle the last time step separately
-    if (obsSize > 0) {
-        const std::size_t lastT = obsSize - 1;
-        for (std::size_t i = 0; i < numStates; ++i) {
-            for (std::size_t j = 0; j < numStates; ++j) {
-                if (lastT > 0) {
-                    gamma(lastT, i) += xi(lastT - 1, j, i);
-                }
-            }
-        }
-    }
+BaumWelchTrainer::BaumWelchTrainer(Hmm& hmm, const ObservationLists& obsLists)
+    : Trainer(hmm, obsLists) {}
 
-    return gamma;
-}
+BaumWelchTrainer::BaumWelchTrainer(Hmm* hmm, const ObservationLists& obsLists)
+    : Trainer(hmm, obsLists) {}
 
-void BaumWelchTrainer::validateDiscreteDistributions() const {
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
-    for (std::size_t i = 0; i < numStates; ++i) {
-        const auto* dist = dynamic_cast<const DiscreteDistribution*>(hmm_->getProbabilityDistribution(static_cast<int>(i)));
-        if (!dist) {
-            throw std::runtime_error("BaumWelchTrainer requires all states to have DiscreteDistribution");
-        }
-    }
-}
+// ---------------------------------------------------------------------------
+// train() — one full EM pass over all sequences
+// ---------------------------------------------------------------------------
 
-// Uses the Baum Welch algorithm to train an HMM.
 void BaumWelchTrainer::train() {
-    validateDiscreteDistributions();
-    
-    // HMM properties
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
-    const auto* firstDist = dynamic_cast<const DiscreteDistribution*>(hmm_->getProbabilityDistribution(0));
-    const auto numSymbols = firstDist->getNumSymbols();
+    Hmm& hmm = hmm_ref_.get();
+    const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
 
-    // Initialize matrices for parameter estimation
-    Matrix newTrans(numStates, numStates);
-    Vector newPi(numStates);
-    
-    // Zero the matrices and vectors
-    clear_matrix(newTrans);
-    clear_vector(newPi);
-    
-    // Update transition matrix using Baum-Welch re-estimation
-    const Matrix currentTrans = hmm_->getTrans();
-    for (std::size_t i = 0; i < numStates; ++i) {
-        for (std::size_t j = 0; j < numStates; ++j) {
-            double numerator = 0.0;
-            double denominator = 0.0;
+    // Accumulators (linear space, summed across all sequences)
+    std::vector<double>              piNum(N, 0.0);
+    std::vector<std::vector<double>> transNum(N, std::vector<double>(N, 0.0));
+    std::vector<double>              transDen(N, 0.0);
 
-            for (const auto& observations : obsLists_) {
-                if (observations.size() < 2) continue; // Skip too-short sequences
-                
-                ForwardBackwardCalculator fbc(hmm_, observations);
-                const Matrix alpha = fbc.getForwardVariables();
-                const Matrix beta = fbc.getBackwardVariables();
-                const double probability = fbc.probability();
-                
-                if (probability <= 0.0) continue; // Skip invalid sequences
+    // Per-state emission data/weights accumulated across sequences
+    std::vector<std::vector<double>> emisData(N);
+    std::vector<std::vector<double>> emisWts(N);
 
-                double xiSum = 0.0;
-                double gammaSum = 0.0;
-                
-                for (std::size_t t = 0; t < observations.size() - 1; ++t) {
-                    const double emisProb = hmm_->getProbabilityDistribution(static_cast<int>(j))->getProbability(observations(t + 1));
-                    xiSum += (alpha(t, i) * currentTrans(i, j) * emisProb * beta(t + 1, j)) / probability;
-                    gammaSum += (alpha(t, i) * beta(t, i)) / probability;
-                }
-                
-                numerator += xiSum;
-                denominator += gammaSum;
-            }
-
-            if (denominator > ZERO) {
-                newTrans(i, j) = numerator / denominator;
-            } else {
-                newTrans(i, j) = ZERO;
-            }
+    // Precompute log-transition matrix from the current model
+    const Matrix& curTrans = hmm.getTrans();
+    std::vector<std::vector<double>> logTrans(N, std::vector<double>(N));
+    for (std::size_t i = 0; i < N; ++i) {
+        for (std::size_t j = 0; j < N; ++j) {
+            const double a = curTrans(i, j);
+            logTrans[i][j] = (a > 0.0) ? std::log(a) : LOG_ZERO;
         }
     }
 
-    // Update emission probabilities for discrete distributions
-    for (std::size_t j = 0; j < numStates; ++j) {
-        auto* dist = dynamic_cast<DiscreteDistribution*>(hmm_->getProbabilityDistribution(static_cast<int>(j)));
-        
-        for (std::size_t symbol = 0; symbol < numSymbols; ++symbol) {
-            double numerator = 0.0;
-            double denominator = 0.0;
+    std::size_t validSeqs = 0;
 
-            for (const auto& observations : obsLists_) {
-                ForwardBackwardCalculator fbc(hmm_, observations);
-                const Matrix alpha = fbc.getForwardVariables();
-                const Matrix beta = fbc.getBackwardVariables();
-                const double probability = fbc.probability();
-                
-                if (probability <= 0.0) continue;
+    for (const auto& obs : obsLists_) {
+        const std::size_t T = obs.size();
+        if (T == 0) continue;
 
-                double symbolSum = 0.0;
-                double totalSum = 0.0;
-                
-                for (std::size_t t = 0; t < observations.size(); ++t) {
-                    const double gamma = (alpha(t, j) * beta(t, j)) / probability;
-                    if (static_cast<std::size_t>(observations(t)) == symbol) {
-                        symbolSum += gamma;
-                    }
-                    totalSum += gamma;
-                }
-                
-                numerator += symbolSum;
-                denominator += totalSum;
-            }
+        ForwardBackwardCalculator fbc(hmm, obs);
+        const double logP = fbc.getLogProbability();
+        if (!std::isfinite(logP)) continue;
 
-            if (denominator > ZERO) {
-                dist->setProbability(static_cast<int>(symbol), numerator / denominator);
-            } else {
-                dist->setProbability(static_cast<int>(symbol), 1.0 / static_cast<double>(numSymbols));
+        const Matrix& logAlpha = fbc.getLogForwardVariables();
+        const Matrix& logBeta  = fbc.getLogBackwardVariables();
+
+        // Precompute log-emissions for this sequence: logEmit[i * T + t]
+        std::vector<double> obsVec(T);
+        for (std::size_t t = 0; t < T; ++t) obsVec[t] = obs(t);
+
+        std::vector<double> logEmit(N * T);
+        for (std::size_t i = 0; i < N; ++i) {
+            hmm.getDistribution(i).getBatchLogProbabilities(
+                std::span<const double>(obsVec.data(), T),
+                std::span<double>(logEmit.data() + i * T, T));
+        }
+
+        // Accumulate gamma (per timestep per state) and pi/trans denominators
+        for (std::size_t t = 0; t < T; ++t) {
+            for (std::size_t i = 0; i < N; ++i) {
+                const double g = std::exp(logAlpha(t, i) + logBeta(t, i) - logP);
+                emisData[i].push_back(obs(t));
+                emisWts[i].push_back(g);
+                if (t == 0)     piNum[i]   += g;
+                if (t < T - 1) transDen[i] += g;
             }
         }
+
+        // Accumulate xi (transition counts)
+        for (std::size_t t = 0; t + 1 < T; ++t) {
+            for (std::size_t i = 0; i < N; ++i) {
+                for (std::size_t j = 0; j < N; ++j) {
+                    const double logXi =
+                        logAlpha(t, i) +
+                        logTrans[i][j] +
+                        logEmit[j * T + (t + 1)] +
+                        logBeta(t + 1, j) - logP;
+                    transNum[i][j] += std::exp(logXi);
+                }
+            }
+        }
+
+        ++validSeqs;
     }
 
-    // Update initial state probabilities (pi vector)
-    // Note: Some implementations keep pi fixed, but we'll update it here
-    for (std::size_t i = 0; i < numStates; ++i) {
+    if (validSeqs == 0) {
+        throw std::runtime_error(
+            "BaumWelchTrainer: no valid observation sequences "
+            "(all had zero probability under the current model)");
+    }
+
+    // ---- M-step: pi ----
+    {
         double piSum = 0.0;
-        
-        for (const auto& observations : obsLists_) {
-            if (observations.empty()) continue;
-            
-            ForwardBackwardCalculator fbc(hmm_, observations);
-            const Matrix alpha = fbc.getForwardVariables();
-            const Matrix beta = fbc.getBackwardVariables();
-            const double probability = fbc.probability();
-            
-            if (probability > 0.0) {
-                piSum += (alpha(0, i) * beta(0, i)) / probability;
+        for (std::size_t i = 0; i < N; ++i) piSum += piNum[i];
+        Vector pi(N);
+        for (std::size_t i = 0; i < N; ++i) {
+            pi(i) = (piSum > 0.0)
+                ? piNum[i] / piSum
+                : 1.0 / static_cast<double>(N);
+        }
+        hmm.setPi(pi);
+    }
+
+    // ---- M-step: transition matrix ----
+    {
+        Matrix newTrans(N, N);
+        for (std::size_t i = 0; i < N; ++i) {
+            for (std::size_t j = 0; j < N; ++j) {
+                newTrans(i, j) = (transDen[i] > 0.0)
+                    ? transNum[i][j] / transDen[i]
+                    : 1.0 / static_cast<double>(N);
             }
         }
-        
-        newPi(i) = piSum / static_cast<double>(obsLists_.size());
+        hmm.setTrans(newTrans);
     }
-    
-    // Apply updates to the HMM
-    hmm_->setTrans(newTrans);
-    hmm_->setPi(newPi);
 
+    // ---- M-step: emission distributions ----
+    for (std::size_t i = 0; i < N; ++i) {
+        const std::size_t M = emisData[i].size();
+        if (M == 0) {
+            hmm.getDistribution(i).reset();
+            continue;
+        }
+        hmm.getDistribution(i).fit(
+            std::span<const double>(emisData[i].data(), M),
+            std::span<const double>(emisWts[i].data(),  M));
+    }
 }
 
-} // namespace
+// ---------------------------------------------------------------------------
+// Utility
+// ---------------------------------------------------------------------------
+
+double BaumWelchTrainer::logSumExp(double a, double b) noexcept {
+    if (a == LOG_ZERO) return b;
+    if (b == LOG_ZERO) return a;
+    if (a > b) return a + std::log1p(std::exp(b - a));
+    return b + std::log1p(std::exp(a - b));
+}
+
+} // namespace libhmm
