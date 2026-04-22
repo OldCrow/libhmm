@@ -164,20 +164,27 @@ endif()
 # =============================================================================
 include(CheckCXXCompilerFlag)
 
-if(NOT MSVC)
+# x86 ISA extension flags are only meaningful on x86/x86_64 targets. Running
+# them on AArch64 (Apple Silicon, ARM servers) produces misleading results
+# because Clang silently accepts x86 flags without enabling those ISAs.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+    # AArch64: NEON is the mandatory ISA baseline — always present, no flag needed.
+    set(COMPILER_SUPPORTS_NEON ON)
+    message(STATUS "SIMD compiler support — NEON: ON (AArch64 baseline)")
+elseif(NOT MSVC)
     check_cxx_compiler_flag("-mavx512f" COMPILER_SUPPORTS_AVX512F)
     check_cxx_compiler_flag("-mavx"    COMPILER_SUPPORTS_AVX)
     check_cxx_compiler_flag("-mavx2"   COMPILER_SUPPORTS_AVX2)
     check_cxx_compiler_flag("-msse4.2" COMPILER_SUPPORTS_SSE42)
+    message(STATUS "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}")
 else()
-    # Informational only — actual flag selection is CPU-verified below.
+    # MSVC x86/x64: informational only — actual flag selected via check_cxx_source_runs below.
     check_cxx_compiler_flag("/arch:AVX512" COMPILER_SUPPORTS_AVX512F)
     check_cxx_compiler_flag("/arch:AVX2"   COMPILER_SUPPORTS_AVX2)
     check_cxx_compiler_flag("/arch:AVX"    COMPILER_SUPPORTS_AVX)
     set(COMPILER_SUPPORTS_SSE42 ON)  # SSE4.2 is guaranteed on x64 MSVC
+    message(STATUS "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}")
 endif()
-
-message(STATUS "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}")
 
 # =============================================================================
 # Select best SIMD flag for this compiler + CPU combination.
@@ -226,9 +233,14 @@ elseif(MSVC)
     set(LIBHMM_BEST_SIMD_FLAGS "")
     message(STATUS "SIMD optimization: (cross-compilation — SSE2 baseline)")
 else()
-    # GCC/Clang: -march=native selects the best ISA for the build machine.
+    # GCC/Clang on all platforms: -march=native selects the best ISA for the
+    # build machine (NEON on AArch64; AVX-512/AVX2/AVX/SSE2 on x86_64).
     set(LIBHMM_BEST_SIMD_FLAGS "-march=native")
-    message(STATUS "SIMD optimization: -march=native")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+        message(STATUS "SIMD optimization: -march=native (AArch64/NEON)")
+    else()
+        message(STATUS "SIMD optimization: -march=native")
+    endif()
 endif()
 
 # All distribution sources with getBatchLogProbabilities() overrides.
