@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0-alpha.1] - 2026-04-22
+
+### Changed
+
+- Modernized remaining benchmark sources to canonical v3 APIs and removed references to removed calculator/distribution APIs.
+- Consolidated benchmark documentation under `benchmarks/docs/BENCHMARKING_RESULTS.md` and `benchmarks/docs/Library_Compatibility_Guide.md`; removed stale overlapping benchmark docs.
+- Redirected benchmark runtime artifacts to benchmark build-log directories instead of writing outputs into the repository root.
+- Added `build*/` gitignore coverage and cleaned obsolete benchmark artifacts tracked from earlier runs.
+- Tightened benchmark-results wording to distinguish historical vs current sections and align terminology with C++20 and canonical calculators.
+
+### Fixed
+
+- `ViterbiCalculator` constructor now explicitly discards the `decode()` return value to satisfy `[[nodiscard]]` and keep the core `hmm` target warning-free.
+
 ## [3.0.0-alpha] - 2026-04-22
 
 ### Modern C++20 Architecture Refactor
