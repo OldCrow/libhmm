@@ -10,8 +10,8 @@
 
 // libhmm includes
 #include "libhmm/libhmm.h"
-#include "libhmm/calculators/forward_backward_traits.h"
-#include "libhmm/calculators/viterbi_traits.h"
+#include "libhmm/calculators/forward_backward_calculator.h"
+#include "libhmm/calculators/viterbi_calculator.h"
 
 // HMMLib includes  
 #include "HMMlib/hmm_table.hpp"
@@ -230,7 +230,7 @@ private:
                 for (int j = 0; j < problem.alphabet_size; ++j) {
                     discrete_dist->setProbability(j, problem.emission_matrix[i][j]);
                 }
-                hmm->setProbabilityDistribution(i, discrete_dist.release());
+                hmm->setDistribution(i, std::move(discrete_dist));
             }
             
             // Convert observation sequence to libhmm format
@@ -239,32 +239,20 @@ private:
                 libhmm_obs(i) = obs_sequence[i];
             }
             
-            // Benchmark forward-backward using optimal calculator selection
+            // Benchmark forward-backward
             auto start = high_resolution_clock::now();
-            
-            // Use ForwardBackward AutoCalculator for optimal performance
-            libhmm::forwardbackward::AutoCalculator fb_calc(hmm.get(), libhmm_obs);
-            
-            // Debug output to show what calculator was selected
-            cout << "  Selected Forward-Backward calculator: " << fb_calc.getSelectionRationale() << endl;
-            
-            // Get the probability (or log-likelihood)
-            double forward_backward_likelihood = fb_calc.probability();
+            libhmm::ForwardBackwardCalculator fb_calc(hmm.get(), libhmm_obs);
+            double forward_backward_likelihood = fb_calc.getLogProbability();
             
             auto end = high_resolution_clock::now();
             results.libhmm_forward_time = duration_cast<microseconds>(end - start).count() / 1000.0;
             results.libhmm_forward_likelihood = forward_backward_likelihood; // Store Forward-Backward result
             
-            // Benchmark Viterbi using AutoCalculator for optimal performance
+            // Benchmark Viterbi
             start = high_resolution_clock::now();
-            
-            // Use Viterbi AutoCalculator for optimal performance  
-            libhmm::viterbi::AutoCalculator viterbi_calc(hmm.get(), libhmm_obs);
+            libhmm::ViterbiCalculator viterbi_calc(hmm.get(), libhmm_obs);
             auto states = viterbi_calc.decode();
             double viterbi_log_prob = viterbi_calc.getLogProbability();
-            
-            cout << "  Selected Viterbi calculator: " << viterbi_calc.getSelectionRationale() << endl;
-            
             end = high_resolution_clock::now();
             results.libhmm_viterbi_time = duration_cast<microseconds>(end - start).count() / 1000.0;
             results.libhmm_viterbi_likelihood = viterbi_log_prob; // Store Viterbi result

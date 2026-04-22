@@ -10,9 +10,8 @@
 // libhmm includes
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/discrete_distribution.h"
-#include "libhmm/calculators/calculator.h"
-#include "libhmm/calculators/forward_backward_traits.h"
-#include "libhmm/calculators/viterbi_traits.h"
+#include "libhmm/calculators/forward_backward_calculator.h"
+#include "libhmm/calculators/viterbi_calculator.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -190,7 +189,7 @@ public:
                 for (int j = 0; j < problem.alphabet_size; ++j) {
                     discrete_dist->setProbability(static_cast<libhmm::Observation>(j), problem.emission_matrix[i][j]);
                 }
-                hmm->setProbabilityDistribution(i, discrete_dist.release());
+                hmm->setDistribution(i, std::move(discrete_dist));
             }
             
             // Convert observation sequence to libhmm format
@@ -199,24 +198,17 @@ public:
                 libhmm_obs(i) = static_cast<libhmm::Observation>(obs_sequence[i]);
             }
             
-            // Use AutoCalculator for optimal Forward-Backward performance
+            // Use canonical Forward-Backward calculator
             auto start = high_resolution_clock::now();
-            libhmm::forwardbackward::AutoCalculator fb_calc(hmm.get(), libhmm_obs);
-            
-            // Debug output to show calculator selection
-            cout << "  Selected Forward-Backward calculator: " << fb_calc.getSelectionRationale() << endl;
-            
+            libhmm::ForwardBackwardCalculator fb_calc(hmm.get(), libhmm_obs);
             double forward_backward_log_likelihood = fb_calc.getLogProbability();
             auto end = high_resolution_clock::now();
             results.forward_time = duration_cast<microseconds>(end - start).count() / 1000.0;
             results.likelihood = forward_backward_log_likelihood;  // Numerically stable log-likelihood
-            
-            // Use AutoCalculator for optimal Viterbi performance
+
+            // Use canonical Viterbi calculator
             start = high_resolution_clock::now();
-            libhmm::viterbi::AutoCalculator viterbi_calc(hmm.get(), libhmm_obs);
-            
-            cout << "  Selected Viterbi calculator: " << viterbi_calc.getSelectionRationale() << endl;
-            
+            libhmm::ViterbiCalculator viterbi_calc(hmm.get(), libhmm_obs);
             auto states = viterbi_calc.decode();
             end = high_resolution_clock::now();
             results.viterbi_time = duration_cast<microseconds>(end - start).count() / 1000.0;

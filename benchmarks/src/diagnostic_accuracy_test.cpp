@@ -4,6 +4,7 @@
 #include <memory>
 #include <cmath>
 #include <random>
+#include <utility>
 
 // libhmm includes
 #include "libhmm/distributions/gaussian_distribution.h"
@@ -170,8 +171,8 @@ void testHMMSetupConsistency() {
     dist1->setProbability(1, 0.3);
     dist1->setProbability(2, 0.5);
     
-    hmm->setProbabilityDistribution(0, move(dist0));
-    hmm->setProbabilityDistribution(1, move(dist1));
+    hmm->setDistribution(0, std::move(dist0));
+    hmm->setDistribution(1, std::move(dist1));
     
     // Verify parameters are set correctly
     cout << "Initial probabilities:" << endl;
@@ -191,7 +192,7 @@ void testHMMSetupConsistency() {
     cout << "Emission probabilities:" << endl;
     for (int state = 0; state < 2; ++state) {
         for (int symbol = 0; symbol < 3; ++symbol) {
-            double prob = hmm->getProbabilityDistribution(state)->getProbability(symbol);
+            double prob = hmm->getDistribution(state).getProbability(symbol);
             cout << "  E[" << state << "," << symbol << "] = " << fixed << setprecision(6) << prob << endl;
         }
     }
@@ -200,7 +201,7 @@ void testHMMSetupConsistency() {
 
 void testCalculatorConsistency() {
     cout << "=== CALCULATOR CONSISTENCY TEST ===" << endl;
-    cout << "Testing if different calculators give same results" << endl;
+    cout << "Testing canonical calculator consistency" << endl;
     
     // Create simple HMM (same as above)
     auto hmm = make_unique<libhmm::Hmm>(2);
@@ -219,8 +220,8 @@ void testCalculatorConsistency() {
     auto dist1 = make_unique<libhmm::DiscreteDistribution>(3);
     dist1->setProbability(0, 0.2); dist1->setProbability(1, 0.3); dist1->setProbability(2, 0.5);
     
-    hmm->setProbabilityDistribution(0, move(dist0));
-    hmm->setProbabilityDistribution(1, move(dist1));
+    hmm->setDistribution(0, std::move(dist0));
+    hmm->setDistribution(1, std::move(dist1));
     
     // Create test observation sequence
     libhmm::ObservationSet obs(5);
@@ -228,53 +229,41 @@ void testCalculatorConsistency() {
     
     cout << "Test sequence: 0 1 2 0 1" << endl;
     
-    // Test different calculators
+    // Test canonical calculators
     try {
-        // AutoCalculator
-        libhmm::forwardbackward::AutoCalculator auto_calc(hmm.get(), obs);
-        double auto_result = auto_calc.getLogProbability();
-        cout << "AutoCalculator:           " << scientific << setprecision(10) << auto_result << endl;
-        cout << "  Selected: " << auto_calc.getSelectionRationale() << endl;
-        
-        // Scaled SIMD
-        libhmm::ScaledSIMDForwardBackwardCalculator scaled_calc(hmm.get(), obs);
-        scaled_calc.compute();
-        double scaled_result = scaled_calc.getLogProbability();
-        cout << "ScaledSIMD Calculator:    " << scientific << setprecision(10) << scaled_result << endl;
-        
-        // Log SIMD
-        libhmm::LogSIMDForwardBackwardCalculator log_calc(hmm.get(), obs);
-        log_calc.compute();
-        double log_result = log_calc.getLogProbability();
-        cout << "LogSIMD Calculator:       " << scientific << setprecision(10) << log_result << endl;
-        
-        // Unscaled (if possible)
-        try {
-            libhmm::ForwardBackwardCalculator unscaled_calc(hmm.get(), obs);
-            double unscaled_prob = unscaled_calc.probability();
-            double unscaled_result = (unscaled_prob > 0) ? log(unscaled_prob) : -INFINITY;
-            cout << "Unscaled Calculator:      " << scientific << setprecision(10) << unscaled_result << endl;
-            cout << "  (raw probability: " << scientific << setprecision(10) << unscaled_prob << ")" << endl;
-        } catch (const exception& e) {
-            cout << "Unscaled Calculator:      FAILED (" << e.what() << ")" << endl;
-        }
-        
-        // Check consistency
-        double auto_scaled_diff = abs(auto_result - scaled_result);
-        double auto_log_diff = abs(auto_result - log_result);
-        double scaled_log_diff = abs(scaled_result - log_result);
-        
+        libhmm::ForwardBackwardCalculator fb_ptr(hmm.get(), obs);
+        double fb_log_ptr = fb_ptr.getLogProbability();
+        cout << "ForwardBackward (ptr):    " << scientific << setprecision(10) << fb_log_ptr << endl;
+
+        libhmm::ForwardBackwardCalculator fb_ref(*hmm, obs);
+        double fb_log_ref = fb_ref.getLogProbability();
+        cout << "ForwardBackward (ref):    " << scientific << setprecision(10) << fb_log_ref << endl;
+
+        double fb_prob = fb_ptr.probability();
+        double fb_from_prob = (fb_prob > 0.0) ? log(fb_prob) : -INFINITY;
+        cout << "ForwardBackward (log p):  " << scientific << setprecision(10) << fb_from_prob << endl;
+        cout << "  (raw probability: " << scientific << setprecision(10) << fb_prob << ")" << endl;
+
+        libhmm::ViterbiCalculator viterbi(hmm.get(), obs);
+        auto path = viterbi.decode();
+        (void)path;
+        double viterbi_log = viterbi.getLogProbability();
+        cout << "Viterbi path log-prob:    " << scientific << setprecision(10) << viterbi_log << endl;
+
+        double ptr_ref_diff = abs(fb_log_ptr - fb_log_ref);
+        double ptr_prob_diff = abs(fb_log_ptr - fb_from_prob);
+        double fb_viterbi_gap = fb_log_ptr - viterbi_log;
+
         cout << "Differences:" << endl;
-        cout << "  Auto vs Scaled:         " << scientific << setprecision(3) << auto_scaled_diff << endl;
-        cout << "  Auto vs Log:            " << scientific << setprecision(3) << auto_log_diff << endl;
-        cout << "  Scaled vs Log:          " << scientific << setprecision(3) << scaled_log_diff << endl;
-        
-        if (max({auto_scaled_diff, auto_log_diff, scaled_log_diff}) < 1e-10) {
-            cout << "  STATUS: All calculators AGREE" << endl;
+        cout << "  FB ptr vs ref:          " << scientific << setprecision(3) << ptr_ref_diff << endl;
+        cout << "  FB log vs log(prob):    " << scientific << setprecision(3) << ptr_prob_diff << endl;
+        cout << "  FB - Viterbi gap:       " << scientific << setprecision(3) << fb_viterbi_gap << endl;
+
+        if (ptr_ref_diff < 1e-12 && ptr_prob_diff < 1e-10 && fb_viterbi_gap >= -1e-12) {
+            cout << "  STATUS: Canonical results are self-consistent" << endl;
         } else {
             cout << "  STATUS: DISCREPANCY detected" << endl;
         }
-        
     } catch (const exception& e) {
         cout << "Calculator test failed: " << e.what() << endl;
     }
@@ -346,8 +335,8 @@ void testManualProbabilityCalculation() {
         auto dist1 = make_unique<libhmm::DiscreteDistribution>(3);
         dist1->setProbability(0, B[1][0]); dist1->setProbability(1, B[1][1]); dist1->setProbability(2, B[1][2]);
         
-        hmm->setProbabilityDistribution(0, move(dist0));
-        hmm->setProbabilityDistribution(1, move(dist1));
+        hmm->setDistribution(0, std::move(dist0));
+        hmm->setDistribution(1, std::move(dist1));
         
         libhmm::ObservationSet libhmm_obs(3);
         libhmm_obs(0) = obs[0]; libhmm_obs(1) = obs[1]; libhmm_obs(2) = obs[2];

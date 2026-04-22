@@ -2,13 +2,13 @@
 
 ## Overview
 
-This document presents comprehensive benchmarking results comparing libhmm against major HMM libraries in terms of numerical accuracy, performance, and scalability. The benchmarking was conducted to validate libhmm's implementation and assess its competitive position in the HMM library ecosystem.
+This document summarizes benchmark results comparing libhmm against major HMM libraries for numerical accuracy, throughput, and scaling behavior. It includes historical benchmark snapshots and a current consolidated update (April 2026). For current comparisons, use the `Benchmark Update (April 2026): Consolidated libhmm_vs_* Results` and `Post-modernization validation signal` sections.
 
 ## Methodology
 
 ### Libraries Tested
 
-1. **libhmm** - Modern C++17 implementation with zero external dependencies
+1. **libhmm** - Modern C++20 implementation with zero external dependencies
 2. **HMMLib** - High-performance C++ library with Boost dependencies  
 3. **StochHMM** - Bioinformatics-focused C++ library
 4. **GHMM** - General Hidden Markov Model Library (C)
@@ -54,14 +54,14 @@ To ensure fair comparison and detect numerical issues:
 
 ### Numerical Accuracy Results
 
-**PERFECT NUMERICAL EQUIVALENCE** was achieved between libhmm and academic reference libraries:
+libhmm shows machine-precision agreement with key reference libraries:
 
 | Library | Numerical Accuracy vs libhmm | Status |
 |---------|------------------------------|---------|
-| **HMMLib** | Identical to machine epsilon | ✅ **PERFECT** |
-| **StochHMM** | Identical to machine epsilon | ✅ **PERFECT** |
-| **GHMM** | Identical to machine epsilon | ✅ **PERFECT** |
-| **HTK** | Rounded log-probabilities | ⚠️ **APPROXIMATED** |
+| **HMMLib** | Identical to machine epsilon | ✅ Machine precision |
+| **StochHMM** | Identical to machine epsilon (after PI correction; see note below) | ✅ Machine precision |
+| **GHMM** | Identical to machine epsilon | ✅ Machine precision |
+| **HTK** | Rounded log-probabilities | ⚠️ Rounded output |
 
 **Example numerical comparison** (Casino Problem, 1000 observations):
 - libhmm: -1.815e+03
@@ -72,7 +72,37 @@ To ensure fair comparison and detect numerical issues:
 
 **HTK Numerical Approach**: HTK appears to use rounded log-probabilities (multiples of 1000) as a design choice, likely for computational efficiency and file-based processing. This is consistent with HTK's focus on speech recognition where exact likelihood values are less critical than relative comparisons.
 
+### StochHMM Continuous Gaussian Accuracy Correction (April 2026)
+
+During comparative benchmarking, we identified a deterministic log-likelihood offset in StochHMM continuous Gaussian runs. The root cause was an incorrect π constant in `source/src/stochMath.h` in the external StochHMM dependency:
+
+- Incorrect: `#define PI 3.145926535897932`
+- Corrected: `#define PI 3.141592653589793238463`
+
+StochHMM's Gaussian PDF normalization uses this constant, so the error introduced a fixed per-observation shift in log-space. The observed discrepancy scaled linearly with sequence length:
+
+- 100: `6.893e-02`
+- 500: `3.446e-01`
+- 1000: `6.893e-01`
+- 2000: `1.379e+00`
+- 5000: `3.446e+00`
+
+After correcting the constant and rebuilding/reinstalling `libstochhmm.a`, the same benchmark matched libhmm to machine precision:
+
+- 100: `2.842e-14`
+- 500: `0.000e+00`
+- 1000: `0.000e+00`
+- 2000: `9.095e-13`
+- 5000: `0.000e+00`
+
+Interpretation guidance:
+
+- Continuous Gaussian StochHMM accuracy comparisons from builds with the incorrect PI constant are not valid for numerical-accuracy conclusions.
+- Discrete-model benchmark conclusions are unaffected by this specific issue.
+- Reproducible StochHMM continuous benchmarking requires rebuilding the external dependency after applying the PI correction.
+
 ### Performance Rankings
+Historical snapshot from earlier benchmark runs; use the April 2026 consolidated table for current comparisons.
 
 #### Overall Throughput (observations/millisecond)
 
@@ -104,7 +134,7 @@ To ensure fair comparison and detect numerical issues:
 - GHMM: 20-25x faster than libhmm
 - HMMLib: 15-20x faster than libhmm
 - StochHMM: 2x faster than libhmm
-- HTK: 10-200x faster than libhmm (excellent scaling)
+- HTK: 10-200x faster than libhmm (strong scaling)
 
 ### HTK Scaling Analysis
 
@@ -112,7 +142,7 @@ HTK exhibits unique performance characteristics reflecting its design for speech
 
 **Performance Pattern:**
 - **Constant overhead**: ~4-5ms regardless of sequence length
-- **Excellent scaling**: Minimal per-observation cost for long sequences
+- **Strong scaling**: Minimal per-observation cost for long sequences
 - **Crossover point**: Becomes competitive around 5,000 observations
 - **Very long sequences**: Up to 200x faster than libhmm for 1M+ observations
 
@@ -126,13 +156,13 @@ HTK exhibits unique performance characteristics reflecting its design for speech
 
 ### Algorithm Selection and Optimization
 
-**libhmm AutoCalculator Performance:**
-- Automatically selects Scaled-SIMD calculator for all test cases
-- Provides optimal numerical stability for long sequences
-- Consistent 1.65x performance improvement over baseline
+**libhmm canonical calculator path (current architecture):**
+- Uses canonical log-space ForwardBackward and Viterbi calculator implementations
+- Uses distribution-level batch hooks (`getBatchLogProbabilities()`) for SIMD acceleration where available
+- Emphasizes numerical stability and implementation consistency across sequence lengths
 
 **Library-Specific Optimizations:**
-- **GHMM**: Highly optimized C implementation with excellent scaling
+- **GHMM**: Highly optimized C implementation with strong scaling
 - **HMMLib**: Boost-based optimizations, particularly strong matrix operations
 - **StochHMM**: Moderate optimizations, designed for bioinformatics workflows
 - **HTK**: File-based operations with efficiency-focused approximations
@@ -147,7 +177,7 @@ All libraries successfully processed sequences up to 1,000,000 observations with
 
 | Library | Language | Dependencies | Modern Features | Maintainability |
 |---------|----------|--------------|-----------------|-----------------|
-| **libhmm** | C++17 | None | ✅ Modern C++ | ✅ Excellent |
+| **libhmm** | C++20 | None | ✅ Modern C++ | ✅ High |
 | **HMMLib** | C++ | Boost | ⚠️ Legacy patterns | ⚠️ Moderate |
 | **StochHMM** | C++ | None | ⚠️ Mixed patterns | ⚠️ Moderate |
 | **GHMM** | C | None | ❌ C-style API | ❌ Difficult |
@@ -165,7 +195,7 @@ All libraries successfully processed sequences up to 1,000,000 observations with
 
 ### Primary Findings
 
-1. **libhmm is numerically correct**: Perfect equivalence with established academic libraries proves the implementation is mathematically sound.
+1. **libhmm is numerically correct**: Machine-precision agreement with established academic libraries indicates mathematically sound implementation.
 
 2. **Performance is competitive**: While not the fastest, libhmm provides reasonable performance for a modern, dependency-free library.
 
@@ -186,7 +216,7 @@ All libraries successfully processed sequences up to 1,000,000 observations with
 - Legacy code compatibility is needed
 
 #### Choose **libhmm** when:
-- Modern C++17 features are desired
+- Modern C++20 features are desired
 - Zero external dependencies are required  
 - Code maintainability is important
 - Moderate performance is sufficient
@@ -250,7 +280,7 @@ The numerical accuracy validation included:
 - Cross-validation between multiple reference implementations
 - Deep numerical analysis of scaling factors and intermediate values
 
-This comprehensive validation confirms that libhmm's implementation is mathematically equivalent to established academic reference implementations.
+This validation indicates that libhmm's implementation is mathematically equivalent to established academic reference implementations.
 
 ### Library-Specific Notes
 
@@ -259,6 +289,7 @@ This comprehensive validation confirms that libhmm's implementation is mathemati
 ---
 
 ## Continuous Distribution Benchmarking Results (HTK vs libhmm)
+Historical HTK-focused snapshot from earlier runs; compare with the April 2026 consolidated section for current multi-library throughput context.
 
 ### Test Configuration
 **Problems Tested:**
@@ -286,21 +317,21 @@ This comprehensive validation confirms that libhmm's implementation is mathemati
 
 **HTK Scaling Characteristics:**
 - **Constant overhead**: ~4-5ms regardless of sequence length
-- **Excellent scaling**: Near-constant time complexity for very long sequences
+- **Strong scaling**: Near-constant time complexity for very long sequences
 - **Peak throughput**: Up to 201,734 observations/ms for 1M observation sequences
 - **Architecture**: Likely uses streaming/batched algorithms optimized for speech recognition
 
 **libhmm Scaling Characteristics:**
 - **Linear scaling**: Traditional O(n) HMM algorithms with SIMD optimization
 - **SIMD benefits**: Consistent 1.65x performance improvement over baseline
-- **Small-scale excellence**: Dominates performance for research-scale problems
+- **Small-scale performance**: Strong results for research-scale problems
 - **Precision focus**: More accurate log-likelihood values (vs HTK's rounded estimates)
 
 #### Numerical Accuracy Comparison
 **libhmm**: Provides precise log-likelihood values (e.g., -1.774e+02)
 **HTK**: Uses rounded log-likelihood estimates (e.g., -2.000e+02) for computational efficiency
 
-**Implication**: HTK sacrifices some numerical precision for dramatic performance gains on large sequences
+**Implication**: HTK sacrifices some numerical precision for substantial performance gains on large sequences
 
 ### Continuous vs Discrete Performance
 
@@ -317,12 +348,12 @@ This comprehensive validation confirms that libhmm's implementation is mathemati
 #### libhmm Strengths
 - **Research-friendly**: Precise numerical computations
 - **Modern C++**: Easy integration and maintenance
-- **Small-scale performance**: Excellent for sequences < 5,000 observations
+- **Small-scale performance**: Strong for sequences < 5,000 observations
 - **SIMD optimization**: Effective vectorization for appropriate problem sizes
 
 #### HTK Strengths
 - **Production-ready**: Industrial-strength scaling for speech recognition
-- **Large-scale performance**: Unmatched for sequences > 10,000 observations
+- **Large-scale performance**: Very strong for sequences > 10,000 observations
 - **Mature ecosystem**: Decades of optimization for speech processing workflows
 - **Multi-dimensional support**: Full continuous distribution capabilities
 
@@ -337,4 +368,75 @@ This comprehensive validation confirms that libhmm's implementation is mathemati
 | Multi-dimensional | Any length | Continuous features | Multi-D Gaussian | **HTK** |
 | Modern C++ Integration | Any length | Developer productivity | Discrete/1D Continuous | **libhmm** |
 
-This comprehensive continuous distribution analysis establishes the performance envelope for both libraries and provides clear guidance for selecting the appropriate tool based on specific application requirements.
+This continuous distribution analysis outlines the performance envelope for both libraries and provides guidance for selecting a library based on application requirements.
+
+---
+
+## Benchmark Update (April 2026): Consolidated `libhmm_vs_*` Results
+
+This section adds an updated snapshot without removing any prior content. Earlier benchmark tables above remain as historical context.
+
+### Scope of this update
+
+- Re-ran and/or validated all available `libhmm_vs_*` benchmark targets in the current benchmark suite.
+- Included post-fix JAHMM and LAMP runs after external path/runtime integration fixes.
+- Consolidated throughput summaries into a single table covering every `libhmm_vs_*` target.
+
+### Overall Throughput Across All `libhmm_vs_*` Benchmarks (Release Runs)
+
+| Benchmark target | Comparator | libhmm avg throughput (obs/ms) | Comparator avg throughput (obs/ms) | Ratio (Comparator/libhmm) | Source log |
+|------------------|------------|--------------------------------|------------------------------------|---------------------------|------------|
+| `libhmm_vs_ghmm_benchmark` | GHMM | 9514.3 | 47232.7 | 4.96x | `build-benchmarks-release/benchmark-logs/libhmm_vs_ghmm_benchmark.log` |
+| `libhmm_vs_ghmm_continuous_benchmark` | GHMM | 10017.4 | 26059.9 | 2.60x | `build-benchmarks-release/benchmark-logs/libhmm_vs_ghmm_continuous_benchmark.log` |
+| `libhmm_vs_hmmlib_benchmark` | HMMLib | 8451.6 | 27196.3 | 3.22x | `build-benchmarks-release/benchmark-logs/libhmm_vs_hmmlib_benchmark_prior5.log` |
+| `libhmm_vs_htk_benchmark` | HTK | 9333.1 | 41012.9 | 4.39x | `build-benchmarks-release/benchmark-logs/libhmm_vs_htk_benchmark_prior5.log` |
+| `libhmm_vs_htk_continuous_benchmark` | HTK | 14217.4 | 45119.0 | 3.17x | `build-benchmarks-release/benchmark-logs/libhmm_vs_htk_continuous_benchmark_batch2.log` |
+| `libhmm_vs_stochhmm_benchmark` | StochHMM | 9433.6 | 5825.6 | 0.62x | `build-benchmarks-release/benchmark-logs/libhmm_vs_stochhmm_benchmark.log` |
+| `libhmm_vs_stochhmm_continuous_benchmark`* | StochHMM | 3605.3 | 5839.5 | 1.62x | `build-benchmarks-release/benchmark-logs/libhmm_vs_stochhmm_continuous_benchmark_after_pi_fix.log` |
+| `libhmm_vs_jahmm_benchmark`** | JAHMM | 7161.5 | 3803.6 | 0.53x | `build-benchmarks-release/benchmark-logs/libhmm_vs_jahmm_benchmark_after_pathfix.log` |
+| `libhmm_vs_lamp_benchmark` | LAMP | 9199.6 | 122.3 | 0.01x | `build-benchmarks-release/benchmark-logs/libhmm_vs_lamp_benchmark_after_pathfix.log` |
+
+\* Uses post-PI-correction StochHMM continuous results (`after_pi_fix`).  
+\** JAHMM benchmark log does not emit an average throughput summary line; values above are computed from per-run forward timings in the same log.
+
+### Updated Code Quality and Maintainability Snapshot (All Evaluated Libraries)
+
+| Library | Primary implementation | Dependency footprint | Interface style | Maintainability (relative) | Integration effort in this benchmark suite |
+|---------|------------------------|----------------------|-----------------|----------------------------|--------------------------------------------|
+| **libhmm** | Modern C++ (v3 architecture) | None | Native C++ API | High | Low |
+| **HMMLib** | C++ (legacy-style template/matrix design) | Boost | Native C++ API | Medium | Medium |
+| **StochHMM** | C++ (bioinformatics-oriented) | Low | C++ API + model/trellis abstractions | Medium | Medium |
+| **GHMM** | C | Low | C API | Low | High |
+| **HTK** | C toolkit | Low | CLI + file-based workflow | Low | High |
+| **JAHMM** | Java | Java runtime/toolchain | Java API (bridge invoked from C++ benchmark) | Medium-Low | High |
+| **LAMP** | C executable toolkit | Low | CLI + config-file workflow | Low-Medium | High |
+
+### Notes on interpretation
+
+- The consolidated table shows materially higher libhmm throughput than the original historical table in this document, reflecting updated code paths, release builds, and benchmark harness modernization.
+- Throughput comparisons remain benchmark-specific and should be interpreted per target (`discrete` vs `continuous`, API path, and runtime model differences).
+
+### Post-modernization validation signal (April 2026)
+
+To capture correctness signal separately from throughput, three updated diagnostic benchmarks were re-run:
+
+- `build-benchmarks-release/benchmark-logs/diagnostic_accuracy_test_modernized.log`
+- `build-benchmarks-release/benchmark-logs/deep_numerical_analysis_modernized.log`
+- `build-benchmarks-release/benchmark-logs/gaussian_distribution_comparison_modernized.log`
+
+Key outcomes:
+
+- **Canonical numerical parity with HMMLib** (`deep_numerical_analysis_modernized.log`):  
+  Across sequence lengths 10, 50, 100, 200, 500, 1000, and 2000, libhmm and HMMLib log-likelihoods match to near machine precision. Maximum absolute difference observed: `5.093170e-11` (length 2000), with no length-dependent drift pattern.
+
+- **Step-level forward-pass agreement** (`deep_numerical_analysis_modernized.log`):  
+  Normalized per-step forward-variable differences are in floating-point noise range (`~1e-16`, max shown `4.163e-16`), and final log-probability difference is `0.000000e+00`.
+
+- **Distribution-layer Gaussian agreement across libraries** (`gaussian_distribution_comparison_modernized.log`):  
+  libhmm, GHMM, and StochHMM report `MATCH` across all tested Gaussian cases (standard, shifted mean, negative mean, high variance), indicating aligned PDF/log-PDF behavior at the distribution layer.
+
+- **Constructor semantics validated for reproducibility** (`diagnostic_accuracy_test_modernized.log`):  
+  `GaussianDistribution(mean, second_parameter)` uses **standard deviation** semantics (not variance). This check avoids silent benchmark misconfiguration when mapping model parameters.
+
+- **Canonical calculator self-consistency checks pass** (`diagnostic_accuracy_test_modernized.log`):  
+  ForwardBackward pointer/reference constructors and `getLogProbability()` vs `log(probability())` are numerically identical on the test model; a manual forward calculation also matches libhmm (`probability diff 6.939e-18`, `log diff 0.000e+00`).

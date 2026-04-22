@@ -182,6 +182,7 @@ Custom targets: `run_tests` (correctness, parallel), `run_tests_timing` (serial)
 |---|---|---|
 | `test_xml_file_io` | `known_broken` | Windows: error handling for invalid paths doesn't throw. Not a refactor regression. |
 | Benchmarks stale | Deferred | 21 benchmark sources use old API. Needs a macOS session — see plan "Post-Phase 5 Benchmarks". Prior perf results (17–120x slower than HMMLib) were against broken old calculators; new numbers will differ substantially. |
+| StochHMM continuous Gaussian log-likelihood drift | Resolved locally | External StochHMM had a PI typo in `source/src/stochMath.h` (`3.145926...`). This caused sequence-length-proportional log-likelihood offsets in continuous benchmarks. After correcting PI and rebuilding `libstochhmm.a`, libhmm vs StochHMM continuous log-likelihoods match to machine precision. Treat pre-fix continuous logs as invalid. |
 
 ---
 

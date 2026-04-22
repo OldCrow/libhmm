@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <memory>
 #include <random>
+#include <cmath>
+#include <limits>
 
 // libhmm includes
 #include "libhmm/hmm.h"
@@ -76,7 +78,7 @@ void testNumericalAccuracy() {
             for (int j = 0; j < 6; ++j) {
                 discrete_dist->setProbability(static_cast<libhmm::Observation>(j), emission_matrix[i][j]);
             }
-            hmm->setProbabilityDistribution(i, discrete_dist.release());
+            hmm->setDistribution(i, std::move(discrete_dist));
         }
         
         // Convert observation sequence to libhmm format
@@ -85,27 +87,24 @@ void testNumericalAccuracy() {
             libhmm_obs(i) = static_cast<libhmm::Observation>(obs_sequence[i]);
         }
         
-        // Test different calculators
-        cout << "Testing different libhmm calculators:" << endl;
+        // Test canonical calculators
+        cout << "Testing canonical libhmm calculators:" << endl;
         
-        // Auto calculator
-        libhmm::forwardbackward::AutoCalculator auto_calc(hmm.get(), libhmm_obs);
-        double auto_likelihood = auto_calc.getLogProbability();
-        cout << "  AutoCalculator result: " << scientific << setprecision(10) << auto_likelihood << endl;
-        cout << "  Selected: " << auto_calc.getSelectionRationale() << endl;
+        libhmm::ForwardBackwardCalculator fb_calc(hmm.get(), libhmm_obs);
+        double fb_log_likelihood = fb_calc.getLogProbability();
+        double fb_probability = fb_calc.probability();
+        double fb_log_from_prob = (fb_probability > 0.0)
+            ? log(fb_probability)
+            : -std::numeric_limits<double>::infinity();
         
-        // Manual scaled calculator for comparison
-        libhmm::ScaledSIMDForwardBackwardCalculator scaled_calc(hmm.get(), libhmm_obs);
-        scaled_calc.compute();
-        double scaled_likelihood = scaled_calc.getLogProbability();
-        cout << "  ScaledSIMD result: " << scientific << setprecision(10) << scaled_likelihood << endl;
+        cout << "  ForwardBackward log-likelihood: " << scientific << setprecision(10) << fb_log_likelihood << endl;
+        cout << "  ForwardBackward probability: " << scientific << setprecision(10) << fb_probability << endl;
+        cout << "  ForwardBackward log(probability): " << scientific << setprecision(10) << fb_log_from_prob << endl;
         
-        // Manual unscaled calculator for comparison
-        libhmm::ForwardBackwardCalculator unscaled_calc(hmm.get(), libhmm_obs);
-        double unscaled_prob = unscaled_calc.probability();
-        double unscaled_likelihood = log(unscaled_prob);
-        cout << "  UnscaledSIMD prob: " << scientific << setprecision(10) << unscaled_prob << endl;
-        cout << "  UnscaledSIMD log: " << scientific << setprecision(10) << unscaled_likelihood << endl;
+        libhmm::ViterbiCalculator viterbi_calc(hmm.get(), libhmm_obs);
+        [[maybe_unused]] auto states = viterbi_calc.decode();
+        double viterbi_log_likelihood = viterbi_calc.getLogProbability();
+        cout << "  Viterbi log-likelihood: " << scientific << setprecision(10) << viterbi_log_likelihood << endl;
         
     } catch (const exception& e) {
         cout << "libhmm error: " << e.what() << endl;
