@@ -1,21 +1,25 @@
+/**
+ * basic_hmm_example — introductory libhmm example.
+ *
+ * 1. The occasionally dishonest casino (Durbin et al. 1998)
+ *    Demonstrates ForwardBackward probability evaluation.
+ * 2. Distribution showcase — PDF evaluation and MLE fitting.
+ * 3. Viterbi training on a 3-state Gaussian HMM.
+ * 4. XML file round-trip.
+ */
 #include <iostream>
 #include <fstream>
-#include <cassert>
 #include <memory>
 #include <vector>
 #include <cmath>
 #include "libhmm/libhmm.h"
 #include "two_state_hmm.h"
-#include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
-#include "libhmm/calculators/log_simd_forward_backward_calculator.h"
 
-// Avoid global using namespace - use specific imports
 using libhmm::Hmm;
 using libhmm::ObservationSet;
 using libhmm::ObservationLists;
 using libhmm::ForwardBackwardCalculator;
-using libhmm::ScaledSIMDForwardBackwardCalculator;
-using libhmm::LogSIMDForwardBackwardCalculator;
+using libhmm::ViterbiCalculator;
 using libhmm::GaussianDistribution;
 using libhmm::GammaDistribution;
 using libhmm::LogNormalDistribution;
@@ -28,60 +32,35 @@ using libhmm::Observation;
 
 int main() {
 
+    // =========================================================================
+    // 1. The occasionally dishonest casino (Durbin et al. 1998)
+    // =========================================================================
     {
-        auto hmm = std::make_unique<Hmm>(2);  // Initialize with 2 states
+        auto hmm = std::make_unique<Hmm>(2);
         libhmm::examples::prepare_two_state_hmm(*hmm);
 
-        std::cout << "Occasionally Dishonest Casino" << std::endl;
-        std::cout << "-----------------------------" << std::endl;
-        std::cout << *hmm << std::endl;
+        std::cout << "Occasionally Dishonest Casino\n";
+        std::cout << "-----------------------------\n";
+        std::cout << *hmm << "\n";
     }
     {
-        auto hmm = std::make_unique<Hmm>(2);  // Initialize with 2 states
+        auto hmm = std::make_unique<Hmm>(2);
         libhmm::examples::prepare_two_state_hmm(*hmm);
-        // A '5' is when the dice rolls a '6'
-        ObservationSet set1( 1 );
-        set1( 0 ) = 5;
-        ObservationSet set2( 2 );
-        set2( 0 ) = 5;
-        set2( 1 ) = 4;
-        ObservationSet set3( 3 );
-        set3( 0 ) = 5;
-        set3( 1 ) = 4;
-        set3( 2 ) = 3;  
 
-        std::cout << "Test ForwardBackward and ScaledForwardBackward" 
-            << std::endl;
-        std::cout << "----------------------------------------------" 
-            << std::endl;
-        ForwardBackwardCalculator fbc1(hmm.get(), set1);
-        ScaledSIMDForwardBackwardCalculator sfbc1(hmm.get(), set1);
-        LogSIMDForwardBackwardCalculator lfbc1(hmm.get(), set1);
-        std::cout << "Observation Sequence: " << set1 << std::endl;
-        std::cout << "Probability: "<< fbc1.probability( ) << "\t"
-            << sfbc1.getProbability( ) << "\t" 
-            << sfbc1.getLogProbability( ) << "\t"
-            << lfbc1.getLogProbability( ) << std::endl;
-        // Note: Due to SIMD optimizations, exact equality may not hold, so we use approximate comparison
-        assert( std::abs(fbc1.probability( ) - sfbc1.getProbability( )) < 1e-10 );
+        // Face 5 (0-indexed) = rolling a 6
+        ObservationSet set1(1); set1(0) = 5;
+        ObservationSet set2(2); set2(0) = 5; set2(1) = 4;
+        ObservationSet set3(3); set3(0) = 5; set3(1) = 4; set3(2) = 3;
 
-        ForwardBackwardCalculator fbc2(hmm.get(), set2);
-        ScaledSIMDForwardBackwardCalculator sfbc2(hmm.get(), set2);
-        LogSIMDForwardBackwardCalculator lfbc2(hmm.get(), set2);
-        std::cout << "Observation Sequence: " << set2 << std::endl;
-        std::cout << "Probability: " << fbc2.probability() << "\t"
-            << sfbc2.getProbability() << "\t" 
-            << sfbc2.getLogProbability() << "\t"
-            << lfbc2.getLogProbability() << std::endl;
-
-        ForwardBackwardCalculator fbc3(hmm.get(), set3);
-        ScaledSIMDForwardBackwardCalculator sfbc3(hmm.get(), set3);
-        LogSIMDForwardBackwardCalculator lfbc3(hmm.get(), set3);
-        std::cout << "Observation Sequence: " << set3 << std::endl;
-        std::cout << "Probability: " << fbc3.probability() << "\t"
-            << sfbc3.getProbability() << "\t" 
-            << sfbc3.getLogProbability() << "\t" 
-            << lfbc3.getLogProbability() << std::endl;
+        std::cout << "ForwardBackward (canonical log-space calculator)\n";
+        std::cout << "------------------------------------------------\n";
+        for (const ObservationSet* obs : {&set1, &set2, &set3}) {
+            ForwardBackwardCalculator fbc(hmm.get(), *obs);
+            std::cout << "  Observations: " << *obs
+                      << "  P(O|\u03bb)=" << fbc.probability()
+                      << "  log P(O|\u03bb)=" << fbc.getLogProbability() << "\n";
+        }
+        std::cout << "\n";
     }
 
     std::vector<Observation> trainvector;
@@ -177,10 +156,9 @@ int main() {
         ObservationSet set2(8);
         ObservationSet set3(8);
 
-        // Use smart pointers for memory safety
-        hmm.setProbabilityDistribution(0, std::make_unique<GaussianDistribution>());
-        hmm.setProbabilityDistribution(1, std::make_unique<GaussianDistribution>());
-        hmm.setProbabilityDistribution(2, std::make_unique<GaussianDistribution>());
+        hmm.setDistribution(0, std::make_unique<GaussianDistribution>());
+        hmm.setDistribution(1, std::make_unique<GaussianDistribution>());
+        hmm.setDistribution(2, std::make_unique<GaussianDistribution>());
 
         std::cout << hmm << std::endl;
 
@@ -221,8 +199,8 @@ int main() {
         trans( 1, 1 ) = 0.8;
         hmm.setPi( pi );
         hmm.setTrans( trans );
-        hmm.setProbabilityDistribution(0, std::make_unique<GaussianDistribution>());
-        hmm.setProbabilityDistribution(1, std::make_unique<GaussianDistribution>(2, 2));
+        hmm.setDistribution(0, std::make_unique<GaussianDistribution>());
+        hmm.setDistribution(1, std::make_unique<GaussianDistribution>(2.0, 2.0));
         std::ofstream of( "testrw", std::ios::out );
 
         std::cout << hmm << std::endl;

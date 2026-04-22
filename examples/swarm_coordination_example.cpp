@@ -198,7 +198,7 @@ public:
             // Set probabilities based on expected observations for each state
             setupStateObservationProbabilities(static_cast<FormationState>(state), *distribution);
             
-            formationHMM_->setProbabilityDistribution(state, std::move(distribution));
+            formationHMM_->setDistribution(state, std::move(distribution));
         }
         
         std::cout << "✅ Observation models configured for all " << numObservations << " observation combinations\n";
@@ -374,7 +374,7 @@ public:
         }
         
         // Use Viterbi algorithm to find most likely state sequence
-        libhmm::viterbi::AutoCalculator viterbi(formationHMM_.get(), obsSet);
+        libhmm::ViterbiCalculator viterbi(formationHMM_.get(), obsSet);
         auto stateSequence = viterbi.decode();
         
         if (stateSequence.size() > 0) {
@@ -399,7 +399,7 @@ public:
         }
         
         // Use Forward-Backward to get log probability for numerical stability
-        libhmm::forwardbackward::AutoCalculator fb(formationHMM_.get(), obsSet);
+        libhmm::ForwardBackwardCalculator fb(formationHMM_.get(), obsSet);
         double logProbability = fb.getLogProbability();
         
         // Convert log probability to confidence score (0-100%)
@@ -540,7 +540,7 @@ public:
         std::cout << "Observation Space: " << SwarmObservation::getMaxValue() << " combinations\n";
         std::cout << "State History: " << stateHistory_.size() << " entries\n";
         std::cout << "Observation History: " << observationHistory_.size() << " entries\n";
-        std::cout << "Calculator: AutoCalculator with SIMD optimization\n";
+        std::cout << "Calculator: ForwardBackwardCalculator with SIMD optimization\n";
     }
 };
 

@@ -42,8 +42,8 @@ int main() {
     hmm->setPi(pi);
     
     // Set up Poisson emission distributions
-    hmm->setProbabilityDistribution(0, std::make_unique<PoissonDistribution>(10.0));  // Normal: λ=10
-    hmm->setProbabilityDistribution(1, std::make_unique<PoissonDistribution>(50.0));  // High: λ=50
+    hmm->setDistribution(0, std::make_unique<PoissonDistribution>(10.0));  // Normal: λ=10
+    hmm->setDistribution(1, std::make_unique<PoissonDistribution>(50.0));  // High: λ=50
     
     std::cout << "Initial HMM Configuration:" << std::endl;
     std::cout << *hmm << std::endl;
@@ -51,13 +51,13 @@ int main() {
     // Demonstrate probability calculations
     std::cout << "Probability Examples:" << std::endl;
     std::cout << "P(15 requests | Normal state) = " 
-              << hmm->getProbabilityDistribution(0)->getProbability(15) << std::endl;
+              << hmm->getDistribution(0).getProbability(15) << std::endl;
     std::cout << "P(15 requests | High state) = " 
-              << hmm->getProbabilityDistribution(1)->getProbability(15) << std::endl;
+              << hmm->getDistribution(1).getProbability(15) << std::endl;
     std::cout << "P(45 requests | Normal state) = " 
-              << hmm->getProbabilityDistribution(0)->getProbability(45) << std::endl;
+              << hmm->getDistribution(0).getProbability(45) << std::endl;
     std::cout << "P(45 requests | High state) = " 
-              << hmm->getProbabilityDistribution(1)->getProbability(45) << std::endl;
+              << hmm->getDistribution(1).getProbability(45) << std::endl;
     std::cout << std::endl;
     
     // Create sample observation sequences (website requests per minute)
@@ -138,20 +138,20 @@ int main() {
     
     // Create fresh HMM for training
     auto trainHmm = std::make_unique<Hmm>(2);
-    trainHmm->setProbabilityDistribution(0, std::make_unique<PoissonDistribution>(15.0));  // Initial guess
-    trainHmm->setProbabilityDistribution(1, std::make_unique<PoissonDistribution>(40.0));  // Initial guess
+    trainHmm->setDistribution(0, std::make_unique<PoissonDistribution>(15.0));  // Initial guess
+    trainHmm->setDistribution(1, std::make_unique<PoissonDistribution>(40.0));  // Initial guess
     
     std::cout << "Before training:" << std::endl;
-    std::cout << "State 0 (Normal): " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "State 1 (High):   " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
+    std::cout << "State 0 (Normal): " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "State 1 (High):   " << trainHmm->getDistribution(1).toString() << std::endl;
     
     // Train with Viterbi (note: Baum-Welch currently only supports discrete distributions)
     ViterbiTrainer trainer(trainHmm.get(), trainingData);
     trainer.train();
     
     std::cout << std::endl << "After training:" << std::endl;
-    std::cout << "State 0 (Normal): " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "State 1 (High):   " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
+    std::cout << "State 0 (Normal): " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "State 1 (High):   " << trainHmm->getDistribution(1).toString() << std::endl;
     std::cout << std::endl;
     
     std::cout << "Training should have learned parameters close to:" << std::endl;

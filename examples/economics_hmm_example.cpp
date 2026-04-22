@@ -54,8 +54,8 @@ int main() {
     // Negative Binomial distributions for monthly purchase counts
     // Low activity: NegBin(r=2, p=0.3) - mean≈4.7, variance≈15.6 (overdispersed)
     // High activity: NegBin(r=8, p=0.4) - mean≈12, variance≈30 (higher activity, still overdispersed)
-    customerHmm->setProbabilityDistribution(0, std::make_unique<NegativeBinomialDistribution>(2, 0.3));   // Low activity
-    customerHmm->setProbabilityDistribution(1, std::make_unique<NegativeBinomialDistribution>(8, 0.4));   // High activity
+    customerHmm->setDistribution(0, std::make_unique<NegativeBinomialDistribution>(2, 0.3));   // Low activity
+    customerHmm->setDistribution(1, std::make_unique<NegativeBinomialDistribution>(8, 0.4));   // High activity
     
     std::cout << "Customer Behavior HMM Configuration:\n";
     std::cout << *customerHmm << std::endl;
@@ -63,17 +63,17 @@ int main() {
     // Demonstrate purchase probability calculations
     std::cout << "Monthly Purchase Count Probability Examples:\n";
     std::cout << "P(3 purchases | Low activity)  = " 
-              << customerHmm->getProbabilityDistribution(0)->getProbability(3) << std::endl;
+              << customerHmm->getDistribution(0).getProbability(3) << std::endl;
     std::cout << "P(3 purchases | High activity) = " 
-              << customerHmm->getProbabilityDistribution(1)->getProbability(3) << std::endl;
+              << customerHmm->getDistribution(1).getProbability(3) << std::endl;
     std::cout << "P(10 purchases | Low activity)  = " 
-              << customerHmm->getProbabilityDistribution(0)->getProbability(10) << std::endl;
+              << customerHmm->getDistribution(0).getProbability(10) << std::endl;
     std::cout << "P(10 purchases | High activity) = " 
-              << customerHmm->getProbabilityDistribution(1)->getProbability(10) << std::endl;
+              << customerHmm->getDistribution(1).getProbability(10) << std::endl;
     std::cout << "P(20 purchases | Low activity)  = " 
-              << customerHmm->getProbabilityDistribution(0)->getProbability(20) << std::endl;
+              << customerHmm->getDistribution(0).getProbability(20) << std::endl;
     std::cout << "P(20 purchases | High activity) = " 
-              << customerHmm->getProbabilityDistribution(1)->getProbability(20) << std::endl;
+              << customerHmm->getDistribution(1).getProbability(20) << std::endl;
     std::cout << std::endl;
     
     // Create customer purchase observation sequence (monthly purchase counts)
@@ -126,8 +126,8 @@ int main() {
     // Pareto distributions for income (in thousands of dollars)
     // Normal economy: Pareto(scale=30, shape=1.8) - moderate inequality
     // Crisis economy: Pareto(scale=25, shape=1.2) - extreme inequality (lower shape = more inequality)
-    economicHmm->setProbabilityDistribution(0, std::make_unique<ParetoDistribution>(30.0, 1.8));  // Normal
-    economicHmm->setProbabilityDistribution(1, std::make_unique<ParetoDistribution>(25.0, 1.2));  // Crisis
+    economicHmm->setDistribution(0, std::make_unique<ParetoDistribution>(30.0, 1.8));  // Normal
+    economicHmm->setDistribution(1, std::make_unique<ParetoDistribution>(25.0, 1.2));  // Crisis
     
     std::cout << "Economic Regime HMM Configuration:\n";
     std::cout << *economicHmm << std::endl;
@@ -135,17 +135,17 @@ int main() {
     // Demonstrate income probability calculations
     std::cout << "Income Distribution Probability Examples (in thousands $):\n";
     std::cout << "P(income=50k | Normal economy) = " 
-              << economicHmm->getProbabilityDistribution(0)->getProbability(50) << std::endl;
+              << economicHmm->getDistribution(0).getProbability(50) << std::endl;
     std::cout << "P(income=50k | Crisis economy) = " 
-              << economicHmm->getProbabilityDistribution(1)->getProbability(50) << std::endl;
+              << economicHmm->getDistribution(1).getProbability(50) << std::endl;
     std::cout << "P(income=100k | Normal economy) = " 
-              << economicHmm->getProbabilityDistribution(0)->getProbability(100) << std::endl;
+              << economicHmm->getDistribution(0).getProbability(100) << std::endl;
     std::cout << "P(income=100k | Crisis economy) = " 
-              << economicHmm->getProbabilityDistribution(1)->getProbability(100) << std::endl;
+              << economicHmm->getDistribution(1).getProbability(100) << std::endl;
     std::cout << "P(income=200k | Normal economy) = " 
-              << economicHmm->getProbabilityDistribution(0)->getProbability(200) << std::endl;
+              << economicHmm->getDistribution(0).getProbability(200) << std::endl;
     std::cout << "P(income=200k | Crisis economy) = " 
-              << economicHmm->getProbabilityDistribution(1)->getProbability(200) << std::endl;
+              << economicHmm->getDistribution(1).getProbability(200) << std::endl;
     std::cout << std::endl;
     
     // Create income observation sequence (sampled incomes in thousands)
@@ -225,19 +225,19 @@ int main() {
     
     // Create fresh HMM for training
     auto trainHmm = std::make_unique<Hmm>(2);
-    trainHmm->setProbabilityDistribution(0, std::make_unique<NegativeBinomialDistribution>(3, 0.4));  // Initial guess
-    trainHmm->setProbabilityDistribution(1, std::make_unique<NegativeBinomialDistribution>(6, 0.5));  // Initial guess
+    trainHmm->setDistribution(0, std::make_unique<NegativeBinomialDistribution>(3, 0.4));  // Initial guess
+    trainHmm->setDistribution(1, std::make_unique<NegativeBinomialDistribution>(6, 0.5));  // Initial guess
     
     std::cout << "Before training:\n";
-    std::cout << "Low activity state:  " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "High activity state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
+    std::cout << "Low activity state:  " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "High activity state: " << trainHmm->getDistribution(1).toString() << std::endl;
     
     ViterbiTrainer trainer(trainHmm.get(), trainingData);
     trainer.train();
     
     std::cout << "\nAfter training:\n";
-    std::cout << "Low activity state:  " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "High activity state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
+    std::cout << "Low activity state:  " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "High activity state: " << trainHmm->getDistribution(1).toString() << std::endl;
     std::cout << std::endl;
     
     std::cout << "Expected parameters after training:\n";
