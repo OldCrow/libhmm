@@ -1,0 +1,17 @@
+# Markdown lint configuration for libhmm
+default: true
+
+# Line length — 100 chars; don't enforce in code blocks or tables
+MD013:
+  line_length: 100
+  code_blocks: false
+  tables: false
+
+MD033: false   # Allow inline HTML
+MD024:         # Allow duplicate headers in different sections
+  siblings_only: true
+MD026: false   # Allow trailing punctuation in headers
+MD029:         # Ordered list item prefix
+  style: "ordered"
+MD046:         # Code block style
+  style: "fenced"

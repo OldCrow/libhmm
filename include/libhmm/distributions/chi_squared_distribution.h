@@ -1,9 +1,8 @@
-#ifndef CHI_SQUARED_DISTRIBUTION_H_
-#define CHI_SQUARED_DISTRIBUTION_H_
+#pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <string>, <sstream>, <iomanip>
+#include <span>
 
 namespace libhmm {
 
@@ -30,7 +29,7 @@ namespace libhmm {
  * - Model selection criteria (AIC, BIC)
  * - Likelihood ratio tests
  */
-class ChiSquaredDistribution : public ProbabilityDistribution {
+class ChiSquaredDistribution : public DistributionBase {
 private:
     /**
      * Degrees of freedom parameter k - must be positive
@@ -52,35 +51,17 @@ private:
      */
     mutable double cached_half_k_minus_one_{0.0};
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cache_valid_{false};
-
-    /**
-     * Updates cached values when parameters change
-     */
     void updateCache() const noexcept {
-        double half_k = 0.5 * degrees_of_freedom_;
-        
-        cached_log_gamma_half_k_ = std::lgamma(half_k);
-        cached_half_k_minus_one_ = half_k - 1.0;
-        
-        // Log normalization: -log(2^(k/2) * Γ(k/2)) = -k/2 * log(2) - log(Γ(k/2))
+        const double half_k = 0.5 * degrees_of_freedom_;
+        cached_log_gamma_half_k_  = std::lgamma(half_k);
+        cached_half_k_minus_one_  = half_k - 1.0;
         cached_log_normalization_ = -half_k * std::log(2.0) - cached_log_gamma_half_k_;
-        
-        cache_valid_ = true;
+        markCacheValid();
     }
-    
-    /**
-     * Validates parameters for the Chi-squared distribution
-     * @param degrees_of_freedom Degrees of freedom parameter (must be positive and finite)
-     * @throws std::invalid_argument if parameter is invalid
-     */
-    void validateParameters(double degrees_of_freedom) const {
-        if (std::isnan(degrees_of_freedom) || std::isinf(degrees_of_freedom) || degrees_of_freedom <= 0.0) {
+
+    static void validateParameters(double degrees_of_freedom) {
+        if (std::isnan(degrees_of_freedom) || std::isinf(degrees_of_freedom) || degrees_of_freedom <= 0.0)
             throw std::invalid_argument("Degrees of freedom must be a positive finite number");
-        }
     }
 
 public:
@@ -90,63 +71,46 @@ public:
      * @param degrees_of_freedom Degrees of freedom k (must be positive)
      * @throws std::invalid_argument if degrees_of_freedom <= 0
      */
-    ChiSquaredDistribution(double degrees_of_freedom = 1.0)
+    explicit ChiSquaredDistribution(double degrees_of_freedom = 1.0)
         : degrees_of_freedom_(degrees_of_freedom) {
         validateParameters(degrees_of_freedom);
         updateCache();
     }
-    
-    /**
-     * Copy constructor
-     */
-    ChiSquaredDistribution(const ChiSquaredDistribution& other) 
-        : degrees_of_freedom_(other.degrees_of_freedom_),
-          cached_log_gamma_half_k_(other.cached_log_gamma_half_k_),
-          cached_log_normalization_(other.cached_log_normalization_),
-          cached_half_k_minus_one_(other.cached_half_k_minus_one_),
-          cache_valid_(other.cache_valid_) {}
-    
-    /**
-     * Copy assignment operator
-     */
+
+    ChiSquaredDistribution(const ChiSquaredDistribution& other)
+        : DistributionBase{other}, degrees_of_freedom_{other.degrees_of_freedom_},
+          cached_log_gamma_half_k_{other.cached_log_gamma_half_k_},
+          cached_log_normalization_{other.cached_log_normalization_},
+          cached_half_k_minus_one_{other.cached_half_k_minus_one_} {}
+
     ChiSquaredDistribution& operator=(const ChiSquaredDistribution& other) {
         if (this != &other) {
-            degrees_of_freedom_ = other.degrees_of_freedom_;
-            cached_log_gamma_half_k_ = other.cached_log_gamma_half_k_;
+            DistributionBase::operator=(other);
+            degrees_of_freedom_       = other.degrees_of_freedom_;
+            cached_log_gamma_half_k_  = other.cached_log_gamma_half_k_;
             cached_log_normalization_ = other.cached_log_normalization_;
-            cached_half_k_minus_one_ = other.cached_half_k_minus_one_;
-            cache_valid_ = other.cache_valid_;
+            cached_half_k_minus_one_  = other.cached_half_k_minus_one_;
         }
         return *this;
     }
-    
-    /**
-     * Move constructor
-     */
+
     ChiSquaredDistribution(ChiSquaredDistribution&& other) noexcept
-        : degrees_of_freedom_(other.degrees_of_freedom_),
-          cached_log_gamma_half_k_(other.cached_log_gamma_half_k_),
-          cached_log_normalization_(other.cached_log_normalization_),
-          cached_half_k_minus_one_(other.cached_half_k_minus_one_),
-          cache_valid_(other.cache_valid_) {}
-    
-    /**
-     * Move assignment operator
-     */
+        : DistributionBase{std::move(other)}, degrees_of_freedom_{other.degrees_of_freedom_},
+          cached_log_gamma_half_k_{other.cached_log_gamma_half_k_},
+          cached_log_normalization_{other.cached_log_normalization_},
+          cached_half_k_minus_one_{other.cached_half_k_minus_one_} {}
+
     ChiSquaredDistribution& operator=(ChiSquaredDistribution&& other) noexcept {
         if (this != &other) {
-            degrees_of_freedom_ = other.degrees_of_freedom_;
-            cached_log_gamma_half_k_ = other.cached_log_gamma_half_k_;
+            DistributionBase::operator=(std::move(other));
+            degrees_of_freedom_       = other.degrees_of_freedom_;
+            cached_log_gamma_half_k_  = other.cached_log_gamma_half_k_;
             cached_log_normalization_ = other.cached_log_normalization_;
-            cached_half_k_minus_one_ = other.cached_half_k_minus_one_;
-            cache_valid_ = other.cache_valid_;
+            cached_half_k_minus_one_  = other.cached_half_k_minus_one_;
         }
         return *this;
     }
-    
-    /**
-     * Destructor - explicitly defaulted to satisfy Rule of Five
-     */
+
     ~ChiSquaredDistribution() override = default;
 
     /**
@@ -155,34 +119,20 @@ public:
      * @param value The value at which to evaluate the PDF (should be non-negative)
      * @return Probability density f(value|k), or 0.0 if value < 0
      */
-    double getProbability(Observation value) override;
-    
-    /**
-     * Computes the log probability density function for numerical stability.
-     * 
-     * @param value The value at which to evaluate the log PDF (should be non-negative)
-     * @return Log probability density log(f(value|k)), or -∞ if value < 0
-     */
-    double getLogProbability(Observation value) const noexcept override;
-    
-    /**
-     * Computes the cumulative distribution function.
-     * 
-     * @param x The value at which to evaluate the CDF
-     * @return P(X ≤ x) for the Chi-squared distribution
-     */
-    double getCumulativeProbability(double x);
+    [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
-    /**
-     * Fits the distribution parameters to the given data using method of moments estimation.
-     * 
-     * Method of moments for Chi-squared distribution:
-     * Given sample mean μ, estimate k from: μ = k
-     * Therefore: k̂ = sample_mean
-     * 
-     * @param values Vector of observed data (should be non-negative)
-     */
-    void fit(const std::vector<Observation>& values) override;
+    /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+    [[nodiscard]] double getCumulativeProbability(double x) const noexcept;
+
+    void fit(std::span<const double> data) override;
+    /** Weighted MOM: k̂ = weighted_mean. */
+    void fit(std::span<const double> data, std::span<const double> weights) override;
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /**
      * Resets the distribution to default parameters (k = 1.0).
@@ -212,7 +162,7 @@ public:
     void setDegreesOfFreedom(double degrees_of_freedom) {
         validateParameters(degrees_of_freedom);
         degrees_of_freedom_ = degrees_of_freedom;
-        cache_valid_ = false;
+        invalidateCache();
     }
 
     /**
@@ -289,4 +239,3 @@ std::istream& operator>>(std::istream& is, ChiSquaredDistribution& dist);
 
 } // namespace libhmm
 
-#endif // CHI_SQUARED_DISTRIBUTION_H_

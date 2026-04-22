@@ -1,14 +1,14 @@
 #include "libhmm/distributions/uniform_distribution.h"
-// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
-#include <algorithm>   // For std::minmax_element (exists in common.h, included for clarity)
-#include <numeric>     // For std::accumulate (not in common.h)
-#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <span>
 
 using namespace libhmm::constants;
 
 namespace libhmm {
 
-void UniformDistribution::validateParameters(double a, double b) const {
+void UniformDistribution::validateParameters(double a, double b) {
     // Check for NaN or infinity
     if (std::isnan(a) || std::isnan(b) || std::isinf(a) || std::isinf(b)) {
         throw std::invalid_argument("Uniform distribution parameters cannot be NaN or infinite");
@@ -20,58 +20,38 @@ void UniformDistribution::validateParameters(double a, double b) const {
     }
 }
 
-UniformDistribution::UniformDistribution() : a_(math::ZERO_DOUBLE), b_(math::ONE), cache_valid_(false) {
-    // Default: standard uniform distribution on [0, 1]
-}
+UniformDistribution::UniformDistribution() : a_(math::ZERO_DOUBLE), b_(math::ONE) {}
 
-UniformDistribution::UniformDistribution(double a, double b) : a_(a), b_(b), cache_valid_(false) {
+UniformDistribution::UniformDistribution(double a, double b) : a_(a), b_(b) {
     validateParameters(a, b);
 }
 
-void UniformDistribution::updateCache() const {
-    if (!cache_valid_) {
-        cached_range_ = b_ - a_;
-        cached_inv_range_ = math::ONE / cached_range_;
-        cached_pdf_ = cached_inv_range_;
-        cached_log_pdf_ = -std::log(cached_range_);
-        cached_mean_ = (a_ + b_) * math::HALF;
-        cached_variance_ = (cached_range_ * cached_range_) / (math::THREE * math::FOUR); // /12
-        cached_std_dev_ = cached_range_ / std::sqrt(math::THREE * math::FOUR); // /√12
-        cache_valid_ = true;
-    }
+void UniformDistribution::updateCache() const noexcept {
+    cached_range_     = b_ - a_;
+    cached_inv_range_ = math::ONE / cached_range_;
+    cached_pdf_       = cached_inv_range_;
+    cached_log_pdf_   = -std::log(cached_range_);
+    cached_mean_      = (a_ + b_) * math::HALF;
+    cached_variance_  = (cached_range_ * cached_range_) / (math::THREE * math::FOUR);
+    cached_std_dev_   = cached_range_ / std::sqrt(math::THREE * math::FOUR);
+    markCacheValid();
 }
 
-double UniformDistribution::getProbability(Observation val) {
-    // Handle invalid inputs
-    if (std::isnan(val) || std::isinf(val)) {
-        return math::ZERO_DOUBLE;
-    }
-    
-    // Uniform PDF: f(x) = 1/(b-a) for a ≤ x ≤ b, 0 otherwise
+double UniformDistribution::getProbability(double val) const {
+    if (std::isnan(val) || std::isinf(val)) return math::ZERO_DOUBLE;
     if (val >= a_ && val <= b_) {
-        if (!cache_valid_) {
-            updateCache();
-        }
+        if (!isCacheValid()) updateCache();
         return cached_pdf_;
     }
-    
     return math::ZERO_DOUBLE;
 }
 
-double UniformDistribution::getLogProbability(Observation val) const noexcept {
-    // Handle invalid inputs
-    if (std::isnan(val) || std::isinf(val)) {
-        return -std::numeric_limits<double>::infinity();
-    }
-    
-    // Uniform log PDF: log(f(x)) = -log(b-a) for a ≤ x ≤ b, -∞ otherwise
+double UniformDistribution::getLogProbability(double val) const noexcept {
+    if (std::isnan(val) || std::isinf(val)) return -std::numeric_limits<double>::infinity();
     if (val >= a_ && val <= b_) {
-        if (!cache_valid_) {
-            updateCache();
-        }
+        if (!isCacheValid()) updateCache();
         return cached_log_pdf_;
     }
-    
     return -std::numeric_limits<double>::infinity();
 }
 
@@ -92,59 +72,67 @@ double UniformDistribution::CDF(double x) const {
     }
 }
 
-void UniformDistribution::fit(const std::vector<Observation>& data) {
-    if (data.empty()) {
-        // Reset to default if no data
-        reset();
-        return;
+void UniformDistribution::fit(std::span<const double> data) {
+    if (data.size() < 2) { reset(); return; }
+
+    double minVal = std::numeric_limits<double>::max();
+    double maxVal = std::numeric_limits<double>::lowest();
+    for (const double x : data) {
+        if (std::isnan(x) || std::isinf(x))
+            throw std::invalid_argument("Uniform distribution fit: data contains NaN or infinite values");
+        if (x < minVal) minVal = x;
+        if (x > maxVal) maxVal = x;
     }
-    
-    if (data.size() < 2) {
-        // Need at least 2 points to determine bounds
-        reset();
-        return;
-    }
-    
-    // Validate data
-    for (const auto& obs : data) {
-        if (std::isnan(obs) || std::isinf(obs)) {
-            throw std::invalid_argument("Uniform distribution fitting: data contains NaN or infinite values");
-        }
-    }
-    
-    // For uniform distribution, the most straightforward approach is to use
-    // the sample minimum and maximum as estimates for a and b
-    auto minmax = std::minmax_element(data.begin(), data.end());
-    double min_val = *minmax.first;
-    double max_val = *minmax.second;
-    
-    // Add small padding to ensure all data points are within [a, b]
-    // This accounts for the fact that sample min/max are estimates of true bounds
-    double range = max_val - min_val;
-    if (range == math::ZERO_DOUBLE) {
-        // All values are the same - create a small interval around the value
-        double padding = std::max(std::abs(min_val) * thresholds::MIN_DISTRIBUTION_PARAMETER, 
-                                 thresholds::MIN_DISTRIBUTION_PARAMETER);
-        a_ = min_val - padding;
-        b_ = max_val + padding;
+
+    const double range = maxVal - minVal;
+    if (range == 0.0) {
+        const double pad = std::max(std::abs(minVal) * thresholds::MIN_DISTRIBUTION_PARAMETER,
+                                   thresholds::MIN_DISTRIBUTION_PARAMETER);
+        a_ = minVal - pad;
+        b_ = maxVal + pad;
     } else {
-        // Add 5% padding on each side
-        double padding = range * 0.05;
-        a_ = min_val - padding;
-        b_ = max_val + padding;
+        const double pad = range * 0.05;
+        a_ = minVal - pad;
+        b_ = maxVal + pad;
     }
-    
-    // Ensure we still have valid parameters
     validateParameters(a_, b_);
-    
-    // Invalidate cache since parameters changed
-    cache_valid_ = false;
+    invalidateCache();
+}
+
+void UniformDistribution::fit(std::span<const double> data,
+                              std::span<const double> weights) {
+    // Method-of-moments weighted fit.
+    // For Uniform(a,b): mean = (a+b)/2, var = (b-a)²/12.
+    // Solve: half_range = √(3*var), a = mean - half_range, b = mean + half_range.
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+
+    // Weighted mean
+    double mean = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        mean += weights[i] * data[i];
+    mean /= sumW;
+
+    // Weighted variance
+    double var = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        var += weights[i] * (data[i] - mean) * (data[i] - mean);
+    var /= sumW;
+
+    const double halfRange = std::sqrt(3.0 * var);
+    if (halfRange < thresholds::MIN_DISTRIBUTION_PARAMETER || !std::isfinite(halfRange)) {
+        reset(); return;
+    }
+    a_ = mean - halfRange;
+    b_ = mean + halfRange;
+    invalidateCache();
 }
 
 void UniformDistribution::reset() noexcept {
     a_ = math::ZERO_DOUBLE;
     b_ = math::ONE;
-    cache_valid_ = false;
+    invalidateCache();
 }
 
 std::string UniformDistribution::toString() const {
@@ -159,40 +147,34 @@ std::string UniformDistribution::toString() const {
 void UniformDistribution::setA(double a) {
     validateParameters(a, b_);
     a_ = a;
-    cache_valid_ = false;
+    invalidateCache();
 }
 
 void UniformDistribution::setB(double b) {
     validateParameters(a_, b);
     b_ = b;
-    cache_valid_ = false;
+    invalidateCache();
 }
 
 void UniformDistribution::setParameters(double a, double b) {
     validateParameters(a, b);
     a_ = a;
     b_ = b;
-    cache_valid_ = false;
+    invalidateCache();
 }
 
 double UniformDistribution::getMean() const {
-    if (!cache_valid_) {
-        updateCache();
-    }
+    if (!isCacheValid()) updateCache();
     return cached_mean_;
 }
 
 double UniformDistribution::getVariance() const {
-    if (!cache_valid_) {
-        updateCache();
-    }
+    if (!isCacheValid()) updateCache();
     return cached_variance_;
 }
 
 double UniformDistribution::getStandardDeviation() const {
-    if (!cache_valid_) {
-        updateCache();
-    }
+    if (!isCacheValid()) updateCache();
     return cached_std_dev_;
 }
 
@@ -232,6 +214,20 @@ std::istream& operator>>(std::istream& is, UniformDistribution& dist) {
     }
     
     return is;
+}
+
+void UniformDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; the valid-input path reduces to a
+    // constant (-logRange_), so the compiler auto-vectorizes to a compare +
+    // blend under -march=native / /arch:AVX512.
+    // Tier 2 with explicit intrinsics would replicate that same compare/blend
+    // pattern for marginal gain; the auto-vectorized version is near-optimal.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = UniformDistribution::getLogProbability(observations[i]);
+    }
 }
 
 } // namespace libhmm

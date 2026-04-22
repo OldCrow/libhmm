@@ -59,7 +59,7 @@ TEST_F(DistributionsHeaderTest, ContinuousDistributionsAvailable) {
 // Test that the base distribution interface is available
 TEST_F(DistributionsHeaderTest, BaseDistributionInterfaceAvailable) {
     // Should be able to use polymorphic interface
-    std::unique_ptr<ProbabilityDistribution> dist = std::make_unique<GaussianDistribution>(0.0, 1.0);
+    std::unique_ptr<EmissionDistribution> dist = std::make_unique<GaussianDistribution>(0.0, 1.0);
     
     double prob = dist->getProbability(0.0);
     EXPECT_GT(prob, 0.0);
@@ -73,9 +73,9 @@ TEST_F(DistributionsHeaderTest, CompileTimeConstants) {
     using namespace libhmm::detail;
     
     // Test that our constants are correctly defined
-    EXPECT_EQ(DISTRIBUTION_COUNT, 14);
+    EXPECT_EQ(DISTRIBUTION_COUNT, 15);
     EXPECT_EQ(DISCRETE_DISTRIBUTION_COUNT, 4);
-    EXPECT_EQ(CONTINUOUS_DISTRIBUTION_COUNT, 10);
+    EXPECT_EQ(CONTINUOUS_DISTRIBUTION_COUNT, 11);
     EXPECT_EQ(DISCRETE_DISTRIBUTION_COUNT + CONTINUOUS_DISTRIBUTION_COUNT, DISTRIBUTION_COUNT);
 }
 

@@ -1,5 +1,4 @@
-#ifndef COMMON_H_
-#define COMMON_H_
+#pragma once
 
 /*
  * Standard Library includes - C++17 only, no external dependencies
@@ -21,14 +20,18 @@
 
 // Mathematical and numerical headers
 #include <cmath>
+// MSVC does not define M_PI by default; guard here once for all consumers.
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <cfloat>
 #include <climits>
 #include <cstddef>
 #include <limits>
 #include <cassert>
 
-// Platform-specific headers moved to libhmm/performance/simd_platform.h
-// Include that header if you need SIMD intrinsics
+// Platform/SIMD headers are in libhmm/platform/ (moved from performance/ in Phase 1 refactor)
+// Include libhmm/platform/simd_platform.h if you need SIMD intrinsics
 
 namespace libhmm
 {
@@ -46,324 +49,31 @@ typedef int StateIndex;
 
 }//namespace
 
-/*
- * Custom libhmm Matrix and Vector classes (C++17 standard library only)
- * Must be included after basic typedefs to avoid naming conflicts
- */
+// linalg types (headers forward to libhmm/linalg/ as of Phase 1 refactor)
+// Must be included after basic typedefs to avoid naming conflicts
 #include "libhmm/common/basic_matrix.h"
 #include "libhmm/common/basic_vector.h"
 #include "libhmm/common/basic_matrix3d.h"
 
+// Constants extracted to their own header in Phase 1 refactor
+#include "libhmm/math/constants.h"
+
 namespace libhmm
 {
 
-/*
- * Type aliases - Replace boost::numeric::ublas types with custom implementations
- * These provide drop-in replacement for existing Boost uBLAS usage
- */
-using Matrix = BasicMatrix<Observation>;
-using Vector = BasicVector<Observation>;
-using ObservationSet = BasicVector<Observation>;
-
-/*
- * 3D Matrix type alias for HMM training algorithms
- * Provides efficient 3D matrix operations for xi and gamma calculations
- */
-template<typename T>
-using Matrix3DTemplate = BasicMatrix3D<T>;
-
-// Convenient type alias for the most common case
+// Type aliases
+using Matrix            = BasicMatrix<Observation>;
+using Vector            = BasicVector<Observation>;
+using ObservationSet    = BasicVector<Observation>;
+using StateSequence     = BasicVector<StateIndex>;
 using ObservationMatrix3D = BasicMatrix3D<Observation>;
 
-/*
- * Viterbi decode requires a fixed size vector for state sequences
- */
-using StateSequence = BasicVector<StateIndex>;
+template<typename T>
+using Matrix3DTemplate  = BasicMatrix3D<T>;
 
-/*
- * Training requires creating a list of all the observation sets.
- * We can't make a Vector of Vectors, but we can use std::list or std::vector
- * for things like this.
- */
 typedef std::vector<ObservationSet> ObservationLists;
 
-//==============================================================================
-// CONSOLIDATED CONSTANTS FOR LIBHMM
-// 
-// This section defines all numerical constants used throughout the library.
-// Constants are organized by category and consistently named for easy reference.
-// These replace scattered constant definitions throughout the codebase.
-//==============================================================================
 
-/// Core numerical precision constants
-namespace constants {
-    
-    /// Basic precision and tolerance values
-    namespace precision {
-        /// Minimum value considered non-zero throughout libhmm
-        /// Used as the effective zero threshold for numerical computations
-        inline constexpr double ZERO = 1.0e-30;
-        
-        /// Default convergence tolerance for training algorithms
-        /// Used by Baum-Welch, Viterbi training, and gamma functions
-        inline constexpr double DEFAULT_CONVERGENCE_TOLERANCE = 1.0e-8;
-        
-        /// Legacy Baum-Welch tolerance for backward compatibility
-        /// Note: New code should use DEFAULT_CONVERGENCE_TOLERANCE
-        inline constexpr double BW_TOLERANCE = 3.0e-7;
-        
-        /// Tolerance for continuous distribution range validation
-        /// Used to determine valid probability ranges in continuous distributions
-        inline constexpr double LIMIT_TOLERANCE = 1.0e-6;
-        
-        /// High precision tolerance for critical numerical operations
-        /// Used in SIMD calculations and numerical stability checks
-        inline constexpr double HIGH_PRECISION_TOLERANCE = 1.0e-12;
-        
-        /// Ultra-high precision for research and validation purposes
-        /// Used when maximum numerical accuracy is required
-        inline constexpr double ULTRA_HIGH_PRECISION_TOLERANCE = 1.0e-15;
-        
-        /// Minimum standard deviation for distribution parameters
-        /// Prevents degenerate distributions and numerical instability
-        inline constexpr double MIN_STD_DEV = 1.0e-6;
-    }
-    
-    /// Probability bounds and safety limits
-    namespace probability {
-        /// Minimum probability value to prevent underflow
-        /// Used throughout probability calculations to maintain numerical stability
-        inline constexpr double MIN_PROBABILITY = 1.0e-300;
-        
-        /// Maximum probability value to prevent overflow
-        /// Slightly less than 1.0 to avoid floating-point edge cases
-        inline constexpr double MAX_PROBABILITY = 1.0 - 1.0e-15;
-        
-        /// Minimum log probability to prevent -infinity
-        /// Approximately log(MIN_PROBABILITY)
-        inline constexpr double MIN_LOG_PROBABILITY = -700.0;
-        
-        /// Maximum log probability (log(1.0))
-        inline constexpr double MAX_LOG_PROBABILITY = 0.0;
-        
-        /// Threshold for scaling operations to prevent underflow
-        /// Used in scaled Forward-Backward algorithms
-        inline constexpr double SCALING_THRESHOLD = 1.0e-100;
-        
-        /// Log-space threshold for scaling operations
-        /// When log probabilities fall below this, scaling is applied
-        inline constexpr double LOG_SCALING_THRESHOLD = -230.0; // Approximately log(1e-100)
-    }
-    
-    /// Iteration limits for training algorithms
-    namespace iterations {
-        /// Maximum iterations for Viterbi training
-        /// Conservative limit for robust convergence
-        inline constexpr std::size_t MAX_VITERBI_ITERATIONS = 500;
-        
-        /// Maximum iterations for Baum-Welch training
-        /// Higher limit due to algorithm characteristics
-        inline constexpr std::size_t MAX_BAUM_WELCH_ITERATIONS = 1000;
-        
-        /// Maximum iterations for gamma-related functions
-        /// Used in statistical distribution computations
-        inline constexpr std::size_t ITMAX = 10000;
-        
-        /// Default maximum iterations for general numerical algorithms
-        /// Used by convergence detectors and adaptive algorithms
-        inline constexpr std::size_t DEFAULT_MAX_ITERATIONS = 10000;
-        
-        /// Maximum iterations for real-time applications
-        /// Reduced limit for time-critical operations
-        inline constexpr std::size_t REALTIME_MAX_ITERATIONS = 100;
-    }
-    
-    /// SIMD optimization parameters
-    namespace simd {
-        /// Default SIMD block size for vectorized operations
-        /// Optimized for most modern processors (SSE2/AVX)
-        inline constexpr std::size_t DEFAULT_BLOCK_SIZE = 8;
-        
-        /// Minimum problem size to benefit from SIMD
-        /// Below this threshold, scalar code may be faster
-        inline constexpr std::size_t MIN_SIMD_SIZE = 4;
-        
-        /// Maximum block size for cache optimization
-        /// Prevents cache thrashing in large matrix operations
-        inline constexpr std::size_t MAX_BLOCK_SIZE = 64;
-        
-        /// SIMD alignment requirement (bytes)
-        /// Required for efficient memory access
-        inline constexpr std::size_t SIMD_ALIGNMENT = 32;
-    }
-    
-    /// Mathematical constants
-    namespace math {
-        /// High-precision value of π
-        /// Sufficient precision for all libhmm calculations
-        inline constexpr double PI = 3.141592653589793238462643383279502884;
-        
-        /// Natural logarithm of 2
-        /// Used in information-theoretic calculations
-        inline constexpr double LN2 = 0.6931471805599453094172321214581766;
-        
-        /// Natural logarithm of 10
-        /// Used for log base conversions
-        inline constexpr double LN_10 = 2.302585092994046;
-        
-        /// Natural logarithm of 0.5 (ln(1/2))
-        /// Precomputed for performance in probability calculations
-        inline constexpr double LN_HALF = -0.6931471805599453;
-        
-        /// log₁₀(e) - logarithm base 10 of e
-        /// Used for converting natural log to log base 10
-        inline constexpr double LOG10_E = 0.4342944819032518;
-        
-        /// Euler's number (e)
-        /// Used in exponential calculations
-        inline constexpr double E = 2.7182818284590452353602874713526625;
-        
-        /// Square root of 2π (used in Gaussian calculations)
-        /// Precomputed for efficiency in normal distribution
-        inline constexpr double SQRT_2PI = 2.5066282746310005024157652848110453;
-        
-        /// Natural logarithm of 2π (used in log-space Gaussian calculations)
-        /// Precomputed for efficiency in log-space normal distribution
-        inline constexpr double LN_2PI = 1.8378770664093454835606594728112353;
-        
-        /// Square root of 2 (used in Gaussian CDF calculations)
-        /// Precomputed for efficiency in error function calculations
-        inline constexpr double SQRT_2 = 1.4142135623730950488016887242096981;
-        
-        /// Additional precomputed square roots for performance
-        inline constexpr double SQRT_3 = 1.7320508075688772;    // √3
-        inline constexpr double SQRT_5 = 2.2360679774997897;    // √5
-        inline constexpr double SQRT_10 = 3.1622776601683795;   // √10
-        
-        /// Half of ln(2π) (used in log-space Gaussian calculations)
-        /// Precomputed for efficiency: 0.5 * ln(2π)
-        inline constexpr double HALF_LN_2PI = 0.9189385332046727417803297364056176;
-        
-        /// Euler-Mascheroni constant (γ)
-        /// Used in various statistical distributions and special functions
-        inline constexpr double EULER_MASCHERONI = 0.5772156649015328606065120900824024;
-        
-        /// Golden ratio (φ = (1 + √5)/2)
-        /// Occasionally used in optimization and special calculations
-        inline constexpr double GOLDEN_RATIO = 1.6180339887498948482045868343656381;
-        
-        /// Commonly used fractional constants
-        inline constexpr double HALF = 0.5;
-        inline constexpr double QUARTER = 0.25;
-        inline constexpr double THREE_QUARTERS = 0.75;
-        
-        /// Precomputed reciprocals to avoid division operations
-        inline constexpr double ONE_THIRD = 1.0/3.0;    // 1/3
-        inline constexpr double ONE_FIFTH = 0.2;        // 1/5
-        inline constexpr double ONE_SIXTH = 1.0/6.0;    // 1/6
-        inline constexpr double ONE_TENTH = 0.1;        // 1/10
-        inline constexpr double ONE_TWELFTH = 1.0/12.0; // 1/12
-        
-        /// Commonly used integer constants as doubles
-        inline constexpr double ZERO_DOUBLE = 0.0;
-        inline constexpr double ONE = 1.0;
-        inline constexpr double TWO = 2.0;
-        inline constexpr double THREE = 3.0;
-        inline constexpr double FOUR = 4.0;
-        inline constexpr double FIVE = 5.0;
-        inline constexpr double TEN = 10.0;
-        inline constexpr double HUNDRED = 100.0;
-        inline constexpr double THOUSAND = 1000.0;
-        
-        /// Additional mathematical constants for distributions
-        
-        /// Square root of π/2 (used in Rayleigh distribution mean)
-        /// Mean of Rayleigh = σ * √(π/2)
-        inline constexpr double SQRT_PI_OVER_TWO = 1.2533141373155003;
-        
-        /// (4-π)/2 (used in Rayleigh distribution variance)
-        /// Variance of Rayleigh = σ² * (4-π)/2
-        inline constexpr double FOUR_MINUS_PI_OVER_TWO = 0.4292036732051033;
-        
-        /// Square root of 2*ln(2) (used in Rayleigh distribution median)
-        /// Median of Rayleigh = σ * √(2*ln(2))
-        inline constexpr double SQRT_TWO_LN_TWO = 1.1774100225154747;
-        
-        /// Derived mathematical expressions for HMM algorithm optimizations
-        /// These precomputed values eliminate expensive runtime calculations
-        
-        /// 1/√(2π) - Reciprocal of square root of 2π
-        /// Used in Gaussian probability density function normalization
-        inline constexpr double INV_SQRT_2PI = 1.0 / SQRT_2PI;
-        
-        /// 2π - Two times π
-        /// Used in various distribution calculations
-        inline constexpr double TWO_PI = 2.0 * PI;
-        
-        /// π/2 - Half of π
-        /// Used in trigonometric and distribution calculations
-        inline constexpr double PI_OVER_2 = PI / 2.0;
-        
-        /// π/4 - Quarter of π
-        /// Used in advanced statistical calculations
-        inline constexpr double PI_OVER_4 = PI / 4.0;
-        
-        /// -0.5 * ln(2π) - Negative half of ln(2π)
-        /// Used in log-space Gaussian calculations to avoid repeated computation
-        inline constexpr double NEG_HALF_LN_2PI = -0.5 * LN_2PI;
-    }
-    
-    /// Algorithm-specific thresholds
-    namespace thresholds {
-        /// Minimum scale factor for scaled algorithms
-        /// Prevents numerical instability in scaling operations
-        inline constexpr double MIN_SCALE_FACTOR = 1.0e-100;
-        
-        /// Maximum scale factor for scaled algorithms
-        /// Prevents overflow in scaling operations
-        inline constexpr double MAX_SCALE_FACTOR = 1.0e100;
-        
-        /// Threshold for switching to log-space computation
-        /// When probabilities fall below this, use log-space
-        inline constexpr double LOG_SPACE_THRESHOLD = 1.0e-50;
-        
-        /// Convergence window size for iterative algorithms
-        /// Number of iterations to look back for convergence detection
-        inline constexpr std::size_t CONVERGENCE_WINDOW = 5;
-        
-        /// Minimum cluster size for K-means training
-        /// Prevents degenerate clusters in segmented training
-        inline constexpr std::size_t MIN_CLUSTER_SIZE = 1;
-        
-        /// Minimum degrees of freedom for Student's t-distribution
-        /// Prevents numerical instability in t-distribution calculations
-        inline constexpr double MIN_DEGREES_OF_FREEDOM = 0.1;
-        
-        /// Maximum degrees of freedom for Student's t-distribution
-        /// Prevents overflow in t-distribution calculations
-        inline constexpr double MAX_DEGREES_OF_FREEDOM = 1000.0;
-        
-        /// Maximum parameter value for distribution fitting
-        /// Used to prevent extreme parameter values that could cause numerical issues
-        inline constexpr double MAX_DISTRIBUTION_PARAMETER = 1.0e6;
-        
-        /// Minimum parameter value for distribution fitting
-        /// Used to prevent extremely small parameter values
-        inline constexpr double MIN_DISTRIBUTION_PARAMETER = 1.0e-6;
-    }
-}
-
-/// Legacy constants for backward compatibility
-/// These maintain the original names while pointing to the new consolidated values
-inline constexpr double BW_TOLERANCE = constants::precision::BW_TOLERANCE;
-inline constexpr double ZERO = constants::precision::ZERO;
-inline constexpr double LIMIT_TOLERANCE = constants::precision::LIMIT_TOLERANCE;
-inline constexpr std::size_t MAX_VITERBI_ITERATIONS = constants::iterations::MAX_VITERBI_ITERATIONS;
-inline constexpr std::size_t ITMAX = constants::iterations::ITMAX;
-inline constexpr double PI = constants::math::PI;
- 
-// Custom Matrix and Vector classes initialize to zero on construction,
-// but provide explicit clear functions for API compatibility
 void clear_matrix( Matrix& m );
 void clear_vector( Vector& v );
 void clear_vector( StateSequence& v );
@@ -559,4 +269,3 @@ void load(Archive& ar, BasicVector<T>& vector, const std::string& name = "vector
 } // namespace serialization
 } // namespace libhmm
 
-#endif

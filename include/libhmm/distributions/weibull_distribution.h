@@ -1,9 +1,8 @@
-#ifndef WEIBULLDISTRIBUTION_H_
-#define WEIBULLDISTRIBUTION_H_
+#pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>
+#include <span>
 
 namespace libhmm{
 
@@ -30,7 +29,7 @@ namespace libhmm{
  * - Weather modeling (wind speeds)
  * - Materials science (strength of materials)
  */
-class WeibullDistribution : public ProbabilityDistribution
+class WeibullDistribution : public DistributionBase
 {   
 private:
     /**
@@ -70,21 +69,13 @@ private:
      */
     mutable double kOverLambda_{1.0};
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cacheValid_{false};
-    
-    /**
-     * Updates cached values when parameters change using optimized calculations
-     */
     void updateCache() const noexcept {
         logK_ = std::log(k_);
         logLambda_ = std::log(lambda_);
         kMinus1_ = k_ - 1.0;
-        invLambda_ = 1.0 / lambda_;  // Cache reciprocal for multiplication
-        kOverLambda_ = k_ * invLambda_;  // Cache normalization constant
-        cacheValid_ = true;
+        invLambda_ = 1.0 / lambda_;
+        kOverLambda_ = k_ * invLambda_;
+        markCacheValid();
     }
     
     /**
@@ -122,24 +113,20 @@ public:
     /**
      * Copy constructor
      */
-    WeibullDistribution(const WeibullDistribution& other) 
-        : k_{other.k_}, lambda_{other.lambda_}, 
+    WeibullDistribution(const WeibullDistribution& other)
+        : DistributionBase{other}, k_{other.k_}, lambda_{other.lambda_},
           logK_{other.logK_}, logLambda_{other.logLambda_}, kMinus1_{other.kMinus1_},
-          invLambda_{other.invLambda_}, kOverLambda_{other.kOverLambda_}, cacheValid_{other.cacheValid_} {}
+          invLambda_{other.invLambda_}, kOverLambda_{other.kOverLambda_} {}
     
     /**
      * Copy assignment operator
      */
     WeibullDistribution& operator=(const WeibullDistribution& other) {
         if (this != &other) {
-            k_ = other.k_;
-            lambda_ = other.lambda_;
-            logK_ = other.logK_;
-            logLambda_ = other.logLambda_;
-            kMinus1_ = other.kMinus1_;
-            invLambda_ = other.invLambda_;
-            kOverLambda_ = other.kOverLambda_;
-            cacheValid_ = other.cacheValid_;
+            DistributionBase::operator=(other);
+            k_ = other.k_; lambda_ = other.lambda_;
+            logK_ = other.logK_; logLambda_ = other.logLambda_; kMinus1_ = other.kMinus1_;
+            invLambda_ = other.invLambda_; kOverLambda_ = other.kOverLambda_;
         }
         return *this;
     }
@@ -148,26 +135,24 @@ public:
      * Move constructor
      */
     WeibullDistribution(WeibullDistribution&& other) noexcept
-        : k_{other.k_}, lambda_{other.lambda_}, 
+        : DistributionBase{std::move(other)}, k_{other.k_}, lambda_{other.lambda_},
           logK_{other.logK_}, logLambda_{other.logLambda_}, kMinus1_{other.kMinus1_},
-          invLambda_{other.invLambda_}, kOverLambda_{other.kOverLambda_}, cacheValid_{other.cacheValid_} {}
+          invLambda_{other.invLambda_}, kOverLambda_{other.kOverLambda_} {}
     
     /**
      * Move assignment operator
      */
     WeibullDistribution& operator=(WeibullDistribution&& other) noexcept {
         if (this != &other) {
-            k_ = other.k_;
-            lambda_ = other.lambda_;
-            logK_ = other.logK_;
-            logLambda_ = other.logLambda_;
-            kMinus1_ = other.kMinus1_;
-            invLambda_ = other.invLambda_;
-            kOverLambda_ = other.kOverLambda_;
-            cacheValid_ = other.cacheValid_;
+            DistributionBase::operator=(std::move(other));
+            k_ = other.k_; lambda_ = other.lambda_;
+            logK_ = other.logK_; logLambda_ = other.logLambda_; kMinus1_ = other.kMinus1_;
+            invLambda_ = other.invLambda_; kOverLambda_ = other.kOverLambda_;
         }
         return *this;
     }
+
+    ~WeibullDistribution() override = default;
 
     /**
      * Computes the probability density function for the Weibull distribution.
@@ -175,29 +160,22 @@ public:
      * @param value The value at which to evaluate the PDF (should be ≥ 0)
      * @return Probability density, or 0.0 if value is negative
      */
-    double getProbability(double value) override;
-    
-    /**
-     * Computes the log probability density function for the Weibull distribution.
-     * Uses log-space calculations for better numerical stability.
-     * 
-     * @param value The value at which to evaluate the log PDF (should be ≥ 0)
-     * @return Log probability density, or -infinity if value is negative
-     */
+    [[nodiscard]] double getProbability(double value) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
-    /**
-     * Fits the distribution parameters to the given data using method of moments.
-     * 
-     * For Weibull distribution, we use an iterative approach since there's no
-     * closed-form solution for maximum likelihood estimation. We estimate:
-     * 1. Initial k using method of moments approximation
-     * 2. λ using the relationship with sample mean and fitted k
-     * 
-     * @param values Vector of observed data (should be ≥ 0)
-     * @throws std::invalid_argument if values contain negative data
-     */
-    void fit(const std::vector<Observation>& values) override;
+    /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+
+    /** MOM fit using coefficient of variation to estimate k, then λ = mean / Γ(1+1/k). */
+    void fit(std::span<const double> data) override;
+    /** Weighted MOM: same approach using weighted mean and variance. */
+    void fit(std::span<const double> data, std::span<const double> weights) override;
+
+    /** Returns false — Weibull is a continuous distribution. */
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /**
      * Resets the distribution to default parameters (k = 1.0, λ = 1.0).
@@ -244,7 +222,7 @@ public:
     void setK(double k) {
         validateParameters(k, lambda_);
         k_ = k;
-        cacheValid_ = false;
+        invalidateCache();
     }
 
     /**
@@ -263,7 +241,7 @@ public:
     void setLambda(double lambda) {
         validateParameters(k_, lambda);
         lambda_ = lambda;
-        cacheValid_ = false;
+        invalidateCache();
     }
     
     /**
@@ -324,4 +302,3 @@ std::istream& operator>>(std::istream& is, libhmm::WeibullDistribution& distribu
 
 } // namespace libhmm
 
-#endif // WEIBULLDISTRIBUTION_H_

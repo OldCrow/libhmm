@@ -1,11 +1,5 @@
 #include "libhmm/distributions/beta_distribution.h"
-// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
-#include <algorithm>   // For std::for_each (exists in common.h, included for clarity)
-#include <numeric>     // For std::accumulate (not in common.h)
-#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
-
-// SIMD support now provided via simd_platform.h if needed
-// #include "libhmm/performance/simd_platform.h"  // Uncomment if using SIMD operations
+#include <span>
 
 using namespace libhmm::constants;
 
@@ -17,18 +11,15 @@ namespace libhmm {
  * @param value The value at which to evaluate the PDF (should be in [0,1])
  * @return Probability density, or 0.0 if value is outside [0,1]
  */
-double BetaDistribution::getProbability(double value) {
+double BetaDistribution::getProbability(double value) const {
     // Beta distribution is only defined on [0,1]
     if (value < math::ZERO_DOUBLE || value > math::ONE || std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;
     }
     
     // Update cache if needed
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Handle boundary cases - use cached invBeta_ for efficiency
+    if (!isCacheValid()) updateCache();
+    // Handle boundary cases - use cached invBeta_
     if (value == math::ZERO_DOUBLE) {
         return (alpha_ == math::ONE) ? invBeta_ : math::ZERO_DOUBLE;
     }
@@ -95,10 +86,7 @@ double BetaDistribution::getLogProbability(double value) const noexcept {
     }
     
     // Update cache if needed
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
+    if (!isCacheValid()) updateCache();
     // Handle boundary cases carefully
     if (value == 0.0) {
         if (alpha_ == 1.0) {
@@ -135,25 +123,14 @@ double BetaDistribution::getLogProbability(double value) const noexcept {
 
 
 void BetaDistribution::getProbabilityBatch(const std::vector<double>& values, std::vector<double>& results) {
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Resize the results vector if needed
-    if (results.size() != values.size()) {
-        results.resize(values.size());
-    }
-    
+    if (!isCacheValid()) updateCache();
+    if (results.size() != values.size()) results.resize(values.size());
     auto it = results.begin();
-    for (const double& value : values) {
-        *it++ = getProbability(value);
-    }
+    for (const double& value : values) *it++ = getProbability(value);
 }
 
 void BetaDistribution::getLogProbabilityBatch(const std::vector<double>& values, std::vector<double>& results) const {
-    if (!cacheValid_) {
-        updateCache();
-    }
+    if (!isCacheValid()) updateCache();
     
     // Resize the results vector if needed
     if (results.size() != values.size()) {
@@ -166,37 +143,20 @@ void BetaDistribution::getLogProbabilityBatch(const std::vector<double>& values,
     }
 }
 
-void BetaDistribution::fit(const std::vector<Observation>& values) {
-    if (values.empty()) {
-        reset();
-        return;
-    }
-    
-    // Single-pass Welford's algorithm with validation
-    double mean = math::ZERO_DOUBLE;
-    double M2 = math::ZERO_DOUBLE;  // Sum of squared differences from current mean
-    std::size_t validCount = 0;
-    
-    for (const auto& val : values) {
-        // Validate in the loop to avoid extra pass
-        if (val < math::ZERO_DOUBLE || val > math::ONE || std::isnan(val) || std::isinf(val)) {
+void BetaDistribution::fit(std::span<const double> data) {
+    if (data.size() < 2) { reset(); return; }
+    double mean = 0.0, M2 = 0.0;
+    std::size_t count = 0;
+    for (const double val : data) {
+        if (val < 0.0 || val > 1.0 || std::isnan(val) || std::isinf(val))
             throw std::invalid_argument("Beta distribution fitting requires all values to be in [0,1]");
-        }
-        
-        ++validCount;
+        ++count;
         const double delta = val - mean;
-        mean += delta / static_cast<double>(validCount);
-        const double delta2 = val - mean;
-        M2 += delta * delta2;
+        mean += delta / static_cast<double>(count);
+        M2 += delta * (val - mean);
     }
-    
-    // For single data point, set to default (insufficient data)
-    if (validCount < 2) {
-        reset();
-        return;
-    }
-    
-    const double variance = M2 / static_cast<double>(validCount - 1);
+    if (count < 2) { reset(); return; }
+    const double variance = M2 / static_cast<double>(count - 1);
     
     // Method of moments estimators with cached constants
     // α = μ * (μ(1-μ)/σ² - 1), β = (1-μ) * (μ(1-μ)/σ² - 1)
@@ -222,16 +182,37 @@ void BetaDistribution::fit(const std::vector<Observation>& values) {
         newAlpha < thresholds::MAX_DISTRIBUTION_PARAMETER && newBeta < thresholds::MAX_DISTRIBUTION_PARAMETER) {
         alpha_ = newAlpha;
         beta_ = newBeta;
-        cacheValid_ = false;
+        invalidateCache();
     } else {
         reset();
     }
 }
 
+void BetaDistribution::fit(std::span<const double> data,
+                           std::span<const double> weights) {
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    double mean = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) mean += weights[i] * data[i];
+    mean /= sumW;
+    double var = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        var += weights[i] * (data[i] - mean) * (data[i] - mean);
+    var /= sumW;
+    if (var <= precision::ZERO || mean <= precision::ZERO || mean >= math::ONE) { reset(); return; }
+    const double factor = mean * (math::ONE - mean) / var - math::ONE;
+    if (factor <= precision::ZERO) { reset(); return; }
+    const double newAlpha = mean * factor, newBeta = (math::ONE - mean) * factor;
+    if (newAlpha > 0.0 && newBeta > 0.0 &&
+        newAlpha < thresholds::MAX_DISTRIBUTION_PARAMETER && newBeta < thresholds::MAX_DISTRIBUTION_PARAMETER) {
+        alpha_ = newAlpha; beta_ = newBeta; invalidateCache();
+    } else { reset(); }
+}
+
 void BetaDistribution::reset() noexcept {
-    alpha_ = 1.0;
-    beta_ = 1.0;
-    cacheValid_ = false;
+    alpha_ = 1.0; beta_ = 1.0;
+    invalidateCache();
 }
 
 std::string BetaDistribution::toString() const {
@@ -360,4 +341,19 @@ std::istream& operator>>(std::istream& is, BetaDistribution& distribution) {
     
     return is;
 }
+
+void BetaDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised lgamma (log B(α,β) = lgamma(α)+lgamma(β)-lgamma(α+β)):
+    // available via Intel SVML or platform-specific math libraries, but not
+    // portably available without a dedicated math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = BetaDistribution::getLogProbability(observations[i]);
+    }
+}
+
 } // namespace libhmm

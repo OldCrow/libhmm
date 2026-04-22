@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
 
 # Set policy for FindBoost to suppress deprecation warning
 if(POLICY CMP0167)
@@ -58,13 +58,13 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-VERSION 2.9.1
-    DESCRIPTION "Modern C++17 Hidden Markov Model Library"
+    VERSION 3.0.0
+    DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
 
-# Set C++17 standard
-set(CMAKE_CXX_STANDARD 17)
+# C++20 standard — required for std::span, concepts, and constexpr improvements
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -80,6 +80,9 @@ option(ENABLE_CPPCHECK "Enable cppcheck analysis" ON)
 if(APPLE)
     set(LIBHMM_PLATFORM "macOS")
     message(STATUS "Building for macOS")
+elseif(WIN32)
+    set(LIBHMM_PLATFORM "Windows")
+    message(STATUS "Building for Windows")
 elseif(LINUX)
     set(LIBHMM_PLATFORM "Linux")
     message(STATUS "Building for Linux")
@@ -125,26 +128,150 @@ include_directories(include)
 # include_directories(${Boost_INCLUDE_DIRS})  # REMOVED: No longer needed
 
 # Platform-specific compiler flags
+# NOTE: MSVC flags are applied per-target (see after add_library below) so that
+# FetchContent dependencies like GTest are not compiled with /W4.
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith -Wno-deprecated-declarations -Wno-defaulted-function-deleted")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith -Wno-deprecated-declarations -Wno-defaulted-function-deleted")
     set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-    
-    # Platform-specific flags
-    if(APPLE)
-        # macOS specific flags
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-        # macOS handles undefined symbols dynamically
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
-    elseif(LINUX)
-        # Linux specific flags
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-        # Linux requires all symbols to be defined at link time
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
-    elseif(UNIX)
-        # Generic Unix flags
+
+    # Position-independent code for shared libraries on Unix platforms
+    if(APPLE OR LINUX OR UNIX)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
     endif()
+
+    if(APPLE)
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
+    elseif(LINUX)
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
+    endif()
+endif()
+
+# =============================================================================
+# SIMD DETECTION — compile-time dispatch, build machine CPU matters
+#
+# libhmm uses compile-time SIMD dispatch: each machine builds a binary optimised
+# for its own CPU. LIBHMM_BEST_SIMD_FLAGS is applied per-TU to LIBHMM_SIMD_SOURCES
+# only (not globally) so non-SIMD code paths stay at the baseline ISA.
+#
+# GCC/Clang: -march=native asks the compiler to use everything the build
+# machine's CPU supports. This is both compiler and CPU aware.
+#
+# MSVC: no -march=native equivalent. check_cxx_compiler_flag only tests whether
+# the compiler ACCEPTS a flag (always true for /arch:AVX512 on modern MSVC),
+# NOT whether the build machine's CPU can execute the resulting instructions.
+# check_cxx_source_runs compiles and runs a tiny test, verifying both.
+# =============================================================================
+include(CheckCXXCompilerFlag)
+
+# x86 ISA extension flags are only meaningful on x86/x86_64 targets. Running
+# them on AArch64 (Apple Silicon, ARM servers) produces misleading results
+# because Clang silently accepts x86 flags without enabling those ISAs.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+    # AArch64: NEON is the mandatory ISA baseline — always present, no flag needed.
+    set(COMPILER_SUPPORTS_NEON ON)
+    message(STATUS "SIMD compiler support — NEON: ON (AArch64 baseline)")
+elseif(NOT MSVC)
+    check_cxx_compiler_flag("-mavx512f" COMPILER_SUPPORTS_AVX512F)
+    check_cxx_compiler_flag("-mavx"    COMPILER_SUPPORTS_AVX)
+    check_cxx_compiler_flag("-mavx2"   COMPILER_SUPPORTS_AVX2)
+    check_cxx_compiler_flag("-msse4.2" COMPILER_SUPPORTS_SSE42)
+    message(STATUS "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}")
+else()
+    # MSVC x86/x64: informational only — actual flag selected via check_cxx_source_runs below.
+    check_cxx_compiler_flag("/arch:AVX512" COMPILER_SUPPORTS_AVX512F)
+    check_cxx_compiler_flag("/arch:AVX2"   COMPILER_SUPPORTS_AVX2)
+    check_cxx_compiler_flag("/arch:AVX"    COMPILER_SUPPORTS_AVX)
+    set(COMPILER_SUPPORTS_SSE42 ON)  # SSE4.2 is guaranteed on x64 MSVC
+    message(STATUS "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}")
+endif()
+
+# =============================================================================
+# Select best SIMD flag for this compiler + CPU combination.
+#
+# GCC/Clang: -march=native is both compiler-aware and CPU-aware.
+# MSVC: use check_cxx_source_runs to compile AND execute a minimal test,
+# mirroring what -march=native does automatically on GCC/Clang.
+# Falls back to SSE2 baseline in cross-compilation (can't run tests).
+# =============================================================================
+if(MSVC AND NOT CMAKE_CROSSCOMPILING)
+    include(CheckCXXSourceRuns)
+    set(_saved_req_flags "${CMAKE_REQUIRED_FLAGS}")
+
+    set(CMAKE_REQUIRED_FLAGS "/arch:AVX512")
+    check_cxx_source_runs(
+        "#include <intrin.h>\nint main(){__m512d x=_mm512_setzero_pd();(void)x;return 0;}"
+        CPU_SUPPORTS_AVX512F)
+
+    set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
+    check_cxx_source_runs(
+        "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
+        CPU_SUPPORTS_AVX2)
+
+    set(CMAKE_REQUIRED_FLAGS "/arch:AVX")
+    check_cxx_source_runs(
+        "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
+        CPU_SUPPORTS_AVX)
+
+    set(CMAKE_REQUIRED_FLAGS "${_saved_req_flags}")
+
+    if(CPU_SUPPORTS_AVX512F)
+        set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX512")
+        message(STATUS "SIMD optimization: /arch:AVX512 (CPU verified)")
+    elseif(CPU_SUPPORTS_AVX2)
+        set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX2")
+        message(STATUS "SIMD optimization: /arch:AVX2 (CPU verified)")
+    elseif(CPU_SUPPORTS_AVX)
+        set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX")
+        message(STATUS "SIMD optimization: /arch:AVX (CPU verified)")
+    else()
+        set(LIBHMM_BEST_SIMD_FLAGS "")
+        message(STATUS "SIMD optimization: (SSE2 baseline)")
+    endif()
+elseif(MSVC)
+    # Cross-compilation: cannot run tests; fall back to SSE2 baseline.
+    set(LIBHMM_BEST_SIMD_FLAGS "")
+    message(STATUS "SIMD optimization: (cross-compilation — SSE2 baseline)")
+else()
+    # GCC/Clang on all platforms: -march=native selects the best ISA for the
+    # build machine (NEON on AArch64; AVX-512/AVX2/AVX/SSE2 on x86_64).
+    set(LIBHMM_BEST_SIMD_FLAGS "-march=native")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+        message(STATUS "SIMD optimization: -march=native (AArch64/NEON)")
+    else()
+        message(STATUS "SIMD optimization: -march=native")
+    endif()
+endif()
+
+# All distribution sources with getBatchLogProbabilities() overrides.
+# Gaussian has explicit SIMD intrinsics (tier 2); all others have concrete
+# non-virtual loops that the compiler can auto-vectorize (tier 1).
+set(LIBHMM_SIMD_SOURCES
+    src/distributions/beta_distribution.cpp
+    src/distributions/binomial_distribution.cpp
+    src/distributions/chi_squared_distribution.cpp
+    src/distributions/discrete_distribution.cpp
+    src/distributions/exponential_distribution.cpp
+    src/distributions/gamma_distribution.cpp
+    src/distributions/gaussian_distribution.cpp
+    src/distributions/log_normal_distribution.cpp
+    src/distributions/negative_binomial_distribution.cpp
+    src/distributions/pareto_distribution.cpp
+    src/distributions/poisson_distribution.cpp
+    src/distributions/rayleigh_distribution.cpp
+    src/distributions/student_t_distribution.cpp
+    src/distributions/uniform_distribution.cpp
+    src/distributions/weibull_distribution.cpp
+)
+
+if(LIBHMM_BEST_SIMD_FLAGS)
+    foreach(simd_src ${LIBHMM_SIMD_SOURCES})
+        set_source_files_properties(
+            ${simd_src}
+            PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}"
+        )
+    endforeach()
+    message(STATUS "Applied SIMD flags to ${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 
 # Source files
@@ -155,8 +282,7 @@ set(LIBHMM_SOURCES
     src/common/numerical_stability.cpp
     src/common/optimized_vector_simd.cpp
     src/common/optimized_matrix_simd.cpp
-    src/training/trainer_traits.cpp
-    src/distributions/probability_distribution.cpp
+    src/distributions/distribution_base.cpp
     src/distributions/discrete_distribution.cpp
     src/distributions/gaussian_distribution.cpp
     src/distributions/gamma_distribution.cpp
@@ -172,30 +298,31 @@ set(LIBHMM_SOURCES
     src/distributions/negative_binomial_distribution.cpp
     src/distributions/student_t_distribution.cpp
     src/distributions/chi_squared_distribution.cpp
+    # Canonical calculators (Phase 3)
     src/calculators/forward_backward_calculator.cpp
-    src/calculators/log_simd_forward_backward_calculator.cpp
-    src/calculators/scaled_simd_forward_backward_calculator.cpp
     src/calculators/viterbi_calculator.cpp
-    src/calculators/scaled_simd_viterbi_calculator.cpp
-    src/calculators/log_simd_viterbi_calculator.cpp
-    src/training/viterbi_trainer.cpp
-    src/training/robust_viterbi_trainer.cpp
-    src/training/segmented_kmeans_trainer.cpp
+    # Canonical trainers (Phase 4)
     src/training/baum_welch_trainer.cpp
-    src/training/scaled_baum_welch_trainer.cpp
+    src/training/viterbi_trainer.cpp
+    src/training/segmental_kmeans_trainer.cpp
     src/io/file_io_manager.cpp
     src/io/xml_file_reader.cpp
     src/io/xml_file_writer.cpp
     src/performance/simd_support.cpp
     src/performance/thread_pool.cpp
     src/performance/log_space_ops.cpp
-    src/calculators/forward_backward_traits.cpp
-    src/calculators/viterbi_traits.cpp
-    src/calculators/calculator_traits_utils.cpp
 )
 
 # Create the library
 add_library(hmm ${LIBHMM_SOURCES})
+
+# MSVC compiler flags — applied only to hmm, not to FetchContent dependencies.
+# /W4: strong warnings. /wd4267 silence size_t narrowing, /wd4996 silence
+# deprecated-constructor warnings that will be cleaned up during the refactor.
+# /permissive- enforces stricter C++ standards conformance.
+if(MSVC)
+    target_compile_options(hmm PRIVATE /W4 /wd4267 /wd4996 /permissive-)
+endif()
 
 # Enable clang-tidy if requested
 if(ENABLE_CLANG_TIDY)
@@ -250,6 +377,8 @@ if(LINUX)
 elseif(APPLE)
     # On macOS, math functions are part of the system library
     target_link_libraries(hmm)  # Boost libraries removed
+elseif(WIN32)
+    target_link_libraries(hmm)  # Math functions are part of the MSVC CRT; no separate m.lib exists
 else()
     # Fallback for other Unix systems
     target_link_libraries(hmm m)  # Boost libraries removed
@@ -275,27 +404,9 @@ if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# Development Benchmarking and Debug Tests
-# These executables are placed in build/tests/ directory for better organization
-add_executable(analyze_overhead tests/performance/analyze_overhead.cpp)
-set_target_properties(analyze_overhead PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(analyze_overhead hmm)
-
-add_executable(benchmark_parallel tests/performance/benchmark_parallel.cpp)
-set_target_properties(benchmark_parallel PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(benchmark_parallel hmm)
-
-add_executable(debug_parallel tests/performance/debug_parallel.cpp)
-set_target_properties(debug_parallel PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(debug_parallel hmm)
-
-add_executable(parallel_calculator_assessment tests/performance/parallel_calculator_assessment.cpp)
-set_target_properties(parallel_calculator_assessment PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(parallel_calculator_assessment hmm)
-
-add_executable(parallel_constants_tuning tests/performance/parallel_constants_tuning.cpp)
-set_target_properties(parallel_constants_tuning PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(parallel_constants_tuning hmm)
+# Performance inspection and validation tools (Phase 4.5.2)
+# Source lives in tools/; executables land in build/tools/.
+add_subdirectory(tools)
 # Package configuration
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
@@ -326,6 +437,8 @@ message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Shared Libraries: ${BUILD_SHARED_LIBS}")
 if(APPLE)
     message(STATUS "Library Type: .dylib (macOS dynamic library)")
+elseif(WIN32)
+    message(STATUS "Library Type: .lib/.dll (Windows)")
 elseif(LINUX)
     message(STATUS "Library Type: .so (Linux shared object)")
 elseif(UNIX)

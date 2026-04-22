@@ -1,5 +1,4 @@
-#ifndef FILEIOMANAGER_H_
-#define FILEIOMANAGER_H_
+#pragma once
 
 #include <string>
 #include <fstream>
@@ -146,4 +145,3 @@ private:
 
 }
 
-#endif

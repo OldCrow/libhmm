@@ -19,16 +19,9 @@ namespace libhmm
  * @param x The value at which to evaluate the probability density
  * @return Probability density for the given value
  */            
-double ParetoDistribution::getProbability(double x) {
-    // Pareto distribution has support [x_m, ∞)
-    if (std::isnan(x) || std::isinf(x) || x < xm_) {
-        return math::ZERO_DOUBLE;
-    }
-    
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
+double ParetoDistribution::getProbability(double x) const {
+    if (std::isnan(x) || std::isinf(x) || x < xm_) return math::ZERO_DOUBLE;
+    if (!isCacheValid()) updateCache();
     
     // Direct PDF calculation: f(x) = (k * x_m^k) / x^(k+1)
     // Using cached kXmPowK_ = k * x_m^k and kPlus1_ = k + 1 for efficiency
@@ -55,30 +48,13 @@ double ParetoDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
     
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // log(f(x)) = log(k) + k*log(x_m) - (k+1)*log(x)
+    if (!isCacheValid()) updateCache();
     return logK_ + kLogXm_ - kPlus1_ * std::log(value);
 }
 
-/**
- * Computes the cumulative distribution function for the Pareto distribution.
- * 
- * CDF: F(x) = 1 - (x_m/x)^k for x ≥ x_m
- * 
- * @param value The value at which to evaluate the CDF
- * @return Cumulative probability, or 0.0 for values below x_m
- */
 double ParetoDistribution::getCumulativeProbability(double value) const noexcept {
-    if (std::isnan(value) || value < xm_) {
-        return math::ZERO_DOUBLE;
-    }
-    
-    if (!cacheValid_) {
-        updateCache();
-    }
+    if (std::isnan(value) || value < xm_) return math::ZERO_DOUBLE;
+    if (!isCacheValid()) updateCache();
     
     return math::ONE - std::pow(xm_ / value, k_);
 }
@@ -104,52 +80,39 @@ double ParetoDistribution::CDF(double x) const noexcept {
  * 
  * @param values Vector of observed data
  */                   
-void ParetoDistribution::fit(const std::vector<Observation>& values) {
-    // Handle edge cases: empty data or single data point
-    if (values.empty()) {
-        reset();
-        return;
-    }
-    
-    if (values.size() == 1) {
-        reset(); // MLE is not well-defined for single point
-        return;
-    }
+void ParetoDistribution::fit(std::span<const double> data) {
+    if (data.size() < 2) { reset(); return; }
+    double minVal = *std::min_element(data.begin(), data.end());
+    if (minVal <= math::ZERO_DOUBLE) { reset(); return; }
+    double sumLog = 0.0;
+    for (const double val : data)
+        if (val > math::ZERO_DOUBLE) sumLog += std::log(val) - std::log(minVal);
+    if (sumLog <= math::ZERO_DOUBLE) { reset(); return; }
+    xm_ = minVal;
+    k_ = static_cast<double>(data.size()) / sumLog;
+    if (!std::isfinite(k_) || k_ <= math::ZERO_DOUBLE) { reset(); return; }
+    invalidateCache();
+}
 
-    // Validate that all values are positive (required for Pareto distribution)
-    auto minValue = *std::min_element(values.begin(), values.end());
-    if (minValue <= math::ZERO_DOUBLE) {
-        reset(); // Fall back to default if data contains non-positive values
-        return;
-    }
-    
-    // Set scale parameter to minimum value
-    xm_ = minValue;
-    
-    // Calculate sum of log differences for shape parameter
-    double sum = math::ZERO_DOUBLE;
-    for (const auto& val : values) {
-        if (val > math::ZERO_DOUBLE) {
-            sum += std::log(val) - std::log(xm_);
-        }
-    }
-    
-    // Validate that sum is positive for numerical stability
-    if (sum <= math::ZERO_DOUBLE) {
-        reset(); // Fall back to default
-        return;
-    }
-    
-    // Calculate MLE estimate for shape parameter
-    k_ = static_cast<double>(values.size()) / sum;
-    
-    // Validate computed shape parameter
-    if (std::isnan(k_) || std::isinf(k_) || k_ <= math::ZERO_DOUBLE) {
-        reset(); // Fall back to default
-        return;
-    }
-    
-    cacheValid_ = false; // Invalidate cache since parameters changed
+void ParetoDistribution::fit(std::span<const double> data,
+                             std::span<const double> weights) {
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    double minVal = std::numeric_limits<double>::max();
+    for (std::size_t i = 0; i < data.size(); ++i)
+        if (data[i] > 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
+            minVal = std::min(minVal, data[i]);
+    if (minVal <= math::ZERO_DOUBLE || !std::isfinite(minVal)) { reset(); return; }
+    double sumWLog = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        if (data[i] > 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
+            sumWLog += weights[i] * (std::log(data[i]) - std::log(minVal));
+    if (sumWLog <= math::ZERO_DOUBLE) { reset(); return; }
+    xm_ = minVal;
+    k_ = sumW / sumWLog;
+    if (!std::isfinite(k_) || k_ <= math::ZERO_DOUBLE) { reset(); return; }
+    invalidateCache();
 }
 
 /**
@@ -157,9 +120,8 @@ void ParetoDistribution::fit(const std::vector<Observation>& values) {
  * This corresponds to a standard Pareto distribution.
  */
 void ParetoDistribution::reset() noexcept {
-    k_ = math::ONE;
-    xm_ = math::ONE;
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    k_ = math::ONE; xm_ = math::ONE;
+    invalidateCache();
 }
 
 std::string ParetoDistribution::toString() const {
@@ -207,5 +169,19 @@ std::istream& operator>>( std::istream& is,
     return is;
 }
 
+void ParetoDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised log(x): inner loop is
+    // log(α) + α*log(x_m) - (α+1)*log(x), so a vectorised log is needed.
+    // Available via Intel SVML, GNU libmvec, or Apple Accelerate vvlog, but
+    // not portably without a math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = ParetoDistribution::getLogProbability(observations[i]);
+    }
+}
 
 }

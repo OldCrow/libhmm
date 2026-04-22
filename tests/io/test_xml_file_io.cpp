@@ -2,13 +2,34 @@
 #include "libhmm/io/file_io_manager.h"
 #include "libhmm/io/xml_file_reader.h"
 #include "libhmm/io/xml_file_writer.h"
-#include "libhmm/two_state_hmm.h"
+#include "libhmm/distributions/discrete_distribution.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <memory>
 
 using namespace libhmm;
+
+namespace {
+std::unique_ptr<Hmm> create_two_state_hmm() {
+    auto hmm = std::make_unique<Hmm>(2);
+    Matrix trans(2, 2);
+    trans(0, 0) = 0.9; trans(0, 1) = 0.1;
+    trans(1, 0) = 0.8; trans(1, 1) = 0.2;
+    hmm->setTrans(trans);
+    Vector pi(2);
+    pi(0) = 0.75; pi(1) = 0.25;
+    hmm->setPi(pi);
+    auto fair = std::make_unique<DiscreteDistribution>(6);
+    for (int i = 0; i < 6; ++i) fair->setProbability(i, 1.0 / 6.0);
+    hmm->setDistribution(0, std::move(fair));
+    auto loaded = std::make_unique<DiscreteDistribution>(6);
+    for (int i = 0; i < 5; ++i) loaded->setProbability(i, 0.125);
+    loaded->setProbability(5, 0.375);
+    hmm->setDistribution(1, std::move(loaded));
+    return hmm;
+}
+} // namespace
 
 class IOTest : public ::testing::Test {
 protected:
@@ -18,7 +39,7 @@ protected:
         std::filesystem::create_directories(testDir_);
         
         // Create test HMM
-        hmm_ = createTwoStateHmm();
+        hmm_ = create_two_state_hmm();
         
         // Define test file paths
         testFile_ = testDir_ / "test.txt";

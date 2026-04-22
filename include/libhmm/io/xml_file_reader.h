@@ -1,5 +1,4 @@
-#ifndef XMLFILEREADER_H_
-#define XMLFILEREADER_H_
+#pragma once
 
 #include <cassert>
 #include <string>
@@ -78,4 +77,3 @@ private:
 
 }
 
-#endif

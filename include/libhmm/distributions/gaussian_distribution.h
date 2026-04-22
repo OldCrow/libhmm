@@ -1,28 +1,23 @@
-#ifndef GAUSSIANDISTRIBUTION_H_
-#define GAUSSIANDISTRIBUTION_H_
+#pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
+#include <span>
 
 namespace libhmm{
 
 /**
- * Modern C++17 Gaussian (Normal) distribution for modeling continuous data.
- * 
- * The Gaussian distribution is a continuous probability distribution that is
- * symmetric around the mean, showing that data near the mean are more frequent
- * in occurrence than data far from the mean.
- * 
+ * Gaussian (Normal) distribution for modeling continuous emission data.
+ *
  * PDF: f(x) = (1/(σ√(2π))) * exp(-½((x-μ)/σ)²)
- * where μ is the mean and σ is the standard deviation
- * 
- * Properties:
- * - Mean: μ
- * - Variance: σ²
- * - Support: x ∈ (-∞, ∞)
+ *
+ * Ported to DistributionBase in Phase 2:
+ *   - getProbability() and getLogProbability() are now const
+ *   - Cache uses std::atomic<bool> (thread-safe for calculator thread pool)
+ *   - fit() accepts std::span<const double> (no copies, no Observation alias)
+ *   - Weighted fit() added for Baum-Welch M-step
  */
-class GaussianDistribution : public ProbabilityDistribution
+class GaussianDistribution : public DistributionBase
 {   
 private:
     /**
@@ -62,21 +57,17 @@ private:
     mutable double invStandardDeviation_{0.0};
     
     /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cacheValid_{false};
-    
-    /**
-     * Updates cached values when parameters change
+     * Updates all cached values. Called on first use after parameters change.
+     * Ends by calling markCacheValid() from DistributionBase.
      */
     void updateCache() const noexcept {
         const double sigma2 = standardDeviation_ * standardDeviation_;
-        invStandardDeviation_ = 1.0 / standardDeviation_;
-        normalizationConstant_ = invStandardDeviation_ / constants::math::SQRT_2PI;
-        negHalfSigmaSquaredInv_ = -0.5 / sigma2;
-        logStandardDeviation_ = std::log(standardDeviation_);
-        sigmaSqrt2_ = standardDeviation_ * constants::math::SQRT_2;
-        cacheValid_ = true;
+        invStandardDeviation_      = 1.0 / standardDeviation_;
+        normalizationConstant_     = invStandardDeviation_ / constants::math::SQRT_2PI;
+        negHalfSigmaSquaredInv_    = -0.5 / sigma2;
+        logStandardDeviation_      = std::log(standardDeviation_);
+        sigmaSqrt2_                = standardDeviation_ * constants::math::SQRT_2;
+        markCacheValid();
     }
     
     /**
@@ -98,78 +89,60 @@ private:
             libhmm::GaussianDistribution& distribution);
 
 public:
-    /**
-     * Constructs a Gaussian distribution with given parameters.
-     * 
-     * @param mean Mean parameter μ (any finite value)
-     * @param standardDeviation Standard deviation parameter σ (must be positive)
-     * @throws std::invalid_argument if parameters are invalid
-     */
     explicit GaussianDistribution(double mean = 0.0, double standardDeviation = 1.0)
         : mean_{mean}, standardDeviation_{standardDeviation} {
         validateParameters(mean, standardDeviation);
         updateCache();
     }
 
-    /**
-     * Copy constructor
-     */
-    GaussianDistribution(const GaussianDistribution& other) 
-        : mean_{other.mean_}, standardDeviation_{other.standardDeviation_}, 
-          normalizationConstant_{other.normalizationConstant_}, 
+    // Rule of Five: atomic<bool> in base requires explicit copy/move.
+    // Parameter data is trivially copyable; base handles the atomic.
+    GaussianDistribution(const GaussianDistribution& other)
+        : DistributionBase{other},
+          mean_{other.mean_}, standardDeviation_{other.standardDeviation_},
+          normalizationConstant_{other.normalizationConstant_},
           negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_},
           logStandardDeviation_{other.logStandardDeviation_},
-          sigmaSqrt2_{other.sigmaSqrt2_}, invStandardDeviation_{other.invStandardDeviation_},
-          cacheValid_{other.cacheValid_} {}
-    
-    /**
-     * Copy assignment operator
-     */
+          sigmaSqrt2_{other.sigmaSqrt2_},
+          invStandardDeviation_{other.invStandardDeviation_} {}
+
     GaussianDistribution& operator=(const GaussianDistribution& other) {
         if (this != &other) {
-            mean_ = other.mean_;
-            standardDeviation_ = other.standardDeviation_;
-            normalizationConstant_ = other.normalizationConstant_;
-            negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
-            logStandardDeviation_ = other.logStandardDeviation_;
-            sigmaSqrt2_ = other.sigmaSqrt2_;
-            invStandardDeviation_ = other.invStandardDeviation_;
-            cacheValid_ = other.cacheValid_;
+            DistributionBase::operator=(other);
+            mean_                    = other.mean_;
+            standardDeviation_       = other.standardDeviation_;
+            normalizationConstant_   = other.normalizationConstant_;
+            negHalfSigmaSquaredInv_  = other.negHalfSigmaSquaredInv_;
+            logStandardDeviation_    = other.logStandardDeviation_;
+            sigmaSqrt2_              = other.sigmaSqrt2_;
+            invStandardDeviation_    = other.invStandardDeviation_;
         }
         return *this;
     }
-    
-    /**
-     * Move constructor
-     */
+
     GaussianDistribution(GaussianDistribution&& other) noexcept
-        : mean_{other.mean_}, standardDeviation_{other.standardDeviation_}, 
-          normalizationConstant_{other.normalizationConstant_}, 
+        : DistributionBase{std::move(other)},
+          mean_{other.mean_}, standardDeviation_{other.standardDeviation_},
+          normalizationConstant_{other.normalizationConstant_},
           negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_},
           logStandardDeviation_{other.logStandardDeviation_},
-          sigmaSqrt2_{other.sigmaSqrt2_}, invStandardDeviation_{other.invStandardDeviation_},
-          cacheValid_{other.cacheValid_} {}
-    
-    /**
-     * Move assignment operator
-     */
+          sigmaSqrt2_{other.sigmaSqrt2_},
+          invStandardDeviation_{other.invStandardDeviation_} {}
+
     GaussianDistribution& operator=(GaussianDistribution&& other) noexcept {
         if (this != &other) {
-            mean_ = other.mean_;
-            standardDeviation_ = other.standardDeviation_;
-            normalizationConstant_ = other.normalizationConstant_;
-            negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
-            logStandardDeviation_ = other.logStandardDeviation_;
-            sigmaSqrt2_ = other.sigmaSqrt2_;
-            invStandardDeviation_ = other.invStandardDeviation_;
-            cacheValid_ = other.cacheValid_;
+            DistributionBase::operator=(std::move(other));
+            mean_                    = other.mean_;
+            standardDeviation_       = other.standardDeviation_;
+            normalizationConstant_   = other.normalizationConstant_;
+            negHalfSigmaSquaredInv_  = other.negHalfSigmaSquaredInv_;
+            logStandardDeviation_    = other.logStandardDeviation_;
+            sigmaSqrt2_              = other.sigmaSqrt2_;
+            invStandardDeviation_    = other.invStandardDeviation_;
         }
         return *this;
     }
-    
-    /**
-     * Destructor - explicitly defaulted to satisfy Rule of Five
-     */
+
     ~GaussianDistribution() override = default;
 
     /**
@@ -179,7 +152,7 @@ public:
      * @param x The value at which to evaluate the PDF
      * @return Probability density
      */
-    [[nodiscard]] double getProbability(double x) override;
+    [[nodiscard]] double getProbability(double x) const override;
     
     /**
      * Evaluates the logarithm of the probability density function
@@ -191,6 +164,14 @@ public:
      */
     [[nodiscard]] double getLogProbability(double x) const noexcept override;
 
+    /// Vectorised batch log-PDF.
+    /// Uses AVX-512 (8-wide), AVX2 (4-wide), SSE2 (2-wide), or NEON (2-wide) SIMD
+    /// when available; falls back to a scalar tail. NaN inputs yield -Inf output.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+
     /**
      * Evaluates the CDF at x using the error function
      * Formula: CDF(x) = (1/2) * (1 + erf((x-μ)/(σ√2)))
@@ -198,15 +179,18 @@ public:
      * @param x The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ x)
      */
-    [[nodiscard]] double getCumulativeProbability(double x) noexcept;
+    [[nodiscard]] double getCumulativeProbability(double x) const noexcept;
+
+    /** Fit parameters to unweighted data using Welford's online algorithm. */
+    void fit(std::span<const double> data) override;
 
     /**
-     * Fits the distribution parameters to the given data using maximum likelihood estimation.
-     * For Gaussian distribution, MLE gives sample mean and sample standard deviation.
-     * 
-     * @param values Vector of observed data
+     * Fit parameters to weighted data (Baum-Welch M-step).
+     * Weights are unnormalized γ values; normalization by sum(weights) is done internally.
+     * Uses weighted Welford's algorithm for numerical stability.
+     * Falls back to reset() if sum(weights) is near zero.
      */
-    void fit(const std::vector<Observation>& values) override;
+    void fit(std::span<const double> data, std::span<const double> weights) override;
 
     /**
      * Resets the distribution to default parameters (μ = 0.0, σ = 1.0).
@@ -237,7 +221,7 @@ public:
     void setMean(double mean) {
         validateParameters(mean, standardDeviation_);
         mean_ = mean;
-        cacheValid_ = false;
+        invalidateCache();
     }
 
     /**
@@ -256,7 +240,7 @@ public:
     void setStandardDeviation(double stdDev) {
         validateParameters(mean_, stdDev);
         standardDeviation_ = stdDev;
-        cacheValid_ = false;
+        invalidateCache();
     }
     
     /**
@@ -280,8 +264,11 @@ public:
         validateParameters(mean, stdDev);
         mean_ = mean;
         standardDeviation_ = stdDev;
-        cacheValid_ = false;
+        invalidateCache();
     }
+
+    /** Returns false — Gaussian is a continuous distribution. */
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
     
     /**
      * Equality comparison operator
@@ -304,4 +291,3 @@ std::ostream& operator<<( std::ostream&,
 //std::istream& operator>>( std::istream&,
 //        const libhmm::GaussianDistribution& );
 } // namespace
-#endif

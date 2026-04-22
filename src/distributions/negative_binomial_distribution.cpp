@@ -17,7 +17,7 @@ namespace libhmm
  * @param value The value at which to evaluate the PMF (rounded to nearest integer)
  * @return Probability mass for the given value
  */            
-double NegativeBinomialDistribution::getProbability(double value) {
+double NegativeBinomialDistribution::getProbability(double value) const {
     // Validate input - discrete distributions only accept non-negative integer values
     if (std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;
@@ -34,25 +34,12 @@ double NegativeBinomialDistribution::getProbability(double value) {
         return (k == 0) ? math::ONE : math::ZERO_DOUBLE;
     }
     
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Compute log probability for numerical stability
-    // log P(X = k) = log C(k+r-1, k) + r*log(p) + k*log(1-p)
+    if (!isCacheValid()) updateCache();
     const double logCoeff = logGeneralizedBinomialCoefficient(k);
-    const double logProb = logCoeff + r_ * logP_ + k * log1MinusP_;
-    
+    const double logProb = logCoeff + r_ * logP_ + static_cast<double>(k) * log1MinusP_;
     const double prob = std::exp(logProb);
-    
-    // Ensure numerical stability
-    if (std::isnan(prob) || prob < math::ZERO_DOUBLE) {
-        return math::ZERO_DOUBLE;
-    }
-    
-    assert(prob <= math::ONE);
-    return prob;
+    if (std::isnan(prob) || prob < math::ZERO_DOUBLE) return math::ZERO_DOUBLE;
+    return std::min(prob, math::ONE);
 }
 
 /**
@@ -67,60 +54,52 @@ double NegativeBinomialDistribution::getProbability(double value) {
  * 
  * @param values Vector of observed data points
  */                   
-void NegativeBinomialDistribution::fit(const std::vector<Observation>& values) {
-    // Handle edge case: empty data
-    if (values.empty()) {
-        reset();
-        return;
-    }
-    
-    // Single-pass Welford's algorithm for mean and variance calculation
-    double mean = math::ZERO_DOUBLE;
-    double m2 = math::ZERO_DOUBLE;  // Sum of squared differences from current mean
-    std::size_t validCount = 0;
-    
-    for (const auto& val : values) {
-        // Validate: finite non-negative values only
-        if (val >= math::ZERO_DOUBLE && std::isfinite(val)) {
-            ++validCount;
+void NegativeBinomialDistribution::fit(std::span<const double> data) {
+    if (data.size() < 2) { reset(); return; }
+    double mean = 0.0, m2 = 0.0;
+    std::size_t count = 0;
+    for (const double val : data) {
+        if (val >= 0.0 && std::isfinite(val)) {
+            ++count;
             const double delta = val - mean;
-            mean += delta / static_cast<double>(validCount);
-            const double delta2 = val - mean;
-            m2 += delta * delta2;
+            mean += delta / static_cast<double>(count);
+            m2 += delta * (val - mean);
         }
     }
-    
-    // Handle edge cases: insufficient valid data
-    if (validCount < 2) {
-        reset(); // Need at least 2 points for variance estimation
-        return;
+    if (count < 2) { reset(); return; }
+    const double var = m2 / static_cast<double>(count - 1);
+    if (var <= mean || mean <= math::ZERO_DOUBLE) { reset(); return; }
+    const double pHat = mean / var;
+    const double rHat = (mean * mean) / (var - mean);
+    if (!std::isfinite(pHat) || !std::isfinite(rHat) ||
+        pHat <= math::ZERO_DOUBLE || pHat > math::ONE || rHat <= math::ZERO_DOUBLE) { reset(); return; }
+    p_ = pHat; r_ = rHat;
+    invalidateCache();
+}
+
+void NegativeBinomialDistribution::fit(std::span<const double> data,
+                                       std::span<const double> weights) {
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    double mean = 0.0, cumW = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0) {
+            cumW += weights[i];
+            mean += (weights[i] / cumW) * (data[i] - mean);
+        }
     }
-    
-    // Calculate sample variance using Bessel's correction (N-1)
-    const double sampleMean = mean;
-    const double sampleVariance = m2 / static_cast<double>(validCount - 1);
-    
-    // Check if negative binomial is appropriate (requires variance > mean for over-dispersion)
-    if (sampleVariance <= sampleMean || sampleMean <= math::ZERO_DOUBLE) {
-        reset(); // Fall back to default parameters
-        return;
-    }
-    
-    // Method of moments estimators
-    const double pHat = sampleMean / sampleVariance;
-    const double rHat = (sampleMean * sampleMean) / (sampleVariance - sampleMean);
-    
-    // Validate estimated parameters
-    if (std::isnan(pHat) || std::isinf(pHat) || pHat <= math::ZERO_DOUBLE || pHat > math::ONE ||
-        std::isnan(rHat) || std::isinf(rHat) || rHat <= math::ZERO_DOUBLE) {
-        reset(); // Fall back to default parameters
-        return;
-    }
-    
-    // Set the estimated parameters
-    p_ = pHat;
-    r_ = rHat;
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    double var = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
+            var += weights[i] * (data[i] - mean) * (data[i] - mean);
+    var /= sumW;
+    if (var <= mean || mean <= math::ZERO_DOUBLE) { reset(); return; }
+    const double pHat = mean / var, rHat = (mean * mean) / (var - mean);
+    if (!std::isfinite(pHat) || !std::isfinite(rHat) ||
+        pHat <= math::ZERO_DOUBLE || pHat > math::ONE || rHat <= math::ZERO_DOUBLE) { reset(); return; }
+    p_ = pHat; r_ = rHat;
+    invalidateCache();
 }
 
 /**
@@ -130,7 +109,7 @@ void NegativeBinomialDistribution::fit(const std::vector<Observation>& values) {
 void NegativeBinomialDistribution::reset() noexcept {
     r_ = 5.0;
     p_ = math::HALF;
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    invalidateCache();
 }
 
 /**
@@ -166,20 +145,12 @@ double NegativeBinomialDistribution::getLogProbability(double value) const noexc
         return (k == 0) ? math::ZERO_DOUBLE : -std::numeric_limits<double>::infinity();
     }
     
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Compute log probability for numerical stability
-    // log P(X = k) = log C(k+r-1, k) + r*log(p) + k*log(1-p)
+    if (!isCacheValid()) updateCache();
     const double logCoeff = logGeneralizedBinomialCoefficient(k);
-    const double logProb = logCoeff + r_ * logP_ + k * log1MinusP_;
-    
-    return logProb;
+    return logCoeff + r_ * logP_ + static_cast<double>(k) * log1MinusP_;
 }
 
-double NegativeBinomialDistribution::CDF(double value) noexcept {
+double NegativeBinomialDistribution::CDF(double value) const noexcept {
     // Validate input
     if (std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;
@@ -272,6 +243,20 @@ std::ostream& operator<<(std::ostream& os,
     os << std::endl;
     
     return os;
+}
+
+void NegativeBinomialDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised generalised log-binomial-coefficient
+    // (uses lgamma internally): available via Intel SVML or platform-specific
+    // math libraries, but not portably without a math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = NegativeBinomialDistribution::getLogProbability(observations[i]);
+    }
 }
 
 } // namespace libhmm

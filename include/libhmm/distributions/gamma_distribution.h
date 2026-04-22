@@ -1,14 +1,13 @@
-#ifndef GAMMADISTRIBUTION_H_
-#define GAMMADISTRIBUTION_H_
+#pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
+#include <span>
 
 namespace libhmm{
 
 /**
- * Modern C++17 Gamma distribution for modeling continuous non-negative data.
+ * Modern C++20 Gamma distribution for modeling continuous non-negative data.
  * 
  * The Gamma distribution is a versatile continuous probability distribution
  * commonly used to model waiting times, failure rates, and size distributions.
@@ -28,7 +27,7 @@ namespace libhmm{
  * - Support: x ∈ [0, ∞)
  * - Special cases: k=1 gives exponential distribution, k→∞ approaches normal
  */
-class GammaDistribution : public ProbabilityDistribution
+class GammaDistribution : public DistributionBase
 {    
 private:
     /**
@@ -65,19 +64,11 @@ private:
      */
     mutable double kMinus1_{0.0};
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cacheValid_{false};
-    
-    /**
-     * Updates cached values when parameters change
-     */
     void updateCache() const noexcept {
         logGammaK_ = std::lgamma(k_);
-        kLogTheta_ = k_ * std::log(theta_);
-        kMinus1_ = k_ - 1.0;
-        cacheValid_ = true;
+        kLogTheta_  = k_ * std::log(theta_);
+        kMinus1_    = k_ - 1.0;
+        markCacheValid();
     }
     
     /**
@@ -110,61 +101,37 @@ public:
      * @throws std::invalid_argument if parameters are invalid
      */
     explicit GammaDistribution(double k = 1.0, double theta = 1.0)
-        : k_{k}, theta_{theta}, logGammaK_{0.0}, kLogTheta_{0.0}, 
-          kMinus1_{0.0}, cacheValid_{false} {
+        : k_{k}, theta_{theta} {
         validateParameters(k, theta);
         updateCache();
     }
-    
-    /**
-     * Copy constructor
-     */
-    GammaDistribution(const GammaDistribution& other) 
-        : k_{other.k_}, theta_{other.theta_}, logGammaK_{other.logGammaK_}, 
-          kLogTheta_{other.kLogTheta_}, kMinus1_{other.kMinus1_}, 
-          cacheValid_{other.cacheValid_} {}
-    
-    /**
-     * Copy assignment operator
-     */
+
+    GammaDistribution(const GammaDistribution& other)
+        : DistributionBase{other}, k_{other.k_}, theta_{other.theta_},
+          logGammaK_{other.logGammaK_}, kLogTheta_{other.kLogTheta_}, kMinus1_{other.kMinus1_} {}
+
     GammaDistribution& operator=(const GammaDistribution& other) {
         if (this != &other) {
-            k_ = other.k_;
-            theta_ = other.theta_;
-            logGammaK_ = other.logGammaK_;
-            kLogTheta_ = other.kLogTheta_;
-            kMinus1_ = other.kMinus1_;
-            cacheValid_ = other.cacheValid_;
-        }
-        return *this;
-    }
-    
-    /**
-     * Move constructor
-     */
-    GammaDistribution(GammaDistribution&& other) noexcept
-        : k_{other.k_}, theta_{other.theta_}, logGammaK_{other.logGammaK_}, 
-          kLogTheta_{other.kLogTheta_}, kMinus1_{other.kMinus1_}, 
-          cacheValid_{other.cacheValid_} {}
-    
-    /**
-     * Move assignment operator
-     */
-    GammaDistribution& operator=(GammaDistribution&& other) noexcept {
-        if (this != &other) {
-            k_ = other.k_;
-            theta_ = other.theta_;
-            logGammaK_ = other.logGammaK_;
-            kLogTheta_ = other.kLogTheta_;
-            kMinus1_ = other.kMinus1_;
-            cacheValid_ = other.cacheValid_;
+            DistributionBase::operator=(other);
+            k_ = other.k_; theta_ = other.theta_;
+            logGammaK_ = other.logGammaK_; kLogTheta_ = other.kLogTheta_; kMinus1_ = other.kMinus1_;
         }
         return *this;
     }
 
-    /**
-     * Destructor - explicitly defaulted to satisfy Rule of Five
-     */
+    GammaDistribution(GammaDistribution&& other) noexcept
+        : DistributionBase{std::move(other)}, k_{other.k_}, theta_{other.theta_},
+          logGammaK_{other.logGammaK_}, kLogTheta_{other.kLogTheta_}, kMinus1_{other.kMinus1_} {}
+
+    GammaDistribution& operator=(GammaDistribution&& other) noexcept {
+        if (this != &other) {
+            DistributionBase::operator=(std::move(other));
+            k_ = other.k_; theta_ = other.theta_;
+            logGammaK_ = other.logGammaK_; kLogTheta_ = other.kLogTheta_; kMinus1_ = other.kMinus1_;
+        }
+        return *this;
+    }
+
     ~GammaDistribution() override = default;
 
     /**
@@ -173,7 +140,7 @@ public:
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
-    [[nodiscard]] double getProbability(double x) override;
+    [[nodiscard]] double getProbability(double x) const override;
     
     /**
      * Evaluates the logarithm of the probability density function
@@ -185,6 +152,12 @@ public:
      */
     [[nodiscard]] double getLogProbability(double x) const noexcept override;
 
+    /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+
     /**
      * Evaluates the CDF at x using the incomplete gamma function
      * Formula: CDF(x) = P(k, x/θ) = γ(k, x/θ) / Γ(k)
@@ -193,20 +166,13 @@ public:
      * @param x The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ x)
      */
-    [[nodiscard]] double getCumulativeProbability(double x) noexcept;
+    [[nodiscard]] double getCumulativeProbability(double x) const noexcept;
 
-    /**
-     * Fits the distribution parameters to the given data using method of moments estimation.
-     * More sophisticated MLE methods could be implemented but require iterative algorithms.
-     * 
-     * Method of moments:
-     * - sample_mean = k*θ
-     * - sample_variance = k*θ²
-     * - Solving: θ = sample_variance/sample_mean, k = sample_mean²/sample_variance
-     * 
-     * @param values Vector of observed data
-     */
-    void fit(const std::vector<Observation>& values) override;
+    void fit(std::span<const double> data) override;
+    /** Weighted MOM: θ = weighted_var / weighted_mean, k = weighted_mean² / weighted_var. */
+    void fit(std::span<const double> data, std::span<const double> weights) override;
+    /** Returns false — Gamma is a continuous distribution. */
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /**
      * Resets the distribution to default parameters (k = 1.0, θ = 1.0).
@@ -241,37 +207,9 @@ public:
      * @param k New shape parameter (must be positive)
      * @throws std::invalid_argument if k <= 0 or is not finite
      */
-    void setK(double k) {
-        validateParameters(k, theta_);
-        k_ = k;
-        cacheValid_ = false;
-    }
-    
-    /**
-     * Sets the scale parameter θ.
-     * 
-     * @param theta New scale parameter (must be positive)
-     * @throws std::invalid_argument if theta <= 0 or is not finite
-     */
-    void setTheta(double theta) {
-        validateParameters(k_, theta);
-        theta_ = theta;
-        cacheValid_ = false;
-    }
-    
-    /**
-     * Sets both parameters simultaneously.
-     * 
-     * @param k New shape parameter
-     * @param theta New scale parameter
-     * @throws std::invalid_argument if parameters are invalid
-     */
-    void setParameters(double k, double theta) {
-        validateParameters(k, theta);
-        k_ = k;
-        theta_ = theta;
-        cacheValid_ = false;
-    }
+    void setK(double k) { validateParameters(k, theta_); k_ = k; invalidateCache(); }
+    void setTheta(double theta) { validateParameters(k_, theta); theta_ = theta; invalidateCache(); }
+    void setParameters(double k, double theta) { validateParameters(k, theta); k_ = k; theta_ = theta; invalidateCache(); }
     
     /**
      * Gets the mean of the distribution.
@@ -344,4 +282,3 @@ std::istream& operator>>( std::istream&,
         libhmm::GammaDistribution& );
 
 } // namespace
-#endif

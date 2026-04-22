@@ -1,5 +1,4 @@
-#ifndef LIBHMM_H_
-#define LIBHMM_H_
+#pragma once
 
 /**
  * @file libhmm.h
@@ -17,11 +16,11 @@
  * 
  * // Create HMM with Gaussian distributions
  * Hmm hmm(2);
- * hmm.setProbabilityDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
- * hmm.setProbabilityDistribution(1, std::make_unique<GaussianDistribution>(3.0, 2.0));
+ * hmm.setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
+ * hmm.setDistribution(1, std::make_unique<GaussianDistribution>(3.0, 2.0));
  * 
  * // Train with Viterbi algorithm
- * ViterbiTrainer trainer(&hmm, observations);
+ * ViterbiTrainer trainer(hmm, observations);
  * trainer.train();
  * @endcode
  * 
@@ -108,8 +107,6 @@
 // CONVENIENCE UTILITIES
 //==============================================================================
 
-/// Pre-configured two-state HMM for common use cases
-#include "libhmm/two_state_hmm.h"
 
 /**
  * @namespace libhmm
@@ -126,4 +123,3 @@
  * - **Performance**: SIMD detection, thread pools, and numerical stability utilities
  */
 
-#endif // LIBHMM_H_

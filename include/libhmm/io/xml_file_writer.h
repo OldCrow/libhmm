@@ -1,5 +1,4 @@
-#ifndef XMLFILEWRITER_H_
-#define XMLFILEWRITER_H_
+#pragma once
 
 #include <cassert>
 #include <string>
@@ -69,4 +68,3 @@ private:
 
 }
 
-#endif
