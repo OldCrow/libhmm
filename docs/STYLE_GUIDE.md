@@ -16,25 +16,25 @@
 
 ## Overview
 
-This style guide defines coding standards for the libhmm C++17 Hidden Markov Model library. It ensures consistency, maintainability, and high code quality across the codebase.
+This style guide defines coding standards for the libhmm C++20 Hidden Markov Model library. It ensures consistency, maintainability, and high code quality across the codebase.
 
 **Key Goals:**
 - **Consistency**: Uniform code style across all modules
 - **Readability**: Self-documenting code with clear intent
 - **Maintainability**: Easy to modify, extend, and debug
-- **Performance**: Efficient use of modern C++17 features
+- **Performance**: Efficient use of modern C++20 features
 - **Safety**: Strong type safety and error handling
 
 ## General Principles
 
-### 1. Modern C++17 First
-- Use C++17 features and idioms
+### 1. Modern C++20 First
+- Use C++20 features and idioms
 - Prefer standard library over custom implementations
 - Use RAII (Resource Acquisition Is Initialization)
 - Embrace move semantics and perfect forwarding
 
 ### 2. Zero Dependencies Policy
-- Rely only on C++17 standard library
+- Rely only on C++20 standard library
 - No external dependencies beyond compiler and build tools
 - Custom implementations for specialized needs
 
@@ -49,12 +49,15 @@ This style guide defines coding standards for the libhmm C++17 Hidden Markov Mod
 ### File Structure
 ```
 include/libhmm/
-├── distributions/        # Probability distributions
-├── calculators/         # HMM algorithms
-├── training/           # Training algorithms  
-├── io/                 # File I/O operations
-├── common/             # Utilities and common types
-└── performance/        # Performance optimizations
+├── platform/        # Layer 0: SIMD detection, CPU features
+├── math/            # Layer 1: constants, log-space ops, numerics
+├── linalg/          # Layer 2: Matrix, Vector types
+├── distributions/   # Layer 3: EmissionDistribution + 15 distributions
+├── hmm.h            # Core HMM class
+├── calculators/     # Layer 4: ForwardBackward, Viterbi
+├── training/        # Layer 4: BaumWelch, Viterbi, SegmentalKMeans
+├── io/              # XML I/O
+└── common/          # Shared types and serialization helpers
 ```
 
 ### Header Organization
@@ -67,17 +70,15 @@ include/libhmm/
 
 // 2. Project headers (alphabetical)
 #include "libhmm/common/common.h"
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/emission_distribution.h"
 ```
 
 ### Include Guards
-Use `#ifndef` include guards with consistent naming:
+Use `#pragma once` (the project-wide convention since Phase 1):
 ```cpp
-#ifndef LIBHMM_DISTRIBUTIONS_GAUSSIAN_DISTRIBUTION_H_
-#define LIBHMM_DISTRIBUTIONS_GAUSSIAN_DISTRIBUTION_H_
-// ... content ...
-#endif // LIBHMM_DISTRIBUTIONS_GAUSSIAN_DISTRIBUTION_H_
+#pragma once
 ```
+The old `#ifndef`/`#define`/`#endif` guards were replaced across the entire codebase in Phase 1 of the refactoring.
 
 ## Naming Conventions
 
@@ -107,11 +108,11 @@ Use `#ifndef` include guards with consistent naming:
 ```cpp
 namespace libhmm {
 
-class GaussianDistribution : public ProbabilityDistribution {
+class GaussianDistribution : public EmissionDistribution {
 private:
     double mean_{0.0};                    // Private member
     double standardDeviation_{1.0};      // Private member
-    mutable bool cacheValid_{false};     // Private member
+    mutable std::atomic<bool> cacheValid_{false};     // Private member
     
     static constexpr double DEFAULT_MEAN = 0.0;  // Constant
     
@@ -196,7 +197,7 @@ std::vector<double>   // No space before template args
 
 ## Language Features
 
-### 1. Modern C++17 Features
+### 1. Modern C++20 Features
 **Prefer:**
 - `auto` for type deduction when type is obvious
 - Range-based for loops
@@ -359,7 +360,7 @@ double getProbability(double value) override;
 ### 2. Class Documentation
 ```cpp
 /**
- * Modern C++17 Gaussian distribution for modeling continuous symmetric data.
+ * Modern C++20 Gaussian distribution for modeling continuous symmetric data.
  * 
  * The Gaussian (Normal) distribution is a continuous probability distribution
  * characterized by its bell-shaped curve. It's fundamental in statistics and
@@ -384,7 +385,7 @@ double getProbability(double value) override;
  * normal.setMean(5.0);  // Shift distribution
  * @endcode
  */
-class GaussianDistribution : public ProbabilityDistribution {
+class GaussianDistribution : public EmissionDistribution {
     // ...
 };
 ```
@@ -487,7 +488,7 @@ All static analysis tools run automatically on:
 class GaussianDistribution {
 private:
     mutable double normalizationConstant_{0.0};
-    mutable bool cacheValid_{false};
+    mutable std::atomic<bool> cacheValid_{false};
     
     void updateCache() const noexcept {
         normalizationConstant_ = 1.0 / (standardDeviation_ * std::sqrt(2.0 * M_PI));
@@ -510,7 +511,7 @@ public:
 **All probability distributions MUST implement parameter validation using the separate validation method pattern:**
 
 ```cpp
-class DistributionName : public ProbabilityDistribution {
+class DistributionName : public EmissionDistribution {
 private:
     /**
      * Validates parameters for the distribution
