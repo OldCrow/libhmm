@@ -106,11 +106,11 @@ if(GTest_FOUND OR TARGET gtest)
         common/test_modern_constants.cpp
     )
     
-    # Calculator tests — canonical implementations only.
-    # Old variant/traits/SIMD-selector tests are in tests/calculators/ but
-    # excluded here until the legacy files are deleted in a later session.
+    # Calculator tests
     set(CALCULATOR_TESTS
         calculators/test_canonical_calculators.cpp
+        calculators/test_calculator_continuous.cpp
+        calculators/test_calculator_edge_cases.cpp
     )
     
     # Distribution tests (in distributions/ subdirectory)
@@ -151,10 +151,16 @@ if(GTest_FOUND OR TARGET gtest)
         training/test_canonical_training.cpp
         training/test_training.cpp
         training/test_training_edge_cases.cpp
+        training/test_baum_welch_convergence.cpp
+    )
+
+    # Integration tests
+    set(INTEGRATION_TESTS
+        integration/test_end_to_end.cpp
     )
 
     # Combine all tests
-    set(COMPREHENSIVE_TESTS ${MAIN_TESTS} ${COMMON_TESTS} ${CALCULATOR_TESTS} ${DISTRIBUTION_TESTS} ${IO_TESTS} ${PERFORMANCE_TESTS} ${TRAINING_TESTS})
+    set(COMPREHENSIVE_TESTS ${MAIN_TESTS} ${COMMON_TESTS} ${CALCULATOR_TESTS} ${DISTRIBUTION_TESTS} ${IO_TESTS} ${PERFORMANCE_TESTS} ${TRAINING_TESTS} ${INTEGRATION_TESTS})
     
     # Create individual test executables
     foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})
