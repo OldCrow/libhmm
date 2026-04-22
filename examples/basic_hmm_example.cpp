@@ -79,8 +79,7 @@ int main() {
         std::cout << gd.getProbability( 0 ) << "\t"
             << gd.getProbability( 1 ) << "\t"
             << gd.getProbability( 2 ) << std::endl;
-        std::cout << "3.9894e-07\t\t2.4197e-07\t\t5.3991e-08" << std::endl;
-        std::cout << "Fitting: (4,1)" << std::endl;
+        std::cout << "Fitting to [5,4,3] (expect mean=4)" << std::endl;
         gd.fit( trainvector );
         std::cout << gd << std::endl;
     
@@ -94,8 +93,7 @@ int main() {
         std::cout << gamdist.getProbability( 0 ) << "\t\t"
             << gamdist.getProbability( 1 ) << "\t\t"
             << gamdist.getProbability( 2 ) << std::endl;
-        std::cout << "0\t\t3.6788e-07\t\t1.3534e-07" << std::endl;
-        std::cout << "Fitting: (23.4063, 0.170894)" << std::endl;
+        std::cout << "Fitting to [5,4,3]" << std::endl;
         gamdist.fit( trainvector );
         std::cout << gamdist << std::endl;
 
@@ -109,8 +107,7 @@ int main() {
         std::cout << logndist.getProbability( 0 ) << "\t\t"
             << logndist.getProbability( 1 ) << "\t\t"
             << logndist.getProbability( 2 ) << std::endl;
-        std::cout << "0\t\t3.9894e-07\t\t1.5687e-07" << std::endl;
-        std::cout << "Fitting: (1.36748, .256091)" << std::endl;
+        std::cout << "Fitting to [5,4,3]" << std::endl;
         logndist.fit( trainvector );
         std::cout << logndist << std::endl;
 
@@ -124,8 +121,7 @@ int main() {
         std::cout << edist.getProbability( 0 ) << "\t\t"
             << edist.getProbability( 1 ) << "\t\t"
             << edist.getProbability( 2 ) << std::endl;
-        std::cout << "0\t\t3.6788e-07\t\t1.3534e-07" << std::endl;
-        std::cout << "Fitting: (4)" << std::endl;
+        std::cout << "Fitting to [5,4,3] (expect rate=0.25)" << std::endl;
         edist.fit( trainvector );
         std::cout << edist << std::endl;
 
