@@ -401,13 +401,27 @@ TEST_F(IOTest, HMMStreamOperators) {
 
 // Error Handling Tests
 TEST_F(IOTest, FileIOErrorHandling) {
-    // Test writing to invalid path
+    // Path selection is platform-specific:
+    //
+    // Unix: /invalid/path is under root — a non-privileged process cannot
+    //       call mkdir there, so writeTextFile's ensureDirectoryExists throws.
+    //
+    // Windows: /invalid/path maps to the current drive root (e.g. C:\invalid\path)
+    //          and IS creatable by any process, so ensureDirectoryExists succeeds.
+    //          Instead, use a regular file as a blocking "directory" — the OS
+    //          rejects treating a file as a directory on every platform.
+#ifndef _WIN32
     auto invalidPath = std::filesystem::path("/invalid/path/file.txt");
+#else
+    auto blockingFile = testDir_ / "not_a_directory";
+    FileIOManager::writeTextFile(blockingFile, "blocking");
+    auto invalidPath = blockingFile / "file.txt";
+#endif
     EXPECT_THROW(FileIOManager::writeTextFile(invalidPath, "content"), std::runtime_error);
-    
+
     // Test copying non-existent file
     EXPECT_THROW(FileIOManager::copyFile(nonExistentFile_, testFile_), std::runtime_error);
-    
+
     // Test creating backup of non-existent file
     EXPECT_THROW(FileIOManager::createBackup(nonExistentFile_), std::runtime_error);
 }
@@ -415,11 +429,17 @@ TEST_F(IOTest, FileIOErrorHandling) {
 TEST_F(IOTest, XMLFileErrorHandling) {
     XMLFileWriter writer;
     XMLFileReader reader;
-    
-    // Test writing to invalid directory
+
+    // Same platform-specific path selection as FileIOErrorHandling above.
+#ifndef _WIN32
     auto invalidXmlPath = std::filesystem::path("/invalid/directory/test.xml");
+#else
+    auto blockingFile = testDir_ / "not_a_directory_xml";
+    FileIOManager::writeTextFile(blockingFile, "blocking");
+    auto invalidXmlPath = blockingFile / "test.xml";
+#endif
     EXPECT_THROW(writer.write(*hmm_, invalidXmlPath), std::runtime_error);
-    
+
     // Test reading invalid XML content
     FileIOManager::writeTextFile(xmlFile_, "Invalid XML content");
     EXPECT_THROW(reader.read(xmlFile_), std::runtime_error);
