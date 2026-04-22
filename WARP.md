@@ -180,7 +180,7 @@ Custom targets: `run_tests` (correctness, parallel), `run_tests_timing` (serial)
 
 | Issue | Status | Notes |
 |---|---|---|
-| `test_xml_file_io` | `known_broken` | Windows: error handling for invalid paths doesn't throw. Not a refactor regression. |
+| `test_xml_file_io` | Resolved | Fixed in v3.0.0 — platform-guarded test path now correctly provokes the error on both Windows and Unix. |
 | Benchmarks | Complete | Comparative suite run on macOS (April 2026). Results in `benchmarks/docs/BENCHMARKING_RESULTS.md`. libhmm throughput ~8–14k obs/ms vs old ~1k obs/ms baseline; now faster than StochHMM and JAHMM. HMMLib ~3×, GHMM ~5× faster than libhmm. |
 | StochHMM PI typo | Resolved | `source/src/stochMath.h` had `3.145926...`; corrected to `3.141592653589793`. Post-fix continuous log-likelihoods match libhmm to machine precision. Pre-fix continuous results in `BENCHMARKING_RESULTS.md` are marked invalid. |
 

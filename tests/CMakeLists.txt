@@ -187,10 +187,7 @@ if(GTest_FOUND OR TARGET gtest)
     # =========================================================================
     # Level 7: IO & Integration
     # =========================================================================
-    # test_xml_file_io: pre-existing failure on Windows — error handling for
-    # invalid file paths does not throw as expected. Not a Phase 3/4 regression.
-    # Remove from known_broken once the underlying IO issue is fixed.
-    add_hmm_test(test_xml_file_io   io/test_xml_file_io.cpp   LABELS "known_broken")
+    add_hmm_test(test_xml_file_io   io/test_xml_file_io.cpp)
     add_hmm_test(test_hmm_stream_io io/test_hmm_stream_io.cpp)
     add_hmm_test(test_end_to_end    integration/test_end_to_end.cpp)
 
