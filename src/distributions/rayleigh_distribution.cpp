@@ -12,14 +12,10 @@ namespace libhmm {
  * @param value The value at which to evaluate the PDF
  * @return Probability density
  */
-double RayleighDistribution::getProbability(double value) {
-    if (value < constants::math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value)) {
+double RayleighDistribution::getProbability(double value) const {
+    if (value < constants::math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value))
         return constants::math::ZERO_DOUBLE;
-    }
-
-    if (!cacheValid_) {
-        updateCache();
-    }
+    if (!isCacheValid()) updateCache();
 
     // PDF calculation
     return (value * invSigmaSquared_) * std::exp(negHalfInvSigmaSquared_ * value * value);
@@ -38,29 +34,13 @@ double RayleighDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
 
-    if (!cacheValid_) {
-        updateCache();
-    }
-
+    if (!isCacheValid()) updateCache();
     return std::log(value) - constants::math::TWO * logSigma_ + negHalfInvSigmaSquared_ * value * value;
 }
 
-/**
- * Computes the cumulative distribution function for the Rayleigh distribution.
- * 
- * CDF: F(x) = 1 - exp(-x²/(2σ²)) for x ≥ 0
- * 
- * @param value The value at which to evaluate the CDF
- * @return Cumulative probability
- */
 double RayleighDistribution::getCumulativeProbability(double value) const noexcept {
-    if (value < constants::math::ZERO_DOUBLE) {
-        return constants::math::ZERO_DOUBLE;
-    }
-
-    if (!cacheValid_) {
-        updateCache();
-    }
+    if (value < constants::math::ZERO_DOUBLE) return constants::math::ZERO_DOUBLE;
+    if (!isCacheValid()) updateCache();
 
     return constants::math::ONE - std::exp(negHalfInvSigmaSquared_ * value * value);
 }
@@ -72,25 +52,30 @@ double RayleighDistribution::getCumulativeProbability(double value) const noexce
  * 
  * @param values Vector of observed data
  */
-void RayleighDistribution::fit(const std::vector<Observation>& values) {
-    if (values.empty()) {
-        reset();
-        return;
+void RayleighDistribution::fit(std::span<const double> data) {
+    if (data.empty()) { reset(); return; }
+    double sumSq = 0.0;
+    for (const double val : data) {
+        if (val <= constants::math::ZERO_DOUBLE) { reset(); return; }
+        sumSq += val * val;
     }
+    sigma_ = std::sqrt(sumSq / (constants::math::TWO * static_cast<double>(data.size())));
+    invalidateCache();
+}
 
-    double sumSq = constants::math::ZERO_DOUBLE;
-    auto n = static_cast<double>(values.size());
-
-    for (const auto& value : values) {
-        if (value <= constants::math::ZERO_DOUBLE) {
-            reset();
-            return; // Invalid data for Rayleigh distribution
-        }
-        sumSq += value * value;
-    }
-
-    sigma_ = std::sqrt(sumSq / (constants::math::TWO * n));
-    cacheValid_ = false;
+void RayleighDistribution::fit(std::span<const double> data,
+                               std::span<const double> weights) {
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < constants::precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    double sumWSq = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        if (data[i] > 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
+            sumWSq += weights[i] * data[i] * data[i];
+    const double sigmaEst = std::sqrt(sumWSq / (constants::math::TWO * sumW));
+    if (!std::isfinite(sigmaEst) || sigmaEst <= 0.0) { reset(); return; }
+    sigma_ = sigmaEst;
+    invalidateCache();
 }
 
 /**
@@ -98,7 +83,7 @@ void RayleighDistribution::fit(const std::vector<Observation>& values) {
  */
 void RayleighDistribution::reset() noexcept {
     sigma_ = constants::math::ONE;
-    cacheValid_ = false;
+    invalidateCache();
 }
 
 std::string RayleighDistribution::toString() const {
@@ -129,6 +114,22 @@ std::istream& operator>>(std::istream& is, RayleighDistribution& distribution) {
         is.setstate(std::ios::failbit);
     }
     return is;
+}
+
+void RayleighDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised log(x): inner loop is
+    // log(x) - 2*log(σ) + negHalfInvSigmaSquared_*x² — structurally close to
+    // Gaussian tier 2 but with an extra log(x) term. Available via Intel SVML,
+    // GNU libmvec, or Apple Accelerate vvlog, but not portably without a
+    // math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = RayleighDistribution::getLogProbability(observations[i]);
+    }
 }
 
 } // namespace libhmm

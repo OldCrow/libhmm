@@ -1,5 +1,4 @@
-#ifndef STRINGTOKENIZER_H_
-#define STRINGTOKENIZER_H_
+#pragma once
 
 #include <string>
 #include <iostream>
@@ -60,4 +59,3 @@ private:
 
 } //namespace
 
-#endif

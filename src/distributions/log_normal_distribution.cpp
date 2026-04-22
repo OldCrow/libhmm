@@ -20,16 +20,9 @@ namespace libhmm
  * @param x The value at which to evaluate the probability
  * @return Approximated probability for discrete sampling
  */            
-double LogNormalDistribution::getProbability(double x) {
-    // Log-Normal distribution has support (0, ∞)
-    if (std::isnan(x) || std::isinf(x) || x <= math::ZERO_DOUBLE) {
-        return math::ZERO_DOUBLE;
-    }
-    
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
+double LogNormalDistribution::getProbability(double x) const {
+    if (std::isnan(x) || std::isinf(x) || x <= math::ZERO_DOUBLE) return math::ZERO_DOUBLE;
+    if (!isCacheValid()) updateCache();
     
     // Use direct PDF calculation for better performance
     // f(x) = 1/(x*σ*√(2π)) * exp(-½*((ln(x)-μ)/σ)²)
@@ -60,15 +53,9 @@ double LogNormalDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
     
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Log PDF: log(f(x)) = -ln(x) - ln(σ√(2π)) - ½((ln(x)-μ)/σ)²
-    double logX = std::log(value);
-    double standardized = (logX - mean_) / standardDeviation_;
-    
+    if (!isCacheValid()) updateCache();
+    const double logX = std::log(value);
+    const double standardized = (logX - mean_) / standardDeviation_;
     return -logX - logNormalizationConstant_ + negHalfSigmaSquaredInv_ * standardized * standardized;
 }
 
@@ -100,59 +87,50 @@ double LogNormalDistribution::getCumulativeProbability(double value) const noexc
  * 
  * @param values Vector of observed data points
  */                   
-void LogNormalDistribution::fit(const std::vector<Observation>& values) {
-    if (values.empty()) {
-        reset();
-        return;
-    }
-    
-    // Single-pass Welford's algorithm for log-transformed data
-    double mean = math::ZERO_DOUBLE;
-    double M2 = math::ZERO_DOUBLE;  // Sum of squared differences from current mean
-    std::size_t validCount = 0;
-    
-    for (const auto& val : values) {
-        // Only process positive values (support of Log-Normal distribution)
-        if (val > math::ZERO_DOUBLE && std::isfinite(val)) {
+void LogNormalDistribution::fit(std::span<const double> data) {
+    if (data.empty()) { reset(); return; }
+    double mean = 0.0, M2 = 0.0;
+    std::size_t count = 0;
+    for (const double val : data) {
+        if (val > 0.0 && std::isfinite(val)) {
+            ++count;
             const double logVal = std::log(val);
-            ++validCount;
             const double delta = logVal - mean;
-            mean += delta / static_cast<double>(validCount);
-            const double delta2 = logVal - mean;
-            M2 += delta * delta2;
+            mean += delta / static_cast<double>(count);
+            M2 += delta * (logVal - mean);
         }
-        // Skip zero or negative values as they're not in the support
     }
-    
-    // Handle edge cases
-    if (validCount == 0) {
-        reset(); // Fall back to default if no valid data
-        return;
+    if (count == 0) { reset(); return; }
+    if (count == 1) {
+        mean_ = mean; standardDeviation_ = precision::LIMIT_TOLERANCE;
+        invalidateCache(); return;
     }
-    
-    if (validCount == 1) {
-        // For a single data point, set mean to ln(value) and use a small stddev
-        mean_ = mean;
-        standardDeviation_ = precision::LIMIT_TOLERANCE; // Use small but non-zero value
-        cacheValid_ = false;
-        return;
-    }
-    
-    // Calculate sample variance using Bessel's correction (N-1)
-    const double variance = M2 / static_cast<double>(validCount - 1);
-    const double stddev = std::sqrt(variance);
-    
-    // Validate computed parameters using constants
-    if (std::isnan(mean) || std::isinf(mean) || 
-        std::isnan(stddev) || std::isinf(stddev) || stddev <= precision::ZERO) {
-        reset(); // Fall back to default
-        return;
-    }
-    
-    // Update parameters
-    mean_ = mean;
-    standardDeviation_ = stddev;
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    const double stddev = std::sqrt(M2 / static_cast<double>(count - 1));
+    if (!std::isfinite(mean) || !std::isfinite(stddev) || stddev <= precision::ZERO) { reset(); return; }
+    mean_ = mean; standardDeviation_ = stddev;
+    invalidateCache();
+}
+
+void LogNormalDistribution::fit(std::span<const double> data,
+                                std::span<const double> weights) {
+    double sumW = 0.0;
+    for (const double w : weights) sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    double mean = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        if (data[i] > 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
+            mean += (weights[i] / sumW) * std::log(data[i]);
+    double var = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+        if (data[i] > 0.0 && std::isfinite(data[i]) && weights[i] > 0.0) {
+            const double d = std::log(data[i]) - mean;
+            var += weights[i] * d * d;
+        }
+    var /= sumW;
+    const double stddev = std::sqrt(var);
+    if (!std::isfinite(mean) || !std::isfinite(stddev) || stddev <= precision::ZERO) { reset(); return; }
+    mean_ = mean; standardDeviation_ = stddev;
+    invalidateCache();
 }
 
 /**
@@ -160,9 +138,8 @@ void LogNormalDistribution::fit(const std::vector<Observation>& values) {
  * This corresponds to the standard log-normal distribution.
  */
 void LogNormalDistribution::reset() noexcept {
-    mean_ = 0.0;
-    standardDeviation_ = 1.0;
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    mean_ = 0.0; standardDeviation_ = 1.0;
+    invalidateCache();
 }
 
 std::string LogNormalDistribution::toString() const {
@@ -216,5 +193,20 @@ std::istream& operator>>( std::istream& is,
     return is;
 }
 
+void LogNormalDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised log(x): the inner loop is essentially
+    // Gaussian on log(x), so once a vectorised log is available the pattern is
+    // identical to GaussianDistribution tier 2 but with an extra log-transform
+    // step. Available via Intel SVML, GNU libmvec, or Apple Accelerate vvlog,
+    // but not portably without a math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = LogNormalDistribution::getLogProbability(observations[i]);
+    }
+}
 
 }

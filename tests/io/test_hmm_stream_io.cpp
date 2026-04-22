@@ -29,8 +29,8 @@ TEST_F(HmmStreamIOTest, StudentTDistributionRoundTrip) {
     hmm.setTrans(trans);
     
     // Set up distributions
-    hmm.setProbabilityDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
-    hmm.setProbabilityDistribution(1, std::make_unique<StudentTDistribution>(3.0, 2.0, 1.5));
+    hmm.setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
+    hmm.setDistribution(1, std::make_unique<StudentTDistribution>(3.0, 2.0, 1.5));
     
     // Write HMM to string
     std::ostringstream oss;
@@ -60,15 +60,15 @@ TEST_F(HmmStreamIOTest, StudentTDistributionRoundTrip) {
     }
     
     // Check distributions
-    const auto* orig_dist0 = dynamic_cast<const GaussianDistribution*>(hmm.getProbabilityDistribution(0));
-    const auto* rest_dist0 = dynamic_cast<const GaussianDistribution*>(hmm_restored.getProbabilityDistribution(0));
+    const auto* orig_dist0 = dynamic_cast<const GaussianDistribution*>(&hmm.getDistribution(0));
+    const auto* rest_dist0 = dynamic_cast<const GaussianDistribution*>(&hmm_restored.getDistribution(0));
     ASSERT_TRUE(orig_dist0 != nullptr);
     ASSERT_TRUE(rest_dist0 != nullptr);
     EXPECT_NEAR(orig_dist0->getMean(), rest_dist0->getMean(), 1e-10);
     EXPECT_NEAR(orig_dist0->getStandardDeviation(), rest_dist0->getStandardDeviation(), 1e-10);
     
-    const auto* orig_dist1 = dynamic_cast<const StudentTDistribution*>(hmm.getProbabilityDistribution(1));
-    const auto* rest_dist1 = dynamic_cast<const StudentTDistribution*>(hmm_restored.getProbabilityDistribution(1));
+    const auto* orig_dist1 = dynamic_cast<const StudentTDistribution*>(&hmm.getDistribution(1));
+    const auto* rest_dist1 = dynamic_cast<const StudentTDistribution*>(&hmm_restored.getDistribution(1));
     ASSERT_TRUE(orig_dist1 != nullptr);
     ASSERT_TRUE(rest_dist1 != nullptr);
     EXPECT_NEAR(orig_dist1->getDegreesOfFreedom(), rest_dist1->getDegreesOfFreedom(), 1e-10);
@@ -93,8 +93,8 @@ TEST_F(HmmStreamIOTest, ChiSquaredDistributionRoundTrip) {
     hmm.setTrans(trans);
     
     // Set up distributions
-    hmm.setProbabilityDistribution(0, std::make_unique<ChiSquaredDistribution>(5.0));
-    hmm.setProbabilityDistribution(1, std::make_unique<GaussianDistribution>(1.0, 2.0));
+    hmm.setDistribution(0, std::make_unique<ChiSquaredDistribution>(5.0));
+    hmm.setDistribution(1, std::make_unique<GaussianDistribution>(1.0, 2.0));
     
     // Write HMM to string
     std::ostringstream oss;
@@ -124,14 +124,14 @@ TEST_F(HmmStreamIOTest, ChiSquaredDistributionRoundTrip) {
     }
     
     // Check distributions
-    const auto* orig_dist0 = dynamic_cast<const ChiSquaredDistribution*>(hmm.getProbabilityDistribution(0));
-    const auto* rest_dist0 = dynamic_cast<const ChiSquaredDistribution*>(hmm_restored.getProbabilityDistribution(0));
+    const auto* orig_dist0 = dynamic_cast<const ChiSquaredDistribution*>(&hmm.getDistribution(0));
+    const auto* rest_dist0 = dynamic_cast<const ChiSquaredDistribution*>(&hmm_restored.getDistribution(0));
     ASSERT_TRUE(orig_dist0 != nullptr);
     ASSERT_TRUE(rest_dist0 != nullptr);
     EXPECT_NEAR(orig_dist0->getDegreesOfFreedom(), rest_dist0->getDegreesOfFreedom(), 1e-10);
     
-    const auto* orig_dist1 = dynamic_cast<const GaussianDistribution*>(hmm.getProbabilityDistribution(1));
-    const auto* rest_dist1 = dynamic_cast<const GaussianDistribution*>(hmm_restored.getProbabilityDistribution(1));
+    const auto* orig_dist1 = dynamic_cast<const GaussianDistribution*>(&hmm.getDistribution(1));
+    const auto* rest_dist1 = dynamic_cast<const GaussianDistribution*>(&hmm_restored.getDistribution(1));
     ASSERT_TRUE(orig_dist1 != nullptr);
     ASSERT_TRUE(rest_dist1 != nullptr);
     EXPECT_NEAR(orig_dist1->getMean(), rest_dist1->getMean(), 1e-10);
@@ -155,8 +155,8 @@ TEST_F(HmmStreamIOTest, BothNewDistributionsRoundTrip) {
     hmm.setTrans(trans);
     
     // Set up distributions
-    hmm.setProbabilityDistribution(0, std::make_unique<StudentTDistribution>(4.0, 0.0, 2.0));
-    hmm.setProbabilityDistribution(1, std::make_unique<ChiSquaredDistribution>(3.0));
+    hmm.setDistribution(0, std::make_unique<StudentTDistribution>(4.0, 0.0, 2.0));
+    hmm.setDistribution(1, std::make_unique<ChiSquaredDistribution>(3.0));
     
     // Write HMM to string
     std::ostringstream oss;
@@ -186,16 +186,16 @@ TEST_F(HmmStreamIOTest, BothNewDistributionsRoundTrip) {
     }
     
     // Check distributions
-    const auto* orig_dist0 = dynamic_cast<const StudentTDistribution*>(hmm.getProbabilityDistribution(0));
-    const auto* rest_dist0 = dynamic_cast<const StudentTDistribution*>(hmm_restored.getProbabilityDistribution(0));
+    const auto* orig_dist0 = dynamic_cast<const StudentTDistribution*>(&hmm.getDistribution(0));
+    const auto* rest_dist0 = dynamic_cast<const StudentTDistribution*>(&hmm_restored.getDistribution(0));
     ASSERT_TRUE(orig_dist0 != nullptr);
     ASSERT_TRUE(rest_dist0 != nullptr);
     EXPECT_NEAR(orig_dist0->getDegreesOfFreedom(), rest_dist0->getDegreesOfFreedom(), 1e-10);
     EXPECT_NEAR(orig_dist0->getLocation(), rest_dist0->getLocation(), 1e-10);
     EXPECT_NEAR(orig_dist0->getScale(), rest_dist0->getScale(), 1e-10);
     
-    const auto* orig_dist1 = dynamic_cast<const ChiSquaredDistribution*>(hmm.getProbabilityDistribution(1));
-    const auto* rest_dist1 = dynamic_cast<const ChiSquaredDistribution*>(hmm_restored.getProbabilityDistribution(1));
+    const auto* orig_dist1 = dynamic_cast<const ChiSquaredDistribution*>(&hmm.getDistribution(1));
+    const auto* rest_dist1 = dynamic_cast<const ChiSquaredDistribution*>(&hmm_restored.getDistribution(1));
     ASSERT_TRUE(orig_dist1 != nullptr);
     ASSERT_TRUE(rest_dist1 != nullptr);
     EXPECT_NEAR(orig_dist1->getDegreesOfFreedom(), rest_dist1->getDegreesOfFreedom(), 1e-10);
@@ -237,7 +237,7 @@ TEST_F(HmmStreamIOTest, StudentTDistributionParameterParsing) {
     Hmm hmm(1);
     iss >> hmm;
     
-    const auto* dist = dynamic_cast<const StudentTDistribution*>(hmm.getProbabilityDistribution(0));
+    const auto* dist = dynamic_cast<const StudentTDistribution*>(&hmm.getDistribution(0));
     ASSERT_TRUE(dist != nullptr);
     EXPECT_NEAR(dist->getDegreesOfFreedom(), 5.5, 1e-10);
     EXPECT_NEAR(dist->getLocation(), -1.2, 1e-10);
@@ -260,7 +260,7 @@ TEST_F(HmmStreamIOTest, ChiSquaredDistributionParameterParsing) {
     Hmm hmm(1);
     iss >> hmm;
     
-    const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(hmm.getProbabilityDistribution(0));
+    const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(&hmm.getDistribution(0));
     ASSERT_TRUE(dist != nullptr);
     EXPECT_NEAR(dist->getDegreesOfFreedom(), 7.25, 1e-10);
 }
@@ -284,9 +284,9 @@ TEST_F(HmmStreamIOTest, MultipleDistributionTypesInSameHMM) {
     hmm.setTrans(trans);
     
     // Set up distributions with different types
-    hmm.setProbabilityDistribution(0, std::make_unique<GaussianDistribution>(1.5, 0.8));
-    hmm.setProbabilityDistribution(1, std::make_unique<StudentTDistribution>(2.5, 0.5, 1.2));
-    hmm.setProbabilityDistribution(2, std::make_unique<ChiSquaredDistribution>(4.0));
+    hmm.setDistribution(0, std::make_unique<GaussianDistribution>(1.5, 0.8));
+    hmm.setDistribution(1, std::make_unique<StudentTDistribution>(2.5, 0.5, 1.2));
+    hmm.setDistribution(2, std::make_unique<ChiSquaredDistribution>(4.0));
     
     // Write HMM to string
     std::ostringstream oss;
@@ -316,23 +316,23 @@ TEST_F(HmmStreamIOTest, MultipleDistributionTypesInSameHMM) {
     }
     
     // Check distributions
-    const auto* orig_gauss = dynamic_cast<const GaussianDistribution*>(hmm.getProbabilityDistribution(0));
-    const auto* rest_gauss = dynamic_cast<const GaussianDistribution*>(hmm_restored.getProbabilityDistribution(0));
+    const auto* orig_gauss = dynamic_cast<const GaussianDistribution*>(&hmm.getDistribution(0));
+    const auto* rest_gauss = dynamic_cast<const GaussianDistribution*>(&hmm_restored.getDistribution(0));
     ASSERT_TRUE(orig_gauss != nullptr);
     ASSERT_TRUE(rest_gauss != nullptr);
     EXPECT_NEAR(orig_gauss->getMean(), rest_gauss->getMean(), 1e-10);
     EXPECT_NEAR(orig_gauss->getStandardDeviation(), rest_gauss->getStandardDeviation(), 1e-10);
     
-    const auto* orig_student = dynamic_cast<const StudentTDistribution*>(hmm.getProbabilityDistribution(1));
-    const auto* rest_student = dynamic_cast<const StudentTDistribution*>(hmm_restored.getProbabilityDistribution(1));
+    const auto* orig_student = dynamic_cast<const StudentTDistribution*>(&hmm.getDistribution(1));
+    const auto* rest_student = dynamic_cast<const StudentTDistribution*>(&hmm_restored.getDistribution(1));
     ASSERT_TRUE(orig_student != nullptr);
     ASSERT_TRUE(rest_student != nullptr);
     EXPECT_NEAR(orig_student->getDegreesOfFreedom(), rest_student->getDegreesOfFreedom(), 1e-10);
     EXPECT_NEAR(orig_student->getLocation(), rest_student->getLocation(), 1e-10);
     EXPECT_NEAR(orig_student->getScale(), rest_student->getScale(), 1e-10);
     
-    const auto* orig_chi = dynamic_cast<const ChiSquaredDistribution*>(hmm.getProbabilityDistribution(2));
-    const auto* rest_chi = dynamic_cast<const ChiSquaredDistribution*>(hmm_restored.getProbabilityDistribution(2));
+    const auto* orig_chi = dynamic_cast<const ChiSquaredDistribution*>(&hmm.getDistribution(2));
+    const auto* rest_chi = dynamic_cast<const ChiSquaredDistribution*>(&hmm_restored.getDistribution(2));
     ASSERT_TRUE(orig_chi != nullptr);
     ASSERT_TRUE(rest_chi != nullptr);
     EXPECT_NEAR(orig_chi->getDegreesOfFreedom(), rest_chi->getDegreesOfFreedom(), 1e-10);

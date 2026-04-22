@@ -1,5 +1,4 @@
-#ifndef LIBHMM_DISTRIBUTIONS_H_
-#define LIBHMM_DISTRIBUTIONS_H_
+#pragma once
 
 /**
  * @file distributions.h
@@ -24,7 +23,8 @@
  */
 
 // Base distribution interface
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/emission_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 
 // Distribution type traits and metaprogramming utilities
 #include "libhmm/distributions/distribution_traits.h"
@@ -76,18 +76,17 @@
 // Distribution count for compile-time verification
 namespace libhmm {
     namespace detail {
-        /// Total number of concrete distribution types (excluding base class)
-        inline constexpr std::size_t DISTRIBUTION_COUNT = 14;
+        /// Total number of concrete distribution types (excluding base classes)
+        inline constexpr std::size_t DISTRIBUTION_COUNT = 15;
         
         /// Number of discrete distribution types
         inline constexpr std::size_t DISCRETE_DISTRIBUTION_COUNT = 4;
         
         /// Number of continuous distribution types
-        inline constexpr std::size_t CONTINUOUS_DISTRIBUTION_COUNT = 10;
+        inline constexpr std::size_t CONTINUOUS_DISTRIBUTION_COUNT = 11;
         
         static_assert(DISCRETE_DISTRIBUTION_COUNT + CONTINUOUS_DISTRIBUTION_COUNT == DISTRIBUTION_COUNT,
                      "Distribution counts must be consistent");
     }
 }
 
-#endif // LIBHMM_DISTRIBUTIONS_H_

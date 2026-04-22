@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include "libhmm/common/common.h"
 #include "libhmm/common/string_tokenizer.h"
-#include "libhmm/two_state_hmm.h"
 #include <string>
 #include <cmath>
 
@@ -306,75 +305,6 @@ TEST_F(TypeDefinitionsTest, ObservationLists) {
     EXPECT_EQ(lists[1].size(), 2u);
 }
 
-// Two-State HMM Tests
-class TwoStateHMMTest : public ::testing::Test {};
-
-TEST_F(TwoStateHMMTest, ConstantsAreCorrect) {
-    using namespace TwoStateHMM;
-    
-    EXPECT_EQ(NUM_STATES, 2u);
-    EXPECT_EQ(NUM_SYMBOLS, 6u);
-    EXPECT_EQ(FAIR_STATE, 0u);
-    EXPECT_EQ(LOADED_STATE, 1u);
-    
-    EXPECT_DOUBLE_EQ(FAIR_INITIAL_PROB, 0.75);
-    EXPECT_DOUBLE_EQ(LOADED_INITIAL_PROB, 0.25);
-    
-    EXPECT_DOUBLE_EQ(FAIR_TO_FAIR, 0.9);
-    EXPECT_DOUBLE_EQ(FAIR_TO_LOADED, 0.1);
-    EXPECT_DOUBLE_EQ(LOADED_TO_FAIR, 0.8);
-    EXPECT_DOUBLE_EQ(LOADED_TO_LOADED, 0.2);
-    
-    EXPECT_NEAR(FAIR_EMISSION_PROB, 1.0/6.0, 1e-10);
-    EXPECT_DOUBLE_EQ(LOADED_NORMAL_PROB, 0.125);
-    EXPECT_DOUBLE_EQ(LOADED_BIASED_PROB, 0.375);
-}
-
-TEST_F(TwoStateHMMTest, PrepareTwoStateHmm) {
-    auto hmm = std::make_unique<Hmm>(2);
-    
-    EXPECT_NO_THROW(prepareTwoStateHmm(hmm.get()));
-    
-    // Verify basic properties
-    EXPECT_EQ(hmm->getNumStates(), 2);
-    
-    // Verify pi vector
-    const Vector& pi = hmm->getPi();
-    EXPECT_DOUBLE_EQ(pi(0), TwoStateHMM::FAIR_INITIAL_PROB);
-    EXPECT_DOUBLE_EQ(pi(1), TwoStateHMM::LOADED_INITIAL_PROB);
-    
-    // Verify transition matrix
-    const Matrix& trans = hmm->getTrans();
-    EXPECT_DOUBLE_EQ(trans(0, 0), TwoStateHMM::FAIR_TO_FAIR);
-    EXPECT_DOUBLE_EQ(trans(0, 1), TwoStateHMM::FAIR_TO_LOADED);
-    EXPECT_DOUBLE_EQ(trans(1, 0), TwoStateHMM::LOADED_TO_FAIR);
-    EXPECT_DOUBLE_EQ(trans(1, 1), TwoStateHMM::LOADED_TO_LOADED);
-    
-    // Verify that validation passes
-    EXPECT_NO_THROW(hmm->validate());
-}
-
-TEST_F(TwoStateHMMTest, PrepareTwoStateHmmNullThrows) {
-    EXPECT_THROW(prepareTwoStateHmm(nullptr), std::invalid_argument);
-}
-
-TEST_F(TwoStateHMMTest, CreateTwoStateHmm) {
-    auto hmm = createTwoStateHmm();
-    
-    EXPECT_EQ(hmm->getNumStates(), 2);
-    EXPECT_NO_THROW(hmm->validate());
-}
-
-TEST_F(TwoStateHMMTest, LegacyCompatibility) {
-    auto hmm = std::make_unique<Hmm>(2);
-    
-    // Use the modern function to avoid deprecation warnings
-    EXPECT_NO_THROW(prepareTwoStateHmm(hmm.get()));
-    
-    // Should produce the same result as modern function
-    EXPECT_EQ(hmm->getNumStates(), 2);
-    EXPECT_NO_THROW(hmm->validate());
-}
 
 // Error Handling and Edge Cases
 class CommonErrorHandlingTest : public ::testing::Test {};

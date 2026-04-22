@@ -1,142 +1,74 @@
-#ifndef VITERBITRAINER_H_
-#define VITERBITRAINER_H_
+#pragma once
 
-#include <unordered_map>
-#include <cassert>
-#include <cstdlib>
-#include <cfloat>
-#include <memory>
-#include <algorithm>
-#include <stdexcept>
-#include <optional>
-#include <functional>
-#include "libhmm/common/common.h"
-#include "libhmm/training/hmm_trainer.h"
-#include "libhmm/training/cluster.h"
-#include "libhmm/training/centroid.h"
-#include "libhmm/distributions/distributions.h"
-#include "libhmm/calculators/scaled_simd_forward_backward_calculator.h"
-#include "libhmm/calculators/viterbi_calculator.h"
+#include "libhmm/training/trainer.h"
+#include <deque>
+#include <limits>
 
-namespace libhmm
-{
+namespace libhmm {
 
-/// Implements the Segmented k-Means (aka Viterbi) training algorithm.
-/// This implementation is based on the description given in Dugad & Desai
-/// (1996), which uses logarithms to prevent mathematical operations on
-/// very small numbers. Rabiner(1986) does mention this problem, but
-/// does not provide a solution.
-class ViterbiTrainer : public HmmTrainer
-{
-protected:
-    /// Training termination flag
-    bool terminated_{false};
+/**
+ * @brief Configuration for ViterbiTrainer.
+ *
+ * Convergence is declared when the absolute change in total log-probability
+ * between successive iterations stays below convergenceTolerance for
+ * convergenceWindow consecutive iterations.
+ */
+struct TrainingConfig {
+    double      convergenceTolerance{1e-6};
+    std::size_t maxIterations{500};
+    std::size_t convergenceWindow{3};
+    bool        enableProgressReporting{false};
+};
 
-    /// Array of clusters for k-means algorithm
-    std::unique_ptr<Cluster[]> clusters_;
+/// Named preset configurations for common training scenarios.
+namespace training_presets {
+    /// Fast convergence, loose tolerance — suitable for initialisation.
+    [[nodiscard]] TrainingConfig fast() noexcept;
+    /// Default balanced settings.
+    [[nodiscard]] TrainingConfig balanced() noexcept;
+    /// Tight tolerance for high-accuracy offline training.
+    [[nodiscard]] TrainingConfig precise() noexcept;
+} // namespace training_presets
 
-    /// Modern type-safe association key for observation-cluster mapping
-    struct AssociationKey {
-        std::size_t sequence_id;    ///< Index of observation sequence
-        std::size_t observation_id; ///< Index of observation within sequence
-        
-        /// Equality operator for C++17 compatibility
-        bool operator==(const AssociationKey& other) const noexcept {
-            return sequence_id == other.sequence_id && observation_id == other.observation_id;
-        }
-        
-        /// Inequality operator for C++17 compatibility
-        bool operator!=(const AssociationKey& other) const noexcept {
-            return !(*this == other);
-        }
-        
-        /// Less-than operator for ordered containers (C++17 compatible)
-        bool operator<(const AssociationKey& other) const noexcept {
-            if (sequence_id != other.sequence_id) {
-                return sequence_id < other.sequence_id;
-            }
-            return observation_id < other.observation_id;
-        }
-    };
-    
-    /// Hash function for AssociationKey to enable unordered_map usage
-    struct AssociationKeyHash {
-        std::size_t operator()(const AssociationKey& key) const noexcept {
-            // Combine two hash values using a standard technique
-            std::size_t h1 = std::hash<std::size_t>{}(key.sequence_id);
-            std::size_t h2 = std::hash<std::size_t>{}(key.observation_id);
-            return h1 ^ (h2 << 1); // Simple but effective hash combination
-        }
-    };
-
-    /// Modern type-safe map for observation-cluster associations
-    /// Maps (sequence_id, observation_id) -> cluster_index
-    std::unordered_map<AssociationKey, std::size_t, AssociationKeyHash> associations_;
-
-    /// Number of changes made to the clusters during training
-    std::size_t numChanges_{0};
-
-    /// Concatenates all the ObservationSets in the ObservationLists collection
-    /// @return Flattened observation set
-    ObservationSet flattenObservationLists();
-
-    /// Sorts an ObservationSet using quicksort algorithm
-    /// @param set ObservationSet to sort
-    void quickSort(ObservationSet& set);
-    
-    /// Internal quicksort implementation
-    /// @param set ObservationSet to sort
-    /// @param left Left boundary for sorting
-    /// @param right Right boundary for sorting
-    void quickSort(ObservationSet& set, int left, int right);
-
-    /// Returns the closest Cluster to an Observation, based on its Centroid
-    /// @param o Observation to find closest cluster for
-    /// @return Index of closest cluster
-    std::size_t findClosestCluster(Observation o);
-
-    /// Associates an Observation with a Cluster and records the association
-    /// @param i Index of observation set
-    /// @param j Index of observation within set
-    /// @param c Index of cluster to associate with
-    void associateObservation(std::size_t i, std::size_t j, std::size_t c);
-
-    /// Returns cluster index that an observation is associated with
-    /// @param i Index of observation set
-    /// @param j Index of observation within set
-    /// @return Cluster index
-    std::size_t findAssociation(std::size_t i, std::size_t j);
-    
-    /// Computes a Pi vector and assigns it to the HMM
-    void calculatePi();
-
-    /// Computes a Transmission matrix and assigns it to the HMM
-    void calculateTrans();
-
-    /// Compares a StateSequence with the association list and reassigns if needed
-    /// @param sequence State sequence to compare
-    /// @param i Index of observation set
-    void compareSequence(const StateSequence& sequence, std::size_t i);
-
+/**
+ * @brief Log-space Viterbi trainer.
+ *
+ * Each iteration:
+ *   1. Runs ViterbiCalculator on every observation sequence.
+ *   2. Assigns each observation to the decoded state.
+ *   3. Refits emission distributions via EmissionDistribution::fit(data).
+ *   4. Re-estimates pi and the transition matrix from the Viterbi paths.
+ *
+ * Works with any EmissionDistribution (continuous or discrete).
+ */
+class ViterbiTrainer : public Trainer {
 public:
-    /// Constructor with HMM and observation lists
-    /// @param hmm Pointer to the HMM to train (must not be null)
-    /// @param obsLists List of observation sequences for training
-    /// @throws std::invalid_argument if hmm is null or obsLists is empty
-    ViterbiTrainer(Hmm* hmm, const ObservationLists& obsLists)
-        : HmmTrainer(hmm, obsLists),
-          clusters_(std::make_unique<Cluster[]>(static_cast<std::size_t>(hmm->getNumStates()))) {
-    }
+    explicit ViterbiTrainer(Hmm& hmm, const ObservationLists& obsLists,
+                            TrainingConfig config = {});
+    explicit ViterbiTrainer(Hmm* hmm, const ObservationLists& obsLists,
+                            TrainingConfig config = {});
+    ~ViterbiTrainer() override = default;
 
-    /// Virtual destructor (using RAII, no manual cleanup needed)
-    virtual ~ViterbiTrainer() = default;
+    void train() override;
 
-    /// Implements Segmented k-Means training
-    /// Updates HMM parameters using the Viterbi training algorithm
-    virtual void train() override;
+    /// True if the last train() call terminated via convergence criterion.
+    [[nodiscard]] bool hasConverged()          const noexcept { return converged_; }
+    /// True if the last train() call exhausted maxIterations.
+    [[nodiscard]] bool reachedMaxIterations()  const noexcept { return maxItersReached_; }
+    /// Total log-probability from the final iteration.
+    [[nodiscard]] double getLastLogProbability() const noexcept { return lastLogProb_; }
 
+    [[nodiscard]] const TrainingConfig& getConfig() const noexcept { return config_; }
+    void setConfig(const TrainingConfig& config) { config_ = config; }
+
+private:
+    TrainingConfig config_;
+    bool   converged_{false};
+    bool   maxItersReached_{false};
+    double lastLogProb_{-std::numeric_limits<double>::infinity()};
+
+    /// Run one Viterbi iteration; returns total log-probability over all sequences.
+    double runIteration();
 }; // class ViterbiTrainer
 
-}//namespace
-
-#endif
+} // namespace libhmm

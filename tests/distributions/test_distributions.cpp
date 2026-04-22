@@ -1371,8 +1371,10 @@ TEST_F(PoissonDistributionTest, LogProbability) {
 // Additional comprehensive tests for DiscreteDistribution
 TEST_F(DiscreteDistributionTest, ParameterValidation) {
     // Test invalid constructor parameters
-    EXPECT_THROW(DiscreteDistribution(0), std::invalid_argument);
-    EXPECT_THROW(DiscreteDistribution(-1), std::length_error);
+    EXPECT_THROW(DiscreteDistribution(0),  std::invalid_argument);
+    // DiscreteDistribution takes int, so -1 is validated explicitly before
+    // any allocation — both 0 and -1 throw std::invalid_argument on all platforms.
+    EXPECT_THROW(DiscreteDistribution(-1), std::invalid_argument);
     
     // Test invalid probability setting
     auto dist = createDefaultDistribution();
@@ -1448,7 +1450,7 @@ protected:
         distributions_.push_back(std::make_unique<PoissonDistribution>());
     }
     
-    std::vector<std::unique_ptr<ProbabilityDistribution>> distributions_;
+    std::vector<std::unique_ptr<EmissionDistribution>> distributions_;
 };
 
 TEST_F(CommonDistributionTest, PolymorphicInterface) {

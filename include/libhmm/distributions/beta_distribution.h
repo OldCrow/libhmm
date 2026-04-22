@@ -1,9 +1,8 @@
-#ifndef BETADISTRIBUTION_H_
-#define BETADISTRIBUTION_H_
+#pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
+#include <span>
 
 namespace libhmm{
 
@@ -23,7 +22,7 @@ namespace libhmm{
  * - α < β: Skewed toward 0
  * - α > β: Skewed toward 1
  */
-class BetaDistribution : public ProbabilityDistribution
+class BetaDistribution : public DistributionBase
 {   
 private:
     /**
@@ -56,22 +55,12 @@ private:
      */
     mutable double invBeta_{1.0};
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cacheValid_{false};
-    
-    /**
-     * Updates cached values when parameters change
-     */
     void updateCache() const noexcept {
-        // B(α, β) = Γ(α)Γ(β)/Γ(α+β)
-        // log(B(α, β)) = log(Γ(α)) + log(Γ(β)) - log(Γ(α+β))
-        logBeta_ = std::lgamma(alpha_) + std::lgamma(beta_) - std::lgamma(alpha_ + beta_);
-        invBeta_ = std::exp(-logBeta_);  // Cache 1/B(α,β) for direct computation
-        alphaMinus1_ = alpha_ - 1.0;
-        betaMinus1_ = beta_ - 1.0;
-        cacheValid_ = true;
+        logBeta_      = std::lgamma(alpha_) + std::lgamma(beta_) - std::lgamma(alpha_ + beta_);
+        invBeta_      = std::exp(-logBeta_);
+        alphaMinus1_  = alpha_ - 1.0;
+        betaMinus1_   = beta_  - 1.0;
+        markCacheValid();
     }
     
     /**
@@ -113,60 +102,37 @@ public:
         updateCache();
     }
 
-    /**
-     * Copy constructor
-     */
-    BetaDistribution(const BetaDistribution& other) 
-        : alpha_{other.alpha_}, beta_{other.beta_}, 
+    BetaDistribution(const BetaDistribution& other)
+        : DistributionBase{other}, alpha_{other.alpha_}, beta_{other.beta_},
           logBeta_{other.logBeta_}, alphaMinus1_{other.alphaMinus1_},
-          betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_},
-          cacheValid_{other.cacheValid_} {}
-    
-    /**
-     * Copy assignment operator
-     */
+          betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_} {}
+
     BetaDistribution& operator=(const BetaDistribution& other) {
         if (this != &other) {
-            alpha_ = other.alpha_;
-            beta_ = other.beta_;
-            logBeta_ = other.logBeta_;
-            alphaMinus1_ = other.alphaMinus1_;
-            betaMinus1_ = other.betaMinus1_;
-            invBeta_ = other.invBeta_;
-            cacheValid_ = other.cacheValid_;
-        }
-        return *this;
-    }
-    
-    /**
-     * Move constructor
-     */
-    BetaDistribution(BetaDistribution&& other) noexcept
-        : alpha_{other.alpha_}, beta_{other.beta_}, 
-          logBeta_{other.logBeta_}, alphaMinus1_{other.alphaMinus1_},
-          betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_},
-          cacheValid_{other.cacheValid_} {}
-    
-    /**
-     * Move assignment operator
-     */
-    BetaDistribution& operator=(BetaDistribution&& other) noexcept {
-        if (this != &other) {
-            alpha_ = other.alpha_;
-            beta_ = other.beta_;
-            logBeta_ = other.logBeta_;
-            alphaMinus1_ = other.alphaMinus1_;
-            betaMinus1_ = other.betaMinus1_;
-            invBeta_ = other.invBeta_;
-            cacheValid_ = other.cacheValid_;
+            DistributionBase::operator=(other);
+            alpha_ = other.alpha_; beta_ = other.beta_;
+            logBeta_ = other.logBeta_; alphaMinus1_ = other.alphaMinus1_;
+            betaMinus1_ = other.betaMinus1_; invBeta_ = other.invBeta_;
         }
         return *this;
     }
 
-    /**
-     * Default destructor
-     */
-    ~BetaDistribution() = default;
+    BetaDistribution(BetaDistribution&& other) noexcept
+        : DistributionBase{std::move(other)}, alpha_{other.alpha_}, beta_{other.beta_},
+          logBeta_{other.logBeta_}, alphaMinus1_{other.alphaMinus1_},
+          betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_} {}
+
+    BetaDistribution& operator=(BetaDistribution&& other) noexcept {
+        if (this != &other) {
+            DistributionBase::operator=(std::move(other));
+            alpha_ = other.alpha_; beta_ = other.beta_;
+            logBeta_ = other.logBeta_; alphaMinus1_ = other.alphaMinus1_;
+            betaMinus1_ = other.betaMinus1_; invBeta_ = other.invBeta_;
+        }
+        return *this;
+    }
+
+    ~BetaDistribution() override = default;
 
     /**
      * Computes the probability density function for the Beta distribution.
@@ -174,17 +140,15 @@ public:
      * @param value The value at which to evaluate the PDF (should be in [0,1])
      * @return Probability density, or 0.0 if value is outside [0,1]
      */
-    double getProbability(double value) override;
+    [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
-    /**
-     * Computes the logarithm of the probability density function for numerical stability.
-     * 
-     * For Beta distribution: log(f(x)) = (α-1)log(x) + (β-1)log(1-x) - log(B(α,β))
-     * 
-     * @param value The value at which to evaluate the log-PDF (should be in [0,1])
-     * @return Natural logarithm of the probability density, or -∞ for invalid values
-     */
-    double getLogProbability(double value) const noexcept override;
+    /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch;
+    /// enables compiler auto-vectorization under -march=native or /arch:AVX2.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
 
     /**
      * Computes the cumulative distribution function for the Beta distribution.
@@ -196,6 +160,11 @@ public:
      */
     double getCumulativeProbability(double value) const noexcept;
     
+    void fit(std::span<const double> data) override;
+    /** Weighted MOM: α = μ*factor, β = (1-μ)*factor where factor = μ(1-μ)/σ² - 1. */
+    void fit(std::span<const double> data, std::span<const double> weights) override;
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+
     /**
      * Vectorized batch computation of PDF for multiple values.
      * Optimized for processing many values efficiently with cache reuse.
@@ -213,18 +182,6 @@ public:
      * @param results Output vector for results (will be resized if needed)
      */
     void getLogProbabilityBatch(const std::vector<double>& values, std::vector<double>& results) const;
-
-    /**
-     * Fits the distribution parameters to the given data using method of moments.
-     * 
-     * Given sample mean μ and variance σ², the method of moments estimators are:
-     * α̂ = μ * (μ(1-μ)/σ² - 1)
-     * β̂ = (1-μ) * (μ(1-μ)/σ² - 1)
-     * 
-     * @param values Vector of observed data (should be in [0,1])
-     * @throws std::invalid_argument if values contain data outside [0,1]
-     */
-    void fit(const std::vector<Observation>& values) override;
 
     /**
      * Resets the distribution to default parameters (α = 1.0, β = 1.0).
@@ -255,7 +212,7 @@ public:
     void setAlpha(double alpha) {
         validateParameters(alpha, beta_);
         alpha_ = alpha;
-        cacheValid_ = false;
+        invalidateCache();
     }
 
     /**
@@ -274,7 +231,7 @@ public:
     void setBeta(double beta) {
         validateParameters(alpha_, beta);
         beta_ = beta;
-        cacheValid_ = false;
+        invalidateCache();
     }
     
     /**
@@ -327,4 +284,3 @@ std::ostream& operator<<(std::ostream& os, const libhmm::BetaDistribution& distr
 
 } // namespace libhmm
 
-#endif // BETADISTRIBUTION_H_

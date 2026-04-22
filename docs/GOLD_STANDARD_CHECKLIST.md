@@ -2,16 +2,48 @@
 
 This document tracks the implementation status of all probability distributions in libhmm according to our "Gold Standard" requirements, based on the Gaussian and Exponential distributions as reference implementations.
 
-## Gold Standard Requirements
+## Gold Standard Requirements (v3.0)
+
+### v3.0 Interface Requirements (EmissionDistribution — added Phase 2/4.5)
+
+All distributions must implement the `EmissionDistribution` abstract interface. New in v3.0:
+
+- ✅ **`getBatchLogProbabilities(std::span<const double> obs, std::span<double> out) const override`**
+  - **Tier 1 (all 15)**: Concrete non-virtual loop using cached parameters directly.
+    Virtual dispatch in the `DistributionBase` default defeats compiler auto-vectorization.
+    The override removes that overhead and allows `-march=native` / `/arch:AVX2` to vectorize.
+  - **Tier 2 (Gaussian, Exponential)**: Explicit SIMD intrinsics via `detail::` free function
+    taking only plain data pointers. AVX-512 (8-wide), AVX2 (4-wide), SSE2 (2-wide), NEON (2-wide),
+    scalar tail. NaN inputs yield `-Inf` to match scalar behaviour.
+  - **Tier 2 upgrade paths for other distributions** are documented inline in each `.cpp` file.
+    Distributions with `log(x)` (LogNormal, Rayleigh, Pareto, Weibull, Gamma) require vectorised log
+    (Intel SVML / GNU libmvec / Apple Accelerate vvlog). Distributions with `lgamma` (Beta, ChiSquared,
+    StudentT, Poisson, Binomial, NegBinomial) require vectorised lgamma. Defer until a portable
+    math-library dependency is chosen.
+
+- ✅ **`fit(std::span<const double> data, std::span<const double> weights) override`**
+  - Weighted MLE for Baum-Welch M-step. Weights are unnormalised γ values; each distribution
+    normalises by `sum(weights)` internally. Falls back to `reset()` if `sum(weights) ≈ 0`.
+
+- ✅ **`std::span<const double>` parameter types** — replaces `std::vector<Observation>&`.
+  No copies in the hot path.
+
+- ✅ **Thread-safe cache** — `std::atomic<bool> cacheValid_` in `DistributionBase`
+  with `acquire`/`release` memory ordering. Required because the calculator thread pool
+  can trigger concurrent const reads on the same distribution.
+
+- ✅ **C++20 standard** — `[[nodiscard]]`, `noexcept`, `std::span`, `#pragma once`.
 
 ### Implementation Requirements
 - ✅ **Core Methods:**
-  - `getProbability()` - Probability density/mass function
-  - `getLogProbability()` - Log probability with numerical stability
-  - `getCumulativeProbability()` method (where mathematically meaningful)
-  - `fit()` - Parameter estimation using Welford's algorithm where applicable
-  - `reset()` - Reset to default parameters
-  - `toString()` - Human-readable string representation
+  - `getProbability()` — PDF/PMF (const)
+  - `getLogProbability()` — log PDF/PMF with numerical stability (const, noexcept)
+  - `getCumulativeProbability()` — CDF (where mathematically meaningful)
+  - `fit(std::span<const double>)` — unweighted MLE (Welford's algorithm)
+  - `fit(std::span<const double>, std::span<const double>)` — weighted MLE (Baum-Welch)
+  - `getBatchLogProbabilities(span, span)` — concrete non-virtual batch loop (tier 1 minimum)
+  - `reset()` — reset to default parameters
+  - `toString()` — human-readable string representation
   
 - ✅ **Rule of Five:**
   - Copy Constructor
@@ -128,22 +160,11 @@ This document tracks the implementation status of all probability distributions 
 
 ---
 
-## Current Issues  Action Items
+## Current Status (v3.0)
 
-### High Priority (Missing Features)
-1. **✅ COMPLETED: `operator==` implemented in:** Gaussian, Exponential, Gamma
-2. **✅ COMPLETED: `operator` implemented in:** Exponential, Gamma  
-3. **✅ COMPLETED: `CDF()` implemented in:** Gamma
-
-### Medium Priority (Missing Tests)
-1. **✅ Performance Tests completed in:** Uniform
-2. **✅ COMPLETED: CDF Tests completed in:** Gaussian, Exponential, Gamma, Uniform, Chi-Squared
-3. **✅ COMPLETED: Equality/I-O Tests completed in:** Gaussian, Exponential, Gamma, Uniform, Chi-Squared
-4. **✅ COMPLETED: Caching Tests completed in:** Gaussian, Exponential, Gamma, Uniform, Chi-Squared
-
-### Assessment Needed (❓ Status)
-1. **Need to assess:** All remaining distributions (Weibull through Discrete)
-2. **Priority order:** Weibull, Binomial, Negative-Binomial, Student-t, Beta, Log-Normal, Pareto, Poisson, Discrete
+All 15 distributions fully meet the Gold Standard checklist. The v3.0 interface additions
+(`getBatchLogProbabilities`, weighted `fit()`, `std::span` params, atomic cache) are also
+complete for all 15. No outstanding action items.
 
 ---
 
@@ -169,18 +190,22 @@ This document tracks the implementation status of all probability distributions 
 
 ## Notes  Conventions
 
-### C++17 Features to Use
+### C++20 Features to Use
 - `[[nodiscard]]` for getter methods
 - `noexcept` specifications where appropriate
 - Default member initializers
 - Structured bindings where helpful
 - `constexpr` for compile-time constants
+- `std::span<const double>` for read-only data parameters (no copies)
+- `#pragma once` (replaces `#ifndef` guards)
 
 ### Performance Considerations
 - Cache expensive calculations (log values, normalization constants)
-- Use Welford's algorithm for numerical stability in fitting
+- `std::atomic<bool> cacheValid_` (thread-safe, not `mutable bool`)
+- Use Welford’s algorithm for numerical stability in fitting
 - Avoid repeated computations in hot paths
-- Consider SIMD optimization opportunities
+- Implement `getBatchLogProbabilities()` as a concrete non-virtual loop (tier 1)
+  to enable compiler auto-vectorization under `-march=native` / `/arch:AVX2`
 
 ### Testing Conventions
 - Each test function should be self-contained
@@ -194,5 +219,4 @@ This document tracks the implementation status of all probability distributions 
 
 ---
 
-*Last Updated: 2025-06-29 03:54*
-*Next Review: After each distribution update*
+*Last Updated: 2026-04-22 (v3.0.0-alpha — all 15 distributions complete)*

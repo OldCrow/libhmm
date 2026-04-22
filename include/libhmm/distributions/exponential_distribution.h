@@ -1,14 +1,13 @@
-#ifndef EXPONENTIALDISTRIBUTION_H_
-#define EXPONENTIALDISTRIBUTION_H_
+#pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip>
+#include <span>
 
 namespace libhmm{
 
 /**
- * Modern C++17 Exponential distribution for modeling waiting times and decay processes.
+ * Modern C++20 Exponential distribution for modeling waiting times and decay processes.
  * 
  * The Exponential distribution is a continuous probability distribution that describes
  * the time between events in a Poisson point process. It's commonly used to model
@@ -24,7 +23,7 @@ namespace libhmm{
  * - Support: x ∈ [0, ∞)
  * - Memoryless property: P(X > s+t | X > s) = P(X > t)
  */
-class ExponentialDistribution : public ProbabilityDistribution
+class ExponentialDistribution : public DistributionBase
 {   
 private:
     /**
@@ -56,21 +55,12 @@ private:
      */
     mutable double invLambdaSquared_{1.0};
     
-    /**
-     * Flag to track if cached values need updating
-     */
-    mutable bool cacheValid_{false};
-    
-    /**
-     * Updates cached values when parameters change
-     * Computes all derived values to eliminate divisions and operations in hot paths
-     */
     void updateCache() const noexcept {
-        logLambda_ = std::log(lambda_);
-        invLambda_ = 1.0 / lambda_;
-        negLambda_ = -lambda_;
-        invLambdaSquared_ = invLambda_ * invLambda_; // Avoids division in getVariance()
-        cacheValid_ = true;
+        logLambda_      = std::log(lambda_);
+        invLambda_      = 1.0 / lambda_;
+        negLambda_      = -lambda_;
+        invLambdaSquared_ = invLambda_ * invLambda_;
+        markCacheValid();
     }
     
     /**
@@ -103,53 +93,41 @@ public:
     /**
      * Copy constructor
      */
-    ExponentialDistribution(const ExponentialDistribution& other) 
-        : lambda_{other.lambda_}, logLambda_{other.logLambda_}, 
-          invLambda_{other.invLambda_}, negLambda_{other.negLambda_},
-          invLambdaSquared_{other.invLambdaSquared_}, cacheValid_{other.cacheValid_} {}
-    
-    /**
-     * Copy assignment operator
-     */
+    ExponentialDistribution(const ExponentialDistribution& other)
+        : DistributionBase{other}, lambda_{other.lambda_},
+          logLambda_{other.logLambda_}, invLambda_{other.invLambda_},
+          negLambda_{other.negLambda_}, invLambdaSquared_{other.invLambdaSquared_} {}
+
     ExponentialDistribution& operator=(const ExponentialDistribution& other) {
         if (this != &other) {
-            lambda_ = other.lambda_;
-            logLambda_ = other.logLambda_;
-            invLambda_ = other.invLambda_;
-            negLambda_ = other.negLambda_;
+            DistributionBase::operator=(other);
+            lambda_           = other.lambda_;
+            logLambda_        = other.logLambda_;
+            invLambda_        = other.invLambda_;
+            negLambda_        = other.negLambda_;
             invLambdaSquared_ = other.invLambdaSquared_;
-            cacheValid_ = other.cacheValid_;
-        }
-        return *this;
-    }
-    
-    /**
-     * Move constructor
-     */
-    ExponentialDistribution(ExponentialDistribution&& other) noexcept
-        : lambda_{other.lambda_}, logLambda_{other.logLambda_}, 
-          invLambda_{other.invLambda_}, negLambda_{other.negLambda_},
-          invLambdaSquared_{other.invLambdaSquared_}, cacheValid_{other.cacheValid_} {}
-    
-    /**
-     * Move assignment operator
-     */
-    ExponentialDistribution& operator=(ExponentialDistribution&& other) noexcept {
-        if (this != &other) {
-            lambda_ = other.lambda_;
-            logLambda_ = other.logLambda_;
-            invLambda_ = other.invLambda_;
-            negLambda_ = other.negLambda_;
-            invLambdaSquared_ = other.invLambdaSquared_;
-            cacheValid_ = other.cacheValid_;
         }
         return *this;
     }
 
-    /**
-     * Destructor
-     */
-    ~ExponentialDistribution() = default;
+    ExponentialDistribution(ExponentialDistribution&& other) noexcept
+        : DistributionBase{std::move(other)}, lambda_{other.lambda_},
+          logLambda_{other.logLambda_}, invLambda_{other.invLambda_},
+          negLambda_{other.negLambda_}, invLambdaSquared_{other.invLambdaSquared_} {}
+
+    ExponentialDistribution& operator=(ExponentialDistribution&& other) noexcept {
+        if (this != &other) {
+            DistributionBase::operator=(std::move(other));
+            lambda_           = other.lambda_;
+            logLambda_        = other.logLambda_;
+            invLambda_        = other.invLambda_;
+            negLambda_        = other.negLambda_;
+            invLambdaSquared_ = other.invLambdaSquared_;
+        }
+        return *this;
+    }
+
+    ~ExponentialDistribution() override = default;
 
     /**
      * Computes the probability density function for the Exponential distribution.
@@ -157,25 +135,28 @@ public:
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
-    double getProbability(double value) override;
+    [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double getLogProbability(double value) const noexcept override;
+
+    /// Vectorised batch log-PDF (tier 2 — explicit SIMD intrinsics).
+    /// Uses AVX-512 (8-wide), AVX/AVX2 (4-wide), SSE2 (2-wide), or NEON (2-wide).
+    /// Formula: log(λ) + (−λ)·x for x ≥ 0; -Inf for x < 0 or NaN.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+
+    /** Fit λ = 1 / sample_mean (unweighted MLE). */
+    void fit(std::span<const double> data) override;
 
     /**
-     * Computes the logarithm of the probability density function for numerical stability.
-     * 
-     * For exponential distribution: log(f(x)) = log(λ) - λx for x ≥ 0
-     * 
-     * @param value The value at which to evaluate the log-PDF
-     * @return Natural logarithm of the probability density, or -∞ for invalid values
+     * Weighted MLE: λ = Σ(weights) / Σ(w_i · x_i) = 1 / weighted_mean.
+     * Falls back to reset() if the weighted mean is zero or near-zero.
      */
-    double getLogProbability(double value) const noexcept override;
+    void fit(std::span<const double> data, std::span<const double> weights) override;
 
-    /**
-     * Fits the distribution parameters to the given data using maximum likelihood estimation.
-     * For Exponential distribution, MLE gives λ = 1/sample_mean.
-     * 
-     * @param values Vector of observed data
-     */
-    void fit(const std::vector<Observation>& values) override;
+    /** Returns false — Exponential is a continuous distribution. */
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /**
      * Resets the distribution to default parameters (λ = 1.0).
@@ -206,7 +187,7 @@ public:
     void setLambda(double lambda) {
         validateParameters(lambda);
         lambda_ = lambda;
-        cacheValid_ = false;
+        invalidateCache();
     }
     
     /**
@@ -216,54 +197,10 @@ public:
      * 
      * @return Mean value
      */
-    double getMean() const noexcept { 
-        if (!cacheValid_) {
-            updateCache();
-        }
-        return invLambda_; 
-    }
-    
-    /**
-     * Gets the variance of the distribution.
-     * For Exponential distribution, variance = 1/λ²
-     * Uses cached value to eliminate divisions and multiplications.
-     * 
-     * @return Variance value
-     */
-    double getVariance() const noexcept { 
-        if (!cacheValid_) {
-            updateCache();
-        }
-        return invLambdaSquared_; 
-    }
-    
-    /**
-     * Gets the standard deviation of the distribution.
-     * For Exponential distribution, std_dev = 1/λ
-     * Uses cached value to eliminate division (std_dev = mean for exponential).
-     * 
-     * @return Standard deviation value
-     */
-    double getStandardDeviation() const noexcept { 
-        if (!cacheValid_) {
-            updateCache();
-        }
-        return invLambda_; 
-    }
-    
-    /**
-     * Gets the scale parameter (reciprocal of rate parameter).
-     * This is equivalent to the mean for exponential distributions.
-     * Uses cached value to eliminate division.
-     * 
-     * @return Scale parameter (1/λ)
-     */
-    double getScale() const noexcept {
-        if (!cacheValid_) {
-            updateCache();
-        }
-        return invLambda_;
-    }
+    double getMean()              const noexcept { if (!isCacheValid()) updateCache(); return invLambda_; }
+    double getVariance()          const noexcept { if (!isCacheValid()) updateCache(); return invLambdaSquared_; }
+    double getStandardDeviation() const noexcept { if (!isCacheValid()) updateCache(); return invLambda_; }
+    double getScale()             const noexcept { if (!isCacheValid()) updateCache(); return invLambda_; }
     
     /**
      * Evaluates the CDF at x using the standard exponential CDF formula
@@ -295,4 +232,3 @@ std::ostream& operator<<( std::ostream&,
 //std::istream& operator>>( std::istream&,
 //        const libhmm::ExponentialDistribution& );
 } // namespace
-#endif

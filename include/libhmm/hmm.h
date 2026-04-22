@@ -1,5 +1,4 @@
-#ifndef HMM_H_
-#define HMM_H_
+#pragma once
 
 #include <iostream>
 #include <memory>
@@ -13,14 +12,17 @@
 namespace libhmm{
 
 /**
- * Modern C++17 Hidden Markov Model class with enhanced type safety,
- * memory management, and performance optimizations.
+ * Hidden Markov Model with emission distributions, transition matrix, and initial state vector.
+ *
+ * Emission distributions are owned exclusively via unique_ptr<EmissionDistribution>.
+ * Tied-parameter HMMs (shared distributions across states) are not currently supported;
+ * if needed in future, storage should be changed to shared_ptr<EmissionDistribution>.
  */
 class Hmm
 {
 protected:
     Matrix trans_;
-    std::vector<std::unique_ptr<ProbabilityDistribution>> emis_;
+    std::vector<std::unique_ptr<EmissionDistribution>> emis_;
     Vector pi_;
     std::size_t states_;
 
@@ -29,7 +31,7 @@ protected:
     /// @throws std::out_of_range if state index is invalid
     void validateStateIndex(std::size_t state) const {
         if (state >= states_) {
-            throw std::out_of_range("State index " + std::to_string(state) + 
+            throw std::out_of_range("State index " + std::to_string(state) +
                                    " is out of range [0, " + std::to_string(states_) + ")");
         }
     }
@@ -84,7 +86,7 @@ public:
     /// @param emis Vector of emission distribution unique_ptrs
     /// @param pi Initial state probabilities
     /// @throws std::invalid_argument if dimensions don't match
-    Hmm(Matrix trans, std::vector<std::unique_ptr<ProbabilityDistribution>> emis, Vector pi)
+    Hmm(Matrix trans, std::vector<std::unique_ptr<EmissionDistribution>> emis, Vector pi)
         : trans_{std::move(trans)}, emis_{std::move(emis)}, pi_{std::move(pi)} {
         
         if (trans_.size1() != trans_.size2()) {
@@ -128,54 +130,35 @@ public:
         trans_ = trans;
     }
     
-    /// Sets the probability distribution for a specific state
+    /// Sets the emission distribution for a specific state.
     /// @param state State index
-    /// @param distribution Unique pointer to probability distribution
+    /// @param distribution Unique pointer to emission distribution (must not be null)
     /// @throws std::out_of_range if state index is invalid
     /// @throws std::invalid_argument if distribution is null
-    void setProbabilityDistribution(std::size_t state, std::unique_ptr<ProbabilityDistribution> distribution) {
+    void setDistribution(std::size_t state, std::unique_ptr<EmissionDistribution> distribution) {
         validateStateIndex(state);
         if (!distribution) {
-            throw std::invalid_argument("Probability distribution cannot be null");
+            throw std::invalid_argument("Emission distribution cannot be null");
         }
         emis_[state] = std::move(distribution);
     }
-    
-    /// Legacy setter for backward compatibility
+
+    /// Gets the emission distribution for a state (non-const — for trainers).
     /// @param state State index
-    /// @param distribution Raw pointer to probability distribution (ownership transferred)
+    /// @return Reference to the emission distribution
     /// @throws std::out_of_range if state index is invalid
-    /// @throws std::invalid_argument if distribution is null or state < 0
-    void setProbabilityDistribution(int state, ProbabilityDistribution* distribution) {
-        if (state < 0) {
-            throw std::invalid_argument("State index cannot be negative");
-        }
-        if (!distribution) {
-            throw std::invalid_argument("Probability distribution cannot be null");
-        }
-        setProbabilityDistribution(static_cast<std::size_t>(state), 
-                                 std::unique_ptr<ProbabilityDistribution>(distribution));
-    }
-    
-    /// Gets the probability distribution for a state
-    /// @param state State index
-    /// @return Pointer to the probability distribution
-    /// @throws std::out_of_range if state index is invalid
-    const ProbabilityDistribution* getProbabilityDistribution(std::size_t state) const {
+    EmissionDistribution& getDistribution(std::size_t state) {
         validateStateIndex(state);
-        return emis_[state].get();
+        return *emis_[state];
     }
-    
-    /// Legacy getter for backward compatibility
+
+    /// Gets the emission distribution for a state (const).
     /// @param state State index
-    /// @return Pointer to the probability distribution
+    /// @return Const reference to the emission distribution
     /// @throws std::out_of_range if state index is invalid
-    /// @throws std::invalid_argument if state < 0
-    ProbabilityDistribution* getProbabilityDistribution(int state) const {
-        if (state < 0) {
-            throw std::invalid_argument("State index cannot be negative");
-        }
-        return const_cast<ProbabilityDistribution*>(getProbabilityDistribution(static_cast<std::size_t>(state)));
+    [[nodiscard]] const EmissionDistribution& getDistribution(std::size_t state) const {
+        validateStateIndex(state);
+        return *emis_[state];
     }
     
     /// Gets the transition matrix
@@ -240,4 +223,3 @@ friend std::istream& operator>>(std::istream&, libhmm::Hmm&);
 std::ostream& operator<<( std::ostream&, const libhmm::Hmm& );
 }
 
-#endif /*HMM_H_*/

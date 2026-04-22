@@ -1,7 +1,8 @@
 #include "libhmm/distributions/exponential_distribution.h"
-// Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
-#include <numeric>     // For std::accumulate (not in common.h)
-#include <limits>      // For std::numeric_limits (exists in common.h via <climits>)
+#include "libhmm/platform/simd_platform.h"  // compile-time SIMD macros + intrinsics
+#include <limits>
+#include <numeric>
+#include <span>
 
 using namespace libhmm::constants;
 
@@ -20,7 +21,7 @@ namespace libhmm
  * @param x The value at which to evaluate the probability
  * @return Approximated probability for discrete sampling
  */            
-double ExponentialDistribution::getProbability(double value) {
+double ExponentialDistribution::getProbability(double value) const {
     // Exponential distribution has support [0, ∞)
     if (value < math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;
@@ -33,13 +34,7 @@ double ExponentialDistribution::getProbability(double value) {
         return lambda_;
     }
     
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // Optimized PDF calculation: f(x) = λ * exp(-λx)
-    // Use cached -λ value for efficiency
+    if (!isCacheValid()) updateCache();
     return lambda_ * std::exp(negLambda_ * value);
 }
 
@@ -57,12 +52,7 @@ double ExponentialDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
     
-    // Ensure cache is valid
-    if (!cacheValid_) {
-        updateCache();
-    }
-    
-    // For exponential: log(f(x)) = log(λ) - λx
+    if (!isCacheValid()) updateCache();
     return logLambda_ - lambda_ * value;
 }
 
@@ -91,55 +81,41 @@ double ExponentialDistribution::getCumulativeProbability(double x) const noexcep
  *
  * @param values Vector of observed data points
  */                   
-void ExponentialDistribution::fit(const std::vector<Observation>& values) {
-    // Handle edge cases: empty data or single data point
-    if (values.empty()) {
-        reset();
-        return;
-    }
-    
-    if (values.size() == 1) {
-        // For a single data point, MLE is not well-defined.
-        // Following the library's convention, reset to default parameters
-        reset();
-        return;
+void ExponentialDistribution::fit(std::span<const double> data) {
+    if (data.size() <= 1) { reset(); return; }
+
+    double mean = 0.0;
+    std::size_t count = 0;
+    for (const double val : data) {
+        if (val < 0.0 || std::isnan(val) || std::isinf(val)) { reset(); return; }
+        ++count;
+        mean += (val - mean) / static_cast<double>(count);
     }
 
-    // Use Welford's single-pass algorithm for numerical stability and performance
-    // This algorithm provides better numerical accuracy than naive sum-and-divide
-    double mean = math::ZERO_DOUBLE;
-    double n = math::ZERO_DOUBLE;
-    
-    for (const auto& val : values) {
-        // Validate each data point during iteration (fail-fast approach)
-        if (val < math::ZERO_DOUBLE || std::isnan(val) || std::isinf(val)) {
-            reset(); // Invalid data for exponential distribution
-            return;
-        }
-        
-        // Welford's algorithm update
-        n += math::ONE;
-        double delta = val - mean;
-        mean += delta / n;
+    if (mean <= 0.0 || !std::isfinite(mean)) { reset(); return; }
+    const double lam = 1.0 / mean;
+    if (!std::isfinite(lam) || lam <= 0.0) { reset(); return; }
+    lambda_ = lam;
+    invalidateCache();
+}
+
+void ExponentialDistribution::fit(std::span<const double> data,
+                                   std::span<const double> weights) {
+    // Weighted MLE: λ = 1 / weighted_mean
+    double sumW = 0.0, sumWX = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        sumW  += weights[i];
+        sumWX += weights[i] * data[i];
     }
-    
-    // Validate that mean is positive and reasonable
-    if (mean <= math::ZERO_DOUBLE || !std::isfinite(mean)) {
-        reset(); // Fall back to default if computed mean is invalid
-        return;
+    if (sumW < precision::ZERO || std::isnan(sumW) || sumWX <= 0.0) {
+        reset(); return;
     }
-    
-    // Set MLE estimate: λ = 1/mean
-    // For exponential distribution, this is the optimal estimator
-    lambda_ = math::ONE / mean;
-    
-    // Validate the resulting lambda parameter
-    if (!std::isfinite(lambda_) || lambda_ <= math::ZERO_DOUBLE) {
-        reset(); // Fallback if lambda computation fails
-        return;
-    }
-    
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    const double weightedMean = sumWX / sumW;
+    if (weightedMean <= 0.0 || !std::isfinite(weightedMean)) { reset(); return; }
+    const double lam = 1.0 / weightedMean;
+    if (!std::isfinite(lam) || lam <= 0.0) { reset(); return; }
+    lambda_ = lam;
+    invalidateCache();
 }
 
 /**
@@ -148,7 +124,7 @@ void ExponentialDistribution::fit(const std::vector<Observation>& values) {
  */
 void ExponentialDistribution::reset() noexcept {
     lambda_ = math::ONE;
-    cacheValid_ = false; // Invalidate cache since parameters changed
+    invalidateCache();
 }
 
 std::string ExponentialDistribution::toString() const {
@@ -194,6 +170,112 @@ std::istream& operator>>( std::istream& is,
 bool ExponentialDistribution::operator==(const ExponentialDistribution& other) const {
     using namespace libhmm::constants;
     return std::abs(lambda_ - other.lambda_) < precision::LIMIT_TOLERANCE;
+}
+
+// =============================================================================
+// Batch log-PDF — explicit SIMD intrinsics (tier 2)
+//
+// Formula (valid inputs, x >= 0): log(λ) + (−λ)·x  — a single FMA per element.
+// x = +Inf naturally yields −Inf via the formula; only x < 0 and NaN need masking.
+//
+// Free function — no class access; extractable to a separate TU for future
+// runtime dispatch without interface changes (see design decision 6 in WARP.md).
+// =============================================================================
+namespace detail {
+
+void exponential_logpdf_batch(
+        const double* obs, double* out, std::size_t n,
+        double log_lambda, double neg_lambda) noexcept {
+    std::size_t i = 0;
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+
+#if defined(LIBHMM_HAS_AVX512)
+    {
+        const __m512d loglam_v  = _mm512_set1_pd(log_lambda);
+        const __m512d neglam_v  = _mm512_set1_pd(neg_lambda);
+        const __m512d zero_v    = _mm512_setzero_pd();
+        const __m512d neg_inf_v = _mm512_set1_pd(neg_inf);
+        for (; i + 8 <= n; i += 8) {
+            __m512d x   = _mm512_loadu_pd(obs + i);
+            __m512d res = _mm512_add_pd(loglam_v, _mm512_mul_pd(neglam_v, x));
+            __mmask8 invalid = _mm512_cmp_pd_mask(x, zero_v, _CMP_LT_OS)   // x < 0
+                             | _mm512_cmp_pd_mask(x, x, _CMP_UNORD_Q);     // NaN
+            res = _mm512_mask_blend_pd(invalid, res, neg_inf_v);
+            _mm512_storeu_pd(out + i, res);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
+    {
+        const __m256d loglam_v  = _mm256_set1_pd(log_lambda);
+        const __m256d neglam_v  = _mm256_set1_pd(neg_lambda);
+        const __m256d zero_v    = _mm256_setzero_pd();
+        const __m256d neg_inf_v = _mm256_set1_pd(neg_inf);
+        for (; i + 4 <= n; i += 4) {
+            __m256d x   = _mm256_loadu_pd(obs + i);
+            __m256d res = _mm256_add_pd(loglam_v, _mm256_mul_pd(neglam_v, x));
+            __m256d invalid = _mm256_or_pd(
+                _mm256_cmp_pd(x, zero_v, _CMP_LT_OS),  // x < 0
+                _mm256_cmp_pd(x, x, _CMP_UNORD_Q));    // NaN
+            res = _mm256_blendv_pd(res, neg_inf_v, invalid);
+            _mm256_storeu_pd(out + i, res);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_SSE2)
+    {
+        const __m128d loglam_v  = _mm_set1_pd(log_lambda);
+        const __m128d neglam_v  = _mm_set1_pd(neg_lambda);
+        const __m128d zero_v    = _mm_setzero_pd();
+        const __m128d neg_inf_v = _mm_set1_pd(neg_inf);
+        for (; i + 2 <= n; i += 2) {
+            __m128d x   = _mm_loadu_pd(obs + i);
+            __m128d res = _mm_add_pd(loglam_v, _mm_mul_pd(neglam_v, x));
+            __m128d invalid = _mm_or_pd(
+                _mm_cmplt_pd(x, zero_v),   // x < 0
+                _mm_cmpunord_pd(x, x));    // NaN
+            res = _mm_or_pd(_mm_andnot_pd(invalid, res), _mm_and_pd(invalid, neg_inf_v));
+            _mm_storeu_pd(out + i, res);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_NEON)
+    {
+        const float64x2_t loglam_v  = vdupq_n_f64(log_lambda);
+        const float64x2_t neglam_v  = vdupq_n_f64(neg_lambda);
+        const float64x2_t zero_v    = vdupq_n_f64(0.0);
+        const float64x2_t neg_inf_v = vdupq_n_f64(neg_inf);
+        for (; i + 2 <= n; i += 2) {
+            float64x2_t x   = vld1q_f64(obs + i);
+            float64x2_t res = vaddq_f64(loglam_v, vmulq_f64(neglam_v, x));
+            // valid = (x >= 0) & (x == x)  — the latter is false for NaN
+            uint64x2_t valid = vandq_u64(vcgeq_f64(x, zero_v), vceqq_f64(x, x));
+            res = vbslq_f64(valid, res, neg_inf_v);
+            vst1q_f64(out + i, res);
+        }
+    }
+#endif
+
+    // Scalar tail (also covers platforms without any SIMD path above).
+    // +Inf naturally yields -Inf via the formula; only x < 0 and NaN need masking.
+    for (; i < n; ++i) {
+        const double x = obs[i];
+        out[i] = (x < 0.0 || std::isnan(x)) ? neg_inf : log_lambda + neg_lambda * x;
+    }
+}
+
+} // namespace detail
+
+void ExponentialDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    if (!isCacheValid()) updateCache();
+    detail::exponential_logpdf_batch(
+        observations.data(), out.data(), observations.size(),
+        logLambda_, negLambda_);
 }
 
 }

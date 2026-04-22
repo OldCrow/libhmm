@@ -1,9 +1,8 @@
-#ifndef UNIFORMDISTRIBUTION_H_
-#define UNIFORMDISTRIBUTION_H_
+#pragma once
 
-#include "libhmm/distributions/probability_distribution.h"
+#include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-// Common.h already includes: <stdexcept>, <string>, <sstream>, <iomanip>, <cmath>, <limits>
+#include <span>
 
 namespace libhmm {
 
@@ -25,33 +24,21 @@ namespace libhmm {
  * - Variance: σ² = (b - a)² / 12
  * - Support: x ∈ [a, b]
  */
-class UniformDistribution : public ProbabilityDistribution {
+class UniformDistribution : public DistributionBase {
 private:
     double a_;  ///< Lower bound
     double b_;  ///< Upper bound
     
-    // Comprehensive cached values for maximum performance
-    mutable double cached_pdf_;         ///< Cached PDF value: 1/(b-a)
-    mutable double cached_log_pdf_;     ///< Cached log PDF value: log(1/(b-a))
-    mutable double cached_range_;       ///< Cached range: (b-a)
-    mutable double cached_inv_range_;   ///< Cached inverse range: 1/(b-a)
-    mutable double cached_mean_;        ///< Cached mean: (a+b)/2
-    mutable double cached_variance_;    ///< Cached variance: (b-a)²/12
-    mutable double cached_std_dev_;     ///< Cached standard deviation: (b-a)/√12
-    mutable bool cache_valid_;          ///< Flag indicating if cache is valid
-    
-    /**
-     * @brief Update cached values
-     */
-    void updateCache() const;
-    
-    /**
-     * @brief Validate parameters
-     * @param a Lower bound
-     * @param b Upper bound
-     * @throws std::invalid_argument if parameters are invalid
-     */
-    void validateParameters(double a, double b) const;
+    mutable double cached_pdf_{0.0};
+    mutable double cached_log_pdf_{0.0};
+    mutable double cached_range_{1.0};
+    mutable double cached_inv_range_{1.0};
+    mutable double cached_mean_{0.5};
+    mutable double cached_variance_{1.0 / 12.0};
+    mutable double cached_std_dev_{1.0 / std::sqrt(12.0)};
+
+    void updateCache() const noexcept;
+    static void validateParameters(double a, double b);
 
 public:
     /**
@@ -68,58 +55,76 @@ public:
      */
     UniformDistribution(double a, double b);
     
-    /**
-     * @brief Copy constructor
-     */
-    UniformDistribution(const UniformDistribution& other) = default;
+    UniformDistribution(const UniformDistribution& other)
+        : DistributionBase{other}, a_{other.a_}, b_{other.b_},
+          cached_pdf_{other.cached_pdf_}, cached_log_pdf_{other.cached_log_pdf_},
+          cached_range_{other.cached_range_}, cached_inv_range_{other.cached_inv_range_},
+          cached_mean_{other.cached_mean_}, cached_variance_{other.cached_variance_},
+          cached_std_dev_{other.cached_std_dev_} {}
+
+    UniformDistribution& operator=(const UniformDistribution& other) {
+        if (this != &other) {
+            DistributionBase::operator=(other);
+            a_ = other.a_; b_ = other.b_;
+            cached_pdf_      = other.cached_pdf_;
+            cached_log_pdf_  = other.cached_log_pdf_;
+            cached_range_    = other.cached_range_;
+            cached_inv_range_= other.cached_inv_range_;
+            cached_mean_     = other.cached_mean_;
+            cached_variance_ = other.cached_variance_;
+            cached_std_dev_  = other.cached_std_dev_;
+        }
+        return *this;
+    }
+
+    UniformDistribution(UniformDistribution&& other) noexcept
+        : DistributionBase{std::move(other)}, a_{other.a_}, b_{other.b_},
+          cached_pdf_{other.cached_pdf_}, cached_log_pdf_{other.cached_log_pdf_},
+          cached_range_{other.cached_range_}, cached_inv_range_{other.cached_inv_range_},
+          cached_mean_{other.cached_mean_}, cached_variance_{other.cached_variance_},
+          cached_std_dev_{other.cached_std_dev_} {}
+
+    UniformDistribution& operator=(UniformDistribution&& other) noexcept {
+        if (this != &other) {
+            DistributionBase::operator=(std::move(other));
+            a_ = other.a_; b_ = other.b_;
+            cached_pdf_      = other.cached_pdf_;
+            cached_log_pdf_  = other.cached_log_pdf_;
+            cached_range_    = other.cached_range_;
+            cached_inv_range_= other.cached_inv_range_;
+            cached_mean_     = other.cached_mean_;
+            cached_variance_ = other.cached_variance_;
+            cached_std_dev_  = other.cached_std_dev_;
+        }
+        return *this;
+    }
+
+    ~UniformDistribution() override = default;
     
-    /**
-     * @brief Move constructor
-     */
-    UniformDistribution(UniformDistribution&& other) noexcept = default;
-    
-    /**
-     * @brief Copy assignment operator
-     */
-    UniformDistribution& operator=(const UniformDistribution& other) = default;
-    
-    /**
-     * @brief Move assignment operator
-     */
-    UniformDistribution& operator=(UniformDistribution&& other) noexcept = default;
-    
-    /**
-     * @brief Destructor
-     */
-    virtual ~UniformDistribution() = default;
-    
-    /**
-     * @brief Calculate probability density at x
-     * @param val Value to evaluate
-     * @return Probability density at x
-     */
-    double getProbability(Observation val) override;
-    
-    /**
-     * @brief Calculate log probability density at x for numerical stability
-     * @param val Value to evaluate
-     * @return Log probability density at x
-     */
-    double getLogProbability(Observation val) const noexcept override;
-    
-    /**
-     * @brief Calculate cumulative distribution function at x
-     * @param x Value to evaluate
-     * @return CDF at x: P(X <= x)
-     */
+    [[nodiscard]] double getProbability(double val) const override;
+    [[nodiscard]] double getLogProbability(double val) const noexcept override;
+
+    /// Concrete non-virtual batch log-PDF (constant inside support, -Inf outside).
+    /// Eliminates per-element virtual dispatch.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
     double CDF(double x) const;
-    
+
+    /** Fit [a, b] to unweighted data using sample min/max with padding. */
+    void fit(std::span<const double> data) override;
+
     /**
-     * @brief Fit distribution parameters to data using method of moments
-     * @param data Vector of observations
-     * @throws std::invalid_argument if data contains invalid values
+     * Weighted fit using method of moments on weighted mean/variance.
+     * For Uniform(a,b): mean = (a+b)/2, var = (b-a)²/12.
+     * Solve: a = μ - √(3σ²), b = μ + √(3σ²).
+     * Falls back to reset() if sumW is near zero or variance is zero.
      */
-    void fit(const std::vector<Observation>& data) override;
+    void fit(std::span<const double> data, std::span<const double> weights) override;
+
+    /** Returns false — Uniform is a continuous distribution. */
+    [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
     
     /**
      * @brief Reset distribution to default parameters [0, 1]
@@ -162,38 +167,10 @@ public:
      * @throws std::invalid_argument if a >= current b or a is invalid
      */
     void setA(double a);
-    
-    /**
-     * @brief Set the upper bound parameter
-     * @param b New upper bound
-     * @throws std::invalid_argument if b <= current a or b is invalid
-     */
     void setB(double b);
-    
-    /**
-     * @brief Set both parameters
-     * @param a Lower bound
-     * @param b Upper bound
-     * @throws std::invalid_argument if a >= b or parameters are invalid
-     */
     void setParameters(double a, double b);
-    
-    /**
-     * @brief Get the mean of the distribution
-     * @return Mean μ = (a + b) / 2
-     */
-    double getMean() const;
-    
-    /**
-     * @brief Get the variance of the distribution
-     * @return Variance σ² = (b - a)² / 12
-     */
-    double getVariance() const;
-    
-    /**
-     * @brief Get the standard deviation of the distribution
-     * @return Standard deviation σ = (b - a) / √12
-     */
+    double getMean()              const;
+    double getVariance()          const;
     double getStandardDeviation() const;
     
     /**
@@ -230,4 +207,3 @@ std::istream& operator>>(std::istream& is, UniformDistribution& dist);
 
 } // namespace libhmm
 
-#endif // UNIFORMDISTRIBUTION_H_
