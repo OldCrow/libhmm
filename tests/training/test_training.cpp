@@ -1,8 +1,7 @@
 #include <gtest/gtest.h>
 #include "libhmm/training/baum_welch_trainer.h"
-#include "libhmm/training/scaled_baum_welch_trainer.h"
 #include "libhmm/training/viterbi_trainer.h"
-#include "libhmm/training/segmented_kmeans_trainer.h"
+#include "libhmm/training/segmental_kmeans_trainer.h"
 #include "libhmm/training/cluster.h"
 #include "libhmm/training/centroid.h"
 #include "libhmm/hmm.h"
@@ -55,8 +54,8 @@ protected:
         }
         dist1->setProbability(5, 0.5);
         
-        discreteHmm_->setProbabilityDistribution(0, std::move(dist0));
-        discreteHmm_->setProbabilityDistribution(1, std::move(dist1));
+        discreteHmm_->setDistribution(0, std::move(dist0));
+        discreteHmm_->setDistribution(1, std::move(dist1));
     }
     
     void setupGaussianHmm() {
@@ -73,9 +72,9 @@ protected:
         gaussianHmm_->setPi(pi);
         
         // Set up Gaussian emission distributions
-        gaussianHmm_->setProbabilityDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
-        gaussianHmm_->setProbabilityDistribution(1, std::make_unique<GaussianDistribution>(5.0, 1.5));
-        gaussianHmm_->setProbabilityDistribution(2, std::make_unique<GaussianDistribution>(10.0, 2.0));
+        gaussianHmm_->setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
+        gaussianHmm_->setDistribution(1, std::make_unique<GaussianDistribution>(5.0, 1.5));
+        gaussianHmm_->setDistribution(2, std::make_unique<GaussianDistribution>(10.0, 2.0));
     }
     
     void setupTrainingData() {
@@ -156,15 +155,8 @@ TEST_F(TrainingTest, BaumWelchTraining) {
     EXPECT_TRUE(transChanged);
 }
 
-// Scaled Baum-Welch Trainer Tests
-TEST_F(TrainingTest, ScaledBaumWelchTrainerFunctionality) {
-    ScaledBaumWelchTrainer trainer(discreteHmm_.get(), discreteObsLists_);
-    
-    EXPECT_NO_THROW(trainer.train());
-    
-    // HMM should still be valid after training
-    EXPECT_NO_THROW(discreteHmm_->validate());
-}
+// ScaledBaumWelchTrainer was removed in Phase 4 — its functionality is covered
+// by the canonical BaumWelchTrainer which is log-space and numerically stable.
 
 // Viterbi Trainer Tests
 TEST_F(TrainingTest, ViterbiTrainerConstruction) {
@@ -184,16 +176,16 @@ TEST_F(TrainingTest, ViterbiTrainerBasicFunctionality) {
     EXPECT_NO_THROW(trainer.getObservationLists());
 }
 
-// Segmented K-Means Trainer Tests
-TEST_F(TrainingTest, SegmentedKMeansTrainerConstruction) {
-    EXPECT_NO_THROW(SegmentedKMeansTrainer(discreteHmm_.get(), discreteObsLists_));
+// Segmental K-Means Trainer Tests (SegmentedKMeansTrainer is the compatibility alias)
+TEST_F(TrainingTest, SegmentalKMeansTrainerConstruction) {
+    EXPECT_NO_THROW(SegmentalKMeansTrainer(discreteHmm_.get(), discreteObsLists_));
 }
 
-TEST_F(TrainingTest, SegmentedKMeansTrainerBasicFunctionality) {
-    SegmentedKMeansTrainer trainer(discreteHmm_.get(), discreteObsLists_);
-    
+TEST_F(TrainingTest, SegmentalKMeansTrainerBasicFunctionality) {
+    SegmentalKMeansTrainer trainer(discreteHmm_.get(), discreteObsLists_);
+
     EXPECT_FALSE(trainer.isTerminated());
-    EXPECT_EQ(trainer.getHmm(), discreteHmm_.get());
+    EXPECT_EQ(&trainer.getHmm(), discreteHmm_.get());
 }
 
 // Cluster and Centroid Tests
@@ -276,7 +268,7 @@ TEST_F(TrainingTest, TrainerHmmConsistency) {
     BaumWelchTrainer trainer(discreteHmm_.get(), discreteObsLists_);
     
     // HMM from trainer should be the same object
-    EXPECT_EQ(trainer.getHmm(), discreteHmm_.get());
+    EXPECT_EQ(&trainer.getHmm(), discreteHmm_.get());
     
     // Observation lists should match
     const auto& obsLists = trainer.getObservationLists();
