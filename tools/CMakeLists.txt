@@ -32,6 +32,14 @@ add_hmm_tool(simd_inspection   simd_inspection.cpp)
 add_hmm_tool(batch_performance batch_performance.cpp)
 add_hmm_tool(hmm_validator     hmm_validator.cpp)
 
+# simd_inspection must be compiled with the same SIMD flags as the distribution
+# TUs so that LIBHMM_HAS_AVX512 / AVX2 / NEON are correctly defined and the
+# reported ISA and vector width match what getBatchLogProbabilities actually uses.
+if(LIBHMM_BEST_SIMD_FLAGS)
+    set_source_files_properties(simd_inspection.cpp
+        PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}")
+endif()
+
 install(TARGETS
     analyze_overhead
     debug_parallel

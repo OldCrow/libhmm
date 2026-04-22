@@ -64,8 +64,8 @@ int main() {
     // baseline ISA is visible here. The distribution TUs (in LIBHMM_SIMD_SOURCES)
     // are compiled with the best available ISA reported at cmake configuration.
     // -------------------------------------------------------------------------
-    std::cout << "\nISA macros in this TU (tool, no SIMD flags applied):\n";
-    std::cout << "  (Distribution TUs use LIBHMM_BEST_SIMD_FLAGS — see cmake output)\n";
+    std::cout << "\nISA macros (compiled with LIBHMM_BEST_SIMD_FLAGS —\n";
+    std::cout << "  same flags used by distribution getBatchLogProbabilities TUs):\n";
 #ifdef LIBHMM_HAS_AVX512
     std::cout << "  LIBHMM_HAS_AVX512 : YES\n";
 #else
