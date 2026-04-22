@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include "libhmm/training/viterbi_trainer.h"
 #include "libhmm/training/baum_welch_trainer.h"
-#include "libhmm/training/scaled_baum_welch_trainer.h"
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/distributions.h"
 #include <memory>
@@ -38,9 +37,9 @@ protected:
         gaussianHmm_->setPi(pi);
         
         // Set up Gaussian emission distributions with different means
-        gaussianHmm_->setProbabilityDistribution(0, std::make_unique<GaussianDistribution>(1.0, 0.5));
-        gaussianHmm_->setProbabilityDistribution(1, std::make_unique<GaussianDistribution>(5.0, 1.0));
-        gaussianHmm_->setProbabilityDistribution(2, std::make_unique<GaussianDistribution>(10.0, 2.0));
+        gaussianHmm_->setDistribution(0, std::make_unique<GaussianDistribution>(1.0, 0.5));
+        gaussianHmm_->setDistribution(1, std::make_unique<GaussianDistribution>(5.0, 1.0));
+        gaussianHmm_->setDistribution(2, std::make_unique<GaussianDistribution>(10.0, 2.0));
     }
     
     void setupDiscreteHmm() {
@@ -67,8 +66,8 @@ protected:
         dist1->setProbability(1, 0.3);
         dist1->setProbability(2, 0.6);
         
-        discreteHmm_->setProbabilityDistribution(0, std::move(dist0));
-        discreteHmm_->setProbabilityDistribution(1, std::move(dist1));
+        discreteHmm_->setDistribution(0, std::move(dist0));
+        discreteHmm_->setDistribution(1, std::move(dist1));
     }
 
     std::unique_ptr<Hmm> gaussianHmm_;
@@ -166,18 +165,14 @@ TEST_F(TrainingEdgeCasesTest, BaumWelchTrainerShortSequences) {
     EXPECT_NO_THROW(trainer.train());
 }
 
-// Test very short observation sequences with scaled version
-TEST_F(TrainingEdgeCasesTest, ScaledBaumWelchTrainerShortSequences) {
+// ScaledBaumWelchTrainer was removed; test short sequences via canonical BaumWelchTrainer
+TEST_F(TrainingEdgeCasesTest, BaumWelchTrainerSingleObservationSequence) {
     ObservationLists shortSequences;
-    
-    // Add sequence with only 1 observation
     ObservationSet seq1(1);
     seq1(0) = 0;
     shortSequences.push_back(seq1);
-    
-    ScaledBaumWelchTrainer trainer(discreteHmm_.get(), shortSequences);
-    
-    // Should handle short sequences gracefully
+
+    BaumWelchTrainer trainer(discreteHmm_.get(), shortSequences);
     EXPECT_NO_THROW(trainer.train());
 }
 
@@ -195,32 +190,28 @@ TEST_F(TrainingEdgeCasesTest, BaumWelchTrainerZeroProbabilities) {
     dist0->setProbability(0, 0.0); // Zero probability for symbol 0
     dist0->setProbability(1, 0.7);
     dist0->setProbability(2, 0.3);
-    discreteHmm_->setProbabilityDistribution(0, std::move(dist0));
-    
+    discreteHmm_->setDistribution(0, std::move(dist0));
+
     BaumWelchTrainer trainer(discreteHmm_.get(), obsWithZeros);
     
     // Should handle zero probabilities gracefully
     EXPECT_NO_THROW(trainer.train());
 }
 
-// Test with NaN and infinite values (scaled version)
-TEST_F(TrainingEdgeCasesTest, ScaledBaumWelchTrainerNaNHandling) {
+// Numerical edge cases: very small probabilities (log-space BW handles these robustly)
+TEST_F(TrainingEdgeCasesTest, BaumWelchTrainerNearZeroProbabilities) {
     ObservationLists normalObs;
-    
     ObservationSet seq1(5);
     seq1(0) = 0; seq1(1) = 1; seq1(2) = 2; seq1(3) = 0; seq1(4) = 1;
     normalObs.push_back(seq1);
-    
-    // Set up distributions that might cause numerical issues
+
     auto dist0 = std::make_unique<DiscreteDistribution>(3);
-    dist0->setProbability(0, 1e-100); // Very small probability
+    dist0->setProbability(0, 1e-100); // Very small — should not underflow in log-space
     dist0->setProbability(1, 1.0 - 2e-100);
     dist0->setProbability(2, 1e-100);
-    discreteHmm_->setProbabilityDistribution(0, std::move(dist0));
-    
-    ScaledBaumWelchTrainer trainer(discreteHmm_.get(), normalObs);
-    
-    // Should handle numerical edge cases gracefully
+    discreteHmm_->setDistribution(0, std::move(dist0));
+
+    BaumWelchTrainer trainer(discreteHmm_.get(), normalObs);
     EXPECT_NO_THROW(trainer.train());
 }
 
@@ -237,13 +228,11 @@ TEST_F(TrainingEdgeCasesTest, TypeSafetyValidation) {
     // Test null HMM handling
     EXPECT_THROW(ViterbiTrainer(nullptr, normalObs), std::invalid_argument);
     EXPECT_THROW(BaumWelchTrainer(nullptr, normalObs), std::invalid_argument);
-    EXPECT_THROW(ScaledBaumWelchTrainer(nullptr, normalObs), std::invalid_argument);
-    
+
     // Test empty observation lists
     ObservationLists emptyObs;
     EXPECT_THROW(ViterbiTrainer(gaussianHmm_.get(), emptyObs), std::invalid_argument);
     EXPECT_THROW(BaumWelchTrainer(discreteHmm_.get(), emptyObs), std::invalid_argument);
-    EXPECT_THROW(ScaledBaumWelchTrainer(discreteHmm_.get(), emptyObs), std::invalid_argument);
 }
 
 // Test distribution compatibility checking
@@ -254,19 +243,15 @@ TEST_F(TrainingEdgeCasesTest, DistributionCompatibilityValidation) {
     seq1(0) = 0; seq1(1) = 1; seq1(2) = 2; seq1(3) = 0; seq1(4) = 1;
     normalObs.push_back(seq1);
     
-    // Baum-Welch trainers should work with discrete distributions
+    // BaumWelchTrainer works with any EmissionDistribution via weighted fit()
     EXPECT_NO_THROW(BaumWelchTrainer(discreteHmm_.get(), normalObs));
-    EXPECT_NO_THROW(ScaledBaumWelchTrainer(discreteHmm_.get(), normalObs));
-    
-    // Baum-Welch trainers should fail during training (not construction) with Gaussian distributions
-    // This is because they specifically require discrete distributions for emission probability updates
+
+    // Canonical BaumWelchTrainer works with both discrete and Gaussian distributions
+    // (old ScaledBaumWelchTrainer was discrete-only; removed in Phase 4)
     BaumWelchTrainer bwTrainer(gaussianHmm_.get(), normalObs);
-    EXPECT_THROW(bwTrainer.train(), std::runtime_error);
-    
-    ScaledBaumWelchTrainer sbwTrainer(gaussianHmm_.get(), normalObs);
-    EXPECT_THROW(sbwTrainer.train(), std::runtime_error);
-    
-    // ViterbiTrainer should work with both discrete and continuous distributions
+    EXPECT_NO_THROW(bwTrainer.train());
+
+    // ViterbiTrainer works with both discrete and continuous distributions
     EXPECT_NO_THROW(ViterbiTrainer(gaussianHmm_.get(), normalObs));
     EXPECT_NO_THROW(ViterbiTrainer(discreteHmm_.get(), normalObs));
 }
@@ -294,14 +279,10 @@ TEST_F(TrainingEdgeCasesTest, ViterbiTrainerConvergenceBehavior) {
     EXPECT_NO_THROW(trainer.train());
     
     // After training, the distributions should be somewhat close to the data clusters
-    auto* dist0 = gaussianHmm_->getProbabilityDistribution(0);
-    auto* dist1 = gaussianHmm_->getProbabilityDistribution(1);
-    auto* dist2 = gaussianHmm_->getProbabilityDistribution(2);
-    
-    // The distributions should exist and be valid
-    EXPECT_NE(dist0, nullptr);
-    EXPECT_NE(dist1, nullptr);
-    EXPECT_NE(dist2, nullptr);
+    // The distributions should exist and be accessible (getDistribution returns a reference)
+    EXPECT_NO_THROW(gaussianHmm_->getDistribution(0));
+    EXPECT_NO_THROW(gaussianHmm_->getDistribution(1));
+    EXPECT_NO_THROW(gaussianHmm_->getDistribution(2));
 }
 
 // Test memory safety with RAII

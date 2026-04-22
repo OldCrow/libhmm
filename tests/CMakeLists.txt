@@ -137,20 +137,20 @@ if(GTest_FOUND OR TARGET gtest)
     )
     
     # IO tests (in io/ subdirectory)
-    # TODO(refactor): test_hmm_stream_io.cpp uses getProbabilityDistribution — re-enable after update
     set(IO_TESTS
         io/test_xml_file_io.cpp
+        io/test_hmm_stream_io.cpp
     )
     
     # Performance tests — temporarily excluded while legacy SIMD calculator
     # variants are being removed.
     set(PERFORMANCE_TESTS)
 
-    # Training tests — canonical implementations only.
-    # Old trainer/traits tests are in tests/training/ but excluded here
-    # until the legacy files are deleted in a later session.
+    # Training tests
     set(TRAINING_TESTS
         training/test_canonical_training.cpp
+        training/test_training.cpp
+        training/test_training_edge_cases.cpp
     )
 
     # Combine all tests
