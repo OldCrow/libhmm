@@ -1,119 +1,87 @@
-# Cross-Platform Build Support
+# Cross-Platform Build Guide
 
-The libhmm library now supports cross-platform compilation for macOS and Linux with automatic platform detection and appropriate library generation.
+libhmm builds and tests on Windows (MSVC), macOS (AppleClang), and Linux (GCC).
+All three platforms are verified by CI on every push.
 
-## Platform Support
+## Requirements
 
-### macOS
-- **Library Format**: `.dylib` (dynamic library)
-- **Versioning**: `libhmm.2.0.0.dylib` with symbolic links
-- **RPATH**: Uses `@rpath` for flexible library loading
-- **Dependencies**: Automatically finds Homebrew packages (`/usr/local`, `/opt/homebrew`)
-- **Math Library**: Integrated into system library (no explicit `-lm` needed)
+- **C++20** compiler: GCC 11+, Clang 14+, MSVC 2019 16.11+ (Visual Studio 2022 recommended)
+- **CMake 3.20+**
+- **Zero external dependencies** at runtime — GTest is fetched automatically via FetchContent
 
-### Linux
-- **Library Format**: `.so` (shared object)
-- **Versioning**: `libhmm.so.2.0.0` with symbolic links
-- **RPATH**: Uses `$ORIGIN` for relative library loading
-- **Dependencies**: Searches standard package locations (`/usr`, `/usr/local`)
-- **Math Library**: Explicitly links math library (`-lm`)
+## Platforms
 
-### Generic Unix
-- **Library Format**: Platform default shared library
-- **Fallback**: Uses standard Unix conventions
+### Windows (MSVC)
 
-## Build Instructions
-
-### Standard Build (All Platforms)
-```bash
-mkdir build && cd build
-cmake ..
-make
-ctest  # Run tests
+```powershell
+cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release --parallel 4
+ctest --test-dir build -C Release --parallel 4 -LE known_broken
 ```
 
-### Platform-Specific Features
+Notes:
+- Do NOT call `vcvars64.bat` before cmake; the VS generator handles it
+- SIMD: `check_cxx_source_runs` selects `/arch:AVX512`, `/arch:AVX2`, or `/arch:AVX` by running a test binary to verify CPU support — prevents ILLEGAL INSTRUCTION crashes on cloud VMs that accept the flag but can't execute it
+- See `WARP.md` for full Windows session setup
 
-#### macOS
-- Automatically detects Homebrew Boost installations
-- Generates proper `.dylib` files with macOS conventions
-- Supports both Intel (`/usr/local`) and Apple Silicon (`/opt/homebrew`) Homebrew
+### macOS (AppleClang)
 
-#### Linux
-- Searches standard package manager locations
-- Generates `.so` files with proper versioning
-- Links math library explicitly for better compatibility
+```bash
+cmake -B build
+cmake --build build --config Release
+ctest --test-dir build -LE known_broken
+```
+
+Notes:
+- Homebrew prefix: `/opt/homebrew` (Apple Silicon) or `/usr/local` (Intel)
+- CMake detects the architecture automatically via `uname -m`
+- SIMD: `-march=native` — selects NEON on AArch64, AVX/AVX2 on Intel Macs
+- `test_xml_file_io` is marked `known_broken` on Windows only; it passes on macOS
+
+### Linux (GCC)
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel 4
+ctest --test-dir build -LE known_broken
+```
+
+Notes:
+- Math library (`-lm`) linked explicitly on Linux
+- SIMD: `-march=native` — same as macOS
 
 ## Configuration Summary
 
-When you run `cmake ..`, you'll see a configuration summary:
+When cmake runs, the SIMD configuration is reported:
 
 ```
-=== libhmm Configuration Summary ===
-Platform: macOS
-Version: 2.0.0
-C++ Standard: 17
-Build Type: Release
-Shared Libraries: ON
-Library Type: .dylib (macOS dynamic library)
-Examples: ON
-Tests: ON
-Compiler: AppleClang
+-- SIMD support — AVX-512: 1  AVX2: 1  AVX: 1        (Windows, Ryzen 7)
+-- SIMD optimization: /arch:AVX512 (CPU verified)
+
+-- SIMD compiler support — NEON: ON (AArch64 baseline) (macOS Apple Silicon)
+-- SIMD optimization: -march=native (AArch64/NEON)
+
+-- SIMD support — AVX-512: 0  AVX2: 1  AVX: 1         (macOS Intel)
+-- SIMD optimization: -march=native
 ```
-
-## Cross-Compilation
-
-The CMake configuration automatically:
-
-1. **Detects the target platform** (`APPLE`, `LINUX`, or generic `UNIX`)
-2. **Sets appropriate compiler flags** (`-fPIC`, platform-specific linker flags)
-3. **Configures library naming** (`.dylib` vs `.so`)
-4. **Handles dependencies** (Boost location, math library linking)
-5. **Sets up RPATH** for proper library loading
-
-## Dependencies
-
-- **C++17 compatible compiler** (GCC 7+, Clang 5+, AppleClang 12+)
-- **CMake 3.15+**
-- **Boost** (any recent version)
-- **Google Test** (optional, for tests)
 
 ## Build Options
 
 ```bash
-# Build without examples
-cmake -DBUILD_EXAMPLES=OFF ..
-
-# Build without tests
-cmake -DBUILD_TESTS=OFF ..
-
-# Build static libraries instead of shared
-cmake -DBUILD_SHARED_LIBS=OFF ..
-
-# Specify build type
-cmake -DCMAKE_BUILD_TYPE=Release ..
-cmake -DCMAKE_BUILD_TYPE=Debug ..
+cmake -DBUILD_EXAMPLES=OFF ..    # Skip examples
+cmake -DBUILD_TESTS=OFF ..       # Skip tests
+cmake -DBUILD_SHARED_LIBS=OFF .. # Static library (default is shared)
 ```
 
-## Testing Cross-Platform
+## Library Output
 
-The comprehensive test suite runs on both platforms:
-- 129 total tests across 7 test suites
-- Platform-agnostic C++17 code
-- Automatic platform-specific adjustments for edge cases
+| Platform | Library format | Notes |
+|---|---|---|
+| macOS | `.dylib` | `@rpath` for flexible loading |
+| Linux | `.so` | `$ORIGIN` RPATH |
+| Windows | `.dll` + `.lib` | Import library for linking |
 
-## Installation
+## CI Matrix
 
-```bash
-# Install to system directories
-make install
-
-# Or specify custom prefix
-cmake -DCMAKE_INSTALL_PREFIX=/custom/path ..
-make install
-```
-
-This installs:
-- Libraries to `lib/`
-- Headers to `include/libhmm/`
-- CMake config files to `lib/cmake/libhmm/`
+See `.github/workflows/ci.yml`. All jobs run `ctest -LE known_broken` to keep CI green.
+The one `known_broken` test (`test_xml_file_io`) is a pre-existing Windows-specific failure.

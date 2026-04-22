@@ -1,3 +1,10 @@
+> **Status (v3.0):** The tier 1 / tier 2 SIMD work in Phase 4.5.4 implemented what this document
+> called "Phase 1" of the "Ultimate" optimization. All 15 distributions now have concrete
+> non-virtual getBatchLogProbabilities() loops (tier 1, auto-vectorized) and
+> GaussianDistribution + ExponentialDistribution have explicit AVX-512/AVX2/SSE2/NEON
+> intrinsics (tier 2). The upgrade paths for remaining distributions are documented
+> inline in each .cpp source file. The benchmarking work described below is planned
+> for the Post-Phase 5 macOS session.
 # Considerations for Future Distribution Performance Optimizations
 
 ## Overview
