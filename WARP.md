@@ -6,10 +6,10 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 
 ## Current Status
 
-**Version**: v3.0.0-alpha on `refactor/modern-architecture` (target: merge to `main` after Phase 5).
+**Version**: v3.0.0-alpha on `main`. Tag pushed; GitHub Release published.
 **Tests**: 35/35 canonical tests passing (`ctest -LE known_broken`).
 **Known failure**: `test_xml_file_io` — pre-existing Windows file-system error handling bug, not a refactor regression.
-**Active phase**: Phase 5 (documentation and tagging).
+**Active phase**: Post-Phase 5 (CI tooling; benchmarks on macOS).
 
 See the Warp plan artifact **"libhmm Modernization: Architecture & Refactoring Plan"** for the full roadmap.
 
@@ -181,8 +181,8 @@ Custom targets: `run_tests` (correctness, parallel), `run_tests_timing` (serial)
 | Issue | Status | Notes |
 |---|---|---|
 | `test_xml_file_io` | `known_broken` | Windows: error handling for invalid paths doesn't throw. Not a refactor regression. |
-| Benchmarks stale | Deferred | 21 benchmark sources use old API. Needs a macOS session — see plan "Post-Phase 5 Benchmarks". Prior perf results (17–120x slower than HMMLib) were against broken old calculators; new numbers will differ substantially. |
-| StochHMM continuous Gaussian log-likelihood drift | Resolved locally | External StochHMM had a PI typo in `source/src/stochMath.h` (`3.145926...`). This caused sequence-length-proportional log-likelihood offsets in continuous benchmarks. After correcting PI and rebuilding `libstochhmm.a`, libhmm vs StochHMM continuous log-likelihoods match to machine precision. Treat pre-fix continuous logs as invalid. |
+| Benchmarks | Complete | Comparative suite run on macOS (April 2026). Results in `benchmarks/docs/BENCHMARKING_RESULTS.md`. libhmm throughput ~8–14k obs/ms vs old ~1k obs/ms baseline; now faster than StochHMM and JAHMM. HMMLib ~3×, GHMM ~5× faster than libhmm. |
+| StochHMM PI typo | Resolved | `source/src/stochMath.h` had `3.145926...`; corrected to `3.141592653589793`. Post-fix continuous log-likelihoods match libhmm to machine precision. Pre-fix continuous results in `BENCHMARKING_RESULTS.md` are marked invalid. |
 
 ---
 
