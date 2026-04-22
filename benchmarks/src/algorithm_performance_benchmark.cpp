@@ -5,17 +5,48 @@
 #include <random>
 #include <iomanip>
 #include <fstream>
+#include <filesystem>
+#include <system_error>
 
 // libhmm includes
 #include "libhmm/libhmm.h"
-#include "libhmm/calculators/forward_backward_traits.h"
-#include "libhmm/calculators/viterbi_traits.h"
+#include "libhmm/calculators/forward_backward_calculator.h"
+#include "libhmm/calculators/viterbi_calculator.h"
 
 // HMMLib includes 
 #include "HMMlib/hmm.hpp"
 using namespace hmmlib;
 
 using namespace std::chrono;
+namespace fs = std::filesystem;
+
+namespace {
+fs::path resolveBenchmarkLogDir(const char* argv0) {
+    std::error_code ec;
+    fs::path build_dir;
+
+    if (argv0 != nullptr) {
+        const fs::path exec_path = fs::weakly_canonical(fs::path(argv0), ec);
+        if (!ec && exec_path.has_parent_path()) {
+            const fs::path parent = exec_path.parent_path();
+            if (parent.has_parent_path()) {
+                build_dir = parent.parent_path();
+            }
+        }
+    }
+
+    if (build_dir.empty()) {
+        build_dir = fs::current_path(ec);
+    }
+
+    fs::path log_dir = build_dir / "benchmark-logs";
+    fs::create_directories(log_dir, ec);
+    if (ec) {
+        return build_dir;
+    }
+    return log_dir;
+}
+}
 
 class BenchmarkTimer {
 private:
@@ -139,7 +170,7 @@ public:
             for (size_t j = 0; j < alphabet_size; ++j) {
                 dist->setProbability(j, probs(j));
             }
-            hmm->setProbabilityDistribution(i, std::move(dist));
+            hmm->setDistribution(i, std::move(dist));
         }
         
         // Generate test sequence
@@ -149,14 +180,11 @@ public:
             obs(i) = sequences[0][i];
         }
         
-        // Benchmark forward-backward with automatic calculator selection
+        // Benchmark forward-backward
         timer.start();
-        libhmm::forwardbackward::AutoCalculator calc(hmm.get(), obs);
+        libhmm::ForwardBackwardCalculator calc(hmm.get(), obs);
         result.likelihood = calc.probability();
         result.time_ms = timer.stop();
-        
-        // Debug: print which calculator was selected
-        std::cout << "  [DEBUG] Selected calculator: " << calc.getSelectionRationale() << std::endl;
         
         return result;
     }
@@ -303,7 +331,7 @@ public:
             for (size_t j = 0; j < alphabet_size; ++j) {
                 dist->setProbability(j, probs(j));
             }
-            hmm->setProbabilityDistribution(i, std::move(dist));
+            hmm->setDistribution(i, std::move(dist));
         }
         
         // Generate test sequence
@@ -313,18 +341,13 @@ public:
             obs(i) = sequences[0][i];
         }
         
-        // Benchmark Viterbi with automatic calculator selection  
+        // Benchmark Viterbi
         timer.start();
-        
-        // Use AutoCalculator to get optimal Viterbi algorithm
-        libhmm::viterbi::AutoCalculator viterbi(hmm.get(), obs);
+        libhmm::ViterbiCalculator viterbi(hmm.get(), obs);
         auto states = viterbi.decode();
         result.likelihood = viterbi.getLogProbability();
         
         result.time_ms = timer.stop();
-        
-        // Debug: print which calculator was actually used
-        std::cout << "  [DEBUG] Selected Viterbi calculator: " << viterbi.getSelectionRationale() << std::endl;
         
         return result;
     }
@@ -510,16 +533,18 @@ public:
     }
 };
 
-int main() {
+int main(int argc, char* argv[]) {
     std::cout << "HMM Library Benchmarking Suite\n";
     std::cout << "Comparing libhmm vs HMMLib performance and accuracy\n";
     
     HMMBenchmarkSuite suite;
     suite.runComprehensiveBenchmarks();
     
-    // Save results
-    suite.saveResults("benchmark_results.csv");
-    std::cout << "\nResults saved to benchmark_results.csv\n";
+    // Save results in the benchmark build log directory
+    const fs::path log_dir = resolveBenchmarkLogDir((argc > 0) ? argv[0] : nullptr);
+    const fs::path results_path = log_dir / "benchmark_results.csv";
+    suite.saveResults(results_path.string());
+    std::cout << "\nResults saved to " << results_path.string() << "\n";
     
     return 0;
 }

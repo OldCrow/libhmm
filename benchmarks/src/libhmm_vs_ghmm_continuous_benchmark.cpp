@@ -107,7 +107,7 @@ BenchmarkResult runLibhmmGaussian(const ContinuousGaussianProblems::GaussianSign
                 model.means[state], 
                 sqrt(model.variances[state])  // Convert variance to std_dev
             );
-            hmm->setProbabilityDistribution(state, move(gaussian));
+            hmm->setDistribution(state, std::move(gaussian));
         }
         
         // Convert observations to ObservationSet format
@@ -116,31 +116,20 @@ BenchmarkResult runLibhmmGaussian(const ContinuousGaussianProblems::GaussianSign
             obs(i) = observations[i];
         }
         
-        // Benchmark Forward-Backward using AutoCalculator for optimal performance
+        // Benchmark canonical Forward-Backward calculator
         auto start = chrono::high_resolution_clock::now();
-        libhmm::forwardbackward::AutoCalculator fb_calc(hmm.get(), obs);
+        libhmm::ForwardBackwardCalculator fb_calc(hmm.get(), obs);
         double forward_likelihood = fb_calc.getLogProbability();
         auto end = chrono::high_resolution_clock::now();
         
         result.forward_time_ms = chrono::duration<double, milli>(end - start).count();
         result.log_likelihood = forward_likelihood;
         
-        // Debug output for first test to show which calculator was selected
-        if (observations.size() == 100) {
-            cout << "  [DEBUG] libhmm selected FB calculator: " << fb_calc.getSelectionRationale() << "\n";
-        }
-        
-        // Benchmark Viterbi using AutoCalculator for optimal performance
+        // Benchmark canonical Viterbi calculator
         start = chrono::high_resolution_clock::now();
-        libhmm::viterbi::AutoCalculator viterbi_calc(hmm.get(), obs);
+        libhmm::ViterbiCalculator viterbi_calc(hmm.get(), obs);
         auto viterbi_path = viterbi_calc.decode();
         end = chrono::high_resolution_clock::now();
-        
-        // Debug output for first test to show which calculator was selected
-        if (observations.size() == 100) {
-            cout << "  [DEBUG] libhmm selected Viterbi calculator: " << viterbi_calc.getSelectionRationale() << "\n";
-        }
-        
         result.viterbi_time_ms = chrono::duration<double, milli>(end - start).count();
         result.throughput_obs_per_ms = observations.size() / result.forward_time_ms;
         result.success = true;

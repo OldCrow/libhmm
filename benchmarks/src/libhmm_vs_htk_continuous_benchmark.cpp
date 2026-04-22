@@ -15,9 +15,8 @@
 // libhmm includes
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/gaussian_distribution.h"
-#include "libhmm/calculators/calculator.h"
-#include "libhmm/calculators/forward_backward_traits.h"
-#include "libhmm/calculators/viterbi_traits.h"
+#include "libhmm/calculators/forward_backward_calculator.h"
+#include "libhmm/calculators/viterbi_calculator.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -163,7 +162,7 @@ public:
             for (int i = 0; i < problem.num_states; ++i) {
                 auto gaussian_dist = make_unique<libhmm::GaussianDistribution>(
                     problem.means[i], sqrt(problem.variances[i]));
-                hmm->setProbabilityDistribution(i, gaussian_dist.release());
+                hmm->setDistribution(i, std::move(gaussian_dist));
             }
             
             // Convert observation sequence to libhmm format (1D only)
@@ -174,29 +173,17 @@ public:
             
             // Forward-Backward benchmark
             auto start = high_resolution_clock::now();
-            libhmm::forwardbackward::AutoCalculator fb_calc(hmm.get(), libhmm_obs);
+            libhmm::ForwardBackwardCalculator fb_calc(hmm.get(), libhmm_obs);
             double forward_backward_log_likelihood = fb_calc.getLogProbability();
             auto end = high_resolution_clock::now();
             results.forward_time = duration_cast<microseconds>(end - start).count() / 1000.0;
             results.likelihood = forward_backward_log_likelihood;
-            
-            // Debug output for first test
-            if (sequence_length == 100) {
-                cout << "[DEBUG] libhmm selected FB calculator: " << fb_calc.getSelectionRationale() << endl;
-            }
-            
             // Viterbi benchmark
             start = high_resolution_clock::now();
-            libhmm::viterbi::AutoCalculator viterbi_calc(hmm.get(), libhmm_obs);
+            libhmm::ViterbiCalculator viterbi_calc(hmm.get(), libhmm_obs);
             auto states = viterbi_calc.decode();
             end = high_resolution_clock::now();
             results.viterbi_time = duration_cast<microseconds>(end - start).count() / 1000.0;
-            
-            // Debug output for first test
-            if (sequence_length == 100) {
-                cout << "[DEBUG] libhmm selected Viterbi calculator: " << viterbi_calc.getSelectionRationale() << endl;
-            }
-            
             results.success = true;
             
         } catch (const exception& e) {

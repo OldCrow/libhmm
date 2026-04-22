@@ -4,6 +4,7 @@
 #include <memory>
 #include <random>
 #include <iomanip>
+#include <tuple>
 
 // libhmm includes
 #include "../include/libhmm/libhmm.h"
@@ -95,7 +96,7 @@ void benchmarkLibhmm() {
                 for (size_t j = 0; j < alphabet_size; ++j) {
                     dist->setProbability(j, probs[j] / sum);
                 }
-                hmm->setProbabilityDistribution(i, std::move(dist));
+                hmm->setDistribution(i, std::move(dist));
             }
             
             // Generate test sequence
@@ -143,7 +144,7 @@ void benchmarkDistributions() {
     std::cout << std::string(60, '-') << std::endl;
     
     // Test different distributions
-    std::vector<std::unique_ptr<libhmm::ProbabilityDistribution>> distributions;
+    std::vector<std::unique_ptr<libhmm::EmissionDistribution>> distributions;
     std::vector<std::string> names;
     
     distributions.push_back(std::make_unique<libhmm::GaussianDistribution>(0.0, 1.0));
@@ -217,7 +218,7 @@ void benchmarkTraining() {
                 for (size_t j = 0; j < alphabet_size; ++j) {
                     dist->setProbability(j, 1.0 / alphabet_size); // Uniform
                 }
-                hmm->setProbabilityDistribution(i, std::move(dist));
+                hmm->setDistribution(i, std::move(dist));
             }
             
             // Generate training data

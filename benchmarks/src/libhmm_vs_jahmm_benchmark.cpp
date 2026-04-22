@@ -17,9 +17,8 @@
 // libhmm includes
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/discrete_distribution.h"
-#include "libhmm/calculators/calculator.h"
-#include "libhmm/calculators/forward_backward_traits.h"
-#include "libhmm/calculators/viterbi_traits.h"
+#include "libhmm/calculators/forward_backward_calculator.h"
+#include "libhmm/calculators/viterbi_calculator.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -27,6 +26,49 @@ using namespace std::chrono;
 // Random number generation with fixed seed for reproducibility
 random_device rd;
 mt19937 gen(42);
+#ifndef LIBHMM_BENCH_JAHMM_DIR
+#define LIBHMM_BENCH_JAHMM_DIR "../Jahmm"
+#endif
+
+string getJahmmRootDir() {
+    const char* env_jahmm_dir = getenv("LIBHMM_BENCH_JAHMM_DIR");
+    if (env_jahmm_dir && strlen(env_jahmm_dir) > 0) {
+        return string(env_jahmm_dir);
+    }
+    return string(LIBHMM_BENCH_JAHMM_DIR);
+}
+
+string resolveJavaBinary() {
+    const vector<string> candidates = {
+        "/opt/homebrew/opt/openjdk/bin/java",
+        "/usr/local/opt/openjdk/bin/java",
+        "java"
+    };
+    for (const auto& candidate : candidates) {
+        if (!candidate.empty() && candidate[0] == '/' && access(candidate.c_str(), X_OK) == 0) {
+            return candidate;
+        }
+    }
+    return "java";
+}
+
+string resolveJavacBinary() {
+    const vector<string> candidates = {
+        "/opt/homebrew/opt/openjdk/bin/javac",
+        "/usr/local/opt/openjdk/bin/javac",
+        "javac"
+    };
+    for (const auto& candidate : candidates) {
+        if (!candidate.empty() && candidate[0] == '/' && access(candidate.c_str(), X_OK) == 0) {
+            return candidate;
+        }
+    }
+    return "javac";
+}
+
+bool pathExists(const string& path) {
+    return access(path.c_str(), F_OK) == 0;
+}
 
 struct BenchmarkResults {
     string library_name;
@@ -163,7 +205,7 @@ public:
                 for (int j = 0; j < problem.alphabet_size; ++j) {
                     discrete_dist->setProbability(static_cast<libhmm::Observation>(j), problem.emission_matrix[i][j]);
                 }
-                hmm->setProbabilityDistribution(i, discrete_dist.release());
+                hmm->setDistribution(i, std::move(discrete_dist));
             }
             
             // Convert observation sequence to libhmm format (already 0-indexed)
@@ -172,17 +214,17 @@ public:
                 libhmm_obs(i) = static_cast<libhmm::Observation>(obs_sequence[i]);
             }
             
-            // Use Forward-Backward calculator with auto selection
+            // Use canonical Forward-Backward calculator
             auto start = high_resolution_clock::now();
-            libhmm::forwardbackward::AutoCalculator fb_calc(hmm.get(), libhmm_obs, true); // require stability
+            libhmm::ForwardBackwardCalculator fb_calc(hmm.get(), libhmm_obs);
             double forward_backward_log_likelihood = fb_calc.getLogProbability();
             auto end = high_resolution_clock::now();
             results.forward_time = duration_cast<microseconds>(end - start).count() / 1000.0;
             results.likelihood = forward_backward_log_likelihood;
             
-            // Use Viterbi calculator with auto selection
+            // Use canonical Viterbi calculator
             start = high_resolution_clock::now();
-            libhmm::viterbi::AutoCalculator viterbi_calc(hmm.get(), libhmm_obs, true); // require stability
+            libhmm::ViterbiCalculator viterbi_calc(hmm.get(), libhmm_obs);
             auto states = viterbi_calc.decode();
             end = high_resolution_clock::now();
             results.viterbi_time = duration_cast<microseconds>(end - start).count() / 1000.0;
@@ -203,6 +245,7 @@ public:
 class JAHMMBenchmark {
 private:
     string jahmm_path;
+    string java_bin;
     string temp_dir;
     
     // Write HMM configuration to Java properties file
@@ -284,7 +327,8 @@ private:
     }
     
 public:
-    JAHMMBenchmark(const string& jahmm_jar_path) : jahmm_path(jahmm_jar_path) {
+    JAHMMBenchmark(const string& jahmm_jar_path, const string& java_exec)
+        : jahmm_path(jahmm_jar_path), java_bin(java_exec) {
         temp_dir = "/tmp/jahmm_benchmark_" + to_string(getpid());
         system(("mkdir -p " + temp_dir).c_str());
     }
@@ -315,8 +359,9 @@ public:
             writeObservationSequence(obs_sequence, obs_file);
             
             // Create Java benchmark runner command
-            string java_command = "cd " + temp_dir + " && java -cp " + jahmm_path + " JAHMMBenchmarkRunner " 
-                                + config_file + " " + obs_file + " " + result_file;
+            string java_command = "cd \"" + temp_dir + "\" && \"" + java_bin + "\" -cp \"" + jahmm_path +
+                                  "\" JAHMMBenchmarkRunner \"" + config_file + "\" \"" + obs_file +
+                                  "\" \"" + result_file + "\" 2>&1";
             
             // Execute the Java benchmark
             auto [exec_time, output] = executeJavaCommand(java_command);
@@ -357,7 +402,19 @@ public:
 };
 
 // Java benchmark runner that we'll create alongside this C++ file
-void createJavaRunner() {
+bool createJavaRunner(const string& jahmm_root, const string& javac_bin) {
+    string jahmm_source_dir = jahmm_root + "/source/jahmm-0.6.2";
+    string runner_class_file = jahmm_source_dir + "/build/JAHMMBenchmarkRunner.class";
+    
+    if (!pathExists(jahmm_source_dir)) {
+        cout << "JAHMM source directory not found: " << jahmm_source_dir << endl;
+        return false;
+    }
+    
+    if (pathExists(runner_class_file)) {
+        return true;
+    }
+    
     string java_code = R"(
 import java.io.*;
 import java.util.*;
@@ -552,23 +609,26 @@ public class JAHMMBenchmarkRunner {
 }
 )";
 
-    // Write Java file to the JAHMM directory (using relative path from benchmarks directory)
-    string java_file = "../JAHMM/source/jahmm-0.6.2/src/JAHMMBenchmarkRunner.java";
+    // Write Java file to the JAHMM source directory
+    string java_file = jahmm_source_dir + "/src/JAHMMBenchmarkRunner.java";
     ofstream out(java_file);
+    if (!out.is_open()) {
+        cout << "Failed to write Java benchmark runner source: " << java_file << endl;
+        return false;
+    }
     out << java_code;
     out.close();
     
-    // Compile the Java file (using relative path with portable Java detection)
-    string compile_cmd = "cd ../JAHMM/source/jahmm-0.6.2 && "
-                        "(export PATH=/opt/homebrew/opt/openjdk/bin:$PATH 2>/dev/null || "
-                        "export PATH=/usr/local/opt/openjdk/bin:$PATH 2>/dev/null || true) && "
-                        "javac -cp build src/JAHMMBenchmarkRunner.java -d build";
+    // Compile the Java file
+    string compile_cmd = "cd \"" + jahmm_source_dir + "\" && \"" + javac_bin +
+                         "\" -cp build src/JAHMMBenchmarkRunner.java -d build";
     
     int result = system(compile_cmd.c_str());
     if (result != 0) {
         cout << "Failed to compile Java benchmark runner" << endl;
-        exit(1);
+        return false;
     }
+    return true;
 }
 
 void displayResults(const vector<BenchmarkResults>& all_results) {
@@ -647,19 +707,26 @@ int main() {
     cout << "Comparing performance of libhmm (C++) vs JAHMM (Java)" << endl;
     cout << "Testing with classic HMM problems and various sequence lengths" << endl << endl;
     
+    string jahmm_root = getJahmmRootDir();
+    string jahmm_source_dir = jahmm_root + "/source/jahmm-0.6.2";
+    string java_bin = resolveJavaBinary();
+    string javac_bin = resolveJavacBinary();
+    
+    cout << "Using JAHMM directory: " << jahmm_root << endl;
+    cout << "Using Java executable: " << java_bin << endl;
+    
     // Create Java benchmark runner
     cout << "Creating and compiling Java benchmark runner..." << endl;
-    createJavaRunner();
+    if (!createJavaRunner(jahmm_root, javac_bin)) {
+        return 1;
+    }
     
-    // Set up JAHMM path (construct absolute path)
-    char* cwd = getcwd(NULL, 0);
-    string current_dir(cwd);
-    free(cwd);
-    string jahmm_classpath = current_dir + "/../JAHMM/source/jahmm-0.6.2/build";
+    // Set up JAHMM classpath
+    string jahmm_classpath = jahmm_source_dir + "/build:" + jahmm_source_dir + "/jahmm.jar";
     
     // Create benchmark instances
     LibHMMBenchmark libhmm_bench;
-    JAHMMBenchmark jahmm_bench(jahmm_classpath);
+    JAHMMBenchmark jahmm_bench(jahmm_classpath, java_bin);
     
     // Define test problems
     ClassicHMMProblems::CasinoProblem casino_problem;

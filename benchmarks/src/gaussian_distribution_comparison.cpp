@@ -15,8 +15,8 @@ extern "C" {
 }
 
 // StochHMM includes
-#include "../StochHMM/source/src/StochHMMlib.h"
-#include "../StochHMM/source/src/PDF.h"
+#include "StochHMMlib.h"
+#include "PDF.h"
 
 using namespace std;
 

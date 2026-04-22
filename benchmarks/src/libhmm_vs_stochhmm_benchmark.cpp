@@ -8,19 +8,79 @@
 #include <cstring>
 #include <sstream>
 #include <fstream>
+#include <filesystem>
+#include <system_error>
+#include <cctype>
 
 // libhmm includes
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/discrete_distribution.h"
-#include "libhmm/calculators/calculator.h"
-#include "libhmm/calculators/forward_backward_traits.h"
-#include "libhmm/calculators/viterbi_traits.h"
+#include "libhmm/calculators/forward_backward_calculator.h"
+#include "libhmm/calculators/viterbi_calculator.h"
 
 // StochHMM includes
 #include "StochHMMlib.h"
 
 using namespace std;
 using namespace std::chrono;
+namespace fs = std::filesystem;
+
+namespace {
+fs::path resolveBenchmarkLogDir(const char* argv0) {
+    std::error_code ec;
+    fs::path build_dir;
+
+    if (argv0 != nullptr) {
+        const fs::path exec_path = fs::weakly_canonical(fs::path(argv0), ec);
+        if (!ec && exec_path.has_parent_path()) {
+            const fs::path parent = exec_path.parent_path();
+            if (parent.has_parent_path()) {
+                build_dir = parent.parent_path();
+            }
+        }
+    }
+
+    if (build_dir.empty()) {
+        build_dir = fs::current_path(ec);
+    }
+
+    fs::path log_dir = build_dir / "benchmark-logs";
+    fs::create_directories(log_dir, ec);
+    if (ec) {
+        return build_dir;
+    }
+    return log_dir;
+}
+
+string sanitizeFileComponent(const string& input) {
+    string out;
+    out.reserve(input.size());
+    bool previous_was_underscore = false;
+
+    for (char ch : input) {
+        const unsigned char uch = static_cast<unsigned char>(ch);
+        if (std::isalnum(uch) != 0) {
+            out.push_back(static_cast<char>(std::tolower(uch)));
+            previous_was_underscore = false;
+        } else if (!previous_was_underscore) {
+            out.push_back('_');
+            previous_was_underscore = true;
+        }
+    }
+
+    while (!out.empty() && out.front() == '_') {
+        out.erase(out.begin());
+    }
+    while (!out.empty() && out.back() == '_') {
+        out.pop_back();
+    }
+
+    if (out.empty()) {
+        return "model";
+    }
+    return out;
+}
+}
 
 // Random number generation with fixed seed for reproducibility
 random_device rd;
@@ -142,7 +202,7 @@ public:
                 for (int j = 0; j < problem.alphabet_size; ++j) {
                     discrete_dist->setProbability(static_cast<libhmm::Observation>(j), problem.emission_matrix[i][j]);
                 }
-                hmm->setProbabilityDistribution(i, discrete_dist.release());
+                hmm->setDistribution(i, std::move(discrete_dist));
             }
             
             // Convert observation sequence to libhmm format
@@ -151,31 +211,20 @@ public:
                 libhmm_obs(i) = static_cast<libhmm::Observation>(obs_sequence[i]);
             }
             
-            // Use AutoCalculator for optimal Forward-Backward performance
+            // Use canonical Forward-Backward calculator
             auto start = high_resolution_clock::now();
-            libhmm::forwardbackward::AutoCalculator fb_calc(hmm.get(), libhmm_obs);
+            libhmm::ForwardBackwardCalculator fb_calc(hmm.get(), libhmm_obs);
             double forward_backward_log_likelihood = fb_calc.getLogProbability();
             auto end = high_resolution_clock::now();
             results.forward_time = duration_cast<microseconds>(end - start).count() / 1000.0;
             results.likelihood = forward_backward_log_likelihood;
-            
-            // Debug output for first test
-            if (sequence_length == 100) {
-                cout << "[DEBUG] libhmm selected FB calculator: " << fb_calc.getSelectionRationale() << endl;
-            }
-            
-            // Use AutoCalculator for optimal Viterbi performance
+
+            // Use canonical Viterbi calculator
             start = high_resolution_clock::now();
-            libhmm::viterbi::AutoCalculator viterbi_calc(hmm.get(), libhmm_obs);
+            libhmm::ViterbiCalculator viterbi_calc(hmm.get(), libhmm_obs);
             auto states = viterbi_calc.decode();
             end = high_resolution_clock::now();
             results.viterbi_time = duration_cast<microseconds>(end - start).count() / 1000.0;
-            
-            // Debug output for first test
-            if (sequence_length == 100) {
-                cout << "[DEBUG] libhmm selected Viterbi calculator: " << viterbi_calc.getSelectionRationale() << endl;
-            }
-            
             results.success = true;
             
         } catch (const exception& e) {
@@ -190,7 +239,11 @@ public:
 };
 
 class StochHMMBenchmark {
+private:
+    fs::path debug_output_dir_;
 public:
+    explicit StochHMMBenchmark(fs::path debug_output_dir)
+        : debug_output_dir_(std::move(debug_output_dir)) {}
     // Original method that generates sequence internally
     template<typename ProblemType>
     BenchmarkResults runBenchmark(ProblemType& problem, int sequence_length) {
@@ -221,9 +274,13 @@ public:
             
             // For debugging - save the model string (optional)
             if (sequence_length == 100) {
-                ofstream debug_file("debug_stochhmm_model_" + problem.name + ".hmm");
-                debug_file << model_str;
-                debug_file.close();
+                const fs::path debug_path =
+                    debug_output_dir_ / ("debug_stochhmm_model_" + sanitizeFileComponent(problem.name) + ".hmm");
+                ofstream debug_file(debug_path);
+                if (debug_file) {
+                    debug_file << model_str;
+                    debug_file.close();
+                }
             }
             
             // Parse model
@@ -456,14 +513,16 @@ void printPerformanceComparison(const vector<BenchmarkResults>& results) {
     cout << string(80, '=') << endl;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     cout << "HMM Library Comparison Benchmark" << endl;
     cout << "================================" << endl;
     cout << "Comparing libhmm vs StochHMM performance" << endl;
     cout << "Fixed random seed (42) for reproducibility" << endl;
+
+    const fs::path benchmark_log_dir = resolveBenchmarkLogDir((argc > 0) ? argv[0] : nullptr);
     
     LibHMMBenchmark libhmm_benchmark;
-    StochHMMBenchmark stochhmm_benchmark;
+    StochHMMBenchmark stochhmm_benchmark(benchmark_log_dir);
     vector<BenchmarkResults> results;
     
     // Test different sequence lengths for each problem
