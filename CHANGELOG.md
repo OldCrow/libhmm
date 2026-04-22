@@ -5,6 +5,102 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0-alpha] - 2026-04-22
+
+### Modern C++20 Architecture Refactor
+
+Complete rewrite of the distribution, calculator, and training layers.
+All external dependencies removed. C++ standard raised to C++20.
+
+### Breaking Changes
+
+- **`Hmm` API**: `setProbabilityDistribution(state, ptr)` → `setDistribution(state, unique_ptr)`;  
+  `getProbabilityDistribution(state)` → `getDistribution(state)` (returns `EmissionDistribution&`, not a pointer)
+- **`ProbabilityDistribution`** removed; replaced by `EmissionDistribution` abstract base
+- **All SIMD calculator variants removed**: `ScaledSIMDForwardBackwardCalculator`,  
+  `LogSIMDForwardBackwardCalculator`, `ScaledSIMDViterbiCalculator`, `LogSIMDViterbiCalculator`,  
+  `AdvancedLog*` variants
+- **`AutoCalculator` / `CalculatorSelector` / `CalculatorTraits`** removed
+- **`ScaledBaumWelchTrainer`** removed; `BaumWelchTrainer` now log-space and numerically stable
+- **`RobustViterbiTrainer`** removed; absorbed into `ViterbiTrainer` with `TrainingConfig` presets
+- **`HmmTrainer`** base class renamed to `Trainer`
+- **`Observation` type alias** removed; use `double` directly
+- **`two_state_hmm.h`** moved from public include tree to `examples/support/`
+
+### Added
+
+#### EmissionDistribution Interface (Layer 3)
+- New abstract base `EmissionDistribution` replacing `ProbabilityDistribution`
+- `getBatchLogProbabilities(span<const double>, span<double>)` — batch evaluation for SIMD
+- `fit(span<const double>, span<const double> weights)` — weighted MLE for Baum-Welch M-step
+- `DistributionBase` provides thread-safe `std::atomic<bool>` cache and shared math helpers
+- All 15 distributions implement concrete non-virtual `getBatchLogProbabilities()` loops (tier 1)
+- `GaussianDistribution` and `ExponentialDistribution` have explicit SIMD intrinsics (tier 2):
+  AVX-512 (8-wide), AVX2 (4-wide), SSE2 (2-wide), NEON (2-wide) with scalar tail
+
+#### Canonical Calculators (Layer 4)
+- `ForwardBackwardCalculator` — canonical log-space; calls `getBatchLogProbabilities()` per state;
+  pre-computes log transition matrix; no underflow on any sequence length
+- `ViterbiCalculator` — same architecture; returns MAP state sequence
+
+#### Canonical Trainers (Layer 4)
+- `BaumWelchTrainer` — canonical log-space EM; uses weighted `fit()` for M-step; accumulates γ
+  across multiple sequences; works with any `EmissionDistribution`
+- `ViterbiTrainer` — hard-assignment training with `TrainingConfig` and named presets
+  (`training_presets::fast()`, `balanced()`, `precise()`); reports `hasConverged()` /
+  `reachedMaxIterations()` after training
+- `SegmentalKMeansTrainer` (canonical name; `SegmentedKMeansTrainer` retained as alias)
+
+#### SIMD Infrastructure
+- `LIBHMM_BEST_SIMD_FLAGS` selected at configure time: MSVC uses `check_cxx_source_runs`
+  (verifies CPU can execute instructions, not just that the compiler accepts the flag);
+  GCC/Clang use `-march=native`
+- AArch64 architecture detection in CMakeLists gates x86 checks correctly
+- `simd_inspection` tool reports active ISA and runs 6 functional smoke tests
+
+#### Test Suite (35/35 canonical tests)
+- Tests organised into 8 architectural levels with `add_hmm_test()` helper
+- 4 new tests: `test_calculator_continuous`, `test_calculator_edge_cases`,
+  `test_baum_welch_convergence` (EM monotonicity), `test_end_to_end` (casino problem)
+- Custom targets: `run_tests` (parallel, correctness), `run_tests_timing` (serial)
+
+#### Tools Directory
+- `simd_inspection` — SIMD ISA report + 6 functional smoke tests
+- `batch_performance` — FB + Viterbi throughput at varied (N, T) with Gaussian HMM
+- `hmm_validator` — loads XML HMM, validates, runs ForwardBackward + Viterbi with diagnostics
+
+#### Examples (12 total, all canonical API)
+- New: `baum_welch_example` (EM convergence table, BW vs Viterbi comparison)
+- New: `viterbi_trainer_example` (TrainingConfig preset comparison)
+- New: `student_t_hmm_example` (financial risk regime detection, BW training)
+- Updated: all 9 existing examples to canonical `setDistribution`/`getDistribution` API
+
+### Changed
+
+- C++ standard raised from C++17 to **C++20**
+- All `#ifndef`/`#define`/`#endif` header guards replaced with `#pragma once`
+- SIMD detection in CMakeLists is architecture-aware (AArch64 / x86 separate paths)
+- `tests/CMakeLists.txt`: `add_hmm_test()` helper, 8-level organisation, `run_tests` target
+- `examples/CMakeLists.txt`: `add_hmm_example()` helper; examples re-enabled
+- All distribution `fit()` methods accept `std::span<const double>` (was `std::vector<Observation>&`)
+
+### Fixed
+
+- ForwardBackwardCalculator allocation bug: `obsVec` was allocated N times inside the
+  N-state emission loop; moved outside the loop (matched ViterbiCalculator behaviour)
+- MSVC SIMD detection: `check_cxx_compiler_flag` accepted `/arch:AVX512` unconditionally
+  even on VMs without AVX-512; replaced with `check_cxx_source_runs` to verify at runtime
+- Apple Silicon false-positive SSE4.2 detection: Clang on arm64 accepted x86 flags silently;
+  x86 checks now gated on `CMAKE_SYSTEM_PROCESSOR`
+
+### Removed
+
+- All SIMD calculator variants (12 test files, 3 performance tools also removed)
+- `docs/CALCULATOR_MIGRATION.md` (migration complete)
+- `robust_viterbi_trainer_example.cpp`, `robust_financial_hmm_example.cpp`
+
+---
+
 ## [2.9.1] - 2025-07-02
 
 ### Cross-Platform Architecture Support & Build Quality Release

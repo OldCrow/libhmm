@@ -58,7 +58,7 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-    VERSION 2.9.1
+    VERSION 3.0.0
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
