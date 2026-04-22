@@ -103,6 +103,13 @@ public:
     
     [[nodiscard]] double getProbability(double val) const override;
     [[nodiscard]] double getLogProbability(double val) const noexcept override;
+
+    /// Concrete non-virtual batch log-PDF (constant inside support, -Inf outside).
+    /// Eliminates per-element virtual dispatch.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
     double CDF(double x) const;
 
     /** Fit [a, b] to unweighted data using sample min/max with padding. */

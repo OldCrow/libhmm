@@ -1,4 +1,5 @@
 #include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/platform/simd_platform.h"  // compile-time SIMD macros + intrinsics
 #include <algorithm>
 #include <limits>
 #include <numeric>
@@ -216,6 +217,126 @@ bool GaussianDistribution::operator==(const GaussianDistribution& other) const {
     using namespace libhmm::constants;
     return std::abs(mean_ - other.mean_) < precision::LIMIT_TOLERANCE &&
            std::abs(standardDeviation_ - other.standardDeviation_) < precision::LIMIT_TOLERANCE;
+}
+
+// =============================================================================
+// Batch log-PDF — explicit SIMD intrinsics (tier 2)
+//
+// Free function: takes only plain data — no class access.
+// Pattern is deliberately extractable to a separate TU for future runtime
+// dispatch without any class or interface changes.
+//
+// ISA chain (highest available wins; lower paths handle tail elements):
+//   AVX-512  8-wide __m512d   (Ryzen 7000, Intel Skylake-X+)
+//   AVX/AVX2 4-wide __m256d   (Haswell+, Ivy Bridge with AVX)
+//   SSE2     2-wide __m128d   (x86-64 baseline)
+//   NEON     2-wide float64x2 (AArch64 — always present)
+//   scalar                    (tail + fallback)
+//
+// NaN inputs yield -Inf output, matching GaussianDistribution::getLogProbability.
+// =============================================================================
+namespace detail {
+
+void gaussian_logpdf_batch(
+        const double* obs, double* out, std::size_t n,
+        double mean, double neg_half_inv_sigma_sq, double log_norm) noexcept {
+    std::size_t i = 0;
+
+#if defined(LIBHMM_HAS_AVX512)
+    {
+        const __m512d mean_v    = _mm512_set1_pd(mean);
+        const __m512d lognorm_v = _mm512_set1_pd(log_norm);
+        const __m512d scale_v   = _mm512_set1_pd(neg_half_inv_sigma_sq);
+        const __m512d neg_inf_v = _mm512_set1_pd(-std::numeric_limits<double>::infinity());
+        for (; i + 8 <= n; i += 8) {
+            __m512d x    = _mm512_loadu_pd(obs + i);
+            __m512d diff = _mm512_sub_pd(x, mean_v);
+            __m512d sq   = _mm512_mul_pd(diff, diff);
+            __m512d res  = _mm512_add_pd(lognorm_v, _mm512_mul_pd(scale_v, sq));
+            __mmask8 is_nan = _mm512_cmp_pd_mask(x, x, _CMP_UNORD_Q);  // 1 where NaN
+            res = _mm512_mask_blend_pd(is_nan, res, neg_inf_v);          // neg_inf where NaN
+            _mm512_storeu_pd(out + i, res);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
+    {
+        const __m256d mean_v    = _mm256_set1_pd(mean);
+        const __m256d lognorm_v = _mm256_set1_pd(log_norm);
+        const __m256d scale_v   = _mm256_set1_pd(neg_half_inv_sigma_sq);
+        const __m256d neg_inf_v = _mm256_set1_pd(-std::numeric_limits<double>::infinity());
+        for (; i + 4 <= n; i += 4) {
+            __m256d x    = _mm256_loadu_pd(obs + i);
+            __m256d diff = _mm256_sub_pd(x, mean_v);
+            __m256d sq   = _mm256_mul_pd(diff, diff);
+            __m256d res  = _mm256_add_pd(lognorm_v, _mm256_mul_pd(scale_v, sq));
+            __m256d is_nan = _mm256_cmp_pd(x, x, _CMP_UNORD_Q);  // all-1s where NaN
+            res = _mm256_blendv_pd(res, neg_inf_v, is_nan);        // neg_inf where NaN
+            _mm256_storeu_pd(out + i, res);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_SSE2)
+    {
+        const __m128d mean_v    = _mm_set1_pd(mean);
+        const __m128d lognorm_v = _mm_set1_pd(log_norm);
+        const __m128d scale_v   = _mm_set1_pd(neg_half_inv_sigma_sq);
+        const __m128d neg_inf_v = _mm_set1_pd(-std::numeric_limits<double>::infinity());
+        for (; i + 2 <= n; i += 2) {
+            __m128d x    = _mm_loadu_pd(obs + i);
+            __m128d diff = _mm_sub_pd(x, mean_v);
+            __m128d sq   = _mm_mul_pd(diff, diff);
+            __m128d res  = _mm_add_pd(lognorm_v, _mm_mul_pd(scale_v, sq));
+            // SSE2 has no blendv: use andnot/or to select neg_inf where NaN
+            __m128d is_nan = _mm_cmpunord_pd(x, x);  // all-1s where NaN
+            res = _mm_or_pd(_mm_andnot_pd(is_nan, res), _mm_and_pd(is_nan, neg_inf_v));
+            _mm_storeu_pd(out + i, res);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_NEON)
+    {
+        const float64x2_t mean_v    = vdupq_n_f64(mean);
+        const float64x2_t lognorm_v = vdupq_n_f64(log_norm);
+        const float64x2_t scale_v   = vdupq_n_f64(neg_half_inv_sigma_sq);
+        const float64x2_t neg_inf_v = vdupq_n_f64(-std::numeric_limits<double>::infinity());
+        for (; i + 2 <= n; i += 2) {
+            float64x2_t x    = vld1q_f64(obs + i);
+            float64x2_t diff = vsubq_f64(x, mean_v);
+            float64x2_t sq   = vmulq_f64(diff, diff);
+            float64x2_t res  = vaddq_f64(lognorm_v, vmulq_f64(scale_v, sq));
+            // vceqq_f64(x,x) = all-1s where NOT NaN (NaN != NaN by IEEE)
+            // vbslq_f64(mask, a, b): lane = a where mask=1, b where mask=0
+            uint64x2_t not_nan = vceqq_f64(x, x);
+            res = vbslq_f64(not_nan, res, neg_inf_v);  // res if valid, neg_inf if NaN
+            vst1q_f64(out + i, res);
+        }
+    }
+#endif
+
+    // Scalar tail: handles remaining elements and platforms without SIMD
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (; i < n; ++i) {
+        const double x = obs[i];
+        out[i] = (std::isnan(x) || std::isinf(x))
+                 ? neg_inf
+                 : log_norm + neg_half_inv_sigma_sq * (x - mean) * (x - mean);
+    }
+}
+
+} // namespace detail
+
+void GaussianDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    if (!isCacheValid()) updateCache();
+    const double log_norm = -0.5 * math::LN_2PI - logStandardDeviation_;
+    detail::gaussian_logpdf_batch(
+        observations.data(), out.data(), observations.size(),
+        mean_, negHalfSigmaSquaredInv_, log_norm);
 }
 
 }

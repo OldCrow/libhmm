@@ -143,6 +143,13 @@ public:
     [[nodiscard]] double getProbability(double value) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
+    /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch;
+    /// enables compiler auto-vectorization under -march=native or /arch:AVX2.
+    /// Precondition: observations.size() == out.size()
+    void getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const override;
+
     /**
      * Computes the cumulative distribution function for the Beta distribution.
      * 

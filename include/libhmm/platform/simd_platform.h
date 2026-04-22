@@ -76,6 +76,9 @@
     #if defined(__AVX2__)
         #define LIBHMM_HAS_AVX2
     #endif
+    #if defined(__AVX512F__)
+        #define LIBHMM_HAS_AVX512
+    #endif
 
 // GCC/Clang - x86/x64 platforms (Intel/AMD)
 #elif (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86))

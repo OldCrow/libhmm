@@ -341,4 +341,19 @@ std::istream& operator>>(std::istream& is, BetaDistribution& distribution) {
     
     return is;
 }
+
+void BetaDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade requires vectorised lgamma (log B(α,β) = lgamma(α)+lgamma(β)-lgamma(α+β)):
+    // available via Intel SVML or platform-specific math libraries, but not
+    // portably available without a dedicated math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = BetaDistribution::getLogProbability(observations[i]);
+    }
+}
+
 } // namespace libhmm

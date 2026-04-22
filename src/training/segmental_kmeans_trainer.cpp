@@ -1,4 +1,5 @@
-#include "libhmm/training/segmented_kmeans_trainer.h"
+#include "libhmm/training/segmental_kmeans_trainer.h"
+#include "libhmm/calculators/viterbi_calculator.h"
 #include "libhmm/distributions/discrete_distribution.h"
 #include <algorithm>
 #include <iostream>
@@ -6,7 +7,6 @@
 namespace libhmm
 {
 
-// Clusters implementation
 Clusters::Clusters(std::size_t k, const ObservationSet& observations) {
     if (k == 0) {
         throw std::invalid_argument("Number of clusters must be greater than zero");
@@ -14,15 +14,14 @@ Clusters::Clusters(std::size_t k, const ObservationSet& observations) {
     if (observations.size() == 0) {
         throw std::invalid_argument("Observations cannot be empty");
     }
-    
+
     clusters_.resize(k);
-    
-    // Simple initialization: divide observations into k roughly equal groups
+
     const auto obsSize = observations.size();
     for (std::size_t i = 0; i < obsSize; ++i) {
         const auto clusterIdx = (i * k) / obsSize;
         const auto obsValue = static_cast<std::size_t>(observations(i));
-        
+
         clusters_[clusterIdx].push_back(obsValue);
         clustersHash_[obsValue] = Value(clusterIdx);
     }
@@ -47,40 +46,41 @@ void Clusters::remove(std::size_t observation, std::size_t clusterNb) {
     if (clusterNb >= clusters_.size()) {
         throw std::out_of_range("Invalid cluster number");
     }
-    
+
     auto& clusterVec = clusters_[clusterNb];
     auto it = std::find(clusterVec.begin(), clusterVec.end(), observation);
     if (it == clusterVec.end()) {
         throw std::runtime_error("Observation not found in expected cluster");
     }
-    
+
     clusterVec.erase(it);
-    clustersHash_[observation].setClusterNb(static_cast<std::size_t>(-1)); // Mark as removed
+    clustersHash_[observation].setClusterNb(static_cast<std::size_t>(-1));
 }
 
 void Clusters::put(std::size_t observation, std::size_t clusterNb) {
     if (clusterNb >= clusters_.size()) {
         throw std::out_of_range("Invalid cluster number");
     }
-    
+
     clustersHash_[observation].setClusterNb(clusterNb);
     clusters_[clusterNb].push_back(observation);
 }
 
-// SegmentedKMeansTrainer implementation
-void SegmentedKMeansTrainer::validateDiscreteDistributions() const {
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
+void SegmentalKMeansTrainer::validateDiscreteDistributions() const {
+    Hmm& hmm = hmm_ref_.get();
+    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
     for (std::size_t i = 0; i < numStates; ++i) {
-        const auto* dist = dynamic_cast<const DiscreteDistribution*>(hmm_->getProbabilityDistribution(static_cast<int>(i)));
+        const auto* dist = dynamic_cast<const DiscreteDistribution*>(&hmm.getDistribution(i));
         if (!dist) {
-            throw std::runtime_error("SegmentedKMeansTrainer requires all states to have DiscreteDistribution");
+            throw std::runtime_error(
+                "SegmentalKMeansTrainer requires all states to have DiscreteDistribution");
         }
     }
 }
 
-void SegmentedKMeansTrainer::train() {
+void SegmentalKMeansTrainer::train() {
     ObservationSet observations = flattenObservationLists(obsLists_);
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
+    const auto numStates = static_cast<std::size_t>(hmm_ref_.get().getNumStates());
     clusters_ = Clusters(numStates, observations);
 
     do {
@@ -88,20 +88,21 @@ void SegmentedKMeansTrainer::train() {
     } while (!isTerminated());
 }
 
-void SegmentedKMeansTrainer::iterate() {
+void SegmentalKMeansTrainer::iterate() {
     learnPi();
     learnTrans();
     learnEmis();
 
-    terminated_ = !optimizeCluster(); // optimizeCluster returns true if modified
+    terminated_ = !optimizeCluster();
 }
 
-void SegmentedKMeansTrainer::learnPi() {
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
+void SegmentalKMeansTrainer::learnPi() {
+    Hmm& hmm = hmm_ref_.get();
+    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
     Vector pi(numStates);
 
     clear_vector(pi);
-    
+
     for (const auto& obsList : obsLists_) {
         if (!obsList.empty()) {
             const auto firstObs = static_cast<std::size_t>(obsList(0));
@@ -114,21 +115,22 @@ void SegmentedKMeansTrainer::learnPi() {
     for (std::size_t j = 0; j < numStates; ++j) {
         pi(j) = pi(j) / totalLists;
     }
-    
-    hmm_->setPi(pi);
+
+    hmm.setPi(pi);
 }
-void SegmentedKMeansTrainer::learnTrans() {
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
+
+void SegmentalKMeansTrainer::learnTrans() {
+    Hmm& hmm = hmm_ref_.get();
+    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
     Matrix trans(numStates, numStates);
 
     clear_matrix(trans);
 
     for (const auto& obsList : obsLists_) {
-        // List is too short
         if (obsList.size() < 2) continue;
 
         auto firstState = clusters_.clusterNumber(static_cast<std::size_t>(obsList(0)));
-        
+
         for (std::size_t j = 1; j < obsList.size(); ++j) {
             const auto secondState = clusters_.clusterNumber(static_cast<std::size_t>(obsList(j)));
             trans(firstState, secondState) += 1.0;
@@ -136,71 +138,59 @@ void SegmentedKMeansTrainer::learnTrans() {
         }
     }
 
-    // Normalize transition matrix
     for (std::size_t j = 0; j < numStates; ++j) {
         double sum = 0.0;
-        
-        for (std::size_t k = 0; k < numStates; ++k) {
-            sum += trans(j, k);
-        }
+        for (std::size_t k = 0; k < numStates; ++k) sum += trans(j, k);
 
         if (sum == 0.0) {
-            // Uniform distribution if no transitions observed
             const double uniform = 1.0 / static_cast<double>(numStates);
-            for (std::size_t k = 0; k < numStates; ++k) {
-                trans(j, k) = uniform;
-            }
+            for (std::size_t k = 0; k < numStates; ++k) trans(j, k) = uniform;
         } else {
-            for (std::size_t k = 0; k < numStates; ++k) {
-                trans(j, k) = trans(j, k) / sum;
-            }
+            for (std::size_t k = 0; k < numStates; ++k) trans(j, k) /= sum;
         }
     }
 
-    hmm_->setTrans(trans);
+    hmm.setTrans(trans);
 }
 
-void SegmentedKMeansTrainer::learnEmis() {
-    const auto numStates = static_cast<std::size_t>(hmm_->getNumStates());
-    
-    // Update emission probabilities for discrete distributions
+void SegmentalKMeansTrainer::learnEmis() {
+    Hmm& hmm = hmm_ref_.get();
+    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
+
     for (std::size_t i = 0; i < numStates; ++i) {
-        auto* dist = dynamic_cast<DiscreteDistribution*>(hmm_->getProbabilityDistribution(static_cast<int>(i)));
+        auto* dist = dynamic_cast<DiscreteDistribution*>(&hmm.getDistribution(i));
         if (!dist) continue;
-        
+
         const auto& clusterObservations = clusters_.cluster(i);
         const auto numSymbols = dist->getNumSymbols();
-        
+
         if (clusterObservations.empty()) {
-            // Use uniform distribution if no observations
             const double uniform = 1.0 / static_cast<double>(numSymbols);
             for (std::size_t j = 0; j < numSymbols; ++j) {
                 dist->setProbability(static_cast<int>(j), uniform);
             }
         } else {
-            // Count occurrences of each symbol
             std::vector<std::size_t> counts(numSymbols, 0);
             for (const auto& obs : clusterObservations) {
                 if (obs < numSymbols) {
                     counts[obs]++;
                 }
             }
-            
-            // Set probabilities based on counts
+
             const double totalObs = static_cast<double>(clusterObservations.size());
             for (std::size_t j = 0; j < numSymbols; ++j) {
                 const double prob = static_cast<double>(counts[j]) / totalObs;
-                dist->setProbability(static_cast<int>(j), prob > 0.0 ? prob : 1e-10); // Avoid zero probabilities
+                dist->setProbability(static_cast<int>(j), prob > 0.0 ? prob : 1e-10);
             }
         }
     }
 }
 
-bool SegmentedKMeansTrainer::optimizeCluster() {
+bool SegmentalKMeansTrainer::optimizeCluster() {
     bool modified = false;
 
     for (const auto& obsList : obsLists_) {
-        ViterbiCalculator vc(hmm_, obsList);
+        ViterbiCalculator vc(hmm_ref_.get(), obsList);
         StateSequence states = vc.decode();
 
         for (std::size_t j = 0; j < obsList.size(); ++j) {
@@ -219,26 +209,25 @@ bool SegmentedKMeansTrainer::optimizeCluster() {
     return modified;
 }
 
-ObservationSet SegmentedKMeansTrainer::flattenObservationLists(const ObservationLists& observationLists) {
+ObservationSet SegmentalKMeansTrainer::flattenObservationLists(
+        const ObservationLists& observationLists) {
     std::size_t totalObservations = 0;
 
-    // Calculate total number of observations
     for (const auto& obsList : observationLists) {
         totalObservations += obsList.size();
     }
-    
+
     ObservationSet flattened(totalObservations);
     std::size_t k = 0;
-    
-    // Flatten all observation lists into one
+
     for (const auto& obsList : observationLists) {
         for (std::size_t j = 0; j < obsList.size(); ++j) {
             flattened(k) = obsList(j);
             ++k;
         }
     }
-    
+
     return flattened;
 }
 
-}
+} // namespace libhmm

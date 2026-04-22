@@ -36,9 +36,8 @@ std::ostream& operator<<( std::ostream& os, const libhmm::Hmm& h ){
     
     os << "  Emissions: " << std::endl;
     for( std::size_t i = 0; i < numStates; ++i ){
-        const ProbabilityDistribution* pd = h.getProbabilityDistribution(i);
         os << "   State " << i << ": ";
-        os << pd->toString() << std::endl;
+        os << h.getDistribution(i).toString() << std::endl;
     }
     
     return os;
@@ -88,8 +87,8 @@ std::istream& operator>>( std::istream& is, libhmm::Hmm& hmm ){
         is >> s >> s >> t; // "State" "i:" "DistributionType"
 
         // Modern C++17 approach: Hash-based dispatch for cleaner code
-        using DistributionParser = std::function<std::unique_ptr<ProbabilityDistribution>(std::istream&)>;
-        
+        using DistributionParser = std::function<std::unique_ptr<EmissionDistribution>(std::istream&)>;
+
         static const std::unordered_map<std::string, DistributionParser> parsers = {
             {"Gaussian", [](std::istream& is) {
                 std::string s, t;
@@ -234,7 +233,7 @@ std::istream& operator>>( std::istream& is, libhmm::Hmm& hmm ){
         auto parser_it = parsers.find(t);
         if (parser_it != parsers.end()) {
             auto distribution = parser_it->second(is);
-            hmm.setProbabilityDistribution(i, std::move(distribution));
+            hmm.setDistribution(i, std::move(distribution));
         } else {
             throw std::runtime_error("Unknown distribution type: " + t);
         }

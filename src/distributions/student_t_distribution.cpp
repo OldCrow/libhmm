@@ -448,4 +448,19 @@ void StudentTDistribution::updateCache() const {
     markCacheValid();
 }
 
+void StudentTDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
+    // terms under -march=native / /arch:AVX512.
+    // Tier 2 upgrade: the log-normalisation constant is precomputed in the cache,
+    // so the per-element work is log(1 + t²/ν) — requires vectorised log.
+    // Available via Intel SVML, GNU libmvec, or Apple Accelerate vvlog, but
+    // not portably without a math-library dependency.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = StudentTDistribution::getLogProbability(observations[i]);
+    }
+}
+
 } // namespace libhmm

@@ -1450,7 +1450,7 @@ protected:
         distributions_.push_back(std::make_unique<PoissonDistribution>());
     }
     
-    std::vector<std::unique_ptr<ProbabilityDistribution>> distributions_;
+    std::vector<std::unique_ptr<EmissionDistribution>> distributions_;
 };
 
 TEST_F(CommonDistributionTest, PolymorphicInterface) {

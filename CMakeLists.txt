@@ -168,18 +168,80 @@ endif()
 include(CheckCXXCompilerFlag)
 
 if(NOT MSVC)
-    check_cxx_compiler_flag("-mavx"   COMPILER_SUPPORTS_AVX)
-    check_cxx_compiler_flag("-mavx2"  COMPILER_SUPPORTS_AVX2)
+    check_cxx_compiler_flag("-mavx512f" COMPILER_SUPPORTS_AVX512F)
+    check_cxx_compiler_flag("-mavx"    COMPILER_SUPPORTS_AVX)
+    check_cxx_compiler_flag("-mavx2"   COMPILER_SUPPORTS_AVX2)
     check_cxx_compiler_flag("-msse4.2" COMPILER_SUPPORTS_SSE42)
 else()
-    # MSVC uses /arch: flags; check for AVX support
-    check_cxx_compiler_flag("/arch:AVX"  COMPILER_SUPPORTS_AVX)
-    check_cxx_compiler_flag("/arch:AVX2" COMPILER_SUPPORTS_AVX2)
+    check_cxx_compiler_flag("/arch:AVX512" COMPILER_SUPPORTS_AVX512F)
+    check_cxx_compiler_flag("/arch:AVX"    COMPILER_SUPPORTS_AVX)
+    check_cxx_compiler_flag("/arch:AVX2"   COMPILER_SUPPORTS_AVX2)
     set(COMPILER_SUPPORTS_SSE42 ON)  # SSE4.2 is guaranteed on x64 MSVC
 endif()
 
-message(STATUS "SIMD compiler support — AVX: ${COMPILER_SUPPORTS_AVX}  AVX2: ${COMPILER_SUPPORTS_AVX2}")
-# Phase 3: use COMPILER_SUPPORTS_AVX/AVX2 to conditionally add per-TU SIMD sources
+message(STATUS "SIMD support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}")
+
+# =============================================================================
+# Per-TU SIMD flags
+#
+# LIBHMM_BEST_SIMD_FLAGS is applied only to sources in LIBHMM_SIMD_SOURCES,
+# not globally. Global SIMD flags would cause the compiler to emit SIMD
+# instructions in all code paths, including the runtime dispatch check itself.
+#
+# GCC/Clang: -march=native enables all ISAs on the build machine and allows
+# the compiler to auto-vectorize concrete batch loops with the best available
+# instructions. MSVC has no -march=native equivalent; use the highest
+# available /arch: flag instead.
+# =============================================================================
+if(MSVC)
+    if(COMPILER_SUPPORTS_AVX512F)
+        set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX512")
+        message(STATUS "SIMD optimization: /arch:AVX512")
+    elseif(COMPILER_SUPPORTS_AVX2)
+        set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX2")
+        message(STATUS "SIMD optimization: /arch:AVX2")
+    elseif(COMPILER_SUPPORTS_AVX)
+        set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX")
+        message(STATUS "SIMD optimization: /arch:AVX")
+    else()
+        set(LIBHMM_BEST_SIMD_FLAGS "")
+        message(STATUS "SIMD optimization: (SSE2 baseline)")
+    endif()
+else()
+    set(LIBHMM_BEST_SIMD_FLAGS "-march=native")
+    message(STATUS "SIMD optimization: -march=native")
+endif()
+
+# All distribution sources with getBatchLogProbabilities() overrides.
+# Gaussian has explicit SIMD intrinsics (tier 2); all others have concrete
+# non-virtual loops that the compiler can auto-vectorize (tier 1).
+set(LIBHMM_SIMD_SOURCES
+    src/distributions/beta_distribution.cpp
+    src/distributions/binomial_distribution.cpp
+    src/distributions/chi_squared_distribution.cpp
+    src/distributions/discrete_distribution.cpp
+    src/distributions/exponential_distribution.cpp
+    src/distributions/gamma_distribution.cpp
+    src/distributions/gaussian_distribution.cpp
+    src/distributions/log_normal_distribution.cpp
+    src/distributions/negative_binomial_distribution.cpp
+    src/distributions/pareto_distribution.cpp
+    src/distributions/poisson_distribution.cpp
+    src/distributions/rayleigh_distribution.cpp
+    src/distributions/student_t_distribution.cpp
+    src/distributions/uniform_distribution.cpp
+    src/distributions/weibull_distribution.cpp
+)
+
+if(LIBHMM_BEST_SIMD_FLAGS)
+    foreach(simd_src ${LIBHMM_SIMD_SOURCES})
+        set_source_files_properties(
+            ${simd_src}
+            PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}"
+        )
+    endforeach()
+    message(STATUS "Applied SIMD flags to ${CMAKE_CURRENT_SOURCE_DIR}")
+endif()
 
 # Source files
 set(LIBHMM_SOURCES
@@ -189,8 +251,6 @@ set(LIBHMM_SOURCES
     src/common/numerical_stability.cpp
     src/common/optimized_vector_simd.cpp
     src/common/optimized_matrix_simd.cpp
-    src/training/trainer_traits.cpp
-    src/distributions/probability_distribution.cpp
     src/distributions/distribution_base.cpp
     src/distributions/discrete_distribution.cpp
     src/distributions/gaussian_distribution.cpp
@@ -207,26 +267,19 @@ set(LIBHMM_SOURCES
     src/distributions/negative_binomial_distribution.cpp
     src/distributions/student_t_distribution.cpp
     src/distributions/chi_squared_distribution.cpp
+    # Canonical calculators (Phase 3)
     src/calculators/forward_backward_calculator.cpp
-    src/calculators/log_simd_forward_backward_calculator.cpp
-    src/calculators/scaled_simd_forward_backward_calculator.cpp
     src/calculators/viterbi_calculator.cpp
-    src/calculators/scaled_simd_viterbi_calculator.cpp
-    src/calculators/log_simd_viterbi_calculator.cpp
-    src/training/viterbi_trainer.cpp
-    src/training/robust_viterbi_trainer.cpp
-    src/training/segmented_kmeans_trainer.cpp
+    # Canonical trainers (Phase 4)
     src/training/baum_welch_trainer.cpp
-    src/training/scaled_baum_welch_trainer.cpp
+    src/training/viterbi_trainer.cpp
+    src/training/segmental_kmeans_trainer.cpp
     src/io/file_io_manager.cpp
     src/io/xml_file_reader.cpp
     src/io/xml_file_writer.cpp
     src/performance/simd_support.cpp
     src/performance/thread_pool.cpp
     src/performance/log_space_ops.cpp
-    src/calculators/forward_backward_traits.cpp
-    src/calculators/viterbi_traits.cpp
-    src/calculators/calculator_traits_utils.cpp
 )
 
 # Create the library
@@ -326,21 +379,14 @@ add_executable(analyze_overhead tests/performance/analyze_overhead.cpp)
 set_target_properties(analyze_overhead PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 target_link_libraries(analyze_overhead hmm)
 
-add_executable(benchmark_parallel tests/performance/benchmark_parallel.cpp)
-set_target_properties(benchmark_parallel PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(benchmark_parallel hmm)
-
 add_executable(debug_parallel tests/performance/debug_parallel.cpp)
 set_target_properties(debug_parallel PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 target_link_libraries(debug_parallel hmm)
 
-add_executable(parallel_calculator_assessment tests/performance/parallel_calculator_assessment.cpp)
-set_target_properties(parallel_calculator_assessment PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(parallel_calculator_assessment hmm)
-
-add_executable(parallel_constants_tuning tests/performance/parallel_constants_tuning.cpp)
-set_target_properties(parallel_constants_tuning PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(parallel_constants_tuning hmm)
+# TODO(refactor): re-enable once legacy SIMD calculator variants are removed from source
+# benchmark_parallel, parallel_calculator_assessment, parallel_constants_tuning depend on
+# ScaledSIMDForwardBackwardCalculator / LogSIMDForwardBackwardCalculator / forward_backward_traits.h
+# which were all removed in Phase 3.
 # Package configuration
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(

@@ -194,5 +194,18 @@ std::ostream& operator<<( std::ostream& os,
     return os;
 }
 
+void DiscreteDistribution::getBatchLogProbabilities(
+        std::span<const double> observations,
+        std::span<double> out) const {
+    // Tier 1 — concrete non-virtual loop with O(1) cached-table lookup.
+    // Tier 2 upgrade: SIMD gather instructions (_mm512_i64gather_pd) could batch
+    // the index lookups, but the per-element index-validation branch limits
+    // vectorization benefit. The cached log-probability table is already optimal
+    // for the scalar case.
+    if (!isCacheValid()) updateCache();
+    for (std::size_t i = 0; i < observations.size(); ++i) {
+        out[i] = DiscreteDistribution::getLogProbability(observations[i]);
+    }
+}
 
 }//namespace
