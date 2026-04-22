@@ -404,20 +404,9 @@ if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# Development Benchmarking and Debug Tests
-# These executables are placed in build/tests/ directory for better organization
-add_executable(analyze_overhead tests/performance/analyze_overhead.cpp)
-set_target_properties(analyze_overhead PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(analyze_overhead hmm)
-
-add_executable(debug_parallel tests/performance/debug_parallel.cpp)
-set_target_properties(debug_parallel PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
-target_link_libraries(debug_parallel hmm)
-
-# TODO(refactor): re-enable once legacy SIMD calculator variants are removed from source
-# benchmark_parallel, parallel_calculator_assessment, parallel_constants_tuning depend on
-# ScaledSIMDForwardBackwardCalculator / LogSIMDForwardBackwardCalculator / forward_backward_traits.h
-# which were all removed in Phase 3.
+# Performance inspection and validation tools (Phase 4.5.2)
+# Source lives in tools/; executables land in build/tools/.
+add_subdirectory(tools)
 # Package configuration
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
