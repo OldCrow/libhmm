@@ -334,7 +334,7 @@ std::istream& operator>>(std::istream& is, BetaDistribution& distribution) {
             distribution = BetaDistribution(alpha, beta);
         }
         
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }

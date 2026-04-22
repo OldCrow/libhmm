@@ -132,7 +132,9 @@ include_directories(include)
 # NOTE: MSVC flags are applied per-target (see after add_library below) so that
 # FetchContent dependencies like GTest are not compiled with /W4.
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith -Wno-deprecated-declarations -Wno-defaulted-function-deleted")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith")
+    # Note: -Wno-deprecated-declarations and -Wno-defaulted-function-deleted removed
+    # to surface all warnings. Re-add with justification if specific cases cannot be fixed.
     set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
@@ -274,6 +276,10 @@ if(LIBHMM_BEST_SIMD_FLAGS)
     endforeach()
     message(STATUS "Applied SIMD flags to ${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
+# Note: MSVC with /arch:AVX512 emits 2 × C4244 from <memory> internal templates
+# when AVX-512 register types are instantiated. /external:anglebrackets /external:W0
+# (already on the hmm target) does not suppress them — a known MSVC limitation in
+# template specialization warning paths. Accepted as external-code noise.
 
 # Source files
 set(LIBHMM_SOURCES
@@ -318,11 +324,13 @@ set(LIBHMM_SOURCES
 add_library(hmm ${LIBHMM_SOURCES})
 
 # MSVC compiler flags — applied only to hmm, not to FetchContent dependencies.
-# /W4: strong warnings. /wd4267 silence size_t narrowing, /wd4996 silence
-# deprecated-constructor warnings that will be cleaned up during the refactor.
-# /permissive- enforces stricter C++ standards conformance.
+# /W4: strong warnings (just below /Wall which adds Microsoft-internal noise).
+# /permissive-: strict C++ standards conformance.
+# /external:anglebrackets /external:W0 suppress warnings from MSVC STL headers
+# (e.g. C4244 narrowing inside <memory> and <algorithm>), which are noise from
+# our template instantiations, not defects in our code.
 if(MSVC)
-    target_compile_options(hmm PRIVATE /W4 /wd4267 /wd4996 /permissive-)
+    target_compile_options(hmm PRIVATE /W4 /permissive- /external:anglebrackets /external:W0)
 endif()
 
 # Enable clang-tidy if requested

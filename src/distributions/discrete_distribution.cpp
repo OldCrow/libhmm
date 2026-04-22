@@ -165,7 +165,7 @@ std::istream& operator>>(std::istream& is, libhmm::DiscreteDistribution& distrib
     
     // Create new distribution with the specified number of symbols
     try {
-        DiscreteDistribution newDist(numSymbols);
+        DiscreteDistribution newDist(static_cast<int>(numSymbols));
         
         // Read probabilities
         for (std::size_t i = 0; i < numSymbols; ++i) {

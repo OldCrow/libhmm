@@ -165,8 +165,15 @@ std::filesystem::path FileIOManager::createBackup(const std::filesystem::path& f
     auto time_t = std::chrono::system_clock::to_time_t(now);
     
     std::stringstream ss;
-    ss << filepath.stem().string() << "_backup_" 
-       << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S")
+    // Use thread-safe time conversion (localtime is deprecated on MSVC).
+    std::tm tm_buf{};
+#ifdef _WIN32
+    localtime_s(&tm_buf, &time_t);
+#else
+    localtime_r(&time_t, &tm_buf);
+#endif
+    ss << filepath.stem().string() << "_backup_"
+       << std::put_time(&tm_buf, "%Y%m%d_%H%M%S")
        << filepath.extension().string();
     
     auto backupPath = filepath.parent_path() / ss.str();
@@ -228,9 +235,11 @@ bool FileIOManager::hasExtension(const std::filesystem::path& filepath,
             expected = "." + expected;
         }
         
-        // Case-insensitive comparison
-        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-        std::transform(expected.begin(), expected.end(), expected.begin(), ::tolower);
+        // Case-insensitive comparison.
+        // Cast via unsigned char to avoid int->char narrowing (C4244).
+        auto to_lower = [](unsigned char c) { return static_cast<char>(std::tolower(c)); };
+        std::transform(ext.begin(), ext.end(), ext.begin(), to_lower);
+        std::transform(expected.begin(), expected.end(), expected.begin(), to_lower);
         
         return ext == expected;
         
