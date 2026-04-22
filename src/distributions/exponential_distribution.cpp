@@ -159,7 +159,7 @@ std::istream& operator>>( std::istream& is,
         // Use setLambda for validation
         distribution.setLambda(lambda);
         
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }

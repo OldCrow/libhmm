@@ -102,6 +102,13 @@ if(GTest_FOUND OR TARGET gtest)
         target_link_libraries(${TARGET_NAME} ${TEST_LIBRARIES})
         set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
         set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+        # Apply same warning level as the library so test code is held to the
+        # same standard. GTest itself is excluded via SYSTEM includes.
+        if(MSVC)
+            target_compile_options(${TARGET_NAME} PRIVATE /W4 /permissive-)
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+        endif()
 
         if(LIBCXX_LINK_FLAGS)
             set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "${LIBCXX_LINK_FLAGS}")
