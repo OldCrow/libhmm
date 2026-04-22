@@ -64,193 +64,172 @@ set(LIBCXX_LINK_FLAGS "")
 # Check if Google Test is available
 if(GTest_FOUND OR TARGET gtest)
     message(STATUS "Google Test found - building comprehensive test suite")
-    
-    # Include directories
+
     include_directories(${CMAKE_SOURCE_DIR}/include)
     if(GTest_FOUND)
         include_directories(${GTEST_INCLUDE_DIRS})
     endif()
-    
-    # Common test libraries and dependencies - use modern target-based approach to avoid duplicates
+
     if(TARGET GTest::gtest AND TARGET GTest::gtest_main)
-        # Use modern CMake targets (preferred)
         set(TEST_LIBRARIES GTest::gtest_main GTest::gtest Threads::Threads hmm)
-        message(STATUS "Using modern GTest targets: GTest::gtest_main, GTest::gtest")
+        message(STATUS "Using modern GTest targets")
     elseif(TARGET gtest AND TARGET gtest_main)
-        # Use legacy targets
         set(TEST_LIBRARIES gtest_main gtest Threads::Threads hmm)
-        message(STATUS "Using legacy GTest targets: gtest_main, gtest")
+        message(STATUS "Using legacy GTest targets")
     else()
-        # Fallback to library variables
         set(TEST_LIBRARIES ${GTEST_MAIN_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads hmm)
         message(STATUS "Using GTest library variables")
     endif()
-    
-    # Apply LLVM-specific linking flags if needed
+
     if(LIBCXX_LINK_FLAGS)
         list(APPEND TEST_LIBRARIES "${LIBCXX_LINK_FLAGS}")
     endif()
-    
-    # Main integration tests (in tests/ root directory)
-    set(MAIN_TESTS
-        test_hmm_core.cpp
-    )
-    
-    # Common module tests (in common/ subdirectory)
-    set(COMMON_TESTS
-        common/test_common.cpp
-        common/test_numerical_stability.cpp
-        common/test_optimized_matrix3d.cpp
-        common/test_optimized_linear_operations.cpp
-        common/test_linear_operations_classes.cpp
-        common/test_modern_constants.cpp
-    )
-    
-    # Calculator tests
-    set(CALCULATOR_TESTS
-        calculators/test_canonical_calculators.cpp
-        calculators/test_calculator_continuous.cpp
-        calculators/test_calculator_edge_cases.cpp
-    )
-    
-    # Distribution tests (in distributions/ subdirectory)
-    set(DISTRIBUTION_TESTS
-        distributions/test_distribution_traits.cpp
-        distributions/test_distributions_header.cpp
-        distributions/test_distributions.cpp
-        distributions/test_beta_distribution.cpp
-        distributions/test_binomial_distribution.cpp
-        distributions/test_chi_squared_distribution.cpp
-        distributions/test_discrete_distribution.cpp
-        distributions/test_exponential_distribution.cpp
-        distributions/test_gamma_distribution.cpp
-        distributions/test_gaussian_distribution.cpp
-        distributions/test_log_normal_distribution.cpp
-        distributions/test_negative_binomial_distribution.cpp
-        distributions/test_pareto_distribution.cpp
-        distributions/test_poisson_distribution.cpp
-        distributions/test_student_t_distribution.cpp
-        distributions/test_uniform_distribution.cpp
-        distributions/test_weibull_distribution.cpp
-        distributions/test_rayleigh_distribution.cpp
-        distributions/test_distribution_type_safety.cpp
-    )
-    
-    # IO tests (in io/ subdirectory)
-    set(IO_TESTS
-        io/test_xml_file_io.cpp
-        io/test_hmm_stream_io.cpp
-    )
-    
-    # Performance tests — temporarily excluded while legacy SIMD calculator
-    # variants are being removed.
-    set(PERFORMANCE_TESTS)
 
-    # Training tests
-    set(TRAINING_TESTS
-        training/test_canonical_training.cpp
-        training/test_training.cpp
-        training/test_training_edge_cases.cpp
-        training/test_baum_welch_convergence.cpp
-    )
+    # =========================================================================
+    # add_hmm_test(target source [LABELS label1 label2 ...])
+    # Creates a test executable, links it, and registers it with CTest.
+    # Appends the target name to ALL_TEST_TARGETS in the parent scope.
+    #
+    # Labels:
+    #   known_broken  Pre-existing failure; excluded from CI via -LE known_broken
+    #   benchmark     On-demand only; excluded from standard runs
+    #   timing        Has timing-sensitive assertions; run serially for accuracy
+    # =========================================================================
+    function(add_hmm_test TARGET_NAME SOURCE_FILE)
+        cmake_parse_arguments(_T "" "" "LABELS" ${ARGN})
 
-    # Integration tests
-    set(INTEGRATION_TESTS
-        integration/test_end_to_end.cpp
-    )
+        add_executable(${TARGET_NAME} ${SOURCE_FILE})
+        target_link_libraries(${TARGET_NAME} ${TEST_LIBRARIES})
+        set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
+        set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
 
-    # Combine all tests
-    set(COMPREHENSIVE_TESTS ${MAIN_TESTS} ${COMMON_TESTS} ${CALCULATOR_TESTS} ${DISTRIBUTION_TESTS} ${IO_TESTS} ${PERFORMANCE_TESTS} ${TRAINING_TESTS} ${INTEGRATION_TESTS})
-    
-    # Create individual test executables
-    foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})
-        # Get the test name from the source file name
-        get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
-        
-        # Create executable
-        add_executable(${TEST_NAME} ${TEST_SOURCE})
-        
-        # Link libraries
-        target_link_libraries(${TEST_NAME} ${TEST_LIBRARIES})
-        
-        # Apply LLVM-specific linking flags if needed
         if(LIBCXX_LINK_FLAGS)
-            set_target_properties(${TEST_NAME} PROPERTIES
-                LINK_FLAGS "${LIBCXX_LINK_FLAGS}"
-            )
+            set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "${LIBCXX_LINK_FLAGS}")
         endif()
-        
-        # Inherit C++20 standard from parent project
-        set_property(TARGET ${TEST_NAME} PROPERTY CXX_STANDARD 20)
-        set_property(TARGET ${TEST_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
-        
-        # Add to test suite
-        add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-        
-        # Set test properties
-        set_tests_properties(${TEST_NAME} PROPERTIES
-            TIMEOUT 300
-            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        )
-    endforeach()
-    
-    # Note: Skipping combined test executable due to multiple main functions
-    # Each test file has its own main() function, so they can't be combined
-    
-    # Test discovery for modern CMake versions
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.10 AND TARGET gtest_discover_tests)
-        include(GoogleTest)
-        foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})
-            get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
-            gtest_discover_tests(${TEST_NAME})
-        endforeach()
-    endif()
-    
-    # Create list of test target names (without subdirectory paths)
-    set(ALL_TEST_TARGETS)
-    foreach(TEST_SOURCE ${COMPREHENSIVE_TESTS})
-        get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
-        list(APPEND ALL_TEST_TARGETS ${TEST_NAME})
-    endforeach()
 
-    # Mark pre-existing failures with 'known_broken' label.
-    # CI runs 'ctest -LE known_broken' to keep the build green.
-    # Remove entries here as each is fixed during the refactor.
-    set_tests_properties(
-        test_xml_file_io  # runtime failure: investigate
-        PROPERTIES LABELS "known_broken"
-    )
+        add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
+        set_tests_properties(${TARGET_NAME} PROPERTIES
+            TIMEOUT 300
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+        if(_T_LABELS)
+            set_tests_properties(${TARGET_NAME} PROPERTIES LABELS "${_T_LABELS}")
+        endif()
+
+        set(ALL_TEST_TARGETS ${ALL_TEST_TARGETS} ${TARGET_NAME} PARENT_SCOPE)
+    endfunction()
+
+    set(ALL_TEST_TARGETS "")
+    
+    # =========================================================================
+    # Level 0: Platform
+    # No tests yet. test_simd_platform will be added in Phase 4.5.2 (tools)
+    # and referenced here when a portable SIMD-capability test is available.
+    # =========================================================================
+
+    # =========================================================================
+    # Level 1: Math & Numerics
+    # =========================================================================
+    add_hmm_test(test_modern_constants    common/test_modern_constants.cpp)
+    add_hmm_test(test_numerical_stability common/test_numerical_stability.cpp)
+    add_hmm_test(test_common              common/test_common.cpp)
+
+    # =========================================================================
+    # Level 2: Linear Algebra
+    # =========================================================================
+    add_hmm_test(test_optimized_linear_operations common/test_optimized_linear_operations.cpp)
+    add_hmm_test(test_linear_operations_classes   common/test_linear_operations_classes.cpp)
+    add_hmm_test(test_optimized_matrix3d          common/test_optimized_matrix3d.cpp)
+
+    # =========================================================================
+    # Level 3: Distributions
+    # =========================================================================
+    add_hmm_test(test_distribution_traits       distributions/test_distribution_traits.cpp)
+    add_hmm_test(test_distributions_header      distributions/test_distributions_header.cpp)
+    add_hmm_test(test_distributions             distributions/test_distributions.cpp)
+    add_hmm_test(test_distribution_type_safety  distributions/test_distribution_type_safety.cpp)
+    add_hmm_test(test_beta_distribution              distributions/test_beta_distribution.cpp)
+    add_hmm_test(test_binomial_distribution          distributions/test_binomial_distribution.cpp)
+    add_hmm_test(test_chi_squared_distribution       distributions/test_chi_squared_distribution.cpp)
+    add_hmm_test(test_discrete_distribution          distributions/test_discrete_distribution.cpp)
+    add_hmm_test(test_exponential_distribution       distributions/test_exponential_distribution.cpp)
+    add_hmm_test(test_gamma_distribution             distributions/test_gamma_distribution.cpp)
+    add_hmm_test(test_gaussian_distribution          distributions/test_gaussian_distribution.cpp)
+    add_hmm_test(test_log_normal_distribution        distributions/test_log_normal_distribution.cpp)
+    add_hmm_test(test_negative_binomial_distribution distributions/test_negative_binomial_distribution.cpp)
+    add_hmm_test(test_pareto_distribution            distributions/test_pareto_distribution.cpp)
+    add_hmm_test(test_poisson_distribution           distributions/test_poisson_distribution.cpp)
+    add_hmm_test(test_rayleigh_distribution          distributions/test_rayleigh_distribution.cpp)
+    add_hmm_test(test_student_t_distribution         distributions/test_student_t_distribution.cpp)
+    add_hmm_test(test_uniform_distribution           distributions/test_uniform_distribution.cpp)
+    add_hmm_test(test_weibull_distribution           distributions/test_weibull_distribution.cpp)
+
+    # =========================================================================
+    # Level 4: Core HMM
+    # =========================================================================
+    add_hmm_test(test_hmm_core test_hmm_core.cpp)
+
+    # =========================================================================
+    # Level 5: Calculators
+    # =========================================================================
+    add_hmm_test(test_canonical_calculators calculators/test_canonical_calculators.cpp)
+    add_hmm_test(test_calculator_continuous calculators/test_calculator_continuous.cpp)
+    add_hmm_test(test_calculator_edge_cases calculators/test_calculator_edge_cases.cpp)
+
+    # =========================================================================
+    # Level 6: Trainers
+    # =========================================================================
+    add_hmm_test(test_canonical_training     training/test_canonical_training.cpp)
+    add_hmm_test(test_training               training/test_training.cpp)
+    add_hmm_test(test_training_edge_cases    training/test_training_edge_cases.cpp)
+    add_hmm_test(test_baum_welch_convergence training/test_baum_welch_convergence.cpp)
+
+    # =========================================================================
+    # Level 7: IO & Integration
+    # =========================================================================
+    # test_xml_file_io: pre-existing failure on Windows — error handling for
+    # invalid file paths does not throw as expected. Not a Phase 3/4 regression.
+    # Remove from known_broken once the underlying IO issue is fixed.
+    add_hmm_test(test_xml_file_io   io/test_xml_file_io.cpp   LABELS "known_broken")
+    add_hmm_test(test_hmm_stream_io io/test_hmm_stream_io.cpp)
+    add_hmm_test(test_end_to_end    integration/test_end_to_end.cpp)
+
 else()
     message(STATUS "Google Test not found - building basic test suite only")
     set(ALL_TEST_TARGETS "")
 endif()
 
+# =============================================================================
+# Custom targets
+# =============================================================================
+# run_tests: correctness suite, safe to run in parallel.
+# Excludes known_broken (pre-existing failures) and benchmark (on-demand).
+# This is the standard CI target.
+add_custom_target(run_tests
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -LE "known_broken|benchmark"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Running libhmm correctness suite (excludes known_broken, benchmark)"
+)
 
-# Original/Legacy test executables (always built)
-# Note: test_type_safety is now included in the comprehensive test suite above
+# run_tests_timing: run serially for accurate timing measurement.
+# Use on a quiet machine when verifying performance-sensitive assertions.
+add_custom_target(run_tests_timing
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -j1
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Running libhmm tests serially (for timing accuracy)"
+)
 
-# Custom target to run all tests
+# run_all_tests: backward-compatible alias; runs everything in parallel.
 add_custom_target(run_all_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --verbose --parallel 4
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --parallel 4
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running all libhmm tests"
 )
 
 # Install test executables
-set(LEGACY_TARGETS)
-# Note: All tests are now in the comprehensive test suite
-
 install(TARGETS ${ALL_TEST_TARGETS}
     RUNTIME DESTINATION bin/tests
     COMPONENT tests
 )
 
-# Print summary
-message(STATUS "Test configuration summary:")
-if(GTest_FOUND OR TARGET gtest)
-    message(STATUS "  Comprehensive tests: ${COMPREHENSIVE_TESTS}")
-else()
-    message(STATUS "  Comprehensive tests: DISABLED (Google Test not found)")
-endif()
-message(STATUS "  Legacy tests: ${LEGACY_TARGETS}")
-message(STATUS "  All test targets: ${ALL_TEST_TARGETS}")
+message(STATUS "Test configuration: ${ALL_TEST_TARGETS}")
