@@ -148,22 +148,19 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 # =============================================================================
-# SIMD DETECTION — compiler capability, NOT build machine CPU
+# SIMD DETECTION — compile-time dispatch, build machine CPU matters
 #
-# Each SIMD ISA is checked against the compiler using check_cxx_compiler_flag.
-# If the compiler can compile the flag, the corresponding source TU is included
-# with that flag set per-TU via set_source_files_properties.
+# libhmm uses compile-time SIMD dispatch: each machine builds a binary optimised
+# for its own CPU. LIBHMM_BEST_SIMD_FLAGS is applied per-TU to LIBHMM_SIMD_SOURCES
+# only (not globally) so non-SIMD code paths stay at the baseline ISA.
 #
-# This ensures a binary built on any x86-64 machine includes all ISA variants
-# the compiler supports and dispatches at runtime — the build machine's CPU
-# is irrelevant to which variants are compiled in.
+# GCC/Clang: -march=native asks the compiler to use everything the build
+# machine's CPU supports. This is both compiler and CPU aware.
 #
-# The dispatch TU (src/performance/simd_support.cpp) is compiled with NO SIMD
-# flags so that the runtime CPUID code cannot itself emit SIMD instructions.
-#
-# NOTE: Per-TU SIMD source files will be added in Phase 3 when the batch
-# distribution interface (getBatchLogProbabilities) is implemented.
-# This scaffolding is here to document the pattern and make Phase 3 simpler.
+# MSVC: no -march=native equivalent. check_cxx_compiler_flag only tests whether
+# the compiler ACCEPTS a flag (always true for /arch:AVX512 on modern MSVC),
+# NOT whether the build machine's CPU can execute the resulting instructions.
+# check_cxx_source_runs compiles and runs a tiny test, verifying both.
 # =============================================================================
 include(CheckCXXCompilerFlag)
 
@@ -173,41 +170,63 @@ if(NOT MSVC)
     check_cxx_compiler_flag("-mavx2"   COMPILER_SUPPORTS_AVX2)
     check_cxx_compiler_flag("-msse4.2" COMPILER_SUPPORTS_SSE42)
 else()
+    # Informational only — actual flag selection is CPU-verified below.
     check_cxx_compiler_flag("/arch:AVX512" COMPILER_SUPPORTS_AVX512F)
-    check_cxx_compiler_flag("/arch:AVX"    COMPILER_SUPPORTS_AVX)
     check_cxx_compiler_flag("/arch:AVX2"   COMPILER_SUPPORTS_AVX2)
+    check_cxx_compiler_flag("/arch:AVX"    COMPILER_SUPPORTS_AVX)
     set(COMPILER_SUPPORTS_SSE42 ON)  # SSE4.2 is guaranteed on x64 MSVC
 endif()
 
-message(STATUS "SIMD support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}")
+message(STATUS "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}")
 
 # =============================================================================
-# Per-TU SIMD flags
+# Select best SIMD flag for this compiler + CPU combination.
 #
-# LIBHMM_BEST_SIMD_FLAGS is applied only to sources in LIBHMM_SIMD_SOURCES,
-# not globally. Global SIMD flags would cause the compiler to emit SIMD
-# instructions in all code paths, including the runtime dispatch check itself.
-#
-# GCC/Clang: -march=native enables all ISAs on the build machine and allows
-# the compiler to auto-vectorize concrete batch loops with the best available
-# instructions. MSVC has no -march=native equivalent; use the highest
-# available /arch: flag instead.
+# GCC/Clang: -march=native is both compiler-aware and CPU-aware.
+# MSVC: use check_cxx_source_runs to compile AND execute a minimal test,
+# mirroring what -march=native does automatically on GCC/Clang.
+# Falls back to SSE2 baseline in cross-compilation (can't run tests).
 # =============================================================================
-if(MSVC)
-    if(COMPILER_SUPPORTS_AVX512F)
+if(MSVC AND NOT CMAKE_CROSSCOMPILING)
+    include(CheckCXXSourceRuns)
+    set(_saved_req_flags "${CMAKE_REQUIRED_FLAGS}")
+
+    set(CMAKE_REQUIRED_FLAGS "/arch:AVX512")
+    check_cxx_source_runs(
+        "#include <intrin.h>\nint main(){__m512d x=_mm512_setzero_pd();(void)x;return 0;}"
+        CPU_SUPPORTS_AVX512F)
+
+    set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
+    check_cxx_source_runs(
+        "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
+        CPU_SUPPORTS_AVX2)
+
+    set(CMAKE_REQUIRED_FLAGS "/arch:AVX")
+    check_cxx_source_runs(
+        "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
+        CPU_SUPPORTS_AVX)
+
+    set(CMAKE_REQUIRED_FLAGS "${_saved_req_flags}")
+
+    if(CPU_SUPPORTS_AVX512F)
         set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX512")
-        message(STATUS "SIMD optimization: /arch:AVX512")
-    elseif(COMPILER_SUPPORTS_AVX2)
+        message(STATUS "SIMD optimization: /arch:AVX512 (CPU verified)")
+    elseif(CPU_SUPPORTS_AVX2)
         set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX2")
-        message(STATUS "SIMD optimization: /arch:AVX2")
-    elseif(COMPILER_SUPPORTS_AVX)
+        message(STATUS "SIMD optimization: /arch:AVX2 (CPU verified)")
+    elseif(CPU_SUPPORTS_AVX)
         set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX")
-        message(STATUS "SIMD optimization: /arch:AVX")
+        message(STATUS "SIMD optimization: /arch:AVX (CPU verified)")
     else()
         set(LIBHMM_BEST_SIMD_FLAGS "")
         message(STATUS "SIMD optimization: (SSE2 baseline)")
     endif()
+elseif(MSVC)
+    # Cross-compilation: cannot run tests; fall back to SSE2 baseline.
+    set(LIBHMM_BEST_SIMD_FLAGS "")
+    message(STATUS "SIMD optimization: (cross-compilation — SSE2 baseline)")
 else()
+    # GCC/Clang: -march=native selects the best ISA for the build machine.
     set(LIBHMM_BEST_SIMD_FLAGS "-march=native")
     message(STATUS "SIMD optimization: -march=native")
 endif()
