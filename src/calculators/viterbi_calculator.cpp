@@ -25,7 +25,7 @@ ViterbiCalculator::ViterbiCalculator(
         throw std::invalid_argument("Observation sequence cannot be empty");
     }
     precomputeLogTransitions();
-    decode();
+    static_cast<void>(decode());
 }
 
 ViterbiCalculator::ViterbiCalculator(
