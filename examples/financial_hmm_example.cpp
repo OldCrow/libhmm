@@ -49,8 +49,8 @@ int main() {
     // Beta distributions for volatility (scaled to [0,1])
     // Low volatility: Beta(5, 20) - concentrated near 0
     // High volatility: Beta(2, 3) - more spread out, higher values
-    hmm->setProbabilityDistribution(0, std::make_unique<BetaDistribution>(5.0, 20.0));  // Low vol
-    hmm->setProbabilityDistribution(1, std::make_unique<BetaDistribution>(2.0, 3.0));   // High vol
+    hmm->setDistribution(0, std::make_unique<BetaDistribution>(5.0, 20.0));  // Low vol
+    hmm->setDistribution(1, std::make_unique<BetaDistribution>(2.0, 3.0));   // High vol
     
     std::cout << "Volatility HMM Configuration:\n";
     std::cout << *hmm << std::endl;
@@ -58,13 +58,13 @@ int main() {
     // Demonstrate volatility probability calculations
     std::cout << "Volatility Probability Examples (scaled to [0,1]):\n";
     std::cout << "P(vol=0.1 | Low regime)  = " 
-              << hmm->getProbabilityDistribution(0)->getProbability(0.1) << std::endl;
+              << hmm->getDistribution(0).getProbability(0.1) << std::endl;
     std::cout << "P(vol=0.1 | High regime) = " 
-              << hmm->getProbabilityDistribution(1)->getProbability(0.1) << std::endl;
+              << hmm->getDistribution(1).getProbability(0.1) << std::endl;
     std::cout << "P(vol=0.5 | Low regime)  = " 
-              << hmm->getProbabilityDistribution(0)->getProbability(0.5) << std::endl;
+              << hmm->getDistribution(0).getProbability(0.5) << std::endl;
     std::cout << "P(vol=0.5 | High regime) = " 
-              << hmm->getProbabilityDistribution(1)->getProbability(0.5) << std::endl;
+              << hmm->getDistribution(1).getProbability(0.5) << std::endl;
     std::cout << std::endl;
     
     // Create volatility observation sequence (VIX-like scaled to [0,1])
@@ -105,8 +105,8 @@ int main() {
     // Log-Normal distributions for returns
     // Bull market: LogNormal(μ=0.1, σ=0.2) - higher expected returns
     // Bear market: LogNormal(μ=-0.05, σ=0.3) - lower returns, higher variance
-    returnsHmm->setProbabilityDistribution(0, std::make_unique<LogNormalDistribution>(0.1, 0.2));   // Bull
-    returnsHmm->setProbabilityDistribution(1, std::make_unique<LogNormalDistribution>(-0.05, 0.3)); // Bear
+    returnsHmm->setDistribution(0, std::make_unique<LogNormalDistribution>(0.1, 0.2));   // Bull
+    returnsHmm->setDistribution(1, std::make_unique<LogNormalDistribution>(-0.05, 0.3)); // Bear
     
     std::cout << "Returns HMM Configuration:\n";
     std::cout << *returnsHmm << std::endl;
@@ -114,13 +114,13 @@ int main() {
     // Demonstrate returns probability calculations
     std::cout << "Returns Probability Examples:\n";
     std::cout << "P(return=1.05 | Bull market) = " 
-              << returnsHmm->getProbabilityDistribution(0)->getProbability(1.05) << std::endl;
+              << returnsHmm->getDistribution(0).getProbability(1.05) << std::endl;
     std::cout << "P(return=1.05 | Bear market) = " 
-              << returnsHmm->getProbabilityDistribution(1)->getProbability(1.05) << std::endl;
+              << returnsHmm->getDistribution(1).getProbability(1.05) << std::endl;
     std::cout << "P(return=0.95 | Bull market) = " 
-              << returnsHmm->getProbabilityDistribution(0)->getProbability(0.95) << std::endl;
+              << returnsHmm->getDistribution(0).getProbability(0.95) << std::endl;
     std::cout << "P(return=0.95 | Bear market) = " 
-              << returnsHmm->getProbabilityDistribution(1)->getProbability(0.95) << std::endl;
+              << returnsHmm->getDistribution(1).getProbability(0.95) << std::endl;
     std::cout << std::endl;
     
     // Create returns observation sequence (daily returns as multipliers)
@@ -177,19 +177,19 @@ int main() {
     
     // Create fresh HMM for training
     auto trainHmm = std::make_unique<Hmm>(2);
-    trainHmm->setProbabilityDistribution(0, std::make_unique<BetaDistribution>(2.0, 5.0));  // Initial guess
-    trainHmm->setProbabilityDistribution(1, std::make_unique<BetaDistribution>(3.0, 2.0));  // Initial guess
+    trainHmm->setDistribution(0, std::make_unique<BetaDistribution>(2.0, 5.0));  // Initial guess
+    trainHmm->setDistribution(1, std::make_unique<BetaDistribution>(3.0, 2.0));  // Initial guess
     
     std::cout << "Before training:\n";
-    std::cout << "Low vol state:  " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "High vol state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
+    std::cout << "Low vol state:  " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "High vol state: " << trainHmm->getDistribution(1).toString() << std::endl;
     
     ViterbiTrainer trainer(trainHmm.get(), trainingData);
     trainer.train();
     
     std::cout << "\nAfter training:\n";
-    std::cout << "Low vol state:  " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "High vol state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
+    std::cout << "Low vol state:  " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "High vol state: " << trainHmm->getDistribution(1).toString() << std::endl;
     std::cout << std::endl;
     
     std::cout << "=== Applications of Financial HMMs ===\n";

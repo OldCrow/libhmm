@@ -48,8 +48,8 @@ int main() {
     // Binomial distributions for defect counts (n=100 items per batch)
     // In control: Binomial(n=100, p=0.02) - 2% defect rate
     // Out of control: Binomial(n=100, p=0.12) - 12% defect rate
-    hmm->setProbabilityDistribution(0, std::make_unique<BinomialDistribution>(100, 0.02));  // In control
-    hmm->setProbabilityDistribution(1, std::make_unique<BinomialDistribution>(100, 0.12));  // Out of control
+    hmm->setDistribution(0, std::make_unique<BinomialDistribution>(100, 0.02));  // In control
+    hmm->setDistribution(1, std::make_unique<BinomialDistribution>(100, 0.12));  // Out of control
     
     std::cout << "Quality Control HMM Configuration:\n";
     std::cout << *hmm << std::endl;
@@ -57,17 +57,17 @@ int main() {
     // Demonstrate defect probability calculations
     std::cout << "Defect Count Probability Examples (out of 100 items):\n";
     std::cout << "P(1 defect | In control)     = " 
-              << hmm->getProbabilityDistribution(0)->getProbability(1) << std::endl;
+              << hmm->getDistribution(0).getProbability(1) << std::endl;
     std::cout << "P(1 defect | Out of control) = " 
-              << hmm->getProbabilityDistribution(1)->getProbability(1) << std::endl;
+              << hmm->getDistribution(1).getProbability(1) << std::endl;
     std::cout << "P(5 defects | In control)    = " 
-              << hmm->getProbabilityDistribution(0)->getProbability(5) << std::endl;
+              << hmm->getDistribution(0).getProbability(5) << std::endl;
     std::cout << "P(5 defects | Out of control) = " 
-              << hmm->getProbabilityDistribution(1)->getProbability(5) << std::endl;
+              << hmm->getDistribution(1).getProbability(5) << std::endl;
     std::cout << "P(15 defects | In control)   = " 
-              << hmm->getProbabilityDistribution(0)->getProbability(15) << std::endl;
+              << hmm->getDistribution(0).getProbability(15) << std::endl;
     std::cout << "P(15 defects | Out of control) = " 
-              << hmm->getProbabilityDistribution(1)->getProbability(15) << std::endl;
+              << hmm->getDistribution(1).getProbability(15) << std::endl;
     std::cout << std::endl;
     
     // Create defect count observation sequence (defects per 100-item batch)
@@ -110,8 +110,8 @@ int main() {
     // Uniform distributions for measurement deviations from target
     // In control: Uniform(-0.5, 0.5) - tight tolerance, ±0.5 units
     // Out of control: Uniform(-2.0, 2.0) - loose tolerance, ±2.0 units
-    toleranceHmm->setProbabilityDistribution(0, std::make_unique<UniformDistribution>(-0.5, 0.5));   // Tight
-    toleranceHmm->setProbabilityDistribution(1, std::make_unique<UniformDistribution>(-2.0, 2.0));   // Loose
+    toleranceHmm->setDistribution(0, std::make_unique<UniformDistribution>(-0.5, 0.5));   // Tight
+    toleranceHmm->setDistribution(1, std::make_unique<UniformDistribution>(-2.0, 2.0));   // Loose
     
     std::cout << "Tolerance HMM Configuration:\n";
     std::cout << *toleranceHmm << std::endl;
@@ -119,13 +119,13 @@ int main() {
     // Demonstrate tolerance probability calculations
     std::cout << "Measurement Deviation Probability Examples:\n";
     std::cout << "P(deviation=0.1 | In control)     = " 
-              << toleranceHmm->getProbabilityDistribution(0)->getProbability(0.1) << std::endl;
+              << toleranceHmm->getDistribution(0).getProbability(0.1) << std::endl;
     std::cout << "P(deviation=0.1 | Out of control) = " 
-              << toleranceHmm->getProbabilityDistribution(1)->getProbability(0.1) << std::endl;
+              << toleranceHmm->getDistribution(1).getProbability(0.1) << std::endl;
     std::cout << "P(deviation=1.5 | In control)     = " 
-              << toleranceHmm->getProbabilityDistribution(0)->getProbability(1.5) << std::endl;
+              << toleranceHmm->getDistribution(0).getProbability(1.5) << std::endl;
     std::cout << "P(deviation=1.5 | Out of control) = " 
-              << toleranceHmm->getProbabilityDistribution(1)->getProbability(1.5) << std::endl;
+              << toleranceHmm->getDistribution(1).getProbability(1.5) << std::endl;
     std::cout << std::endl;
     
     // Create measurement deviation sequence (deviations from target specification)
@@ -205,19 +205,19 @@ int main() {
     
     // Create fresh HMM for training
     auto trainHmm = std::make_unique<Hmm>(2);
-    trainHmm->setProbabilityDistribution(0, std::make_unique<BinomialDistribution>(100, 0.05));  // Initial guess
-    trainHmm->setProbabilityDistribution(1, std::make_unique<BinomialDistribution>(100, 0.15));  // Initial guess
+    trainHmm->setDistribution(0, std::make_unique<BinomialDistribution>(100, 0.05));  // Initial guess
+    trainHmm->setDistribution(1, std::make_unique<BinomialDistribution>(100, 0.15));  // Initial guess
     
     std::cout << "Before training:\n";
-    std::cout << "In control state:     " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "Out of control state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
+    std::cout << "In control state:     " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "Out of control state: " << trainHmm->getDistribution(1).toString() << std::endl;
     
     ViterbiTrainer trainer(trainHmm.get(), trainingData);
     trainer.train();
     
     std::cout << "\nAfter training:\n";
-    std::cout << "In control state:     " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "Out of control state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
+    std::cout << "In control state:     " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "Out of control state: " << trainHmm->getDistribution(1).toString() << std::endl;
     std::cout << std::endl;
     
     std::cout << "Expected parameters after training:\n";

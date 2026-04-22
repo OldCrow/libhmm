@@ -46,8 +46,41 @@ function(add_hmm_example target_name source_file)
     set_property(TARGET ${target_name} PROPERTY CXX_STANDARD_REQUIRED ON)
 endfunction()
 
-# TODO(refactor): All examples need updating to the canonical API (setDistribution / getDistribution,
-# removal of ScaledSIMDForwardBackwardCalculator / LogSIMDForwardBackwardCalculator,
-# removal of RobustViterbiTrainer). Re-enable each here once its source is updated.
+# Basic HMM example (casino problem, distributions, Viterbi training, file I/O)
+add_hmm_example(basic_hmm_example basic_hmm_example.cpp)
 
-# install(TARGETS ...) placeholder — restore when examples are re-enabled
+# Baum-Welch EM training (primary training algorithm)
+add_hmm_example(baum_welch_example baum_welch_example.cpp)
+
+# Viterbi training with TrainingConfig presets
+add_hmm_example(viterbi_trainer_example viterbi_trainer_example.cpp)
+
+# Continuous distributions
+add_hmm_example(poisson_hmm_example              poisson_hmm_example.cpp)
+add_hmm_example(financial_hmm_example            financial_hmm_example.cpp)
+add_hmm_example(reliability_hmm_example          reliability_hmm_example.cpp)
+add_hmm_example(quality_control_hmm_example      quality_control_hmm_example.cpp)
+add_hmm_example(economics_hmm_example            economics_hmm_example.cpp)
+add_hmm_example(queuing_theory_hmm_example       queuing_theory_hmm_example.cpp)
+add_hmm_example(statistical_process_control_hmm_example statistical_process_control_hmm_example.cpp)
+add_hmm_example(student_t_hmm_example            student_t_hmm_example.cpp)
+
+# Discrete state example (drone swarm coordination)
+add_hmm_example(swarm_coordination_example swarm_coordination_example.cpp)
+
+# Install all examples
+install(TARGETS
+    basic_hmm_example
+    baum_welch_example
+    viterbi_trainer_example
+    poisson_hmm_example
+    financial_hmm_example
+    reliability_hmm_example
+    quality_control_hmm_example
+    economics_hmm_example
+    queuing_theory_hmm_example
+    statistical_process_control_hmm_example
+    student_t_hmm_example
+    swarm_coordination_example
+    RUNTIME DESTINATION bin/examples
+)

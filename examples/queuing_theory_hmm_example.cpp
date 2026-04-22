@@ -66,9 +66,9 @@ int main() {
     // Low load: λ = 3 customers/hour
     // Medium load: λ = 8 customers/hour  
     // High load: λ = 15 customers/hour
-    arrivalHmm->setProbabilityDistribution(0, std::make_unique<PoissonDistribution>(3.0));   // Low load
-    arrivalHmm->setProbabilityDistribution(1, std::make_unique<PoissonDistribution>(8.0));   // Medium load
-    arrivalHmm->setProbabilityDistribution(2, std::make_unique<PoissonDistribution>(15.0));  // High load
+    arrivalHmm->setDistribution(0, std::make_unique<PoissonDistribution>(3.0));   // Low load
+    arrivalHmm->setDistribution(1, std::make_unique<PoissonDistribution>(8.0));   // Medium load
+    arrivalHmm->setDistribution(2, std::make_unique<PoissonDistribution>(15.0));  // High load
     
     std::cout << "Customer Arrival HMM Configuration:\n";
     std::cout << *arrivalHmm << std::endl;
@@ -77,17 +77,17 @@ int main() {
     std::cout << "Customer Arrival Probability Examples (customers per hour):\n";
     std::cout << std::fixed << std::setprecision(6);
     std::cout << "P(5 arrivals | Low load)    = " 
-              << arrivalHmm->getProbabilityDistribution(0)->getProbability(5) << std::endl;
+              << arrivalHmm->getDistribution(0).getProbability(5) << std::endl;
     std::cout << "P(5 arrivals | Medium load) = " 
-              << arrivalHmm->getProbabilityDistribution(1)->getProbability(5) << std::endl;
+              << arrivalHmm->getDistribution(1).getProbability(5) << std::endl;
     std::cout << "P(5 arrivals | High load)   = " 
-              << arrivalHmm->getProbabilityDistribution(2)->getProbability(5) << std::endl;
+              << arrivalHmm->getDistribution(2).getProbability(5) << std::endl;
     std::cout << "P(12 arrivals | Low load)   = " 
-              << arrivalHmm->getProbabilityDistribution(0)->getProbability(12) << std::endl;
+              << arrivalHmm->getDistribution(0).getProbability(12) << std::endl;
     std::cout << "P(12 arrivals | Medium load) = " 
-              << arrivalHmm->getProbabilityDistribution(1)->getProbability(12) << std::endl;
+              << arrivalHmm->getDistribution(1).getProbability(12) << std::endl;
     std::cout << "P(12 arrivals | High load)  = " 
-              << arrivalHmm->getProbabilityDistribution(2)->getProbability(12) << std::endl;
+              << arrivalHmm->getDistribution(2).getProbability(12) << std::endl;
     std::cout << std::endl;
     
     // Create arrival observation sequence (hourly customer counts)
@@ -137,21 +137,21 @@ int main() {
     // Exponential distributions for service times (M/M/1 model)
     // Efficient: μ = 0.2 (mean service time = 5 minutes)
     // Slow: μ = 0.1 (mean service time = 10 minutes)
-    serviceHmm->setProbabilityDistribution(0, std::make_unique<ExponentialDistribution>(0.2));  // Efficient
-    serviceHmm->setProbabilityDistribution(1, std::make_unique<ExponentialDistribution>(0.1));  // Slow
+    serviceHmm->setDistribution(0, std::make_unique<ExponentialDistribution>(0.2));  // Efficient
+    serviceHmm->setDistribution(1, std::make_unique<ExponentialDistribution>(0.1));  // Slow
     
     std::cout << *serviceHmm << std::endl;
     
     // Demonstrate service time probabilities
     std::cout << "Service Time Probability Examples (minutes):\n";
     std::cout << "P(service=3min | Efficient) = " 
-              << serviceHmm->getProbabilityDistribution(0)->getProbability(3) << std::endl;
+              << serviceHmm->getDistribution(0).getProbability(3) << std::endl;
     std::cout << "P(service=3min | Slow)      = " 
-              << serviceHmm->getProbabilityDistribution(1)->getProbability(3) << std::endl;
+              << serviceHmm->getDistribution(1).getProbability(3) << std::endl;
     std::cout << "P(service=8min | Efficient) = " 
-              << serviceHmm->getProbabilityDistribution(0)->getProbability(8) << std::endl;
+              << serviceHmm->getDistribution(0).getProbability(8) << std::endl;
     std::cout << "P(service=8min | Slow)      = " 
-              << serviceHmm->getProbabilityDistribution(1)->getProbability(8) << std::endl;
+              << serviceHmm->getDistribution(1).getProbability(8) << std::endl;
     std::cout << std::endl;
     
     // Create service time observation sequence
@@ -185,8 +185,8 @@ int main() {
     // Gamma distributions for more realistic service times
     // Efficient: Gamma(shape=4, scale=1.25) - mean=5, more consistent
     // Slow: Gamma(shape=2, scale=5) - mean=10, more variable
-    mgOneHmm->setProbabilityDistribution(0, std::make_unique<GammaDistribution>(4.0, 1.25));  // Efficient, consistent
-    mgOneHmm->setProbabilityDistribution(1, std::make_unique<GammaDistribution>(2.0, 5.0));   // Slow, variable
+    mgOneHmm->setDistribution(0, std::make_unique<GammaDistribution>(4.0, 1.25));  // Efficient, consistent
+    mgOneHmm->setDistribution(1, std::make_unique<GammaDistribution>(2.0, 5.0));   // Slow, variable
     
     std::cout << *mgOneHmm << std::endl;
     
@@ -276,22 +276,22 @@ int main() {
     
     // Create fresh HMM for training
     auto trainHmm = std::make_unique<Hmm>(3);
-    trainHmm->setProbabilityDistribution(0, std::make_unique<PoissonDistribution>(4.0));   // Initial guess
-    trainHmm->setProbabilityDistribution(1, std::make_unique<PoissonDistribution>(9.0));   // Initial guess
-    trainHmm->setProbabilityDistribution(2, std::make_unique<PoissonDistribution>(12.0));  // Initial guess
+    trainHmm->setDistribution(0, std::make_unique<PoissonDistribution>(4.0));   // Initial guess
+    trainHmm->setDistribution(1, std::make_unique<PoissonDistribution>(9.0));   // Initial guess
+    trainHmm->setDistribution(2, std::make_unique<PoissonDistribution>(12.0));  // Initial guess
     
     std::cout << "Before training:\n";
-    std::cout << "Low load state:    " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "Medium load state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
-    std::cout << "High load state:   " << trainHmm->getProbabilityDistribution(2)->toString() << std::endl;
+    std::cout << "Low load state:    " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "Medium load state: " << trainHmm->getDistribution(1).toString() << std::endl;
+    std::cout << "High load state:   " << trainHmm->getDistribution(2).toString() << std::endl;
     
     ViterbiTrainer trainer(trainHmm.get(), trainingData);
     trainer.train();
     
     std::cout << "\nAfter training:\n";
-    std::cout << "Low load state:    " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "Medium load state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
-    std::cout << "High load state:   " << trainHmm->getProbabilityDistribution(2)->toString() << std::endl;
+    std::cout << "Low load state:    " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "Medium load state: " << trainHmm->getDistribution(1).toString() << std::endl;
+    std::cout << "High load state:   " << trainHmm->getDistribution(2).toString() << std::endl;
     std::cout << std::endl;
     
     std::cout << "=== Queuing Theory Models and Applications ===\n";

@@ -5,7 +5,6 @@
 #include <cmath>
 #include <iomanip>
 #include "libhmm/libhmm.h"
-#include "libhmm/calculators/forward_backward_traits.h"
 
 using libhmm::Hmm;
 using libhmm::ChiSquaredDistribution;
@@ -67,9 +66,9 @@ int main() {
     // In Control: χ²(df=2) - low test statistic values (good fit)
     // Warning: χ²(df=4) - moderate test statistic values (marginal fit)
     // Out of Control: χ²(df=8) - high test statistic values (poor fit)
-    hmm->setProbabilityDistribution(0, std::make_unique<ChiSquaredDistribution>(2.0));  // In Control
-    hmm->setProbabilityDistribution(1, std::make_unique<ChiSquaredDistribution>(4.0));  // Warning
-    hmm->setProbabilityDistribution(2, std::make_unique<ChiSquaredDistribution>(8.0));  // Out of Control
+    hmm->setDistribution(0, std::make_unique<ChiSquaredDistribution>(2.0));  // In Control
+    hmm->setDistribution(1, std::make_unique<ChiSquaredDistribution>(4.0));  // Warning
+    hmm->setDistribution(2, std::make_unique<ChiSquaredDistribution>(8.0));  // Out of Control
     
     std::cout << "Process Control HMM Configuration:\n";
     std::cout << *hmm << std::endl;
@@ -86,7 +85,7 @@ int main() {
     for (double stat : testStats) {
         std::cout << std::setw(13) << stat << " | ";
         for (int state = 0; state < 3; ++state) {
-            double prob = hmm->getProbabilityDistribution(state)->getProbability(stat);
+            double prob = hmm->getDistribution(state).getProbability(stat);
             std::cout << std::setw(10) << prob << " | ";
         }
         std::cout << std::endl;
@@ -97,7 +96,7 @@ int main() {
     std::cout << "=== Critical Values and Control Limits ===\n";
     
     for (int state = 0; state < 3; ++state) {
-        const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(hmm->getProbabilityDistribution(state));
+        const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(&hmm->getDistribution(state));
         std::vector<std::string> stateNames = {"In Control", "Warning", "Out of Control"};
         
         std::cout << stateNames[state] << " State (χ²(" << dist->getDegreesOfFreedom() << ")):\n";
@@ -137,8 +136,8 @@ int main() {
     }
     std::cout << "\n                     (0=InControl, 1=Warning, 2=OutOfControl)\n\n";
     
-    // Calculate overall process likelihood using AutoCalculator
-    libhmm::forwardbackward::AutoCalculator fb(hmm.get(), testStatSequence);
+    // Calculate overall process likelihood using ForwardBackwardCalculator
+    libhmm::ForwardBackwardCalculator fb(hmm.get(), testStatSequence);
     double likelihood = fb.probability();
     double logLikelihood = fb.getLogProbability();
     
@@ -168,9 +167,9 @@ int main() {
     
     // Hotelling's T² statistics follow scaled chi-squared distributions
     // Different degrees of freedom for different numbers of quality characteristics
-    multivarHmm->setProbabilityDistribution(0, std::make_unique<ChiSquaredDistribution>(3.0));   // 3 characteristics
-    multivarHmm->setProbabilityDistribution(1, std::make_unique<ChiSquaredDistribution>(5.0));   // 5 characteristics
-    multivarHmm->setProbabilityDistribution(2, std::make_unique<ChiSquaredDistribution>(10.0));  // 10 characteristics
+    multivarHmm->setDistribution(0, std::make_unique<ChiSquaredDistribution>(3.0));   // 3 characteristics
+    multivarHmm->setDistribution(1, std::make_unique<ChiSquaredDistribution>(5.0));   // 5 characteristics
+    multivarHmm->setDistribution(2, std::make_unique<ChiSquaredDistribution>(10.0));  // 10 characteristics
     
     std::cout << "Multivariate Control Chart Analysis:\n";
     std::cout << "- Monitoring multiple quality characteristics simultaneously\n";
@@ -208,13 +207,13 @@ int main() {
     
     // Sample variance scaled by degrees of freedom follows chi-squared
     // Different expected variances for different control states
-    varianceHmm->setProbabilityDistribution(0, std::make_unique<ChiSquaredDistribution>(6.0));   // Normal variance
-    varianceHmm->setProbabilityDistribution(1, std::make_unique<ChiSquaredDistribution>(10.0));  // Increased variance
-    varianceHmm->setProbabilityDistribution(2, std::make_unique<ChiSquaredDistribution>(16.0));  // High variance
+    varianceHmm->setDistribution(0, std::make_unique<ChiSquaredDistribution>(6.0));   // Normal variance
+    varianceHmm->setDistribution(1, std::make_unique<ChiSquaredDistribution>(10.0));  // Increased variance
+    varianceHmm->setDistribution(2, std::make_unique<ChiSquaredDistribution>(16.0));  // High variance
     
     std::cout << "Variance Control Chart Configuration:\n";
     for (int state = 0; state < 3; ++state) {
-        const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(varianceHmm->getProbabilityDistribution(state));
+        const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(&varianceHmm->getDistribution(state));
         std::vector<std::string> labels = {"Normal", "Increased", "High"};
         std::cout << labels[state] << " Variance: χ²(" << dist->getDegreesOfFreedom() 
                   << "), Expected = " << dist->getMean() << std::endl;
@@ -262,9 +261,9 @@ int main() {
     
     // Create training model
     auto trainHmm = std::make_unique<Hmm>(3);
-    trainHmm->setProbabilityDistribution(0, std::make_unique<ChiSquaredDistribution>(3.0));  // Initial guess
-    trainHmm->setProbabilityDistribution(1, std::make_unique<ChiSquaredDistribution>(5.0));  // Initial guess
-    trainHmm->setProbabilityDistribution(2, std::make_unique<ChiSquaredDistribution>(7.0));  // Initial guess
+    trainHmm->setDistribution(0, std::make_unique<ChiSquaredDistribution>(3.0));  // Initial guess
+    trainHmm->setDistribution(1, std::make_unique<ChiSquaredDistribution>(5.0));  // Initial guess
+    trainHmm->setDistribution(2, std::make_unique<ChiSquaredDistribution>(7.0));  // Initial guess
     
     std::cout << "Training with " << qualityData.size() << " quality control sequences...\n";
     
@@ -273,7 +272,7 @@ int main() {
     
     std::cout << "\nTrained Model Parameters:\n";
     for (int state = 0; state < 3; ++state) {
-        const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(trainHmm->getProbabilityDistribution(state));
+        const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(&trainHmm->getDistribution(state));
         std::vector<std::string> stateLabels = {"In Control", "Warning", "Out of Control"};
         std::cout << stateLabels[state] << ": df=" << std::setprecision(2) << dist->getDegreesOfFreedom()
                   << ", Mean=" << dist->getMean() << ", Std=" << dist->getStandardDeviation() << "\n";
@@ -287,7 +286,7 @@ int main() {
     std::vector<double> alphaLevels = {0.95, 0.99, 0.999};  // Confidence levels
     
     for (int state = 0; state < 3; ++state) {
-        const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(hmm->getProbabilityDistribution(state));
+        const auto* dist = dynamic_cast<const ChiSquaredDistribution*>(&hmm->getDistribution(state));
         std::vector<std::string> stateNames = {"In Control", "Warning", "Out of Control"};
         
         std::cout << stateNames[state] << " State Control Limits:\n";

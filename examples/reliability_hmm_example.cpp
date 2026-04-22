@@ -55,9 +55,9 @@ int main() {
     // Normal: Weibull(shape=2.5, scale=1000) - moderate hazard rate
     // Degraded: Weibull(shape=1.8, scale=500) - increasing hazard
     // Critical: Weibull(shape=1.2, scale=200) - high early failure rate
-    hmm->setProbabilityDistribution(0, std::make_unique<WeibullDistribution>(2.5, 1000.0));  // Normal
-    hmm->setProbabilityDistribution(1, std::make_unique<WeibullDistribution>(1.8, 500.0));   // Degraded  
-    hmm->setProbabilityDistribution(2, std::make_unique<WeibullDistribution>(1.2, 200.0));   // Critical
+    hmm->setDistribution(0, std::make_unique<WeibullDistribution>(2.5, 1000.0));  // Normal
+    hmm->setDistribution(1, std::make_unique<WeibullDistribution>(1.8, 500.0));   // Degraded  
+    hmm->setDistribution(2, std::make_unique<WeibullDistribution>(1.2, 200.0));   // Critical
     
     std::cout << "Reliability HMM Configuration:\n";
     std::cout << *hmm << std::endl;
@@ -65,17 +65,17 @@ int main() {
     // Demonstrate lifetime probability calculations
     std::cout << "Component Lifetime Probability Examples (hours):\n";
     std::cout << "P(lifetime=100 | Normal)   = " 
-              << hmm->getProbabilityDistribution(0)->getProbability(100) << std::endl;
+              << hmm->getDistribution(0).getProbability(100) << std::endl;
     std::cout << "P(lifetime=100 | Degraded) = " 
-              << hmm->getProbabilityDistribution(1)->getProbability(100) << std::endl;
+              << hmm->getDistribution(1).getProbability(100) << std::endl;
     std::cout << "P(lifetime=100 | Critical) = " 
-              << hmm->getProbabilityDistribution(2)->getProbability(100) << std::endl;
+              << hmm->getDistribution(2).getProbability(100) << std::endl;
     std::cout << "P(lifetime=500 | Normal)   = " 
-              << hmm->getProbabilityDistribution(0)->getProbability(500) << std::endl;
+              << hmm->getDistribution(0).getProbability(500) << std::endl;
     std::cout << "P(lifetime=500 | Degraded) = " 
-              << hmm->getProbabilityDistribution(1)->getProbability(500) << std::endl;
+              << hmm->getDistribution(1).getProbability(500) << std::endl;
     std::cout << "P(lifetime=500 | Critical) = " 
-              << hmm->getProbabilityDistribution(2)->getProbability(500) << std::endl;
+              << hmm->getDistribution(2).getProbability(500) << std::endl;
     std::cout << std::endl;
     
     // Create lifetime observation sequence (component failure times in hours)
@@ -125,8 +125,8 @@ int main() {
     // Exponential distributions for time between failures
     // Low failure rate: λ = 0.001 (mean time = 1000 hours)
     // High failure rate: λ = 0.01 (mean time = 100 hours)
-    failureHmm->setProbabilityDistribution(0, std::make_unique<ExponentialDistribution>(0.001));  // Low rate
-    failureHmm->setProbabilityDistribution(1, std::make_unique<ExponentialDistribution>(0.01));   // High rate
+    failureHmm->setDistribution(0, std::make_unique<ExponentialDistribution>(0.001));  // Low rate
+    failureHmm->setDistribution(1, std::make_unique<ExponentialDistribution>(0.01));   // High rate
     
     std::cout << "Failure Rate HMM Configuration:\n";
     std::cout << *failureHmm << std::endl;
@@ -134,13 +134,13 @@ int main() {
     // Demonstrate failure rate probability calculations
     std::cout << "Time Between Failures Probability Examples (hours):\n";
     std::cout << "P(time=50 | Low rate)  = " 
-              << failureHmm->getProbabilityDistribution(0)->getProbability(50) << std::endl;
+              << failureHmm->getDistribution(0).getProbability(50) << std::endl;
     std::cout << "P(time=50 | High rate) = " 
-              << failureHmm->getProbabilityDistribution(1)->getProbability(50) << std::endl;
+              << failureHmm->getDistribution(1).getProbability(50) << std::endl;
     std::cout << "P(time=200 | Low rate)  = " 
-              << failureHmm->getProbabilityDistribution(0)->getProbability(200) << std::endl;
+              << failureHmm->getDistribution(0).getProbability(200) << std::endl;
     std::cout << "P(time=200 | High rate) = " 
-              << failureHmm->getProbabilityDistribution(1)->getProbability(200) << std::endl;
+              << failureHmm->getDistribution(1).getProbability(200) << std::endl;
     std::cout << std::endl;
     
     // Create failure time observation sequence (time between failures)
@@ -205,22 +205,22 @@ int main() {
     
     // Create fresh HMM for training
     auto trainHmm = std::make_unique<Hmm>(3);
-    trainHmm->setProbabilityDistribution(0, std::make_unique<WeibullDistribution>(2.0, 800.0));   // Initial guess
-    trainHmm->setProbabilityDistribution(1, std::make_unique<WeibullDistribution>(1.5, 400.0));   // Initial guess
-    trainHmm->setProbabilityDistribution(2, std::make_unique<WeibullDistribution>(1.0, 150.0));   // Initial guess
+    trainHmm->setDistribution(0, std::make_unique<WeibullDistribution>(2.0, 800.0));   // Initial guess
+    trainHmm->setDistribution(1, std::make_unique<WeibullDistribution>(1.5, 400.0));   // Initial guess
+    trainHmm->setDistribution(2, std::make_unique<WeibullDistribution>(1.0, 150.0));   // Initial guess
     
     std::cout << "Before training:\n";
-    std::cout << "Normal state:   " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "Degraded state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
-    std::cout << "Critical state: " << trainHmm->getProbabilityDistribution(2)->toString() << std::endl;
+    std::cout << "Normal state:   " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "Degraded state: " << trainHmm->getDistribution(1).toString() << std::endl;
+    std::cout << "Critical state: " << trainHmm->getDistribution(2).toString() << std::endl;
     
     ViterbiTrainer trainer(trainHmm.get(), trainingData);
     trainer.train();
     
     std::cout << "\nAfter training:\n";
-    std::cout << "Normal state:   " << trainHmm->getProbabilityDistribution(0)->toString() << std::endl;
-    std::cout << "Degraded state: " << trainHmm->getProbabilityDistribution(1)->toString() << std::endl;
-    std::cout << "Critical state: " << trainHmm->getProbabilityDistribution(2)->toString() << std::endl;
+    std::cout << "Normal state:   " << trainHmm->getDistribution(0).toString() << std::endl;
+    std::cout << "Degraded state: " << trainHmm->getDistribution(1).toString() << std::endl;
+    std::cout << "Critical state: " << trainHmm->getDistribution(2).toString() << std::endl;
     std::cout << std::endl;
     
     std::cout << "=== Reliability Analysis Insights ===\n";
