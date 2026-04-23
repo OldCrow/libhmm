@@ -1,200 +1,93 @@
-# libhmm Testing Strategy
+# libhmm Testing Strategy (v3.0)
 
-This document explains the two-tier testing approach used in libhmm for comprehensive and efficient testing.
+All tests use GoogleTest and are organised into 8 architectural levels
+matching the library layered dependency graph.
 
-## 🎯 Testing Philosophy
-
-We use a **two-tier testing strategy** that balances thorough validation with development efficiency:
-
-1. **Integration Tests** - Comprehensive GoogleTest suite
-2. **Unit Tests** - Fast, focused standalone tests
-
-## 📁 Directory Structure
+## Directory Structure
 
 ```
 tests/
-├── test_distributions.cpp        # Integration: All distributions together
-├── test_hmm_core.cpp             # Integration: Core HMM functionality  
-├── test_calculators.cpp          # Integration: All calculators
-├── test_training.cpp             # Integration: Training algorithms
-├── test_training_edge_cases.cpp  # Integration: Edge cases and error handling
-├── test_xml_file_io.cpp          # Integration: XML I/O operations
-├── test_hmm_stream_io.cpp        # Integration: HMM stream parsing
-├── test_common.cpp               # Integration: Common utilities
-├── test_performance.cpp          # Integration: SIMD and threading
-├── test_calculator_traits.cpp    # Integration: Calculator selection
-├── test_distribution_traits.cpp  # Integration: Distribution traits
-├── test_distributions_header.cpp # Integration: Convenience headers
-├── test_optimized_matrix3d.cpp   # Integration: Matrix optimizations
-├── test_type_safety.cpp          # Legacy: Type safety validation
-├── unit/                         # Unit tests directory (17 distributions)
-│   ├── test_poisson_distribution.cpp     # Unit: Poisson tests
-│   ├── test_gaussian_distribution.cpp    # Unit: Gaussian tests
-│   ├── test_student_t_distribution.cpp   # Unit: Student's t tests
-│   ├── test_chi_squared_distribution.cpp # Unit: Chi-squared tests
-│   └── ... (13 other distribution tests)
-└── TESTING_STRATEGY.md           # This documentation
+├── common/                     # Levels 1-2: Math, Linear Algebra
+│   ├── test_modern_constants.cpp
+│   ├── test_numerical_stability.cpp
+│   ├── test_common.cpp
+│   ├── test_optimized_linear_operations.cpp
+│   ├── test_linear_operations_classes.cpp
+│   └── test_optimized_matrix3d.cpp
+├── distributions/              # Level 3: All 15 distributions
+│   ├── test_distributions.cpp
+│   ├── test_distribution_type_safety.cpp
+│   ├── test_distribution_traits.cpp
+│   ├── test_distributions_header.cpp
+│   └── test_<name>_distribution.cpp   (one per distribution)
+├── test_hmm_core.cpp           # Level 4: Core HMM
+├── calculators/                # Level 5: Inference
+│   ├── test_canonical_calculators.cpp
+│   ├── test_calculator_continuous.cpp
+│   └── test_calculator_edge_cases.cpp
+├── training/                   # Level 6: Training algorithms
+│   ├── test_canonical_training.cpp
+│   ├── test_training.cpp
+│   ├── test_training_edge_cases.cpp
+│   └── test_baum_welch_convergence.cpp
+├── io/                         # Level 7: IO
+│   ├── test_xml_file_io.cpp
+│   └── test_hmm_stream_io.cpp
+├── integration/                # Level 7: End-to-end
+│   └── test_end_to_end.cpp
+├── performance/
+│   └── README.md               (tools moved to tools/ in Phase 4.5.2)
+├── CMakeLists.txt
+└── TESTING_STRATEGY.md
 ```
 
-## 🚀 Quick Testing Commands
+## Running Tests
 
-### **Integration Tests (GoogleTest)**
 ```bash
-# Run all integration tests
-ctest
+# Standard run -- all 36 tests (mirrors CI)
+ctest --test-dir build -C Release --output-on-failure
 
-# Run all distribution tests (100+ tests covering 17 distributions)
-./tests/test_distributions
+# cmake custom targets
+cmake --build build --target check           # parallel, correctness
+cmake --build build --target check_timing    # serial, for timing accuracy
 
-# Run only Poisson distribution tests within integration suite
-./tests/test_distributions --gtest_filter="*Poisson*"
+# Build and run a single test
+cmake --build build --config Release --target test_canonical_calculators
+./build/tests/Release/test_canonical_calculators
 
-# Run performance and SIMD tests
-./tests/test_performance
-
-# Run new distribution tests (Student's t and Chi-squared)
-./tests/test_student_t_distribution
-./tests/test_chi_squared_distribution
-
-# Run with verbose output
-./tests/test_distributions --gtest_filter="*Poisson*" --gtest_brief=1
+# GTest filter within a binary
+./build/tests/Release/test_distributions --gtest_filter="*Discrete*"
 ```
 
-### **Unit Tests (Standalone)**
-```bash
-# Run Poisson unit tests (fast, focused)
-./tests/test_poisson_distribution
+## Architectural Levels
 
-# Run all unit tests via CTest
-ctest -R "unit_"
+| Level | Content |
+|-------|---------|
+| 1 | Math & Numerics |
+| 2 | Linear Algebra |
+| 3 | Distributions (15 individual + 4 shared) |
+| 4 | Core HMM |
+| 5 | Calculators |
+| 6 | Trainers |
+| 7 | IO + Integration |
 
-# Run specific unit test via CTest
-ctest -R "unit_test_poisson"
-```
+## Warning Policy
 
-## 📊 When to Use Each Type
+Tests compile at the same warning level as the library
+(MSVC /W4 /permissive-, GCC/Clang -Wall -Wextra -Wpedantic).
 
-### **Use Integration Tests When:**
-- ✅ **Pre-commit validation** - Ensure everything works together
-- ✅ **CI/CD pipelines** - Comprehensive validation
-- ✅ **Release testing** - Full functionality verification
-- ✅ **Polymorphic interface testing** - Common interface compliance
-- ✅ **Cross-distribution consistency** - Behavior validation across all distributions
+The 15 standalone distribution test files use assert() for validation.
+In Release builds assert() is a no-op, making variables appear unreferenced.
+A platform-guarded pragma at the top of each file suppresses this diagnostic.
 
-### **Use Unit Tests When:**
-- ✅ **Active development** - Quick feedback during feature development
-- ✅ **Debugging** - Isolate issues in specific components
-- ✅ **Performance profiling** - Measure individual component performance
-- ✅ **Documentation** - Examples of component usage
-- ✅ **Regression testing** - Verify specific bug fixes
+## Performance Tools
 
-## ⚡ Performance Comparison
+Performance tools live in tools/, not tests/:
 
-| Test Type | Command | Duration | Tests | Coverage |
-|-----------|---------|----------|-------|----------|
-| Unit (Single Distribution) | `./test_poisson_distribution` | ~0.005s | 7-12 tests | Single distribution |
-| Integration (Distribution Set) | `./test_distributions --gtest_filter="*Poisson*"` | ~0.007s | 10-15 tests | Specific distribution + interface |
-| Integration (All Distributions) | `./test_distributions` | ~0.15s | 100+ tests | All 17 distributions |
-| Full Test Suite | `ctest` | ~25s | 28 test suites | Complete system coverage |
-
-## 🔧 Adding New Distribution Tests
-
-### **Step 1: Add Unit Test**
-1. Create `tests/unit/test_[distribution]_distribution.cpp`
-2. Use the standalone test framework (see `test_poisson_distribution.cpp` as example)
-3. Add to `UNIT_TEST_SOURCES` in `tests/CMakeLists.txt`
-
-### **Step 2: Add Integration Test**
-1. Add test class to `tests/test_distributions.cpp`
-2. Follow the GoogleTest pattern (see `PoissonDistributionTest` as example)
-3. Add to `CommonDistributionTest` setup
-
-### **Example: Adding Gamma Unit Tests**
-```cmake
-# In tests/CMakeLists.txt
-set(UNIT_TEST_SOURCES
-    unit/test_poisson_distribution.cpp
-    unit/test_gamma_distribution.cpp    # Add this line
-)
-```
-
-## 🎨 Test Framework Differences
-
-### **Integration Tests (GoogleTest)**
-```cpp
-class PoissonDistributionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dist_ = std::make_unique<PoissonDistribution>(2.0);
-    }
-    std::unique_ptr<PoissonDistribution> dist_;
-};
-
-TEST_F(PoissonDistributionTest, ConstructorValidation) {
-    EXPECT_NO_THROW(PoissonDistribution(1.0));
-    EXPECT_THROW(PoissonDistribution(0.0), std::invalid_argument);
-}
-```
-
-### **Unit Tests (Standalone)**
-```cpp
-void testConstructorValidation() {
-    std::cout << "Testing constructor validation..." << std::endl;
-    
-    try {
-        PoissonDistribution valid(1.0);
-        std::cout << "✓ Valid construction passed" << std::endl;
-    } catch (...) {
-        assert(false);
-    }
-    
-    try {
-        PoissonDistribution invalid(0.0);
-        assert(false);  // Should not reach here
-    } catch (const std::invalid_argument&) {
-        std::cout << "✓ Invalid construction correctly rejected" << std::endl;
-    }
-}
-```
-
-## 📈 Benefits of This Approach
-
-### **For Developers:**
-- 🚀 **Fast feedback** during development (unit tests)
-- 🔍 **Focused debugging** capabilities
-- 📚 **Clear examples** of component usage
-- ⚡ **Quick verification** of changes
-
-### **For Maintainers:**
-- 🛡️ **Comprehensive validation** (integration tests)
-- 🔄 **Consistent interface testing** across all components
-- 📊 **Performance monitoring** capabilities
-- 🎯 **Targeted testing** options
-
-### **For CI/CD:**
-- 📦 **Flexible test execution** strategies
-- ⏱️ **Parallel test execution** possibilities
-- 🎛️ **Granular failure reporting**
-- 🔧 **Easy maintenance** and updates
-
-## 🏆 Best Practices
-
-1. **Keep unit tests fast** - Focus on core functionality only
-2. **Keep integration tests comprehensive** - Test interactions and edge cases
-3. **Use appropriate assertions** - GoogleTest for integration, simple asserts for unit
-4. **Document test purposes** - Clear comments explaining what each test validates
-5. **Maintain both tiers** - Don't let one approach dominate over the other
-
-## 🔮 Future Enhancements
-
-Potential improvements to consider:
-
-- **Benchmark tests** - Performance regression detection
-- **Fuzzing tests** - Random input validation
-- **Property-based tests** - Mathematical property verification
-- **Mock objects** - For testing with external dependencies
-- **Test data generators** - Automated test case generation
+  build/tools/Release/simd_inspection      -- SIMD ISA report + smoke tests
+  build/tools/Release/batch_performance    -- FB + Viterbi throughput
+  build/tools/Release/hmm_validator        -- Load, validate, infer
 
 ---
 
-*This testing strategy ensures both rapid development cycles and robust validation, providing the best of both worlds for the libhmm project.*
+36/36 tests pass on all platforms (Linux/GCC, Linux/Clang, macOS, Windows/MSVC).

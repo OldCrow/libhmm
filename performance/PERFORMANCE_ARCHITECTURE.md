@@ -89,7 +89,7 @@ The design is structured into four levels to ensure clear separation of responsi
   - Automatic platform optimization
 - **Example Integration**:
   ```cpp
-  class ScaledSIMDForwardBackwardCalculator {
+  class ForwardBackwardCalculator {
       OptimizedMatrix<double> alpha_;    // Automatically optimized
       OptimizedVector<double> scaling_;  // SIMD operations
       // Uses performance::parallel::MIN_STATES_FOR_CALCULATOR_PARALLEL

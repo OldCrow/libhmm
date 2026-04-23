@@ -1,6 +1,12 @@
-# Development Performance Tests
+# Development Performance Tools
 
-This directory contains ad-hoc development tests and benchmarks for performance analysis and debugging. These are not part of the main test suite but are useful for development and optimization work.
+> **Note (v3.0):** The tools previously in this directory (`analyze_overhead.cpp`,
+> `debug_parallel.cpp`) were moved to `tools/` in Phase 4.5.2. The other files
+> (`benchmark_parallel`, `parallel_calculator_assessment`, `parallel_constants_tuning`)
+> were deleted — they benchmarked removed SIMD calculator variants.
+>
+> See `tools/` for current performance inspection and validation tools:
+> `simd_inspection`, `batch_performance`, `hmm_validator`.
 
 ## Naming Convention
 
