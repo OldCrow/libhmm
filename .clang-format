@@ -1,0 +1,65 @@
+---
+# clang-format configuration for libhmm
+#
+# Style conventions:
+#   - 4-space indentation (no tabs)
+#   - 100-column limit (matches .cmake-format.yaml)
+#   - K&R brace style (braces attach to preceding statement)
+#   - No spaces inside parentheses
+#   - Include order preserved (system includes before project includes)
+#
+# Applied incrementally: only files modified in a commit are formatted.
+# To reformat a file manually: clang-format -i <file>
+# To check without modifying:  clang-format --dry-run --Werror <file>
+
+Language: Cpp
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+AccessModifierOffset: -4
+IndentCaseLabels: true
+IndentPPDirectives: None
+
+# Line length
+ColumnLimit: 100
+
+# Braces — K&R style: opening brace on the same line as the statement
+BreakBeforeBraces: Attach
+
+# Spacing
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCpp11BracedList: false
+
+# Short forms
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Inline
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+
+# Templates
+AlwaysBreakTemplateDeclarations: Yes
+
+# Constructor initializer lists
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerIndentWidth: 4
+
+# Includes — preserve manually ordered groups (system first, then project)
+SortIncludes: Never
+IncludeBlocks: Preserve
+
+# Comments — do not reflow; preserve authors' deliberate line breaks
+ReflowComments: false
+
+# Namespace indentation
+NamespaceIndentation: None
+CompactNamespaces: false
