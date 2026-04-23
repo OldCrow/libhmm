@@ -77,6 +77,10 @@ option(BUILD_BENCHMARKS "Build comparison benchmarks (requires external HMM libr
 option(ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" ON)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis during build" OFF)
 option(ENABLE_CPPCHECK "Enable cppcheck analysis" ON)
+option(LIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX
+    "Allow Homebrew libc++ paths on macOS Catalina (unsafe; may crash at runtime)"
+    OFF
+)
 
 # Platform detection and setup
 if(APPLE)
@@ -98,6 +102,87 @@ endif()
 
 # Find required packages with platform-specific handling
 if(APPLE)
+    # Guard against unsupported runtime combinations on macOS Catalina.
+    # Homebrew libc++ on 10.15 has shown widespread runtime segfaults in tests.
+    set(LIBHMM_IS_CATALINA OFF)
+    set(LIBHMM_IS_PRE_VENTURA OFF)
+    set(LIBHMM_HOST_MACOS_VERSION "")
+    set(LIBHMM_DARWIN_VERSION "${CMAKE_SYSTEM_VERSION}")
+    execute_process(
+        COMMAND sw_vers -productVersion
+        OUTPUT_VARIABLE LIBHMM_HOST_MACOS_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE LIBHMM_SW_VERS_STATUS
+    )
+    if(LIBHMM_HOST_MACOS_VERSION MATCHES "^([0-9]+)\\.([0-9]+)")
+        set(LIBHMM_HOST_MACOS_VERSION_MAJOR "${CMAKE_MATCH_1}")
+        if(LIBHMM_HOST_MACOS_VERSION_MAJOR LESS 13)
+            set(LIBHMM_IS_PRE_VENTURA ON)
+        endif()
+    endif()
+
+    if(CMAKE_SYSTEM_VERSION MATCHES "^([0-9]+)")
+        set(LIBHMM_DARWIN_VERSION "${CMAKE_MATCH_1}")
+        if(LIBHMM_DARWIN_VERSION LESS 22)
+            set(LIBHMM_IS_PRE_VENTURA ON)
+        endif()
+    endif()
+
+    if(LIBHMM_SW_VERS_STATUS EQUAL 0 AND LIBHMM_HOST_MACOS_VERSION MATCHES "^10\\.15(\\..*)?$")
+        set(LIBHMM_IS_CATALINA ON)
+    elseif(CMAKE_SYSTEM_VERSION MATCHES "^19(\\..*)?$")
+        set(LIBHMM_IS_CATALINA ON)
+    elseif(CMAKE_OSX_DEPLOYMENT_TARGET MATCHES "^10\\.15(\\..*)?$")
+        set(LIBHMM_IS_CATALINA ON)
+    elseif(CMAKE_OSX_SYSROOT MATCHES "MacOSX10\\.15\\.sdk")
+        set(LIBHMM_IS_CATALINA ON)
+    endif()
+
+    macro(libhmm_collect_homebrew_libcxx_hint hint_name hint_value)
+        if(NOT "${hint_value}" STREQUAL "")
+            if("${hint_value}" MATCHES "(/usr/local|/opt/homebrew)[^; ]*(lib/c\\+\\+|include/c\\+\\+/v1)")
+                list(APPEND LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES "${hint_name}")
+            endif()
+        endif()
+    endmacro()
+
+    set(LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES "")
+    libhmm_collect_homebrew_libcxx_hint("env:LDFLAGS" "$ENV{LDFLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("env:CPPFLAGS" "$ENV{CPPFLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("env:CXXFLAGS" "$ENV{CXXFLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_EXE_LINKER_FLAGS" "${CMAKE_EXE_LINKER_FLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_SHARED_LINKER_FLAGS" "${CMAKE_SHARED_LINKER_FLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_MODULE_LINKER_FLAGS" "${CMAKE_MODULE_LINKER_FLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_FLAGS" "${CMAKE_CXX_FLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES" "${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES}")
+    list(REMOVE_DUPLICATES LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES)
+
+    if(LIBHMM_IS_CATALINA AND LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES AND NOT LIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX)
+        string(REPLACE ";" ", " LIBHMM_HOMEBREW_LIBCXX_HINTS_TEXT "${LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES}")
+        message(FATAL_ERROR
+            "Detected Homebrew libc++ paths on macOS Catalina (10.15). "
+            "This combination is known to cause runtime segfaults in libhmm tests.\n"
+            "Detected in: ${LIBHMM_HOMEBREW_LIBCXX_HINTS_TEXT}\n"
+            "Configure with system runtime instead:\n"
+            "  env -u CC -u CXX -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS cmake -S . -B build\n"
+            "To bypass this guard temporarily, pass:\n"
+            "  -DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON"
+        )
+    endif()
+
+    set(LIBHMM_LEGACY_WARNING_SUPPRESSIONS "")
+    if(LIBHMM_IS_PRE_VENTURA AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        set(LIBHMM_LEGACY_WARNING_SUPPRESSIONS
+            -Wno-unknown-warning-option
+            -Wno-deprecated-volatile
+        )
+        if(LIBHMM_HOST_MACOS_VERSION)
+            message(STATUS "Pre-Ventura macOS (${LIBHMM_HOST_MACOS_VERSION}) detected - enabling legacy warning suppressions for non-core targets")
+        else()
+            message(STATUS "Pre-Ventura macOS detected - enabling legacy warning suppressions for non-core targets")
+        endif()
+    endif()
     # Architecture-aware Homebrew path detection for macOS
     execute_process(
         COMMAND uname -m
