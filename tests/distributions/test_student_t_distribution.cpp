@@ -135,14 +135,12 @@ void testFitting() {
     t_dist.fit(single_point);
     assert(t_dist.getDegreesOfFreedom() == 1.0); // Should reset to default
 
-    // Test with empty data - should throw exception
+    // Test with empty data - should reset to defaults
     std::vector<Observation> empty_data;
-    try {
-        t_dist.fit(empty_data);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    t_dist.fit(empty_data);
+    assert(t_dist.getDegreesOfFreedom() == 1.0);
+    assert(t_dist.getLocation() == 0.0);
+    assert(t_dist.getScale() == 1.0);
 
     std::cout << "✓ Parameter fitting tests passed" << std::endl;
 }
