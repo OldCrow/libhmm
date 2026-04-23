@@ -1,24 +1,26 @@
 # libhmm Examples
 
-This directory contains 9 comprehensive examples demonstrating real-world applications of Hidden Markov Models using the libhmm library. Each example showcases different probability distributions and modeling scenarios, covering major application domains from finance to manufacturing.
+This directory contains 12 comprehensive examples demonstrating real-world applications of Hidden Markov Models using the libhmm library. Each example showcases different probability distributions and modeling scenarios, covering major application domains from finance to manufacturing.
 
 ## Building Examples
 
 ```bash
-# From the build directory
-cd build
-make  # This will build all examples
+cmake -B build -DBUILD_EXAMPLES=ON
+cmake --build build --config Release
 
 # Run a specific example
-./examples/basic_hmm_example
-./examples/poisson_hmm_example
-./examples/financial_hmm_example
-./examples/reliability_hmm_example
-./examples/quality_control_hmm_example
-./examples/economics_hmm_example
-./examples/queuing_theory_hmm_example
-./examples/robust_financial_hmm_example
-./examples/statistical_process_control_hmm_example
+./build/examples/Release/basic_hmm_example
+./build/examples/Release/baum_welch_example
+./build/examples/Release/viterbi_trainer_example
+./build/examples/Release/student_t_hmm_example
+./build/examples/Release/poisson_hmm_example
+./build/examples/Release/financial_hmm_example
+./build/examples/Release/reliability_hmm_example
+./build/examples/Release/quality_control_hmm_example
+./build/examples/Release/economics_hmm_example
+./build/examples/Release/queuing_theory_hmm_example
+./build/examples/Release/statistical_process_control_hmm_example
+./build/examples/Release/swarm_coordination_example
 ```
 
 ## Example Overview
@@ -158,7 +160,7 @@ make  # This will build all examples
 
 ---
 
-### 💪 [robust_financial_hmm_example.cpp](robust_financial_hmm_example.cpp)
+### 💪 [student_t_hmm_example.cpp](student_t_hmm_example.cpp)
 **Topic**: Heavy-tailed financial modeling and outlier-robust analysis  
 **Distributions**: Student's t-distribution  
 **Concepts**: Heavy tails, robust statistics, financial outliers, location-scale modeling  

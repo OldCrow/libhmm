@@ -142,21 +142,16 @@ private:
 - Prefer breaking after commas and operators
 
 ### 3. Braces and Brackets
-- **Allman style** for class/function definitions:
+- **K&R style (Attach)** — opening brace on the same line, enforced by `.clang-format`:
 ```cpp
-class GaussianDistribution 
-{
+class GaussianDistribution {
 public:
-    void setMean(double mean) 
-    {
+    void setMean(double mean) {
         validateParameters(mean, standardDeviation_);
         mean_ = mean;
     }
 };
-```
 
-- **Same line** for control structures:
-```cpp
 if (condition) {
     doSomething();
 } else {

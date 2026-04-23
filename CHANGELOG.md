@@ -72,11 +72,11 @@ All external dependencies removed. C++ standard raised to C++20.
 - AArch64 architecture detection in CMakeLists gates x86 checks correctly
 - `simd_inspection` tool reports active ISA and runs 6 functional smoke tests
 
-#### Test Suite (35/35 canonical tests)
+#### Test Suite (36/36 canonical tests)
 - Tests organised into 8 architectural levels with `add_hmm_test()` helper
 - 4 new tests: `test_calculator_continuous`, `test_calculator_edge_cases`,
   `test_baum_welch_convergence` (EM monotonicity), `test_end_to_end` (casino problem)
-- Custom targets: `run_tests` (parallel, correctness), `run_tests_timing` (serial)
+- Custom targets: `check` (parallel, correctness), `check_timing` (serial)
 
 #### Tools Directory
 - `simd_inspection` — SIMD ISA report + 6 functional smoke tests
