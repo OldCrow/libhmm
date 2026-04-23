@@ -1,7 +1,7 @@
 # Cross-Platform Build Guide
 
-libhmm builds and tests on Windows (MSVC), macOS (AppleClang), and Linux (GCC).
-All three platforms are verified by CI on every push.
+libhmm builds and tests on Windows (MSVC), macOS (AppleClang), Linux (GCC), and Linux (Clang).
+All four platforms are verified by CI on every push.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ All three platforms are verified by CI on every push.
 ```powershell
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release --parallel 4
-ctest --test-dir build -C Release --parallel 4 -LE known_broken
+ctest --test-dir build -C Release --parallel 4
 ```
 
 Notes:
@@ -29,21 +29,20 @@ Notes:
 ```bash
 cmake -B build
 cmake --build build --config Release
-ctest --test-dir build -LE known_broken
+ctest --test-dir build
 ```
 
 Notes:
 - Homebrew prefix: `/opt/homebrew` (Apple Silicon) or `/usr/local` (Intel)
 - CMake detects the architecture automatically via `uname -m`
 - SIMD: `-march=native` — selects NEON on AArch64, AVX/AVX2 on Intel Macs
-- `test_xml_file_io` is marked `known_broken` on Windows only; it passes on macOS
 
 ### Linux (GCC)
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel 4
-ctest --test-dir build -LE known_broken
+ctest --test-dir build
 ```
 
 Notes:
@@ -70,6 +69,7 @@ When cmake runs, the SIMD configuration is reported:
 ```bash
 cmake -DBUILD_EXAMPLES=OFF ..    # Skip examples
 cmake -DBUILD_TESTS=OFF ..       # Skip tests
+cmake -DBUILD_TOOLS=OFF ..       # Skip tools
 cmake -DBUILD_SHARED_LIBS=OFF .. # Static library (default is shared)
 ```
 
@@ -83,5 +83,5 @@ cmake -DBUILD_SHARED_LIBS=OFF .. # Static library (default is shared)
 
 ## CI Matrix
 
-See `.github/workflows/ci.yml`. All jobs run `ctest -LE known_broken` to keep CI green.
-The one `known_broken` test (`test_xml_file_io`) is a pre-existing Windows-specific failure.
+See `.github/workflows/ci.yml`. Four build jobs (Linux/GCC, Linux/Clang, macOS/AppleClang,
+Windows/MSVC) plus a lint job (clang-format + cppcheck). All 36 tests pass on every platform.

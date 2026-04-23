@@ -4,7 +4,7 @@
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-3.0.0--alpha-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-35%2F35_Passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-36%2F36_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
@@ -58,14 +58,14 @@ git clone https://github.com/OldCrow/libhmm.git
 cd libhmm
 cmake -B build
 cmake --build build --config Release
-ctest --test-dir build -LE known_broken
+ctest --test-dir build
 ```
 
 On Windows with Visual Studio:
 ```powershell
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release --parallel 4
-ctest --test-dir build -C Release --parallel 4 -LE known_broken
+ctest --test-dir build -C Release --parallel 4
 ```
 
 ### Basic Usage
@@ -128,7 +128,7 @@ libhmm/
 │   ├── calculators/   # Layer 4: ForwardBackward, Viterbi
 │   └── training/      # Layer 4: BaumWelch, Viterbi, SegmentalKMeans
 ├── src/               # Implementation (mirrors include/)
-├── tests/             # 35-test GTest suite (7 architectural levels)
+├── tests/             # 36-test GTest suite (7 architectural levels)
 ├── examples/          # 12 usage demonstrations
 ├── tools/             # simd_inspection, batch_performance, hmm_validator
 ├── benchmarks/        # Comparative benchmarks (requires external libraries)
