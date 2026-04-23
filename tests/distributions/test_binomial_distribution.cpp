@@ -9,7 +9,9 @@
 #include <sstream>
 #include "libhmm/distributions/binomial_distribution.h"
 #ifdef _MSC_VER
-#pragma warning(disable : 4189) // assert()-only variables appear unreferenced in Release
+#pragma warning(disable: 4189)  // assert()-only variables appear unreferenced in Release
+#elif defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 
 using libhmm::BinomialDistribution;
