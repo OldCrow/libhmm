@@ -124,8 +124,8 @@ ctest --test-dir C:\Users\gdwol\Development\libhmm\build -C Release `
 # Run all tests including known_broken
 ctest --test-dir C:\Users\gdwol\Development\libhmm\build -C Release --parallel 4
 
-# Custom targets
-cmake --build C:\Users\gdwol\Development\libhmm\build --target run_tests
+# Custom targets (check = correctness suite, excludes known_broken)
+cmake --build C:\Users\gdwol\Development\libhmm\build --target check
 ```
 
 ### Run Tools
@@ -172,7 +172,8 @@ Tests in `tests/CMakeLists.txt` use `add_hmm_test()` helper organized into 8 lev
 | 6 | Trainers (canonical + training + edge cases + BW convergence) |
 | 7 | IO + Integration (stream IO + end-to-end casino) |
 
-Custom targets: `run_tests` (correctness, parallel), `run_tests_timing` (serial).
+Custom targets: `check` (correctness, parallel), `check_timing` (serial).
+Note: named `check` not `run_tests` to avoid cmake's built-in `RUN_TESTS` on Windows.
 
 ---
 

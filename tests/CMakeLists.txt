@@ -206,24 +206,24 @@ endif()
 # =============================================================================
 # Custom targets
 # =============================================================================
-# run_tests: correctness suite, safe to run in parallel.
+# check: correctness suite, safe to run in parallel.
 # Excludes known_broken (pre-existing failures) and benchmark (on-demand).
-# This is the standard CI target.
-add_custom_target(run_tests
+# This is the standard CI target. Named 'check' (not 'run_tests') to avoid
+# clashing with cmake's built-in RUN_TESTS target on Windows VS generator.
+add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -LE "known_broken|benchmark"
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running libhmm correctness suite (excludes known_broken, benchmark)"
 )
 
-# run_tests_timing: run serially for accurate timing measurement.
-# Use on a quiet machine when verifying performance-sensitive assertions.
-add_custom_target(run_tests_timing
+# check_timing: run serially for accurate timing measurement.
+add_custom_target(check_timing
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -j1
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running libhmm tests serially (for timing accuracy)"
 )
 
-# run_all_tests: backward-compatible alias; runs everything in parallel.
+# run_all_tests: runs everything in parallel (includes known_broken).
 add_custom_target(run_all_tests
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --parallel 4
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
