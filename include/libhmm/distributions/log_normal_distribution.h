@@ -84,7 +84,7 @@ public:
      * @param standardDeviation Standard deviation of the underlying normal distribution (σ, must be positive)
      * @throws std::invalid_argument if parameters are invalid
      */
-    LogNormalDistribution(double mean = 0.0, double standardDeviation = 1.0)
+    explicit LogNormalDistribution(double mean = 0.0, double standardDeviation = 1.0)
         : mean_{mean}, standardDeviation_{standardDeviation} {
         validateParameters(mean, standardDeviation);
         updateCache();
@@ -244,7 +244,7 @@ public:
      */
     double getVariance() const noexcept {
         double sigma2 = standardDeviation_ * standardDeviation_;
-        return (std::exp(sigma2) - 1.0) * std::exp(2.0 * mean_ + sigma2);
+        return std::expm1(sigma2) * std::exp(2.0 * mean_ + sigma2);
     }
 
     /**

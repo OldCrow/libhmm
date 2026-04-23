@@ -201,9 +201,8 @@ std::ostream &operator<<(std::ostream &os, const libhmm::GammaDistribution &dist
 }
 
 std::istream &operator>>(std::istream &is, libhmm::GammaDistribution &distribution) {
-    std::string token, k_str, theta_str;
-
     try {
+        std::string token, k_str, theta_str;
         is >> token; // "k"
         is >> token; // "(shape)"
         is >> token; // "="

@@ -28,10 +28,12 @@ TrainingConfig precise() noexcept {
 // Constructor
 // ---------------------------------------------------------------------------
 
-ViterbiTrainer::ViterbiTrainer(Hmm &hmm, const ObservationLists &obsLists, TrainingConfig config)
+ViterbiTrainer::ViterbiTrainer(Hmm &hmm, const ObservationLists &obsLists,
+                               const TrainingConfig &config)
     : Trainer(hmm, obsLists), config_(config) {}
 
-ViterbiTrainer::ViterbiTrainer(Hmm *hmm, const ObservationLists &obsLists, TrainingConfig config)
+ViterbiTrainer::ViterbiTrainer(Hmm *hmm, const ObservationLists &obsLists,
+                               const TrainingConfig &config)
     : Trainer(hmm, obsLists), config_(config) {}
 
 // ---------------------------------------------------------------------------

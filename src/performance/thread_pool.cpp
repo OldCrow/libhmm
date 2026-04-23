@@ -256,7 +256,7 @@ std::size_t CpuInfo::getPhysicalCores() noexcept {
     std::set<int> physicalIds;
 
     while (std::getline(cpuinfo, line)) {
-        if (line.find("physical id") == 0) {
+        if (line.starts_with("physical id")) {
             const std::size_t colonPos = line.find(':');
             if (colonPos != std::string::npos) {
                 const int physicalId = std::stoi(line.substr(colonPos + 1));
@@ -311,7 +311,7 @@ std::size_t CpuInfo::getL1CacheSize() noexcept {
     }
 #endif
 
-    return 32 * 1024; // 32KB default
+    return std::size_t{32 * 1024}; // 32KB default
 }
 
 std::size_t CpuInfo::getL2CacheSize() noexcept {
@@ -340,7 +340,7 @@ std::size_t CpuInfo::getL2CacheSize() noexcept {
     }
 #endif
 
-    return 256 * 1024; // 256KB default
+    return std::size_t{256 * 1024}; // 256KB default
 }
 
 std::size_t CpuInfo::getL3CacheSize() noexcept {
@@ -369,7 +369,7 @@ std::size_t CpuInfo::getL3CacheSize() noexcept {
     }
 #endif
 
-    return 8 * 1024 * 1024; // 8MB default
+    return std::size_t{8 * 1024 * 1024}; // 8MB default
 }
 
 std::size_t CpuInfo::getCacheLineSize() noexcept {

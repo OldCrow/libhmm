@@ -135,10 +135,6 @@ private:
                                          std::size_t size) noexcept;
     static void scalar_multiply_fallback(const double *a, double scalar, double *result,
                                          std::size_t size) noexcept;
-    static void matrix_vector_multiply_fallback(const double *matrix, const double *vector,
-                                                double *result, std::size_t rows,
-                                                std::size_t cols) noexcept;
-
 #ifdef LIBHMM_HAS_AVX
     /// AVX implementations
     static double dot_product_avx(const double *a, const double *b, std::size_t size) noexcept;

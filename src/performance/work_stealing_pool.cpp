@@ -53,7 +53,7 @@ WorkStealingPool::~WorkStealingPool() {
     }
 
     // Wait for all threads to finish
-    for (auto &worker : workers_) {
+    for (const auto &worker : workers_) {
         if (worker->worker.joinable()) {
             worker->worker.join();
         }
@@ -117,7 +117,7 @@ WorkStealingPool::Statistics WorkStealingPool::getStatistics() const {
 }
 
 void WorkStealingPool::resetStatistics() {
-    for (auto &worker : workers_) {
+    for (const auto &worker : workers_) {
         worker->tasksExecuted.store(0, std::memory_order_relaxed);
         worker->workSteals.store(0, std::memory_order_relaxed);
         worker->failedSteals.store(0, std::memory_order_relaxed);
@@ -223,6 +223,7 @@ std::size_t WorkStealingPool::getOptimalThreadCount() noexcept {
     return hardwareThreads;
 }
 
+// cppcheck-suppress constParameterReference
 void WorkStealingPool::setThreadAffinity(std::thread &thread, int cpuId) {
 #ifdef __linux__
     cpu_set_t cpuset;

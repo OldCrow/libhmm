@@ -43,8 +43,10 @@ namespace training_presets {
  */
 class ViterbiTrainer : public Trainer {
 public:
-    explicit ViterbiTrainer(Hmm &hmm, const ObservationLists &obsLists, TrainingConfig config = {});
-    explicit ViterbiTrainer(Hmm *hmm, const ObservationLists &obsLists, TrainingConfig config = {});
+    explicit ViterbiTrainer(Hmm &hmm, const ObservationLists &obsLists,
+                            const TrainingConfig &config = {});
+    explicit ViterbiTrainer(Hmm *hmm, const ObservationLists &obsLists,
+                            const TrainingConfig &config = {});
     ~ViterbiTrainer() override = default;
 
     void train() override;

@@ -171,9 +171,8 @@ std::ostream &operator<<(std::ostream &os, const libhmm::ParetoDistribution &dis
 }
 
 std::istream &operator>>(std::istream &is, libhmm::ParetoDistribution &distribution) {
-    std::string token, k_str, xm_str;
-
     try {
+        std::string token, k_str, xm_str;
         is >> token; //" k"
         is >> token; // "="
         is >> k_str;

@@ -370,11 +370,10 @@ std::ostream &operator<<(std::ostream &os, const BetaDistribution &distribution)
 }
 
 std::istream &operator>>(std::istream &is, BetaDistribution &distribution) {
-    std::string token;
-    double alpha = 1.0;
-    double beta = 1.0;
-
     try {
+        std::string token;
+        double alpha = 1.0;
+        double beta = 1.0;
         // Expected format: "Beta Distribution: α (alpha) = <value> β (beta) = <value>"
         is >> token >> token;                   // "Beta" "Distribution:"
         is >> token >> token >> token >> token; // "α" "(alpha)" "=" <alpha_str>

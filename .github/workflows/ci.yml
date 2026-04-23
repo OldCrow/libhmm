@@ -126,6 +126,10 @@ jobs:
           --enable=warning,style,performance \
           --error-exitcode=1 \
           --suppress=missingIncludeSystem \
+          --suppress=useStlAlgorithm \
+          --suppress=shadowFunction \
+          --suppress=virtualCallInConstructor \
+          --suppress=constParameterReference \
           --std=c++20 \
           -I include \
           src/

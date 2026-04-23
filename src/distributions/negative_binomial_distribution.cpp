@@ -208,10 +208,9 @@ bool NegativeBinomialDistribution::operator==(const NegativeBinomialDistribution
 
 std::istream &operator>>(std::istream &is, libhmm::NegativeBinomialDistribution &distribution) {
     std::string token;
-    double r = 0.0, p = 0.0;
-
     // Expected format: "NegativeBinomial(r,p)" or "r p"
     if (is >> token) {
+        double r = 0.0, p = 0.0;
         if (token.find("NegativeBinomial") != std::string::npos) {
             // Parse formatted input: NegativeBinomial(r,p)
             std::string fullInput = token;

@@ -102,7 +102,7 @@ public:
      * @param lambda Scale parameter (must be positive)
      * @throws std::invalid_argument if parameters are not positive finite numbers
      */
-    WeibullDistribution(double k = 1.0, double lambda = 1.0) : k_{k}, lambda_{lambda} {
+    explicit WeibullDistribution(double k = 1.0, double lambda = 1.0) : k_{k}, lambda_{lambda} {
         validateParameters(k, lambda);
         updateCache();
     }

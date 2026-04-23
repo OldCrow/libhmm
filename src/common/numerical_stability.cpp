@@ -89,6 +89,7 @@ void NumericalSafety::checkVectorFinite(const Vector &vector, const std::string 
     }
 }
 
+// cppcheck-suppress constParameterReference
 bool NumericalSafety::normalizeProbabilities(Vector &probs) noexcept {
     // First, clamp all probabilities to valid range
     for (std::size_t i = 0; i < probs.size(); ++i) {

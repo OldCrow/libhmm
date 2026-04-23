@@ -53,7 +53,9 @@ public:
 
     OptimizedVector(size_type size, const T &value) : data_(size, value) {}
 
+    // cppcheck-suppress noExplicitConstructor -- intentional implicit conversion from std::vector
     OptimizedVector(const std::vector<T> &vec) : data_(vec) {}
+    // cppcheck-suppress noExplicitConstructor -- intentional implicit conversion from std::vector
     OptimizedVector(std::vector<T> &&vec) noexcept : data_(std::move(vec)) {}
 
     OptimizedVector(std::initializer_list<T> init) : data_(init) {}

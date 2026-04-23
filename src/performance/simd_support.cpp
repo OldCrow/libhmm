@@ -134,17 +134,6 @@ void SIMDOps::scalar_multiply_fallback(const double *a, double scalar, double *r
     }
 }
 
-void SIMDOps::matrix_vector_multiply_fallback(const double *matrix, const double *vector,
-                                              double *result, std::size_t rows,
-                                              std::size_t cols) noexcept {
-    for (std::size_t i = 0; i < rows; ++i) {
-        result[i] = 0.0;
-        for (std::size_t j = 0; j < cols; ++j) {
-            result[i] += matrix[i * cols + j] * vector[j];
-        }
-    }
-}
-
 //========== AVX Implementations ==========
 
 #ifdef LIBHMM_HAS_AVX
