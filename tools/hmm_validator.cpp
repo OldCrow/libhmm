@@ -24,14 +24,17 @@
 
 using namespace libhmm;
 
-static void print_usage(const char* prog) {
+static void print_usage(const char *prog) {
     std::cout << "Usage: " << prog << " <hmm_xml_file> [T]\n\n"
               << "  hmm_xml_file  Path to an XML HMM file written by libhmm\n"
               << "  T             Observation sequence length (default: 100)\n";
 }
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) { print_usage(argv[0]); return 1; }
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        print_usage(argv[0]);
+        return 1;
+    }
 
     const std::string xml_path = argv[1];
     const int T = (argc >= 3) ? std::stoi(argv[2]) : 100;
@@ -46,12 +49,12 @@ int main(int argc, char* argv[]) {
     // -------------------------------------------------------------------------
     // 1. Load
     // -------------------------------------------------------------------------
-    Hmm hmm(1);  // placeholder overwritten by reader
+    Hmm hmm(1); // placeholder overwritten by reader
     try {
         XMLFileReader reader;
         hmm = reader.read(xml_path);
         std::cout << "[ OK ] Load from XML\n";
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "[FAIL] Load: " << e.what() << "\n";
         return 1;
     }
@@ -62,7 +65,7 @@ int main(int argc, char* argv[]) {
     try {
         hmm.validate();
         std::cout << "[ OK ] Validate structure\n";
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "[FAIL] Validate: " << e.what() << "\n";
         return 1;
     }
@@ -83,14 +86,15 @@ int main(int argc, char* argv[]) {
 
     // Print pi vector
     std::cout << "  Pi: [";
-    for (int i = 0; i < N; ++i) std::cout << "  " << hmm.getPi()(i);
+    for (int i = 0; i < N; ++i)
+        std::cout << "  " << hmm.getPi()(i);
     std::cout << "  ]\n";
 
     // Print distribution types
     std::cout << "  Distributions:\n";
     for (int i = 0; i < N; ++i) {
-        std::cout << "    State " << i << ": "
-                  << hmm.getDistribution(i).toString().substr(0, 60) << "\n";
+        std::cout << "    State " << i << ": " << hmm.getDistribution(i).toString().substr(0, 60)
+                  << "\n";
     }
 
     // -------------------------------------------------------------------------
@@ -98,7 +102,8 @@ int main(int argc, char* argv[]) {
     // -------------------------------------------------------------------------
     std::cout << "\nForwardBackward (" << T << " zero-valued observations):\n";
     ObservationSet obs(T);
-    for (int t = 0; t < T; ++t) obs(t) = 0.0;
+    for (int t = 0; t < T; ++t)
+        obs(t) = 0.0;
 
     try {
         ForwardBackwardCalculator fbc(hmm, obs);
@@ -113,7 +118,7 @@ int main(int argc, char* argv[]) {
                          "check emission distributions for zero support at x=0\n";
             // Not fatal — some distributions have zero probability at 0
         }
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "[FAIL] ForwardBackward: " << e.what() << "\n";
         exit_code = 1;
     }
@@ -131,20 +136,23 @@ int main(int argc, char* argv[]) {
 
         // State occupancy counts
         std::vector<int> counts(N, 0);
-        for (std::size_t t = 0; t < path.size(); ++t) counts[path(t)]++;
+        for (std::size_t t = 0; t < path.size(); ++t)
+            counts[path(t)]++;
         std::cout << "  State counts: ";
         for (int i = 0; i < N; ++i) {
             std::cout << "s" << i << "=" << counts[i];
-            if (i < N - 1) std::cout << "  ";
+            if (i < N - 1)
+                std::cout << "  ";
         }
         std::cout << "\n";
 
         std::cout << "[ OK ] Viterbi\n";
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "[FAIL] Viterbi: " << e.what() << "\n";
         exit_code = 1;
     }
 
-    std::cout << "\nValidation " << (exit_code == 0 ? "complete." : "completed with failures.") << "\n";
+    std::cout << "\nValidation " << (exit_code == 0 ? "complete." : "completed with failures.")
+              << "\n";
     return exit_code;
 }

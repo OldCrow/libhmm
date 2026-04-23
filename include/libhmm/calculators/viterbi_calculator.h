@@ -26,15 +26,15 @@ public:
      * @param observations Observation sequence (must be non-empty).
      * @throws std::invalid_argument if observations is empty.
      */
-    ViterbiCalculator(const Hmm& hmm, const ObservationSet& observations);
+    ViterbiCalculator(const Hmm &hmm, const ObservationSet &observations);
 
     /** Legacy pointer constructor for backward compatibility. */
-    ViterbiCalculator(Hmm* hmm, const ObservationSet& observations);
+    ViterbiCalculator(Hmm *hmm, const ObservationSet &observations);
 
-    ViterbiCalculator(const ViterbiCalculator&) = delete;
-    ViterbiCalculator& operator=(const ViterbiCalculator&) = delete;
-    ViterbiCalculator(ViterbiCalculator&&) = default;
-    ViterbiCalculator& operator=(ViterbiCalculator&&) = default;
+    ViterbiCalculator(const ViterbiCalculator &) = delete;
+    ViterbiCalculator &operator=(const ViterbiCalculator &) = delete;
+    ViterbiCalculator(ViterbiCalculator &&) = default;
+    ViterbiCalculator &operator=(ViterbiCalculator &&) = default;
     ~ViterbiCalculator() override = default;
 
     /**
@@ -55,9 +55,7 @@ public:
      * @brief The decoded state sequence (same as returned by decode()).
      * Valid after decode() has been called.
      */
-    [[nodiscard]] const StateSequence& getStateSequence() const noexcept {
-        return sequence_;
-    }
+    [[nodiscard]] const StateSequence &getStateSequence() const noexcept { return sequence_; }
 
     /** Number of HMM states. */
     [[nodiscard]] std::size_t getNumStates() const noexcept { return numStates_; }

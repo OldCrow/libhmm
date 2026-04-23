@@ -24,9 +24,7 @@ protected:
 public:
     /// Primary constructor.
     /// @throws std::invalid_argument if obsLists is empty.
-    Trainer(Hmm& hmm, const ObservationLists& obsLists)
-        : hmm_ref_{hmm}, obsLists_{obsLists}
-    {
+    Trainer(Hmm &hmm, const ObservationLists &obsLists) : hmm_ref_{hmm}, obsLists_{obsLists} {
         if (obsLists.empty()) {
             throw std::invalid_argument("Observation lists cannot be empty");
         }
@@ -34,30 +32,27 @@ public:
 
     /// Legacy constructor for subclasses that forward a raw pointer.
     /// @throws std::invalid_argument if hmm is null or obsLists is empty.
-    Trainer(Hmm* hmm, const ObservationLists& obsLists)
-        : Trainer(hmm ? *hmm
-                      : throw std::invalid_argument("HMM pointer cannot be null"),
+    Trainer(Hmm *hmm, const ObservationLists &obsLists)
+        : Trainer(hmm ? *hmm : throw std::invalid_argument("HMM pointer cannot be null"),
                   obsLists) {}
 
     virtual ~Trainer() = default;
 
-    Trainer(const Trainer&)            = delete;
-    Trainer& operator=(const Trainer&) = delete;
-    Trainer(Trainer&&)                 = default;
-    Trainer& operator=(Trainer&&)      = default;
+    Trainer(const Trainer &) = delete;
+    Trainer &operator=(const Trainer &) = delete;
+    Trainer(Trainer &&) = default;
+    Trainer &operator=(Trainer &&) = default;
 
     /// Execute one full training pass, updating the HMM in place.
     virtual void train() = 0;
     /// @return Reference to the HMM under training.
-    [[nodiscard]] Hmm& getHmmRef() const noexcept { return hmm_ref_.get(); }
+    [[nodiscard]] Hmm &getHmmRef() const noexcept { return hmm_ref_.get(); }
 
     /// @return Reference to the HMM under training.
-    [[nodiscard]] Hmm& getHmm() const noexcept { return getHmmRef(); }
+    [[nodiscard]] Hmm &getHmm() const noexcept { return getHmmRef(); }
 
     /// @return The observation sequences supplied at construction.
-    [[nodiscard]] const ObservationLists& getObservationLists() const noexcept {
-        return obsLists_;
-    }
+    [[nodiscard]] const ObservationLists &getObservationLists() const noexcept { return obsLists_; }
 }; // class Trainer
 
 } // namespace libhmm

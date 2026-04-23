@@ -22,16 +22,15 @@ public:
     virtual ~DistributionBase() = default;
 
     DistributionBase();
-    DistributionBase(const DistributionBase& other);
-    DistributionBase& operator=(const DistributionBase& other);
-    DistributionBase(DistributionBase&& other) noexcept;
-    DistributionBase& operator=(DistributionBase&& other) noexcept;
+    DistributionBase(const DistributionBase &other);
+    DistributionBase &operator=(const DistributionBase &other);
+    DistributionBase(DistributionBase &&other) noexcept;
+    DistributionBase &operator=(DistributionBase &&other) noexcept;
 
     // Default batch implementation (scalar loop).
     // Override in concrete distributions for SIMD vectorization.
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
 
 protected:
     // =========================================================================
@@ -50,9 +49,7 @@ protected:
     mutable std::atomic<bool> cacheValid_{false};
 
     /** Mark cache as stale. Call from setters and fit(). */
-    void invalidateCache() noexcept {
-        cacheValid_.store(false, std::memory_order_relaxed);
-    }
+    void invalidateCache() noexcept { cacheValid_.store(false, std::memory_order_relaxed); }
 
     /** Returns true if the cache is current. */
     [[nodiscard]] bool isCacheValid() const noexcept {
@@ -60,9 +57,7 @@ protected:
     }
 
     /** Mark cache as valid. Call at end of updateCache(). */
-    void markCacheValid() const noexcept {
-        cacheValid_.store(true, std::memory_order_release);
-    }
+    void markCacheValid() const noexcept { cacheValid_.store(true, std::memory_order_release); }
 
     // =========================================================================
     // Shared math helpers — static, available to all distributions.
@@ -77,10 +72,10 @@ protected:
 
 private:
     /** Incomplete gamma via continued fraction (used by gammap). */
-    static void gcf(double& gammcf, double a, double x, double& gln) noexcept;
+    static void gcf(double &gammcf, double a, double x, double &gln) noexcept;
 
     /** Incomplete gamma via series representation (used by gammap). */
-    static void gser(double& gamser, double a, double x, double& gln) noexcept;
+    static void gser(double &gamser, double a, double x, double &gln) noexcept;
 };
 
 } // namespace libhmm

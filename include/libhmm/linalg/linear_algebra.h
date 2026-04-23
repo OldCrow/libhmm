@@ -51,11 +51,11 @@
 /// Fundamental linear algebra classes (always included via common.h)
 /// These are already included, but we document them here for completeness:
 /// - BasicVector<T>: Simple vector operations with bounds checking
-/// - BasicMatrix<T>: Simple matrix operations with row-major layout  
+/// - BasicMatrix<T>: Simple matrix operations with row-major layout
 /// - BasicMatrix3D<T>: Simple 3D tensor operations with contiguous memory
 
 //==============================================================================
-// OPTIMIZED LINEAR ALGEBRA CLASSES  
+// OPTIMIZED LINEAR ALGEBRA CLASSES
 //==============================================================================
 
 /// High-performance vector class with SIMD optimizations
@@ -75,39 +75,39 @@ namespace libhmm {
 
 /// Type aliases for common optimized linear algebra usage patterns
 namespace opt {
-    /// Common optimized types for numerical computing
-    using VectorD = OptimizedVector<double>;
-    using VectorF = OptimizedVector<float>;
-    using VectorI = OptimizedVector<int>;
-    
-    using MatrixD = OptimizedMatrix<double>;
-    using MatrixF = OptimizedMatrix<float>;
-    using MatrixI = OptimizedMatrix<int>;
-    
-    using Matrix3DD = OptimizedMatrix3D<double>;
-    using Matrix3DF = OptimizedMatrix3D<float>;
-    
-    /// HMM-specific optimized types
-    using ObservationVector = OptimizedVector<Observation>;
-    using ObservationMatrix = OptimizedMatrix<Observation>;
-    using ObservationMatrix3D = OptimizedMatrix3D<Observation>;
-    using OptimizedStateSequence = OptimizedVector<StateIndex>;
-}
+/// Common optimized types for numerical computing
+using VectorD = OptimizedVector<double>;
+using VectorF = OptimizedVector<float>;
+using VectorI = OptimizedVector<int>;
+
+using MatrixD = OptimizedMatrix<double>;
+using MatrixF = OptimizedMatrix<float>;
+using MatrixI = OptimizedMatrix<int>;
+
+using Matrix3DD = OptimizedMatrix3D<double>;
+using Matrix3DF = OptimizedMatrix3D<float>;
+
+/// HMM-specific optimized types
+using ObservationVector = OptimizedVector<Observation>;
+using ObservationMatrix = OptimizedMatrix<Observation>;
+using ObservationMatrix3D = OptimizedMatrix3D<Observation>;
+using OptimizedStateSequence = OptimizedVector<StateIndex>;
+} // namespace opt
 
 /// Type aliases for basic linear algebra (these are already in common.h)
 namespace basic {
-    /// Common basic types for development and small data
-    using VectorD = BasicVector<double>;
-    using VectorF = BasicVector<float>;
-    using VectorI = BasicVector<int>;
-    
-    using MatrixD = BasicMatrix<double>;
-    using MatrixF = BasicMatrix<float>;
-    using MatrixI = BasicMatrix<int>;
-    
-    using Matrix3DD = BasicMatrix3D<double>;
-    using Matrix3DF = BasicMatrix3D<float>;
-}
+/// Common basic types for development and small data
+using VectorD = BasicVector<double>;
+using VectorF = BasicVector<float>;
+using VectorI = BasicVector<int>;
+
+using MatrixD = BasicMatrix<double>;
+using MatrixF = BasicMatrix<float>;
+using MatrixI = BasicMatrix<int>;
+
+using Matrix3DD = BasicMatrix3D<double>;
+using Matrix3DF = BasicMatrix3D<float>;
+} // namespace basic
 
 //==============================================================================
 // FACTORY FUNCTIONS FOR TYPE DEDUCTION
@@ -115,37 +115,39 @@ namespace basic {
 
 /// Factory functions that choose appropriate class based on size hints
 namespace factory {
-    
-    /// Create vector with automatic basic/optimized selection based on size
-    template<typename T>
-    auto make_vector(std::size_t size, const T& init_value = T{}, bool prefer_optimized = true) {
-        if (prefer_optimized || size > 100) {
-            return OptimizedVector<T>(size, init_value);
-        } else {
-            return BasicVector<T>(size, init_value);
-        }
-    }
-    
-    /// Create matrix with automatic basic/optimized selection based on size
-    template<typename T>
-    auto make_matrix(std::size_t rows, std::size_t cols, const T& init_value = T{}, bool prefer_optimized = true) {
-        if (prefer_optimized || (rows * cols) > 1000) {
-            return OptimizedMatrix<T>(rows, cols, init_value);
-        } else {
-            return BasicMatrix<T>(rows, cols, init_value);
-        }
-    }
-    
-    /// Create 3D matrix with automatic basic/optimized selection based on size
-    template<typename T>
-    auto make_matrix3d(std::size_t x, std::size_t y, std::size_t z, const T& init_value = T{}, bool prefer_optimized = true) {
-        if (prefer_optimized || (x * y * z) > 1000) {
-            return OptimizedMatrix3D<T>(x, y, z, init_value);
-        } else {
-            return BasicMatrix3D<T>(x, y, z, init_value);
-        }
+
+/// Create vector with automatic basic/optimized selection based on size
+template <typename T>
+auto make_vector(std::size_t size, const T &init_value = T{}, bool prefer_optimized = true) {
+    if (prefer_optimized || size > 100) {
+        return OptimizedVector<T>(size, init_value);
+    } else {
+        return BasicVector<T>(size, init_value);
     }
 }
+
+/// Create matrix with automatic basic/optimized selection based on size
+template <typename T>
+auto make_matrix(std::size_t rows, std::size_t cols, const T &init_value = T{},
+                 bool prefer_optimized = true) {
+    if (prefer_optimized || (rows * cols) > 1000) {
+        return OptimizedMatrix<T>(rows, cols, init_value);
+    } else {
+        return BasicMatrix<T>(rows, cols, init_value);
+    }
+}
+
+/// Create 3D matrix with automatic basic/optimized selection based on size
+template <typename T>
+auto make_matrix3d(std::size_t x, std::size_t y, std::size_t z, const T &init_value = T{},
+                   bool prefer_optimized = true) {
+    if (prefer_optimized || (x * y * z) > 1000) {
+        return OptimizedMatrix3D<T>(x, y, z, init_value);
+    } else {
+        return BasicMatrix3D<T>(x, y, z, init_value);
+    }
+}
+} // namespace factory
 
 //==============================================================================
 // PERFORMANCE UPGRADE UTILITIES
@@ -153,30 +155,30 @@ namespace factory {
 
 /// Utilities for converting between basic and optimized classes
 namespace upgrade {
-    
-    /// Convert basic vector to optimized (using conversion constructor)
-    template<typename T>
-    OptimizedVector<T> to_optimized(const BasicVector<T>& basic_vec) {
-        return OptimizedVector<T>(basic_vec);
-    }
-    
-    /// Convert basic matrix to optimized (using conversion constructor)
-    template<typename T>
-    OptimizedMatrix<T> to_optimized(const BasicMatrix<T>& basic_mat) {
-        return OptimizedMatrix<T>(basic_mat);
-    }
-    
-    /// Convert basic 3D matrix to optimized (using conversion constructor)
-    template<typename T>
-    OptimizedMatrix3D<T> to_optimized(const BasicMatrix3D<T>& basic_mat3d) {
-        return OptimizedMatrix3D<T>(basic_mat3d);
-    }
-    
-    /// Check if a problem size would benefit from optimized classes
-    constexpr bool should_use_optimized(std::size_t total_elements) {
-        return total_elements > 100;  // Threshold where optimizations typically help
-    }
+
+/// Convert basic vector to optimized (using conversion constructor)
+template <typename T>
+OptimizedVector<T> to_optimized(const BasicVector<T> &basic_vec) {
+    return OptimizedVector<T>(basic_vec);
 }
+
+/// Convert basic matrix to optimized (using conversion constructor)
+template <typename T>
+OptimizedMatrix<T> to_optimized(const BasicMatrix<T> &basic_mat) {
+    return OptimizedMatrix<T>(basic_mat);
+}
+
+/// Convert basic 3D matrix to optimized (using conversion constructor)
+template <typename T>
+OptimizedMatrix3D<T> to_optimized(const BasicMatrix3D<T> &basic_mat3d) {
+    return OptimizedMatrix3D<T>(basic_mat3d);
+}
+
+/// Check if a problem size would benefit from optimized classes
+constexpr bool should_use_optimized(std::size_t total_elements) {
+    return total_elements > 100; // Threshold where optimizations typically help
+}
+} // namespace upgrade
 
 } // namespace libhmm
 
@@ -204,4 +206,3 @@ namespace upgrade {
  * - Performance benefits for large data (> 100-1000 elements)
  * - Maintains numerical accuracy and stability
  */
-

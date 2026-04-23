@@ -107,7 +107,6 @@
 // CONVENIENCE UTILITIES
 //==============================================================================
 
-
 /**
  * @namespace libhmm
  * @brief Main namespace for all libhmm functionality
@@ -122,4 +121,3 @@
  * - **I/O**: XML file reading/writing and general file management
  * - **Performance**: SIMD detection, thread pools, and numerical stability utilities
  */
-

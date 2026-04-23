@@ -1,6 +1,6 @@
 #include "libhmm/common/string_tokenizer.h"
 
-namespace libhmm{
+namespace libhmm {
 
 std::size_t StringTokenizer::countTokens() {
     if (count_ >= 0) {
@@ -28,7 +28,7 @@ std::size_t StringTokenizer::countTokens() {
     return n;
 }
 
-void StringTokenizer::nextToken(std::string& s) {
+void StringTokenizer::nextToken(std::string &s) {
     if (begin_ == std::string::npos) {
         throw std::runtime_error("No more tokens available");
     }
@@ -49,4 +49,4 @@ std::string StringTokenizer::nextToken() {
     return token;
 }
 
-}//namespace
+} // namespace libhmm

@@ -14,12 +14,15 @@ protected:
     // Single-state HMM — degenerate but structurally valid.
     static std::unique_ptr<Hmm> make_single_state_hmm() {
         auto hmm = std::make_unique<Hmm>(1);
-        Matrix trans(1, 1); trans(0, 0) = 1.0;
+        Matrix trans(1, 1);
+        trans(0, 0) = 1.0;
         hmm->setTrans(trans);
-        Vector pi(1); pi(0) = 1.0;
+        Vector pi(1);
+        pi(0) = 1.0;
         hmm->setPi(pi);
         auto dist = std::make_unique<DiscreteDistribution>(4);
-        for (int i = 0; i < 4; ++i) dist->setProbability(i, 0.25);
+        for (int i = 0; i < 4; ++i)
+            dist->setProbability(i, 0.25);
         hmm->setDistribution(0, std::move(dist));
         return hmm;
     }
@@ -31,10 +34,14 @@ protected:
     static std::unique_ptr<Hmm> make_deterministic_emission_hmm() {
         auto hmm = std::make_unique<Hmm>(2);
         Matrix trans(2, 2);
-        trans(0, 0) = 0.9; trans(0, 1) = 0.1;
-        trans(1, 0) = 0.1; trans(1, 1) = 0.9;
+        trans(0, 0) = 0.9;
+        trans(0, 1) = 0.1;
+        trans(1, 0) = 0.1;
+        trans(1, 1) = 0.9;
         hmm->setTrans(trans);
-        Vector pi(2); pi(0) = 0.5; pi(1) = 0.5;
+        Vector pi(2);
+        pi(0) = 0.5;
+        pi(1) = 0.5;
         hmm->setPi(pi);
 
         auto d0 = std::make_unique<DiscreteDistribution>(4);
@@ -61,7 +68,8 @@ protected:
 TEST_F(CalculatorEdgeCasesTest, SingleState_FB_Finite) {
     auto hmm = make_single_state_hmm();
     ObservationSet obs(5);
-    for (std::size_t i = 0; i < 5; ++i) obs(i) = static_cast<double>(i % 4);
+    for (std::size_t i = 0; i < 5; ++i)
+        obs(i) = static_cast<double>(i % 4);
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     EXPECT_TRUE(std::isfinite(fbc.getLogProbability()));
@@ -71,7 +79,8 @@ TEST_F(CalculatorEdgeCasesTest, SingleState_FB_Finite) {
 TEST_F(CalculatorEdgeCasesTest, SingleState_Viterbi_OnlyState0) {
     auto hmm = make_single_state_hmm();
     ObservationSet obs(5);
-    for (std::size_t i = 0; i < 5; ++i) obs(i) = static_cast<double>(i % 4);
+    for (std::size_t i = 0; i < 5; ++i)
+        obs(i) = static_cast<double>(i % 4);
 
     ViterbiCalculator vc(*hmm, obs);
     const auto seq = vc.decode();
@@ -87,7 +96,8 @@ TEST_F(CalculatorEdgeCasesTest, SingleState_Viterbi_OnlyState0) {
 
 TEST_F(CalculatorEdgeCasesTest, SingleObs_FB) {
     auto hmm = make_single_state_hmm();
-    ObservationSet obs(1); obs(0) = 2;
+    ObservationSet obs(1);
+    obs(0) = 2;
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     EXPECT_TRUE(std::isfinite(fbc.getLogProbability()));
@@ -96,7 +106,8 @@ TEST_F(CalculatorEdgeCasesTest, SingleObs_FB) {
 
 TEST_F(CalculatorEdgeCasesTest, SingleObs_Viterbi) {
     auto hmm = make_single_state_hmm();
-    ObservationSet obs(1); obs(0) = 0;
+    ObservationSet obs(1);
+    obs(0) = 0;
 
     ViterbiCalculator vc(*hmm, obs);
     const auto seq = vc.decode();
@@ -111,7 +122,8 @@ TEST_F(CalculatorEdgeCasesTest, SingleObs_Viterbi) {
 TEST_F(CalculatorEdgeCasesTest, DeterministicEmissions_AllSymbol0_AssignedState0) {
     auto hmm = make_deterministic_emission_hmm();
     ObservationSet obs(6);
-    for (std::size_t i = 0; i < 6; ++i) obs(i) = 0;
+    for (std::size_t i = 0; i < 6; ++i)
+        obs(i) = 0;
 
     ViterbiCalculator vc(*hmm, obs);
     const auto seq = vc.decode();
@@ -124,7 +136,10 @@ TEST_F(CalculatorEdgeCasesTest, DeterministicEmissions_AlternatingSymbols) {
     // obs = [0, 1, 0, 1] → must map to states [0, 1, 0, 1]
     auto hmm = make_deterministic_emission_hmm();
     ObservationSet obs(4);
-    obs(0) = 0; obs(1) = 1; obs(2) = 0; obs(3) = 1;
+    obs(0) = 0;
+    obs(1) = 1;
+    obs(2) = 0;
+    obs(3) = 1;
 
     ViterbiCalculator vc(*hmm, obs);
     const auto seq = vc.decode();
@@ -139,7 +154,8 @@ TEST_F(CalculatorEdgeCasesTest, DeterministicEmissions_FB_NoNaN) {
     // is still computable and non-NaN (that state just contributes 0 weight).
     auto hmm = make_deterministic_emission_hmm();
     ObservationSet obs(4);
-    for (std::size_t i = 0; i < 4; ++i) obs(i) = 0;  // Only state 0 can emit this
+    for (std::size_t i = 0; i < 4; ++i)
+        obs(i) = 0; // Only state 0 can emit this
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     EXPECT_FALSE(std::isnan(fbc.getLogProbability()));
@@ -154,7 +170,8 @@ TEST_F(CalculatorEdgeCasesTest, DeterministicEmissions_FB_NoNaN) {
 TEST_F(CalculatorEdgeCasesTest, LongSequence_FB_NoUnderflow) {
     auto hmm = make_single_state_hmm();
     ObservationSet longObs(500);
-    for (std::size_t i = 0; i < 500; ++i) longObs(i) = static_cast<double>(i % 4);
+    for (std::size_t i = 0; i < 500; ++i)
+        longObs(i) = static_cast<double>(i % 4);
 
     ForwardBackwardCalculator fbc(*hmm, longObs);
     EXPECT_TRUE(std::isfinite(fbc.getLogProbability()));
@@ -167,7 +184,8 @@ TEST_F(CalculatorEdgeCasesTest, LongSequence_FB_NoUnderflow) {
 TEST_F(CalculatorEdgeCasesTest, LongSequence_Viterbi_NoErrors) {
     auto hmm = make_single_state_hmm();
     ObservationSet longObs(500);
-    for (std::size_t i = 0; i < 500; ++i) longObs(i) = static_cast<double>(i % 4);
+    for (std::size_t i = 0; i < 500; ++i)
+        longObs(i) = static_cast<double>(i % 4);
 
     EXPECT_NO_THROW({
         ViterbiCalculator vc(*hmm, longObs);
@@ -175,7 +193,7 @@ TEST_F(CalculatorEdgeCasesTest, LongSequence_Viterbi_NoErrors) {
     });
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

@@ -4,16 +4,16 @@
 #include <iostream>
 #include <stdexcept>
 
-namespace libhmm{
+namespace libhmm {
 
-class StringTokenizer{
+class StringTokenizer {
 
-public: 
+public:
     /// Constructor with string and optional delimiter
     /// @param s The string to tokenize
     /// @param delim The delimiter characters (default is whitespace)
-    explicit StringTokenizer(const std::string& s, const char* delim = nullptr):
-        str_(s), count_(-1), begin_(0), end_(0) {
+    explicit StringTokenizer(const std::string &s, const char *delim = nullptr)
+        : str_(s), count_(-1), begin_(0), end_(0) {
 
         if (!delim) {
             delim_ = " \f\n\r\t\v"; // default to whitespace
@@ -32,14 +32,12 @@ public:
 
     /// Check if there are more tokens available
     /// @return true if more tokens exist, false otherwise
-    bool hasMoreTokens() const noexcept { 
-        return begin_ != std::string::npos; 
-    }
+    bool hasMoreTokens() const noexcept { return begin_ != std::string::npos; }
 
     /// Get the next token
     /// @param s Reference to string where token will be stored
     /// @throws std::runtime_error if no more tokens are available
-    void nextToken(std::string& s);
+    void nextToken(std::string &s);
 
     /// Get the next token as return value
     /// @return The next token as a string
@@ -49,7 +47,7 @@ public:
 private:
     // Prevent default construction
     StringTokenizer() = delete;
-    
+
     std::string delim_;
     std::string str_;
     mutable int count_; // mutable because countTokens() can be called on const objects
@@ -57,5 +55,4 @@ private:
     std::string::size_type end_;
 };
 
-} //namespace
-
+} // namespace libhmm

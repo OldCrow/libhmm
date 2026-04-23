@@ -46,14 +46,14 @@
 /// Check for C++17 parallel execution support
 /// This macro is used throughout libhmm for conditional compilation
 #ifdef __cpp_lib_execution
-    #include <execution>
-    #define LIBHMM_HAS_PARALLEL_EXECUTION 1
+#include <execution>
+#define LIBHMM_HAS_PARALLEL_EXECUTION 1
 #else
-    #define LIBHMM_HAS_PARALLEL_EXECUTION 0
+#define LIBHMM_HAS_PARALLEL_EXECUTION 0
 #endif
 
 //==============================================================================
-// PARALLEL EXECUTION UTILITIES  
+// PARALLEL EXECUTION UTILITIES
 //==============================================================================
 
 namespace libhmm {
@@ -76,7 +76,7 @@ constexpr bool has_execution_policies() noexcept {
  * @brief Get a human-readable description of parallel execution support
  * @return String describing parallel execution capabilities
  */
-inline const char* execution_support_string() noexcept {
+inline const char *execution_support_string() noexcept {
 #if LIBHMM_HAS_PARALLEL_EXECUTION
     return "C++17 std::execution policies available";
 #else
@@ -90,7 +90,8 @@ inline const char* execution_support_string() noexcept {
  * @param threshold Minimum size to consider parallel execution (default: 1000)
  * @return true if parallel execution is likely beneficial
  */
-constexpr bool should_use_parallel(std::size_t problem_size, std::size_t threshold = 1000) noexcept {
+constexpr bool should_use_parallel(std::size_t problem_size,
+                                   std::size_t threshold = 1000) noexcept {
     return has_execution_policies() && (problem_size >= threshold);
 }
 
@@ -108,13 +109,13 @@ constexpr bool should_use_parallel(std::size_t problem_size, std::size_t thresho
 
 /// Execute with parallel unseq policy if available, otherwise serial
 #if LIBHMM_HAS_PARALLEL_EXECUTION
-    #define LIBHMM_PAR_UNSEQ std::execution::par_unseq,
-    #define LIBHMM_PAR std::execution::par,
-    #define LIBHMM_SEQ std::execution::seq,
+#define LIBHMM_PAR_UNSEQ std::execution::par_unseq,
+#define LIBHMM_PAR std::execution::par,
+#define LIBHMM_SEQ std::execution::seq,
 #else
-    #define LIBHMM_PAR_UNSEQ
-    #define LIBHMM_PAR  
-    #define LIBHMM_SEQ
+#define LIBHMM_PAR_UNSEQ
+#define LIBHMM_PAR
+#define LIBHMM_SEQ
 #endif
 
 //==============================================================================
@@ -129,8 +130,8 @@ constexpr bool should_use_parallel(std::size_t problem_size, std::size_t thresho
  */
 
 /// Safe parallel fill operation
-template<typename Iterator, typename T>
-void safe_fill(Iterator first, Iterator last, const T& value) {
+template <typename Iterator, typename T>
+void safe_fill(Iterator first, Iterator last, const T &value) {
 #if LIBHMM_HAS_PARALLEL_EXECUTION
     if (std::distance(first, last) > 1000) {
         std::fill(std::execution::par_unseq, first, last, value);
@@ -142,8 +143,8 @@ void safe_fill(Iterator first, Iterator last, const T& value) {
 #endif
 }
 
-/// Safe parallel transform operation  
-template<typename Iterator1, typename Iterator2, typename UnaryOp>
+/// Safe parallel transform operation
+template <typename Iterator1, typename Iterator2, typename UnaryOp>
 void safe_transform(Iterator1 first1, Iterator1 last1, Iterator2 first2, UnaryOp op) {
 #if LIBHMM_HAS_PARALLEL_EXECUTION
     if (std::distance(first1, last1) > 1000) {
@@ -157,7 +158,7 @@ void safe_transform(Iterator1 first1, Iterator1 last1, Iterator2 first2, UnaryOp
 }
 
 /// Safe parallel reduce operation (returns sum-like result)
-template<typename Iterator, typename T>
+template <typename Iterator, typename T>
 T safe_reduce(Iterator first, Iterator last, T init) {
 #if LIBHMM_HAS_PARALLEL_EXECUTION
     if (std::distance(first, last) > 1000) {
@@ -171,7 +172,7 @@ T safe_reduce(Iterator first, Iterator last, T init) {
 }
 
 /// Safe parallel for_each operation
-template<typename Iterator, typename UnaryFunction>
+template <typename Iterator, typename UnaryFunction>
 void safe_for_each(Iterator first, Iterator last, UnaryFunction f) {
 #if LIBHMM_HAS_PARALLEL_EXECUTION
     if (std::distance(first, last) > 1000) {
@@ -185,7 +186,7 @@ void safe_for_each(Iterator first, Iterator last, UnaryFunction f) {
 }
 
 } // namespace parallel
-} // namespace performance  
+} // namespace performance
 } // namespace libhmm
 
 //==============================================================================
@@ -210,4 +211,3 @@ void safe_for_each(Iterator first, Iterator last, UnaryFunction f) {
  * Uses the standard `__cpp_lib_execution` feature test macro as defined
  * in the C++17 standard (ISO/IEC 14882:2017).
  */
-

@@ -4,7 +4,7 @@
 #include "libhmm/common/common.h"
 #include <span>
 
-namespace libhmm{
+namespace libhmm {
 
 /**
  * Modern C++20 Rayleigh distribution for modeling magnitudes and speeds.
@@ -33,53 +33,52 @@ namespace libhmm{
  * - Materials science (fiber strength)
  * - Communications (fading channel modeling)
  */
-class RayleighDistribution : public DistributionBase
-{   
+class RayleighDistribution : public DistributionBase {
 private:
     /**
      * Scale parameter σ (sigma) - must be positive
      * Controls the spread and scale of the distribution
      */
     double sigma_{1.0};
-    
+
     /**
      * Cached value of ln(σ) for efficiency in log probability calculations
      */
     mutable double logSigma_{0.0};
-    
+
     /**
      * Cached value of 1/σ for efficiency (multiply instead of divide)
      */
     mutable double invSigma_{1.0};
-    
+
     /**
      * Cached value of 1/σ² for efficiency in PDF and CDF calculations
      */
     mutable double invSigmaSquared_{1.0};
-    
+
     /**
      * Cached value of -1/(2σ²) for CDF and log-PDF calculations
      * This eliminates the need for division and negation in hot paths
      */
     mutable double negHalfInvSigmaSquared_{-0.5};
-    
+
     /**
      * Cached value of σ² for variance and other calculations
      */
     mutable double sigmaSquared_{1.0};
-    
+
     /**
      * Cached value of σ * √(π/2) for mean calculation
      * Mean = σ * √(π/2) ≈ 1.2533141373 * σ
      */
     mutable double mean_{constants::math::SQRT_PI_OVER_TWO};
-    
+
     /**
      * Cached value of σ² * (4-π)/2 for variance calculation  
      * Variance = σ² * (4-π)/2 ≈ 0.4292036732 * σ²
      */
     mutable double variance_{constants::math::FOUR_MINUS_PI_OVER_TWO};
-    
+
     void updateCache() const noexcept {
         logSigma_ = std::log(sigma_);
         invSigma_ = constants::math::ONE / sigma_;
@@ -90,7 +89,7 @@ private:
         variance_ = sigmaSquared_ * constants::math::FOUR_MINUS_PI_OVER_TWO;
         markCacheValid();
     }
-    
+
     /**
      * Validates parameters for the Rayleigh distribution
      * @param sigma Scale parameter (must be positive and finite)
@@ -102,8 +101,7 @@ private:
         }
     }
 
-    friend std::istream& operator>>(std::istream& is,
-            libhmm::RayleighDistribution& distribution);
+    friend std::istream &operator>>(std::istream &is, libhmm::RayleighDistribution &distribution);
 
 public:
     /**
@@ -112,56 +110,61 @@ public:
      * @param sigma Scale parameter σ (must be positive)
      * @throws std::invalid_argument if sigma is invalid
      */
-    explicit RayleighDistribution(double sigma = 1.0)
-        : sigma_{sigma} {
+    explicit RayleighDistribution(double sigma = 1.0) : sigma_{sigma} {
         validateParameters(sigma);
         updateCache();
     }
-    
+
     /**
      * Copy constructor
      */
-    RayleighDistribution(const RayleighDistribution& other)
+    RayleighDistribution(const RayleighDistribution &other)
         : DistributionBase{other}, sigma_{other.sigma_}, logSigma_{other.logSigma_},
           invSigma_{other.invSigma_}, invSigmaSquared_{other.invSigmaSquared_},
           negHalfInvSigmaSquared_{other.negHalfInvSigmaSquared_},
-          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_},
-          variance_{other.variance_} {}
-    
+          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_}, variance_{other.variance_} {}
+
     /**
      * Copy assignment operator
      */
-    RayleighDistribution& operator=(const RayleighDistribution& other) {
+    RayleighDistribution &operator=(const RayleighDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            sigma_ = other.sigma_; logSigma_ = other.logSigma_;
-            invSigma_ = other.invSigma_; invSigmaSquared_ = other.invSigmaSquared_;
+            sigma_ = other.sigma_;
+            logSigma_ = other.logSigma_;
+            invSigma_ = other.invSigma_;
+            invSigmaSquared_ = other.invSigmaSquared_;
             negHalfInvSigmaSquared_ = other.negHalfInvSigmaSquared_;
-            sigmaSquared_ = other.sigmaSquared_; mean_ = other.mean_; variance_ = other.variance_;
+            sigmaSquared_ = other.sigmaSquared_;
+            mean_ = other.mean_;
+            variance_ = other.variance_;
         }
         return *this;
     }
-    
+
     /**
      * Move constructor
      */
-    RayleighDistribution(RayleighDistribution&& other) noexcept
+    RayleighDistribution(RayleighDistribution &&other) noexcept
         : DistributionBase{std::move(other)}, sigma_{other.sigma_}, logSigma_{other.logSigma_},
           invSigma_{other.invSigma_}, invSigmaSquared_{other.invSigmaSquared_},
           negHalfInvSigmaSquared_{other.negHalfInvSigmaSquared_},
-          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_},
-          variance_{other.variance_} {}
-    
+          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_}, variance_{other.variance_} {}
+
     /**
      * Move assignment operator
      */
-    RayleighDistribution& operator=(RayleighDistribution&& other) noexcept {
+    RayleighDistribution &operator=(RayleighDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            sigma_ = other.sigma_; logSigma_ = other.logSigma_;
-            invSigma_ = other.invSigma_; invSigmaSquared_ = other.invSigmaSquared_;
+            sigma_ = other.sigma_;
+            logSigma_ = other.logSigma_;
+            invSigma_ = other.invSigma_;
+            invSigmaSquared_ = other.invSigmaSquared_;
             negHalfInvSigmaSquared_ = other.negHalfInvSigmaSquared_;
-            sigmaSquared_ = other.sigmaSquared_; mean_ = other.mean_; variance_ = other.variance_;
+            sigmaSquared_ = other.sigmaSquared_;
+            mean_ = other.mean_;
+            variance_ = other.variance_;
         }
         return *this;
     }
@@ -173,9 +176,8 @@ public:
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
     [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     /** MLE: σ̂ = √(Σx² / (2n)). */
@@ -205,7 +207,7 @@ public:
      * @return Current scale parameter value
      */
     double getSigma() const noexcept { return sigma_; }
-    
+
     /**
      * Sets the scale parameter σ.
      * 
@@ -217,59 +219,59 @@ public:
         sigma_ = sigma;
         invalidateCache();
     }
-    
+
     /**
      * Gets the mean of the distribution.
      * Mean = σ * √(π/2)
      * 
      * @return Mean value
      */
-    double getMean()     const noexcept { if (!isCacheValid()) updateCache(); return mean_; }
-    double getVariance() const noexcept { if (!isCacheValid()) updateCache(); return variance_; }
-    
+    double getMean() const noexcept {
+        if (!isCacheValid())
+            updateCache();
+        return mean_;
+    }
+    double getVariance() const noexcept {
+        if (!isCacheValid())
+            updateCache();
+        return variance_;
+    }
+
     /**
      * Gets the standard deviation of the distribution.
      * 
      * @return Standard deviation (square root of variance)
      */
-    double getStandardDeviation() const noexcept {
-        return std::sqrt(getVariance());
-    }
-    
+    double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
+
     /**
      * Gets the mode of the distribution.
      * Mode = σ
      * 
      * @return Mode value
      */
-    double getMode() const noexcept {
-        return sigma_;
-    }
-    
+    double getMode() const noexcept { return sigma_; }
+
     /**
      * Gets the median of the distribution.
      * Median = σ * √(2 * ln(2)) ≈ 1.177 * σ
      * 
      * @return Median value
      */
-    double getMedian() const noexcept {
-        return sigma_ * constants::math::SQRT_TWO_LN_TWO;
-    }
+    double getMedian() const noexcept { return sigma_ * constants::math::SQRT_TWO_LN_TWO; }
 
     /**
      * Equality operator
      */
-    bool operator==(const RayleighDistribution& other) const noexcept {
-        return std::abs(sigma_ - other.sigma_) < constants::precision::ULTRA_HIGH_PRECISION_TOLERANCE;
+    bool operator==(const RayleighDistribution &other) const noexcept {
+        return std::abs(sigma_ - other.sigma_) <
+               constants::precision::ULTRA_HIGH_PRECISION_TOLERANCE;
     }
 
     /**
      * Inequality operator
      */
-    bool operator!=(const RayleighDistribution& other) const noexcept {
-        return !(*this == other);
-    }
+    bool operator!=(const RayleighDistribution &other) const noexcept { return !(*this == other); }
 };
 
-}  // namespace libhmm
-
+} // namespace libhmm

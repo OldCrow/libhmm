@@ -23,19 +23,19 @@ class LogSpaceOps {
 public:
     /// Log-space representation of zero (negative infinity)
     static constexpr double LOG_ZERO = constants::probability::MIN_LOG_PROBABILITY;
-    
+
     /// Threshold below which exp() terms are considered negligible
     static constexpr double LOG_SUM_THRESHOLD = -50.0;
-    
+
     /// Size of precomputed lookup tables
     static constexpr std::size_t LOOKUP_TABLE_SIZE = 1024;
-    
+
     /**
      * @brief Initialize precomputed lookup tables
      * Call this once at program startup for optimal performance
      */
     static void initialize();
-    
+
     /**
      * @brief Numerically stable log-sum-exp: log(exp(a) + exp(b))
      * 
@@ -47,7 +47,7 @@ public:
      * @return log(exp(logA) + exp(logB))
      */
     static double logSumExp(double logA, double logB) noexcept;
-    
+
     /**
      * @brief Fast log-sum-exp for arrays using SIMD
      * 
@@ -55,8 +55,8 @@ public:
      * @param size Number of values
      * @return log(sum(exp(logValues[i])))
      */
-    static double logSumExpArray(const double* logValues, std::size_t size) noexcept;
-    
+    static double logSumExpArray(const double *logValues, std::size_t size) noexcept;
+
     /**
      * @brief Precompute log values for transition matrix
      * 
@@ -68,9 +68,9 @@ public:
      * @param rows Number of rows
      * @param cols Number of columns
      */
-    static void precomputeLogMatrix(const double* probMatrix, double* logMatrix, 
-                                   std::size_t rows, std::size_t cols) noexcept;
-    
+    static void precomputeLogMatrix(const double *probMatrix, double *logMatrix, std::size_t rows,
+                                    std::size_t cols) noexcept;
+
     /**
      * @brief SIMD-optimized log-space matrix-vector multiplication
      * 
@@ -82,9 +82,10 @@ public:
      * @param rows Number of matrix rows
      * @param cols Number of matrix columns
      */
-    static void logMatrixVectorMultiply(const double* logMatrix, const double* logVector,
-                                       double* result, std::size_t rows, std::size_t cols) noexcept;
-    
+    static void logMatrixVectorMultiply(const double *logMatrix, const double *logVector,
+                                        double *result, std::size_t rows,
+                                        std::size_t cols) noexcept;
+
     /**
      * @brief SIMD-optimized transposed log-space matrix-vector multiplication
      * 
@@ -96,34 +97,33 @@ public:
      * @param rows Number of matrix rows
      * @param cols Number of matrix columns
      */
-    static void logMatrixVectorMultiplyTransposed(const double* logMatrix, const double* logVector,
-                                                 double* result, std::size_t rows, std::size_t cols) noexcept;
-    
+    static void logMatrixVectorMultiplyTransposed(const double *logMatrix, const double *logVector,
+                                                  double *result, std::size_t rows,
+                                                  std::size_t cols) noexcept;
+
     /**
      * @brief Check if log value represents zero (is LOG_ZERO or NaN)
      */
     static bool isLogZero(double logValue) noexcept {
         return std::isnan(logValue) || logValue <= LOG_ZERO;
     }
-    
+
     /**
      * @brief Safe conversion from probability to log-space
      */
-    static double safeLog(double prob) noexcept {
-        return (prob > 0.0) ? std::log(prob) : LOG_ZERO;
-    }
+    static double safeLog(double prob) noexcept { return (prob > 0.0) ? std::log(prob) : LOG_ZERO; }
 
 private:
     /// Precomputed lookup table for log(1 + exp(x)) for x in [-50, 0]
     static std::array<double, LOOKUP_TABLE_SIZE> logOnePlusExpTable_;
     static bool initialized_;
-    
+
     /// Internal helper for lookup table access
     static double lookupLogOnePlusExp(double x) noexcept;
-    
+
     /// SIMD implementations
-    static double logSumExpArraySIMD(const double* logValues, std::size_t size) noexcept;
-    static double logSumExpArrayScalar(const double* logValues, std::size_t size) noexcept;
+    static double logSumExpArraySIMD(const double *logValues, std::size_t size) noexcept;
+    static double logSumExpArrayScalar(const double *logValues, std::size_t size) noexcept;
 };
 
 /**
@@ -134,9 +134,7 @@ private:
  */
 class LogSpaceInitializer {
 public:
-    LogSpaceInitializer() {
-        LogSpaceOps::initialize();
-    }
+    LogSpaceInitializer() { LogSpaceOps::initialize(); }
 };
 
 /// Global initializer - ensures tables are ready when library is loaded
@@ -144,4 +142,3 @@ static LogSpaceInitializer globalLogSpaceInit;
 
 } // namespace performance
 } // namespace libhmm
-

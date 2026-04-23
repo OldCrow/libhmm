@@ -21,8 +21,8 @@ namespace libhmm {
  */
 class BaumWelchTrainer : public Trainer {
 public:
-    BaumWelchTrainer(Hmm& hmm, const ObservationLists& obsLists);
-    BaumWelchTrainer(Hmm* hmm, const ObservationLists& obsLists);
+    BaumWelchTrainer(Hmm &hmm, const ObservationLists &obsLists);
+    BaumWelchTrainer(Hmm *hmm, const ObservationLists &obsLists);
     ~BaumWelchTrainer() override = default;
 
     void train() override;

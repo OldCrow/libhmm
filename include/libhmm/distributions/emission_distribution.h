@@ -24,10 +24,10 @@ public:
     virtual ~EmissionDistribution() = default;
 
     EmissionDistribution() = default;
-    EmissionDistribution(const EmissionDistribution&) = default;
-    EmissionDistribution& operator=(const EmissionDistribution&) = default;
-    EmissionDistribution(EmissionDistribution&&) = default;
-    EmissionDistribution& operator=(EmissionDistribution&&) = default;
+    EmissionDistribution(const EmissionDistribution &) = default;
+    EmissionDistribution &operator=(const EmissionDistribution &) = default;
+    EmissionDistribution(EmissionDistribution &&) = default;
+    EmissionDistribution &operator=(EmissionDistribution &&) = default;
 
     // =========================================================================
     // Scalar evaluation
@@ -58,9 +58,8 @@ public:
      *
      * Precondition: observations.size() == out.size()
      */
-    virtual void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const = 0;
+    virtual void getBatchLogProbabilities(std::span<const double> observations,
+                                          std::span<double> out) const = 0;
 
     // =========================================================================
     // Parameter estimation
@@ -82,8 +81,7 @@ public:
      *
      * Precondition: data.size() == weights.size()
      */
-    virtual void fit(std::span<const double> data,
-                     std::span<const double> weights) = 0;
+    virtual void fit(std::span<const double> data, std::span<const double> weights) = 0;
 
     /**
      * @brief Reset parameters to distribution-specific defaults.

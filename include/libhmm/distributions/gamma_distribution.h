@@ -4,7 +4,7 @@
 #include "libhmm/common/common.h"
 #include <span>
 
-namespace libhmm{
+namespace libhmm {
 
 /**
  * Modern C++20 Gamma distribution for modeling continuous non-negative data.
@@ -27,8 +27,7 @@ namespace libhmm{
  * - Support: x ∈ [0, ∞)
  * - Special cases: k=1 gives exponential distribution, k→∞ approaches normal
  */
-class GammaDistribution : public DistributionBase
-{    
+class GammaDistribution : public DistributionBase {
 private:
     /**
      * Shape parameter k - must be positive
@@ -45,32 +44,32 @@ private:
      * Larger θ spreads the distribution to the right
      */
     double theta_{1.0};
-    
+
     /**
      * Cached value of ln(Γ(k)) for efficiency in probability calculations
      * Updated when shape parameter changes
      */
     mutable double logGammaK_{0.0};
-    
+
     /**
      * Cached value of k * ln(θ) for efficiency in probability calculations
      * Updated when parameters change
      */
     mutable double kLogTheta_{0.0};
-    
+
     /**
      * Cached value of (k-1) for efficiency in probability calculations
      * Updated when shape parameter changes
      */
     mutable double kMinus1_{0.0};
-    
+
     void updateCache() const noexcept {
         logGammaK_ = std::lgamma(k_);
-        kLogTheta_  = k_ * std::log(theta_);
-        kMinus1_    = k_ - 1.0;
+        kLogTheta_ = k_ * std::log(theta_);
+        kMinus1_ = k_ - 1.0;
         markCacheValid();
     }
-    
+
     /**
      * Validates parameters for the Gamma distribution
      * @param k Shape parameter (must be positive and finite)
@@ -100,34 +99,39 @@ public:
      * @param theta Scale parameter θ (must be positive)
      * @throws std::invalid_argument if parameters are invalid
      */
-    explicit GammaDistribution(double k = 1.0, double theta = 1.0)
-        : k_{k}, theta_{theta} {
+    explicit GammaDistribution(double k = 1.0, double theta = 1.0) : k_{k}, theta_{theta} {
         validateParameters(k, theta);
         updateCache();
     }
 
-    GammaDistribution(const GammaDistribution& other)
-        : DistributionBase{other}, k_{other.k_}, theta_{other.theta_},
-          logGammaK_{other.logGammaK_}, kLogTheta_{other.kLogTheta_}, kMinus1_{other.kMinus1_} {}
+    GammaDistribution(const GammaDistribution &other)
+        : DistributionBase{other}, k_{other.k_}, theta_{other.theta_}, logGammaK_{other.logGammaK_},
+          kLogTheta_{other.kLogTheta_}, kMinus1_{other.kMinus1_} {}
 
-    GammaDistribution& operator=(const GammaDistribution& other) {
+    GammaDistribution &operator=(const GammaDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            k_ = other.k_; theta_ = other.theta_;
-            logGammaK_ = other.logGammaK_; kLogTheta_ = other.kLogTheta_; kMinus1_ = other.kMinus1_;
+            k_ = other.k_;
+            theta_ = other.theta_;
+            logGammaK_ = other.logGammaK_;
+            kLogTheta_ = other.kLogTheta_;
+            kMinus1_ = other.kMinus1_;
         }
         return *this;
     }
 
-    GammaDistribution(GammaDistribution&& other) noexcept
+    GammaDistribution(GammaDistribution &&other) noexcept
         : DistributionBase{std::move(other)}, k_{other.k_}, theta_{other.theta_},
           logGammaK_{other.logGammaK_}, kLogTheta_{other.kLogTheta_}, kMinus1_{other.kMinus1_} {}
 
-    GammaDistribution& operator=(GammaDistribution&& other) noexcept {
+    GammaDistribution &operator=(GammaDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            k_ = other.k_; theta_ = other.theta_;
-            logGammaK_ = other.logGammaK_; kLogTheta_ = other.kLogTheta_; kMinus1_ = other.kMinus1_;
+            k_ = other.k_;
+            theta_ = other.theta_;
+            logGammaK_ = other.logGammaK_;
+            kLogTheta_ = other.kLogTheta_;
+            kMinus1_ = other.kMinus1_;
         }
         return *this;
     }
@@ -141,7 +145,7 @@ public:
      * @return Probability density (or approximated probability for discrete sampling)
      */
     [[nodiscard]] double getProbability(double x) const override;
-    
+
     /**
      * Evaluates the logarithm of the probability density function
      * Formula: log PDF(x) = (k-1)*ln(x) - x/θ - k*ln(θ) - ln(Γ(k))
@@ -154,9 +158,8 @@ public:
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
 
     /**
      * Evaluates the CDF at x using the incomplete gamma function
@@ -193,54 +196,61 @@ public:
      * @return Current shape parameter value
      */
     [[nodiscard]] double getK() const noexcept { return k_; }
-    
+
     /**
      * Gets the scale parameter θ.
      * 
      * @return Current scale parameter value
      */
     [[nodiscard]] double getTheta() const noexcept { return theta_; }
-    
+
     /**
      * Sets the shape parameter k.
      * 
      * @param k New shape parameter (must be positive)
      * @throws std::invalid_argument if k <= 0 or is not finite
      */
-    void setK(double k) { validateParameters(k, theta_); k_ = k; invalidateCache(); }
-    void setTheta(double theta) { validateParameters(k_, theta); theta_ = theta; invalidateCache(); }
-    void setParameters(double k, double theta) { validateParameters(k, theta); k_ = k; theta_ = theta; invalidateCache(); }
-    
+    void setK(double k) {
+        validateParameters(k, theta_);
+        k_ = k;
+        invalidateCache();
+    }
+    void setTheta(double theta) {
+        validateParameters(k_, theta);
+        theta_ = theta;
+        invalidateCache();
+    }
+    void setParameters(double k, double theta) {
+        validateParameters(k, theta);
+        k_ = k;
+        theta_ = theta;
+        invalidateCache();
+    }
+
     /**
      * Gets the mean of the distribution.
      * For Gamma distribution, mean = k*θ
      * 
      * @return Mean value
      */
-    [[nodiscard]] double getMean() const noexcept { 
-        return k_ * theta_; 
-    }
-    
+    [[nodiscard]] double getMean() const noexcept { return k_ * theta_; }
+
     /**
      * Gets the variance of the distribution.
      * For Gamma distribution, variance = k*θ²
      * 
      * @return Variance value
      */
-    [[nodiscard]] double getVariance() const noexcept { 
-        return k_ * theta_ * theta_; 
-    }
-    
+    [[nodiscard]] double getVariance() const noexcept { return k_ * theta_ * theta_; }
+
     /**
      * Gets the standard deviation of the distribution.
      * For Gamma distribution, std_dev = θ*√k
      * 
      * @return Standard deviation value
      */
-    [[nodiscard]] double getStandardDeviation() const noexcept { 
-        return theta_ * std::sqrt(k_); 
-    }
-    
+    [[nodiscard]] double getStandardDeviation() const noexcept { return theta_ * std::sqrt(k_); }
+
     /**
      * Gets the mode of the distribution.
      * For Gamma distribution with k > 1, mode = (k-1)*θ
@@ -248,37 +258,31 @@ public:
      * 
      * @return Mode value
      */
-    [[nodiscard]] double getMode() const noexcept {
-        return (k_ > 1.0) ? (k_ - 1.0) * theta_ : 0.0;
-    }
-    
+    [[nodiscard]] double getMode() const noexcept { return (k_ > 1.0) ? (k_ - 1.0) * theta_ : 0.0; }
+
     /**
      * Gets the rate parameter β = 1/θ (alternative parameterization).
      * 
      * @return Rate parameter (1/θ)
      */
-    [[nodiscard]] double getRate() const noexcept {
-        return 1.0 / theta_;
-    }
-    
+    [[nodiscard]] double getRate() const noexcept { return 1.0 / theta_; }
+
     /**
      * Equality comparison operator
      * @param other Other distribution to compare with
      * @return true if parameters are equal within tolerance
      */
-    bool operator==(const GammaDistribution& other) const;
-    
+    bool operator==(const GammaDistribution &other) const;
+
     /**
      * Inequality comparison operator
      * @param other Other distribution to compare with
      * @return true if parameters are not equal
      */
-    bool operator!=(const GammaDistribution& other) const { return !(*this == other); }
+    bool operator!=(const GammaDistribution &other) const { return !(*this == other); }
 };
 
-std::ostream& operator<<( std::ostream&, 
-        const libhmm::GammaDistribution& );
-std::istream& operator>>( std::istream&,
-        libhmm::GammaDistribution& );
+std::ostream &operator<<(std::ostream &, const libhmm::GammaDistribution &);
+std::istream &operator>>(std::istream &, libhmm::GammaDistribution &);
 
-} // namespace
+} // namespace libhmm

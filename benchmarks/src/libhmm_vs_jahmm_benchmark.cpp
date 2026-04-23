@@ -31,7 +31,7 @@ mt19937 gen(42);
 #endif
 
 string getJahmmRootDir() {
-    const char* env_jahmm_dir = getenv("LIBHMM_BENCH_JAHMM_DIR");
+    const char *env_jahmm_dir = getenv("LIBHMM_BENCH_JAHMM_DIR");
     if (env_jahmm_dir && strlen(env_jahmm_dir) > 0) {
         return string(env_jahmm_dir);
     }
@@ -39,12 +39,9 @@ string getJahmmRootDir() {
 }
 
 string resolveJavaBinary() {
-    const vector<string> candidates = {
-        "/opt/homebrew/opt/openjdk/bin/java",
-        "/usr/local/opt/openjdk/bin/java",
-        "java"
-    };
-    for (const auto& candidate : candidates) {
+    const vector<string> candidates = {"/opt/homebrew/opt/openjdk/bin/java",
+                                       "/usr/local/opt/openjdk/bin/java", "java"};
+    for (const auto &candidate : candidates) {
         if (!candidate.empty() && candidate[0] == '/' && access(candidate.c_str(), X_OK) == 0) {
             return candidate;
         }
@@ -53,12 +50,9 @@ string resolveJavaBinary() {
 }
 
 string resolveJavacBinary() {
-    const vector<string> candidates = {
-        "/opt/homebrew/opt/openjdk/bin/javac",
-        "/usr/local/opt/openjdk/bin/javac",
-        "javac"
-    };
-    for (const auto& candidate : candidates) {
+    const vector<string> candidates = {"/opt/homebrew/opt/openjdk/bin/javac",
+                                       "/usr/local/opt/openjdk/bin/javac", "javac"};
+    for (const auto &candidate : candidates) {
         if (!candidate.empty() && candidate[0] == '/' && access(candidate.c_str(), X_OK) == 0) {
             return candidate;
         }
@@ -66,7 +60,7 @@ string resolveJavacBinary() {
     return "javac";
 }
 
-bool pathExists(const string& path) {
+bool pathExists(const string &path) {
     return access(path.c_str(), F_OK) == 0;
 }
 
@@ -74,11 +68,11 @@ struct BenchmarkResults {
     string library_name;
     string problem_name;
     int sequence_length;
-    
+
     double forward_time;
     double viterbi_time;
     double likelihood;
-    
+
     bool success;
 };
 
@@ -86,22 +80,22 @@ class ClassicHMMProblems {
 public:
     // Classic "Occasionally Dishonest Casino" problem
     struct CasinoProblem {
-        vector<double> initial_probs = {0.5, 0.5};  // Fair, Loaded
+        vector<double> initial_probs = {0.5, 0.5}; // Fair, Loaded
         vector<vector<double>> transition_matrix = {
-            {0.95, 0.05},  // Fair -> {Fair, Loaded}
-            {0.10, 0.90}   // Loaded -> {Fair, Loaded}
+            {0.95, 0.05}, // Fair -> {Fair, Loaded}
+            {0.10, 0.90}  // Loaded -> {Fair, Loaded}
         };
         vector<vector<double>> emission_matrix = {
             // Emissions: 0, 1, 2, 3, 4, 5 (dice faces, 0-indexed)
-            {1.0/6, 1.0/6, 1.0/6, 1.0/6, 1.0/6, 1.0/6},  // Fair die
-            {0.10, 0.10, 0.10, 0.10, 0.10, 0.50}          // Loaded die (5 is more likely)
+            {1.0 / 6, 1.0 / 6, 1.0 / 6, 1.0 / 6, 1.0 / 6, 1.0 / 6}, // Fair die
+            {0.10, 0.10, 0.10, 0.10, 0.10, 0.50}                    // Loaded die (5 is more likely)
         };
         int num_states = 2;
         int alphabet_size = 6;
         string name = "Dishonest Casino";
-        
+
         vector<unsigned int> generateSequence(int length) {
-            uniform_int_distribution<unsigned int> dist(0, alphabet_size - 1);  // 0-indexed
+            uniform_int_distribution<unsigned int> dist(0, alphabet_size - 1); // 0-indexed
             vector<unsigned int> sequence(length);
             for (int i = 0; i < length; ++i) {
                 sequence[i] = dist(gen);
@@ -109,25 +103,25 @@ public:
             return sequence;
         }
     };
-    
+
     // Simple Weather Model (Sunny/Rainy with Hot/Cold observations)
     struct WeatherProblem {
-        vector<double> initial_probs = {0.6, 0.4};  // Sunny, Rainy
+        vector<double> initial_probs = {0.6, 0.4}; // Sunny, Rainy
         vector<vector<double>> transition_matrix = {
-            {0.7, 0.3},  // Sunny -> {Sunny, Rainy}
-            {0.4, 0.6}   // Rainy -> {Sunny, Rainy}
+            {0.7, 0.3}, // Sunny -> {Sunny, Rainy}
+            {0.4, 0.6}  // Rainy -> {Sunny, Rainy}
         };
         vector<vector<double>> emission_matrix = {
             // Emissions: Hot, Cold
-            {0.8, 0.2},  // Sunny -> {Hot, Cold}
-            {0.3, 0.7}   // Rainy -> {Hot, Cold}
+            {0.8, 0.2}, // Sunny -> {Hot, Cold}
+            {0.3, 0.7}  // Rainy -> {Hot, Cold}
         };
         int num_states = 2;
         int alphabet_size = 2;
         string name = "Weather Model";
-        
+
         vector<unsigned int> generateSequence(int length) {
-            uniform_int_distribution<unsigned int> dist(0, alphabet_size - 1);  // 0-indexed
+            uniform_int_distribution<unsigned int> dist(0, alphabet_size - 1); // 0-indexed
             vector<unsigned int> sequence(length);
             for (int i = 0; i < length; ++i) {
                 sequence[i] = dist(gen);
@@ -135,25 +129,25 @@ public:
             return sequence;
         }
     };
-    
+
     // CpG Island Detection (simplified 3-state model)
     struct CpGProblem {
-        vector<double> initial_probs = {0.5, 0.4, 0.1};  // A+T rich, Normal, CpG Island
+        vector<double> initial_probs = {0.5, 0.4, 0.1}; // A+T rich, Normal, CpG Island
         vector<vector<double>> transition_matrix = {
-            {0.8, 0.15, 0.05},  // A+T rich transitions
-            {0.1, 0.8, 0.1},    // Normal transitions  
-            {0.05, 0.15, 0.8}   // CpG Island transitions
+            {0.8, 0.15, 0.05}, // A+T rich transitions
+            {0.1, 0.8, 0.1},   // Normal transitions
+            {0.05, 0.15, 0.8}  // CpG Island transitions
         };
         vector<vector<double>> emission_matrix = {
             // Emissions: A, C, G, T (0, 1, 2, 3)
-            {0.4, 0.1, 0.1, 0.4},   // A+T rich region
+            {0.4, 0.1, 0.1, 0.4},     // A+T rich region
             {0.25, 0.25, 0.25, 0.25}, // Normal region
             {0.15, 0.35, 0.35, 0.15}  // CpG Island (C,G rich)
         };
         int num_states = 3;
         int alphabet_size = 4;
         string name = "CpG Island Detection";
-        
+
         vector<unsigned int> generateSequence(int length) {
             uniform_int_distribution<unsigned int> dist(0, alphabet_size - 1);
             vector<unsigned int> sequence(length);
@@ -167,22 +161,24 @@ public:
 
 class LibHMMBenchmark {
 public:
-    template<typename ProblemType>
-    BenchmarkResults runBenchmark(ProblemType& problem, const vector<unsigned int>& full_obs_sequence, int sequence_length) {
+    template <typename ProblemType>
+    BenchmarkResults runBenchmark(ProblemType &problem,
+                                  const vector<unsigned int> &full_obs_sequence,
+                                  int sequence_length) {
         BenchmarkResults results;
         results.library_name = "libhmm";
         results.problem_name = problem.name;
         results.sequence_length = sequence_length;
         results.success = false;
-        
+
         // Use the first 'sequence_length' observations from the shared sequence
-        vector<unsigned int> obs_sequence(full_obs_sequence.begin(), 
-                                         full_obs_sequence.begin() + sequence_length);
-        
+        vector<unsigned int> obs_sequence(full_obs_sequence.begin(),
+                                          full_obs_sequence.begin() + sequence_length);
+
         try {
             // Create libhmm HMM
             auto hmm = make_unique<libhmm::Hmm>(problem.num_states);
-            
+
             // Set up transition matrix
             libhmm::Matrix trans_matrix(problem.num_states, problem.num_states);
             for (int i = 0; i < problem.num_states; ++i) {
@@ -191,29 +187,31 @@ public:
                 }
             }
             hmm->setTrans(trans_matrix);
-            
+
             // Set up initial probabilities
             libhmm::Vector pi_vector(problem.num_states);
             for (int i = 0; i < problem.num_states; ++i) {
                 pi_vector(i) = problem.initial_probs[i];
             }
             hmm->setPi(pi_vector);
-            
+
             // Set discrete emission distributions
             for (int i = 0; i < problem.num_states; ++i) {
-                auto discrete_dist = make_unique<libhmm::DiscreteDistribution>(problem.alphabet_size);
+                auto discrete_dist =
+                    make_unique<libhmm::DiscreteDistribution>(problem.alphabet_size);
                 for (int j = 0; j < problem.alphabet_size; ++j) {
-                    discrete_dist->setProbability(static_cast<libhmm::Observation>(j), problem.emission_matrix[i][j]);
+                    discrete_dist->setProbability(static_cast<libhmm::Observation>(j),
+                                                  problem.emission_matrix[i][j]);
                 }
                 hmm->setDistribution(i, std::move(discrete_dist));
             }
-            
+
             // Convert observation sequence to libhmm format (already 0-indexed)
             libhmm::ObservationSet libhmm_obs(obs_sequence.size());
             for (size_t i = 0; i < obs_sequence.size(); ++i) {
                 libhmm_obs(i) = static_cast<libhmm::Observation>(obs_sequence[i]);
             }
-            
+
             // Use canonical Forward-Backward calculator
             auto start = high_resolution_clock::now();
             libhmm::ForwardBackwardCalculator fb_calc(hmm.get(), libhmm_obs);
@@ -221,23 +219,23 @@ public:
             auto end = high_resolution_clock::now();
             results.forward_time = duration_cast<microseconds>(end - start).count() / 1000.0;
             results.likelihood = forward_backward_log_likelihood;
-            
+
             // Use canonical Viterbi calculator
             start = high_resolution_clock::now();
             libhmm::ViterbiCalculator viterbi_calc(hmm.get(), libhmm_obs);
             auto states = viterbi_calc.decode();
             end = high_resolution_clock::now();
             results.viterbi_time = duration_cast<microseconds>(end - start).count() / 1000.0;
-            
+
             results.success = true;
-            
-        } catch (const exception& e) {
+
+        } catch (const exception &e) {
             cout << "LibHMM Error: " << e.what() << endl;
             results.forward_time = -1;
             results.viterbi_time = -1;
             results.likelihood = 0;
         }
-        
+
         return results;
     }
 };
@@ -247,130 +245,134 @@ private:
     string jahmm_path;
     string java_bin;
     string temp_dir;
-    
+
     // Write HMM configuration to Java properties file
-    template<typename ProblemType>
-    void writeHMMConfig(const ProblemType& problem, const string& config_file) {
+    template <typename ProblemType>
+    void writeHMMConfig(const ProblemType &problem, const string &config_file) {
         ofstream out(config_file);
-        
+
         // Write number of states and alphabet size
         out << "num_states=" << problem.num_states << "\n";
         out << "alphabet_size=" << problem.alphabet_size << "\n";
-        
+
         // Write initial probabilities
         out << "initial_probs=";
         for (int i = 0; i < problem.num_states; ++i) {
-            if (i > 0) out << ",";
+            if (i > 0)
+                out << ",";
             out << problem.initial_probs[i];
         }
         out << "\n";
-        
+
         // Write transition matrix
         for (int i = 0; i < problem.num_states; ++i) {
             out << "transition_" << i << "=";
             for (int j = 0; j < problem.num_states; ++j) {
-                if (j > 0) out << ",";
+                if (j > 0)
+                    out << ",";
                 out << problem.transition_matrix[i][j];
             }
             out << "\n";
         }
-        
+
         // Write emission matrix
         for (int i = 0; i < problem.num_states; ++i) {
             out << "emission_" << i << "=";
             for (int j = 0; j < problem.alphabet_size; ++j) {
-                if (j > 0) out << ",";
+                if (j > 0)
+                    out << ",";
                 out << problem.emission_matrix[i][j];
             }
             out << "\n";
         }
-        
+
         out.close();
     }
-    
+
     // Write observation sequence to file
-    void writeObservationSequence(const vector<unsigned int>& sequence, const string& obs_file) {
+    void writeObservationSequence(const vector<unsigned int> &sequence, const string &obs_file) {
         ofstream out(obs_file);
         for (size_t i = 0; i < sequence.size(); ++i) {
-            if (i > 0) out << " ";
+            if (i > 0)
+                out << " ";
             out << sequence[i];
         }
         out << "\n";
         out.close();
     }
-    
+
     // Execute Java process and measure timing
-    pair<double, string> executeJavaCommand(const string& command) {
+    pair<double, string> executeJavaCommand(const string &command) {
         auto start = high_resolution_clock::now();
-        
-        FILE* pipe = popen(command.c_str(), "r");
+
+        FILE *pipe = popen(command.c_str(), "r");
         if (!pipe) {
             return {-1.0, "Failed to execute command"};
         }
-        
+
         string result;
         char buffer[128];
         while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
             result += buffer;
         }
-        
+
         int return_code = pclose(pipe);
         auto end = high_resolution_clock::now();
-        
+
         double execution_time = duration_cast<microseconds>(end - start).count() / 1000.0;
-        
+
         if (return_code != 0) {
             return {-1.0, "Command failed with return code " + to_string(return_code)};
         }
-        
+
         return {execution_time, result};
     }
-    
+
 public:
-    JAHMMBenchmark(const string& jahmm_jar_path, const string& java_exec)
+    JAHMMBenchmark(const string &jahmm_jar_path, const string &java_exec)
         : jahmm_path(jahmm_jar_path), java_bin(java_exec) {
         temp_dir = "/tmp/jahmm_benchmark_" + to_string(getpid());
         system(("mkdir -p " + temp_dir).c_str());
     }
-    
-    ~JAHMMBenchmark() {
-        system(("rm -rf " + temp_dir).c_str());
-    }
-    
-    template<typename ProblemType>
-    BenchmarkResults runBenchmark(ProblemType& problem, const vector<unsigned int>& full_obs_sequence, int sequence_length) {
+
+    ~JAHMMBenchmark() { system(("rm -rf " + temp_dir).c_str()); }
+
+    template <typename ProblemType>
+    BenchmarkResults runBenchmark(ProblemType &problem,
+                                  const vector<unsigned int> &full_obs_sequence,
+                                  int sequence_length) {
         BenchmarkResults results;
         results.library_name = "JAHMM";
         results.problem_name = problem.name;
         results.sequence_length = sequence_length;
         results.success = false;
-        
+
         // Use the first 'sequence_length' observations from the shared sequence
-        vector<unsigned int> obs_sequence(full_obs_sequence.begin(), 
-                                         full_obs_sequence.begin() + sequence_length);
-        
+        vector<unsigned int> obs_sequence(full_obs_sequence.begin(),
+                                          full_obs_sequence.begin() + sequence_length);
+
         try {
             // Write configuration files
             string config_file = temp_dir + "/hmm_config.properties";
             string obs_file = temp_dir + "/observations.txt";
             string result_file = temp_dir + "/results.txt";
-            
+
             writeHMMConfig(problem, config_file);
             writeObservationSequence(obs_sequence, obs_file);
-            
+
             // Create Java benchmark runner command
-            string java_command = "cd \"" + temp_dir + "\" && \"" + java_bin + "\" -cp \"" + jahmm_path +
-                                  "\" JAHMMBenchmarkRunner \"" + config_file + "\" \"" + obs_file +
-                                  "\" \"" + result_file + "\" 2>&1";
-            
+            string java_command = "cd \"" + temp_dir + "\" && \"" + java_bin + "\" -cp \"" +
+                                  jahmm_path + "\" JAHMMBenchmarkRunner \"" + config_file +
+                                  "\" \"" + obs_file + "\" \"" + result_file + "\" 2>&1";
+
             // Execute the Java benchmark
             auto [exec_time, output] = executeJavaCommand(java_command);
-            
+
             if (exec_time < 0) {
                 cout << "JAHMM execution failed: " << output << endl;
                 return results;
             }
-            
+
             // Parse results from the output file
             ifstream result_stream(result_file);
             if (result_stream.is_open()) {
@@ -389,32 +391,32 @@ public:
             } else {
                 cout << "Failed to read JAHMM results file" << endl;
             }
-            
-        } catch (const exception& e) {
+
+        } catch (const exception &e) {
             cout << "JAHMM Error: " << e.what() << endl;
             results.forward_time = -1;
             results.viterbi_time = -1;
             results.likelihood = 0;
         }
-        
+
         return results;
     }
 };
 
 // Java benchmark runner that we'll create alongside this C++ file
-bool createJavaRunner(const string& jahmm_root, const string& javac_bin) {
+bool createJavaRunner(const string &jahmm_root, const string &javac_bin) {
     string jahmm_source_dir = jahmm_root + "/source/jahmm-0.6.2";
     string runner_class_file = jahmm_source_dir + "/build/JAHMMBenchmarkRunner.class";
-    
+
     if (!pathExists(jahmm_source_dir)) {
         cout << "JAHMM source directory not found: " << jahmm_source_dir << endl;
         return false;
     }
-    
+
     if (pathExists(runner_class_file)) {
         return true;
     }
-    
+
     string java_code = R"(
 import java.io.*;
 import java.util.*;
@@ -618,11 +620,11 @@ public class JAHMMBenchmarkRunner {
     }
     out << java_code;
     out.close();
-    
+
     // Compile the Java file
     string compile_cmd = "cd \"" + jahmm_source_dir + "\" && \"" + javac_bin +
                          "\" -cp build src/JAHMMBenchmarkRunner.java -d build";
-    
+
     int result = system(compile_cmd.c_str());
     if (result != 0) {
         cout << "Failed to compile Java benchmark runner" << endl;
@@ -631,28 +633,23 @@ public class JAHMMBenchmarkRunner {
     return true;
 }
 
-void displayResults(const vector<BenchmarkResults>& all_results) {
+void displayResults(const vector<BenchmarkResults> &all_results) {
     cout << "\n\n=== LIBHMM vs JAHMM BENCHMARK RESULTS ===\n" << endl;
-    
-    cout << setw(20) << "Library" 
-         << setw(25) << "Problem" 
-         << setw(10) << "Length" 
-         << setw(15) << "Forward(ms)" 
-         << setw(15) << "Viterbi(ms)"
-         << setw(18) << "Log Likelihood" << endl;
+
+    cout << setw(20) << "Library" << setw(25) << "Problem" << setw(10) << "Length" << setw(15)
+         << "Forward(ms)" << setw(15) << "Viterbi(ms)" << setw(18) << "Log Likelihood" << endl;
     cout << string(103, '-') << endl;
-    
+
     map<string, map<int, pair<BenchmarkResults, BenchmarkResults>>> comparison_data;
-    
-    for (const auto& result : all_results) {
+
+    for (const auto &result : all_results) {
         if (result.success) {
-            cout << setw(20) << result.library_name
-                 << setw(25) << result.problem_name
-                 << setw(10) << result.sequence_length
-                 << setw(15) << fixed << setprecision(3) << result.forward_time
-                 << setw(15) << fixed << setprecision(3) << result.viterbi_time
-                 << setw(18) << fixed << setprecision(6) << result.likelihood << endl;
-            
+            cout << setw(20) << result.library_name << setw(25) << result.problem_name << setw(10)
+                 << result.sequence_length << setw(15) << fixed << setprecision(3)
+                 << result.forward_time << setw(15) << fixed << setprecision(3)
+                 << result.viterbi_time << setw(18) << fixed << setprecision(6) << result.likelihood
+                 << endl;
+
             // Store for comparison
             string key = result.problem_name;
             if (result.library_name == "libhmm") {
@@ -661,43 +658,36 @@ void displayResults(const vector<BenchmarkResults>& all_results) {
                 comparison_data[key][result.sequence_length].second = result;
             }
         } else {
-            cout << setw(20) << result.library_name
-                 << setw(25) << result.problem_name
-                 << setw(10) << result.sequence_length
-                 << setw(15) << "FAILED"
-                 << setw(15) << "FAILED"
+            cout << setw(20) << result.library_name << setw(25) << result.problem_name << setw(10)
+                 << result.sequence_length << setw(15) << "FAILED" << setw(15) << "FAILED"
                  << setw(18) << "FAILED" << endl;
         }
     }
-    
+
     // Performance comparison analysis
     cout << "\n\n=== PERFORMANCE COMPARISON ANALYSIS ===\n" << endl;
-    cout << setw(25) << "Problem" 
-         << setw(10) << "Length" 
-         << setw(20) << "Forward Speedup" 
-         << setw(20) << "Viterbi Speedup"
-         << setw(25) << "Likelihood Difference" << endl;
+    cout << setw(25) << "Problem" << setw(10) << "Length" << setw(20) << "Forward Speedup"
+         << setw(20) << "Viterbi Speedup" << setw(25) << "Likelihood Difference" << endl;
     cout << string(100, '-') << endl;
-    
-    for (const auto& problem_data : comparison_data) {
-        for (const auto& length_data : problem_data.second) {
-            const auto& libhmm_result = length_data.second.first;
-            const auto& jahmm_result = length_data.second.second;
-            
+
+    for (const auto &problem_data : comparison_data) {
+        for (const auto &length_data : problem_data.second) {
+            const auto &libhmm_result = length_data.second.first;
+            const auto &jahmm_result = length_data.second.second;
+
             if (libhmm_result.success && jahmm_result.success) {
                 double forward_speedup = jahmm_result.forward_time / libhmm_result.forward_time;
                 double viterbi_speedup = jahmm_result.viterbi_time / libhmm_result.viterbi_time;
                 double likelihood_diff = abs(libhmm_result.likelihood - jahmm_result.likelihood);
-                
-                cout << setw(25) << problem_data.first
-                     << setw(10) << length_data.first
-                     << setw(20) << fixed << setprecision(2) << forward_speedup << "x"
-                     << setw(20) << fixed << setprecision(2) << viterbi_speedup << "x"
-                     << setw(25) << scientific << setprecision(3) << likelihood_diff << endl;
+
+                cout << setw(25) << problem_data.first << setw(10) << length_data.first << setw(20)
+                     << fixed << setprecision(2) << forward_speedup << "x" << setw(20) << fixed
+                     << setprecision(2) << viterbi_speedup << "x" << setw(25) << scientific
+                     << setprecision(3) << likelihood_diff << endl;
             }
         }
     }
-    
+
     cout << "\nNote: Speedup > 1.0 means libhmm is faster than JAHMM" << endl;
     cout << "Note: Likelihood differences should be minimal for correct implementations" << endl;
 }
@@ -706,102 +696,100 @@ int main() {
     cout << "=== LibHMM vs JAHMM Discrete HMM Benchmark ===" << endl;
     cout << "Comparing performance of libhmm (C++) vs JAHMM (Java)" << endl;
     cout << "Testing with classic HMM problems and various sequence lengths" << endl << endl;
-    
+
     string jahmm_root = getJahmmRootDir();
     string jahmm_source_dir = jahmm_root + "/source/jahmm-0.6.2";
     string java_bin = resolveJavaBinary();
     string javac_bin = resolveJavacBinary();
-    
+
     cout << "Using JAHMM directory: " << jahmm_root << endl;
     cout << "Using Java executable: " << java_bin << endl;
-    
+
     // Create Java benchmark runner
     cout << "Creating and compiling Java benchmark runner..." << endl;
     if (!createJavaRunner(jahmm_root, javac_bin)) {
         return 1;
     }
-    
+
     // Set up JAHMM classpath
     string jahmm_classpath = jahmm_source_dir + "/build:" + jahmm_source_dir + "/jahmm.jar";
-    
+
     // Create benchmark instances
     LibHMMBenchmark libhmm_bench;
     JAHMMBenchmark jahmm_bench(jahmm_classpath, java_bin);
-    
+
     // Define test problems
     ClassicHMMProblems::CasinoProblem casino_problem;
     ClassicHMMProblems::WeatherProblem weather_problem;
     ClassicHMMProblems::CpGProblem cpg_problem;
-    
+
     // Test sequence lengths
     vector<int> sequence_lengths = {100, 500, 1000, 2000, 5000};
-    
+
     vector<BenchmarkResults> all_results;
-    
+
     // Generate shared sequences for each problem to ensure fair comparison
     map<string, vector<unsigned int>> shared_sequences;
-    
+
     cout << "Generating test sequences..." << endl;
     shared_sequences["Dishonest Casino"] = casino_problem.generateSequence(5000);
     shared_sequences["Weather Model"] = weather_problem.generateSequence(5000);
     shared_sequences["CpG Island Detection"] = cpg_problem.generateSequence(5000);
-    
+
     // Run benchmarks for each problem and sequence length
-    vector<pair<string, void*>> test_problems = {
-        {"Dishonest Casino", &casino_problem},
-        {"Weather Model", &weather_problem},
-        {"CpG Island Detection", &cpg_problem}
-    };
-    
-    for (auto& [problem_name, problem_ptr] : test_problems) {
+    vector<pair<string, void *>> test_problems = {{"Dishonest Casino", &casino_problem},
+                                                  {"Weather Model", &weather_problem},
+                                                  {"CpG Island Detection", &cpg_problem}};
+
+    for (auto &[problem_name, problem_ptr] : test_problems) {
         cout << "\n=== Testing " << problem_name << " ===" << endl;
-        
+
         for (int length : sequence_lengths) {
             cout << "Testing sequence length: " << length << endl;
-            
+
             // Test libhmm
             BenchmarkResults libhmm_result;
             if (problem_name == "Dishonest Casino") {
                 libhmm_result = libhmm_bench.runBenchmark(
-                    *static_cast<ClassicHMMProblems::CasinoProblem*>(problem_ptr),
+                    *static_cast<ClassicHMMProblems::CasinoProblem *>(problem_ptr),
                     shared_sequences[problem_name], length);
             } else if (problem_name == "Weather Model") {
                 libhmm_result = libhmm_bench.runBenchmark(
-                    *static_cast<ClassicHMMProblems::WeatherProblem*>(problem_ptr),
+                    *static_cast<ClassicHMMProblems::WeatherProblem *>(problem_ptr),
                     shared_sequences[problem_name], length);
             } else if (problem_name == "CpG Island Detection") {
                 libhmm_result = libhmm_bench.runBenchmark(
-                    *static_cast<ClassicHMMProblems::CpGProblem*>(problem_ptr),
+                    *static_cast<ClassicHMMProblems::CpGProblem *>(problem_ptr),
                     shared_sequences[problem_name], length);
             }
             all_results.push_back(libhmm_result);
-            
+
             // Test JAHMM
             BenchmarkResults jahmm_result;
             if (problem_name == "Dishonest Casino") {
                 jahmm_result = jahmm_bench.runBenchmark(
-                    *static_cast<ClassicHMMProblems::CasinoProblem*>(problem_ptr),
+                    *static_cast<ClassicHMMProblems::CasinoProblem *>(problem_ptr),
                     shared_sequences[problem_name], length);
             } else if (problem_name == "Weather Model") {
                 jahmm_result = jahmm_bench.runBenchmark(
-                    *static_cast<ClassicHMMProblems::WeatherProblem*>(problem_ptr),
+                    *static_cast<ClassicHMMProblems::WeatherProblem *>(problem_ptr),
                     shared_sequences[problem_name], length);
             } else if (problem_name == "CpG Island Detection") {
                 jahmm_result = jahmm_bench.runBenchmark(
-                    *static_cast<ClassicHMMProblems::CpGProblem*>(problem_ptr),
+                    *static_cast<ClassicHMMProblems::CpGProblem *>(problem_ptr),
                     shared_sequences[problem_name], length);
             }
             all_results.push_back(jahmm_result);
-            
+
             cout << "  libhmm: Forward=" << libhmm_result.forward_time << "ms, "
                  << "Viterbi=" << libhmm_result.viterbi_time << "ms" << endl;
             cout << "  JAHMM:  Forward=" << jahmm_result.forward_time << "ms, "
                  << "Viterbi=" << jahmm_result.viterbi_time << "ms" << endl;
         }
     }
-    
+
     // Display comprehensive results
     displayResults(all_results);
-    
+
     return 0;
 }

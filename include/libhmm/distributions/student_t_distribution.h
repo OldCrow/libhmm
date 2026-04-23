@@ -34,57 +34,57 @@ private:
      * Degrees of freedom parameter ν - must be positive
      */
     double degrees_of_freedom_{1.0};
-    
+
     /**
      * Location parameter μ (mean when ν > 1)
      */
     double location_{0.0};
-    
+
     /**
      * Scale parameter σ - must be positive
      */
     double scale_{1.0};
-    
+
     /**
      * Cached value of log(Γ((ν+1)/2)) for efficiency in probability calculations
      */
     mutable double cached_log_gamma_half_nu_plus_one_{0.0};
-    
+
     /**
      * Cached value of log(Γ(ν/2)) for efficiency in probability calculations
      */
     mutable double cached_log_gamma_half_nu_{0.0};
-    
+
     /**
      * Cached log normalization constant for PDF
      */
     mutable double cached_log_normalization_{0.0};
-    
+
     /**
      * Cached normalization factor for direct PDF calculation (exp of log normalization)
      */
     mutable double cached_normalization_factor_{1.0};
-    
+
     /**
      * Cached value of (ν+1)/2 for efficiency in PDF calculations
      */
     mutable double cached_half_nu_plus_one_{1.0};
-    
+
     /**
      * Cached value of ν/2 for efficiency
      */
     mutable double cached_half_nu_{0.5};
-    
+
     /**
      * Cached value of 1/σ for efficiency (multiply instead of divide)
      */
     mutable double cached_inv_scale_{1.0};
-    
+
     /**
      * Cached value of log(σ) for log probability calculations
      */
     mutable double cached_log_scale_{0.0};
-    
+
     void updateCache() const;
     static void validateParameters(double degrees_of_freedom);
 
@@ -100,7 +100,7 @@ public:
      * @throws std::invalid_argument if degrees_of_freedom <= 0
      */
     explicit StudentTDistribution(double degrees_of_freedom);
-    
+
     /**
      * @brief Constructor with degrees of freedom, location, and scale
      * @param degrees_of_freedom Degrees of freedom parameter (ν > 0)
@@ -110,10 +110,10 @@ public:
      */
     StudentTDistribution(double degrees_of_freedom, double location, double scale);
 
-    StudentTDistribution(const StudentTDistribution& other);
-    StudentTDistribution& operator=(const StudentTDistribution& other);
-    StudentTDistribution(StudentTDistribution&& other) noexcept;
-    StudentTDistribution& operator=(StudentTDistribution&& other) noexcept;
+    StudentTDistribution(const StudentTDistribution &other);
+    StudentTDistribution &operator=(const StudentTDistribution &other);
+    StudentTDistribution(StudentTDistribution &&other) noexcept;
+    StudentTDistribution &operator=(StudentTDistribution &&other) noexcept;
     ~StudentTDistribution() override = default;
 
     /**
@@ -127,9 +127,8 @@ public:
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
     [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     void fit(std::span<const double> data) override;
@@ -155,25 +154,25 @@ public:
      * @throws std::invalid_argument if degrees_of_freedom <= 0
      */
     void setDegreesOfFreedom(double degrees_of_freedom);
-    
+
     /**
      * @brief Get the location parameter
      * @return Location parameter (μ)
      */
     double getLocation() const { return location_; }
-    
+
     /**
      * @brief Set the location parameter
      * @param location New location parameter (μ)
      */
     void setLocation(double location) { location_ = location; }
-    
+
     /**
      * @brief Get the scale parameter
      * @return Scale parameter (σ)
      */
     double getScale() const { return scale_; }
-    
+
     /**
      * @brief Set the scale parameter
      * @param scale New scale parameter (σ > 0)
@@ -224,29 +223,29 @@ public:
      * @return StudentTDistribution object
      * @throws std::invalid_argument if string format is invalid
      */
-    static StudentTDistribution fromString(const std::string& str);
+    static StudentTDistribution fromString(const std::string &str);
 
     /**
      * @brief Equality comparison operator
      * @param other Other distribution to compare with
      * @return true if parameters are equal within tolerance
      */
-    bool operator==(const StudentTDistribution& other) const;
+    bool operator==(const StudentTDistribution &other) const;
 
     /**
      * @brief Inequality comparison operator
      * @param other Other distribution to compare with
      * @return true if parameters are not equal
      */
-    bool operator!=(const StudentTDistribution& other) const;
+    bool operator!=(const StudentTDistribution &other) const;
 
-friend std::istream& operator>>(std::istream& is, StudentTDistribution& distribution);
+    friend std::istream &operator>>(std::istream &is, StudentTDistribution &distribution);
 
 private:
-    static constexpr double PARAMETER_TOLERANCE = 1e-10;  ///< Tolerance for parameter comparison
-    static constexpr double MIN_DEGREES_OF_FREEDOM = 1e-10;  ///< Minimum degrees of freedom
-    static constexpr double MAX_DEGREES_OF_FREEDOM = 1e6;    ///< Maximum degrees of freedom for numerical stability
+    static constexpr double PARAMETER_TOLERANCE = 1e-10;    ///< Tolerance for parameter comparison
+    static constexpr double MIN_DEGREES_OF_FREEDOM = 1e-10; ///< Minimum degrees of freedom
+    static constexpr double MAX_DEGREES_OF_FREEDOM =
+        1e6; ///< Maximum degrees of freedom for numerical stability
 };
 
 } // namespace libhmm
-

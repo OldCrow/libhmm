@@ -35,32 +35,33 @@ private:
      * Degrees of freedom parameter k - must be positive
      */
     double degrees_of_freedom_{1.0};
-    
+
     /**
      * Cached value of log(Γ(k/2)) for efficiency in probability calculations
      */
     mutable double cached_log_gamma_half_k_{0.0};
-    
+
     /**
      * Cached log normalization constant: -k/2 * log(2) - log(Γ(k/2))
      */
     mutable double cached_log_normalization_{0.0};
-    
+
     /**
      * Cached value of (k/2 - 1) for efficiency in probability calculations
      */
     mutable double cached_half_k_minus_one_{0.0};
-    
+
     void updateCache() const noexcept {
         const double half_k = 0.5 * degrees_of_freedom_;
-        cached_log_gamma_half_k_  = std::lgamma(half_k);
-        cached_half_k_minus_one_  = half_k - 1.0;
+        cached_log_gamma_half_k_ = std::lgamma(half_k);
+        cached_half_k_minus_one_ = half_k - 1.0;
         cached_log_normalization_ = -half_k * std::log(2.0) - cached_log_gamma_half_k_;
         markCacheValid();
     }
 
     static void validateParameters(double degrees_of_freedom) {
-        if (std::isnan(degrees_of_freedom) || std::isinf(degrees_of_freedom) || degrees_of_freedom <= 0.0)
+        if (std::isnan(degrees_of_freedom) || std::isinf(degrees_of_freedom) ||
+            degrees_of_freedom <= 0.0)
             throw std::invalid_argument("Degrees of freedom must be a positive finite number");
     }
 
@@ -77,36 +78,36 @@ public:
         updateCache();
     }
 
-    ChiSquaredDistribution(const ChiSquaredDistribution& other)
+    ChiSquaredDistribution(const ChiSquaredDistribution &other)
         : DistributionBase{other}, degrees_of_freedom_{other.degrees_of_freedom_},
           cached_log_gamma_half_k_{other.cached_log_gamma_half_k_},
           cached_log_normalization_{other.cached_log_normalization_},
           cached_half_k_minus_one_{other.cached_half_k_minus_one_} {}
 
-    ChiSquaredDistribution& operator=(const ChiSquaredDistribution& other) {
+    ChiSquaredDistribution &operator=(const ChiSquaredDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            degrees_of_freedom_       = other.degrees_of_freedom_;
-            cached_log_gamma_half_k_  = other.cached_log_gamma_half_k_;
+            degrees_of_freedom_ = other.degrees_of_freedom_;
+            cached_log_gamma_half_k_ = other.cached_log_gamma_half_k_;
             cached_log_normalization_ = other.cached_log_normalization_;
-            cached_half_k_minus_one_  = other.cached_half_k_minus_one_;
+            cached_half_k_minus_one_ = other.cached_half_k_minus_one_;
         }
         return *this;
     }
 
-    ChiSquaredDistribution(ChiSquaredDistribution&& other) noexcept
+    ChiSquaredDistribution(ChiSquaredDistribution &&other) noexcept
         : DistributionBase{std::move(other)}, degrees_of_freedom_{other.degrees_of_freedom_},
           cached_log_gamma_half_k_{other.cached_log_gamma_half_k_},
           cached_log_normalization_{other.cached_log_normalization_},
           cached_half_k_minus_one_{other.cached_half_k_minus_one_} {}
 
-    ChiSquaredDistribution& operator=(ChiSquaredDistribution&& other) noexcept {
+    ChiSquaredDistribution &operator=(ChiSquaredDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            degrees_of_freedom_       = other.degrees_of_freedom_;
-            cached_log_gamma_half_k_  = other.cached_log_gamma_half_k_;
+            degrees_of_freedom_ = other.degrees_of_freedom_;
+            cached_log_gamma_half_k_ = other.cached_log_gamma_half_k_;
             cached_log_normalization_ = other.cached_log_normalization_;
-            cached_half_k_minus_one_  = other.cached_half_k_minus_one_;
+            cached_half_k_minus_one_ = other.cached_half_k_minus_one_;
         }
         return *this;
     }
@@ -124,9 +125,8 @@ public:
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
     [[nodiscard]] double getCumulativeProbability(double x) const noexcept;
 
     void fit(std::span<const double> data) override;
@@ -152,7 +152,7 @@ public:
      * @return Current degrees of freedom value
      */
     double getDegreesOfFreedom() const noexcept { return degrees_of_freedom_; }
-    
+
     /**
      * Sets the degrees of freedom parameter.
      * 
@@ -199,26 +199,27 @@ public:
      * @return ChiSquaredDistribution object
      * @throws std::invalid_argument if string format is invalid
      */
-    static ChiSquaredDistribution fromString(const std::string& str);
+    static ChiSquaredDistribution fromString(const std::string &str);
 
     /**
      * Equality comparison operator
      * @param other Other distribution to compare with
      * @return true if parameters are equal within tolerance
      */
-    bool operator==(const ChiSquaredDistribution& other) const;
+    bool operator==(const ChiSquaredDistribution &other) const;
 
     /**
      * Inequality comparison operator
      * @param other Other distribution to compare with
      * @return true if parameters are not equal
      */
-    bool operator!=(const ChiSquaredDistribution& other) const { return !(*this == other); }
+    bool operator!=(const ChiSquaredDistribution &other) const { return !(*this == other); }
 
 private:
-    static constexpr double PARAMETER_TOLERANCE = 1e-10;  ///< Tolerance for parameter comparison
-    static constexpr double MIN_DEGREES_OF_FREEDOM = 1e-10;  ///< Minimum degrees of freedom
-    static constexpr double MAX_DEGREES_OF_FREEDOM = 1e6;    ///< Maximum degrees of freedom for numerical stability
+    static constexpr double PARAMETER_TOLERANCE = 1e-10;    ///< Tolerance for parameter comparison
+    static constexpr double MIN_DEGREES_OF_FREEDOM = 1e-10; ///< Minimum degrees of freedom
+    static constexpr double MAX_DEGREES_OF_FREEDOM =
+        1e6; ///< Maximum degrees of freedom for numerical stability
 };
 
 /**
@@ -227,7 +228,7 @@ private:
  * @param dist Distribution to output
  * @return Reference to the output stream
  */
-std::ostream& operator<<(std::ostream& os, const ChiSquaredDistribution& dist);
+std::ostream &operator<<(std::ostream &os, const ChiSquaredDistribution &dist);
 
 /**
  * Stream input operator for Chi-squared distribution
@@ -235,7 +236,6 @@ std::ostream& operator<<(std::ostream& os, const ChiSquaredDistribution& dist);
  * @param dist Distribution to input
  * @return Reference to the input stream
  */
-std::istream& operator>>(std::istream& is, ChiSquaredDistribution& dist);
+std::istream &operator>>(std::istream &is, ChiSquaredDistribution &dist);
 
 } // namespace libhmm
-

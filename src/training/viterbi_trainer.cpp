@@ -13,33 +13,35 @@ namespace libhmm {
 // ---------------------------------------------------------------------------
 
 namespace training_presets {
-    TrainingConfig fast() noexcept    { return {1e-5, 100, 2, false}; }
-    TrainingConfig balanced() noexcept{ return {1e-6, 500, 3, false}; }
-    TrainingConfig precise() noexcept { return {1e-8, 2000, 5, false}; }
+TrainingConfig fast() noexcept {
+    return {1e-5, 100, 2, false};
+}
+TrainingConfig balanced() noexcept {
+    return {1e-6, 500, 3, false};
+}
+TrainingConfig precise() noexcept {
+    return {1e-8, 2000, 5, false};
+}
 } // namespace training_presets
 
 // ---------------------------------------------------------------------------
 // Constructor
 // ---------------------------------------------------------------------------
 
-ViterbiTrainer::ViterbiTrainer(Hmm& hmm, const ObservationLists& obsLists,
-                               TrainingConfig config)
-    : Trainer(hmm, obsLists)
-    , config_(config) {}
+ViterbiTrainer::ViterbiTrainer(Hmm &hmm, const ObservationLists &obsLists, TrainingConfig config)
+    : Trainer(hmm, obsLists), config_(config) {}
 
-ViterbiTrainer::ViterbiTrainer(Hmm* hmm, const ObservationLists& obsLists,
-                               TrainingConfig config)
-    : Trainer(hmm, obsLists)
-    , config_(config) {}
+ViterbiTrainer::ViterbiTrainer(Hmm *hmm, const ObservationLists &obsLists, TrainingConfig config)
+    : Trainer(hmm, obsLists), config_(config) {}
 
 // ---------------------------------------------------------------------------
 // train()
 // ---------------------------------------------------------------------------
 
 void ViterbiTrainer::train() {
-    converged_       = false;
+    converged_ = false;
     maxItersReached_ = false;
-    lastLogProb_     = -std::numeric_limits<double>::infinity();
+    lastLogProb_ = -std::numeric_limits<double>::infinity();
 
     std::deque<double> history;
 
@@ -62,7 +64,7 @@ void ViterbiTrainer::train() {
                 }
             }
             if (stable) {
-                converged_   = true;
+                converged_ = true;
                 lastLogProb_ = logProb;
                 return;
             }
@@ -79,7 +81,7 @@ void ViterbiTrainer::train() {
 // ---------------------------------------------------------------------------
 
 double ViterbiTrainer::runIteration() {
-    Hmm& hmm = hmm_ref_.get();
+    Hmm &hmm = hmm_ref_.get();
     const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
 
     Vector pi(N);
@@ -91,15 +93,17 @@ double ViterbiTrainer::runIteration() {
     double totalLogProb = 0.0;
     std::size_t validSeqs = 0;
 
-    for (const auto& obs : obsLists_) {
-        if (obs.size() == 0) continue;
+    for (const auto &obs : obsLists_) {
+        if (obs.size() == 0)
+            continue;
         try {
             ViterbiCalculator vc(hmm, obs);
             const double lp = vc.getLogProbability();
-            if (!std::isfinite(lp)) continue;
+            if (!std::isfinite(lp))
+                continue;
 
             totalLogProb += lp;
-            const StateSequence& seq = vc.getStateSequence();
+            const StateSequence &seq = vc.getStateSequence();
             const std::size_t T = obs.size();
 
             pi(static_cast<std::size_t>(seq(0))) += 1.0;
@@ -113,17 +117,22 @@ double ViterbiTrainer::runIteration() {
                 }
             }
             ++validSeqs;
-        } catch (...) { continue; }
+        } catch (...) {
+            continue;
+        }
     }
 
-    if (validSeqs == 0) return lastLogProb_;
+    if (validSeqs == 0)
+        return lastLogProb_;
 
     // Normalise pi
     {
         double piSum = 0.0;
-        for (std::size_t i = 0; i < N; ++i) piSum += pi(i);
+        for (std::size_t i = 0; i < N; ++i)
+            piSum += pi(i);
         if (piSum > 0.0) {
-            for (std::size_t i = 0; i < N; ++i) pi(i) /= piSum;
+            for (std::size_t i = 0; i < N; ++i)
+                pi(i) /= piSum;
         } else {
             for (std::size_t i = 0; i < N; ++i)
                 pi(i) = 1.0 / static_cast<double>(N);
@@ -134,9 +143,11 @@ double ViterbiTrainer::runIteration() {
     // Normalise transition rows
     for (std::size_t i = 0; i < N; ++i) {
         double rowSum = 0.0;
-        for (std::size_t j = 0; j < N; ++j) rowSum += trans(i, j);
+        for (std::size_t j = 0; j < N; ++j)
+            rowSum += trans(i, j);
         if (rowSum > 0.0) {
-            for (std::size_t j = 0; j < N; ++j) trans(i, j) /= rowSum;
+            for (std::size_t j = 0; j < N; ++j)
+                trans(i, j) /= rowSum;
         } else {
             for (std::size_t j = 0; j < N; ++j)
                 trans(i, j) = 1.0 / static_cast<double>(N);
@@ -151,8 +162,7 @@ double ViterbiTrainer::runIteration() {
             hmm.getDistribution(i).reset();
             continue;
         }
-        hmm.getDistribution(i).fit(
-            std::span<const double>(emisData[i].data(), M));
+        hmm.getDistribution(i).fit(std::span<const double>(emisData[i].data(), M));
     }
 
     return totalLogProb;

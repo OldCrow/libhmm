@@ -16,12 +16,15 @@ std::unique_ptr<Hmm> make_gaussian_hmm() {
     auto hmm = std::make_unique<Hmm>(2);
 
     Matrix trans(2, 2);
-    trans(0, 0) = 0.9; trans(0, 1) = 0.1;
-    trans(1, 0) = 0.1; trans(1, 1) = 0.9;
+    trans(0, 0) = 0.9;
+    trans(0, 1) = 0.1;
+    trans(1, 0) = 0.1;
+    trans(1, 1) = 0.9;
     hmm->setTrans(trans);
 
     Vector pi(2);
-    pi(0) = 0.5; pi(1) = 0.5;
+    pi(0) = 0.5;
+    pi(1) = 0.5;
     hmm->setPi(pi);
 
     hmm->setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
@@ -37,18 +40,28 @@ protected:
 
         // Observations tightly around state 0 mean
         obs_s0_ = ObservationSet(6);
-        obs_s0_(0) =  0.1; obs_s0_(1) = -0.2; obs_s0_(2) =  0.3;
-        obs_s0_(3) = -0.1; obs_s0_(4) =  0.2; obs_s0_(5) =  0.0;
+        obs_s0_(0) = 0.1;
+        obs_s0_(1) = -0.2;
+        obs_s0_(2) = 0.3;
+        obs_s0_(3) = -0.1;
+        obs_s0_(4) = 0.2;
+        obs_s0_(5) = 0.0;
 
         // Observations tightly around state 1 mean
         obs_s1_ = ObservationSet(6);
-        obs_s1_(0) =  9.9; obs_s1_(1) = 10.1; obs_s1_(2) =  9.8;
-        obs_s1_(3) = 10.2; obs_s1_(4) =  9.7; obs_s1_(5) = 10.3;
+        obs_s1_(0) = 9.9;
+        obs_s1_(1) = 10.1;
+        obs_s1_(2) = 9.8;
+        obs_s1_(3) = 10.2;
+        obs_s1_(4) = 9.7;
+        obs_s1_(5) = 10.3;
 
         // Mixed: first half near 0, second half near 10
         obs_mix_ = ObservationSet(10);
-        for (std::size_t i = 0; i < 5; ++i)  obs_mix_(i) = static_cast<double>(i) * 0.1;
-        for (std::size_t i = 5; i < 10; ++i) obs_mix_(i) = 10.0 + static_cast<double>(i - 5) * 0.1;
+        for (std::size_t i = 0; i < 5; ++i)
+            obs_mix_(i) = static_cast<double>(i) * 0.1;
+        for (std::size_t i = 5; i < 10; ++i)
+            obs_mix_(i) = 10.0 + static_cast<double>(i - 5) * 0.1;
     }
 
     std::unique_ptr<Hmm> hmm_;
@@ -128,7 +141,7 @@ TEST_F(ContinuousCalculatorTest, Viterbi_State1Observations_AssignedState1) {
 
 TEST_F(ContinuousCalculatorTest, ViterbiLogProbLEForwardBackward) {
     ForwardBackwardCalculator fbc(*hmm_, obs_mix_);
-    ViterbiCalculator        vc(*hmm_,  obs_mix_);
+    ViterbiCalculator vc(*hmm_, obs_mix_);
     // P(O|λ) >= P(O, q*|λ): FB total probability can never be less than best path.
     EXPECT_GE(fbc.getLogProbability(), vc.getLogProbability() - 1e-9);
 }
@@ -139,8 +152,10 @@ TEST_F(ContinuousCalculatorTest, ViterbiLogProbLEForwardBackward) {
 
 TEST_F(ContinuousCalculatorTest, LongSequence_NumericallyStable) {
     ObservationSet longObs(1000);
-    for (std::size_t t = 0; t <  500; ++t) longObs(t) =  0.0;
-    for (std::size_t t = 500; t < 1000; ++t) longObs(t) = 10.0;
+    for (std::size_t t = 0; t < 500; ++t)
+        longObs(t) = 0.0;
+    for (std::size_t t = 500; t < 1000; ++t)
+        longObs(t) = 10.0;
 
     EXPECT_NO_THROW({
         ForwardBackwardCalculator fbc(*hmm_, longObs);
@@ -149,7 +164,7 @@ TEST_F(ContinuousCalculatorTest, LongSequence_NumericallyStable) {
     });
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

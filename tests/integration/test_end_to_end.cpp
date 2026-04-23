@@ -29,21 +29,26 @@ std::unique_ptr<Hmm> make_casino_hmm() {
     auto hmm = std::make_unique<Hmm>(2);
 
     Matrix trans(2, 2);
-    trans(0, 0) = 0.95; trans(0, 1) = 0.05;
-    trans(1, 0) = 0.10; trans(1, 1) = 0.90;
+    trans(0, 0) = 0.95;
+    trans(0, 1) = 0.05;
+    trans(1, 0) = 0.10;
+    trans(1, 1) = 0.90;
     hmm->setTrans(trans);
 
     Vector pi(2);
-    pi(0) = 0.5; pi(1) = 0.5;
+    pi(0) = 0.5;
+    pi(1) = 0.5;
     hmm->setPi(pi);
 
     auto fair = std::make_unique<DiscreteDistribution>(6);
-    for (int i = 0; i < 6; ++i) fair->setProbability(i, 1.0 / 6.0);
+    for (int i = 0; i < 6; ++i)
+        fair->setProbability(i, 1.0 / 6.0);
     hmm->setDistribution(0, std::move(fair));
 
     auto loaded = std::make_unique<DiscreteDistribution>(6);
-    for (int i = 0; i < 5; ++i) loaded->setProbability(i, 0.1);
-    loaded->setProbability(5, 0.5);   // Face 6 (0-indexed as 5)
+    for (int i = 0; i < 5; ++i)
+        loaded->setProbability(i, 0.1);
+    loaded->setProbability(5, 0.5); // Face 6 (0-indexed as 5)
     hmm->setDistribution(1, std::move(loaded));
 
     return hmm;
@@ -57,7 +62,9 @@ std::unique_ptr<Hmm> make_casino_hmm() {
 TEST(CasinoEndToEnd, ShortSequence_ProbabilityBounded) {
     auto hmm = make_casino_hmm();
     ObservationSet obs(3);
-    obs(0) = 0; obs(1) = 1; obs(2) = 2;
+    obs(0) = 0;
+    obs(1) = 1;
+    obs(2) = 2;
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     EXPECT_GT(fbc.probability(), 0.0);
@@ -70,7 +77,8 @@ TEST(CasinoEndToEnd, ShortSequence_ProbabilityBounded) {
 TEST(CasinoEndToEnd, LongSequence_LogProbFinite) {
     auto hmm = make_casino_hmm();
     ObservationSet obs(100);
-    for (std::size_t i = 0; i < 100; ++i) obs(i) = static_cast<double>(i % 6);
+    for (std::size_t i = 0; i < 100; ++i)
+        obs(i) = static_cast<double>(i % 6);
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     EXPECT_TRUE(std::isfinite(fbc.getLogProbability()));
@@ -82,7 +90,8 @@ TEST(CasinoEndToEnd, LongSequence_LogProbFinite) {
 TEST(CasinoEndToEnd, LogConsistency) {
     auto hmm = make_casino_hmm();
     ObservationSet obs(10);
-    for (std::size_t i = 0; i < 10; ++i) obs(i) = static_cast<double>(i % 6);
+    for (std::size_t i = 0; i < 10; ++i)
+        obs(i) = static_cast<double>(i % 6);
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     EXPECT_NEAR(std::exp(fbc.getLogProbability()), fbc.probability(), 1e-12);
@@ -98,7 +107,8 @@ TEST(CasinoEndToEnd, AllSixes_PreferLoadedState) {
     // With 10 consecutive 6s the path should be predominantly state 1.
     auto hmm = make_casino_hmm();
     ObservationSet obs(10);
-    for (std::size_t i = 0; i < 10; ++i) obs(i) = 5;
+    for (std::size_t i = 0; i < 10; ++i)
+        obs(i) = 5;
 
     ViterbiCalculator vc(*hmm, obs);
     const auto seq = vc.decode();
@@ -106,9 +116,10 @@ TEST(CasinoEndToEnd, AllSixes_PreferLoadedState) {
 
     int loaded_count = 0;
     for (std::size_t i = 0; i < seq.size(); ++i) {
-        if (seq(i) == 1) ++loaded_count;
+        if (seq(i) == 1)
+            ++loaded_count;
     }
-    EXPECT_GT(loaded_count, 5);  // More than half assigned to loaded
+    EXPECT_GT(loaded_count, 5); // More than half assigned to loaded
 }
 
 TEST(CasinoEndToEnd, DiverseFaces_PreferFairState) {
@@ -116,7 +127,8 @@ TEST(CasinoEndToEnd, DiverseFaces_PreferFairState) {
     // no evidence for the loaded die.  Fair state should dominate.
     auto hmm = make_casino_hmm();
     ObservationSet obs(12);
-    for (std::size_t i = 0; i < 12; ++i) obs(i) = static_cast<double>(i % 6);  // One full cycle x2
+    for (std::size_t i = 0; i < 12; ++i)
+        obs(i) = static_cast<double>(i % 6); // One full cycle x2
 
     ViterbiCalculator vc(*hmm, obs);
     const auto seq = vc.decode();
@@ -124,18 +136,20 @@ TEST(CasinoEndToEnd, DiverseFaces_PreferFairState) {
 
     int fair_count = 0;
     for (std::size_t i = 0; i < seq.size(); ++i) {
-        if (seq(i) == 0) ++fair_count;
+        if (seq(i) == 0)
+            ++fair_count;
     }
-    EXPECT_GT(fair_count, 6);  // More than half assigned to fair
+    EXPECT_GT(fair_count, 6); // More than half assigned to fair
 }
 
 TEST(CasinoEndToEnd, ViterbiLE_ForwardBackward) {
     auto hmm = make_casino_hmm();
     ObservationSet obs(20);
-    for (std::size_t i = 0; i < 20; ++i) obs(i) = static_cast<double>(i % 6);
+    for (std::size_t i = 0; i < 20; ++i)
+        obs(i) = static_cast<double>(i % 6);
 
     ForwardBackwardCalculator fbc(*hmm, obs);
-    ViterbiCalculator        vc(*hmm,  obs);
+    ViterbiCalculator vc(*hmm, obs);
     EXPECT_GE(fbc.getLogProbability(), vc.getLogProbability() - 1e-9);
 }
 
@@ -149,16 +163,19 @@ TEST(CasinoEndToEnd, BaumWelch_ImprovesLogLikelihood) {
     ObservationLists obs;
     // Mix of sequences: one with many 6s (loaded) and one with diverse faces (fair)
     ObservationSet s1(30);
-    for (std::size_t i = 0; i < 15; ++i) s1(i) = static_cast<double>(i % 6);
-    for (std::size_t i = 15; i < 30; ++i) s1(i) = 5;
+    for (std::size_t i = 0; i < 15; ++i)
+        s1(i) = static_cast<double>(i % 6);
+    for (std::size_t i = 15; i < 30; ++i)
+        s1(i) = 5;
     obs.push_back(s1);
     ObservationSet s2(20);
-    for (std::size_t i = 0; i < 20; ++i) s2(i) = static_cast<double>(i % 6);
+    for (std::size_t i = 0; i < 20; ++i)
+        s2(i) = static_cast<double>(i % 6);
     obs.push_back(s2);
 
     auto compute_total_ll = [&]() {
         double ll = 0.0;
-        for (const auto& seq : obs) {
+        for (const auto &seq : obs) {
             ForwardBackwardCalculator fbc(*hmm, seq);
             ll += fbc.getLogProbability();
         }
@@ -167,7 +184,8 @@ TEST(CasinoEndToEnd, BaumWelch_ImprovesLogLikelihood) {
 
     const double ll_before = compute_total_ll();
     BaumWelchTrainer trainer(hmm.get(), obs);
-    for (int i = 0; i < 5; ++i) trainer.train();
+    for (int i = 0; i < 5; ++i)
+        trainer.train();
     const double ll_after = compute_total_ll();
 
     EXPECT_GE(ll_after, ll_before - 1e-6);
@@ -183,7 +201,8 @@ TEST(CasinoEndToEnd, TrainThenDecode_ValidPath) {
 
     ObservationLists obs;
     ObservationSet seq(15);
-    for (std::size_t i = 0; i < 15; ++i) seq(i) = static_cast<double>(i % 6);
+    for (std::size_t i = 0; i < 15; ++i)
+        seq(i) = static_cast<double>(i % 6);
     obs.push_back(seq);
 
     BaumWelchTrainer trainer(hmm.get(), obs);
@@ -206,25 +225,32 @@ TEST(CasinoEndToEnd, TrainThenDecode_ValidPath) {
 TEST(GaussianEndToEnd, TrainEvaluatePipeline) {
     Hmm hmm(2);
     Matrix trans(2, 2);
-    trans(0, 0) = 0.8; trans(0, 1) = 0.2;
-    trans(1, 0) = 0.2; trans(1, 1) = 0.8;
+    trans(0, 0) = 0.8;
+    trans(0, 1) = 0.2;
+    trans(1, 0) = 0.2;
+    trans(1, 1) = 0.8;
     hmm.setTrans(trans);
-    Vector pi(2); pi(0) = 0.5; pi(1) = 0.5;
+    Vector pi(2);
+    pi(0) = 0.5;
+    pi(1) = 0.5;
     hmm.setPi(pi);
     hmm.setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.5));
     hmm.setDistribution(1, std::make_unique<GaussianDistribution>(5.0, 1.5));
 
     ObservationLists obs;
     ObservationSet seq(40);
-    for (std::size_t i = 0; i < 20; ++i) seq(i) = static_cast<double>(i % 5) * 0.3;
-    for (std::size_t i = 20; i < 40; ++i) seq(i) = 5.0 + static_cast<double>(i % 5) * 0.3;
+    for (std::size_t i = 0; i < 20; ++i)
+        seq(i) = static_cast<double>(i % 5) * 0.3;
+    for (std::size_t i = 20; i < 40; ++i)
+        seq(i) = 5.0 + static_cast<double>(i % 5) * 0.3;
     obs.push_back(seq);
 
     ForwardBackwardCalculator fbc_before(hmm, seq);
     const double ll_before = fbc_before.getLogProbability();
 
     BaumWelchTrainer trainer(&hmm, obs);
-    for (int i = 0; i < 5; ++i) trainer.train();
+    for (int i = 0; i < 5; ++i)
+        trainer.train();
 
     ForwardBackwardCalculator fbc_after(hmm, seq);
     const double ll_after = fbc_after.getLogProbability();
@@ -234,7 +260,7 @@ TEST(GaussianEndToEnd, TrainEvaluatePipeline) {
     EXPECT_NO_THROW(hmm.validate());
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

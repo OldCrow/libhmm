@@ -33,32 +33,31 @@ struct NumericalAnalysisResult {
         cout << "  libhmm:     " << scientific << setprecision(15) << libhmm_value << endl;
         cout << "  HMMLib:     " << scientific << setprecision(15) << hmmlib_value << endl;
         cout << "  Abs diff:   " << scientific << setprecision(6) << absolute_difference << endl;
-        cout << "  Rel diff:   " << fixed << setprecision(6) << (relative_difference * 100) << "%" << endl;
+        cout << "  Rel diff:   " << fixed << setprecision(6) << (relative_difference * 100) << "%"
+             << endl;
         cout << endl;
     }
 };
 
 namespace {
 double log_sum_exp(double a, double b) {
-    if (!std::isfinite(a)) return b;
-    if (!std::isfinite(b)) return a;
+    if (!std::isfinite(a))
+        return b;
+    if (!std::isfinite(b))
+        return a;
     const double m = (a > b) ? a : b;
     return m + std::log(std::exp(a - m) + std::exp(b - m));
 }
-}
+} // namespace
 
 class NumericalAccuracyInvestigator {
 private:
     mt19937 gen;
     vector<double> initial_probs = {0.5, 0.5};
-    vector<vector<double>> transition_matrix = {
-        {0.95, 0.05},
-        {0.10, 0.90}
-    };
+    vector<vector<double>> transition_matrix = {{0.95, 0.05}, {0.10, 0.90}};
     vector<vector<double>> emission_matrix = {
         {1.0 / 6, 1.0 / 6, 1.0 / 6, 1.0 / 6, 1.0 / 6, 1.0 / 6},
-        {0.10, 0.10, 0.10, 0.10, 0.10, 0.50}
-    };
+        {0.10, 0.10, 0.10, 0.10, 0.10, 0.50}};
 
 public:
     NumericalAccuracyInvestigator() : gen(42) {}
@@ -92,14 +91,18 @@ public:
         for (int i = 0; i < 2; ++i) {
             auto discrete_dist = make_unique<libhmm::DiscreteDistribution>(6);
             for (int j = 0; j < 6; ++j) {
-                discrete_dist->setProbability(static_cast<libhmm::Observation>(j), emission_matrix[i][j]);
+                discrete_dist->setProbability(static_cast<libhmm::Observation>(j),
+                                              emission_matrix[i][j]);
             }
             hmm->setDistribution(static_cast<size_t>(i), std::move(discrete_dist));
         }
 
-        auto pi_ptr = boost::shared_ptr<hmmlib::HMMVector<double>>(new hmmlib::HMMVector<double>(2));
-        auto T_ptr = boost::shared_ptr<hmmlib::HMMMatrix<double>>(new hmmlib::HMMMatrix<double>(2, 2));
-        auto E_ptr = boost::shared_ptr<hmmlib::HMMMatrix<double>>(new hmmlib::HMMMatrix<double>(6, 2));
+        auto pi_ptr =
+            boost::shared_ptr<hmmlib::HMMVector<double>>(new hmmlib::HMMVector<double>(2));
+        auto T_ptr =
+            boost::shared_ptr<hmmlib::HMMMatrix<double>>(new hmmlib::HMMMatrix<double>(2, 2));
+        auto E_ptr =
+            boost::shared_ptr<hmmlib::HMMMatrix<double>>(new hmmlib::HMMMatrix<double>(6, 2));
 
         for (int i = 0; i < 2; ++i) {
             (*pi_ptr)(i) = initial_probs[i];
@@ -149,17 +152,12 @@ public:
 
             double abs_diff = abs(libhmm_likelihood - hmmlib_likelihood);
             const double denom = (abs(hmmlib_likelihood) > numeric_limits<double>::min())
-                ? abs(hmmlib_likelihood)
-                : 1.0;
+                                     ? abs(hmmlib_likelihood)
+                                     : 1.0;
             double rel_diff = abs_diff / denom;
 
-            NumericalAnalysisResult result = {
-                "Length " + to_string(length),
-                libhmm_likelihood,
-                hmmlib_likelihood,
-                abs_diff,
-                rel_diff
-            };
+            NumericalAnalysisResult result = {"Length " + to_string(length), libhmm_likelihood,
+                                              hmmlib_likelihood, abs_diff, rel_diff};
 
             result.print();
             results.push_back(result);
@@ -168,7 +166,7 @@ public:
         cout << "TREND ANALYSIS:" << endl;
         cout << "===============" << endl;
         cout << "Length\t\tRel Error (%)" << endl;
-        for (const auto& result : results) {
+        for (const auto &result : results) {
             cout << result.description << "\t\t" << fixed << setprecision(6)
                  << (result.relative_difference * 100) << "%" << endl;
         }
@@ -195,7 +193,7 @@ public:
 
         cout << "=== libhmm canonical ForwardBackwardCalculator ===" << endl;
         libhmm::ForwardBackwardCalculator libhmm_calc(libhmm_hmm.get(), libhmm_obs);
-        const auto& libhmm_log_forward = libhmm_calc.getLogForwardVariables();
+        const auto &libhmm_log_forward = libhmm_calc.getLogForwardVariables();
         double libhmm_log_prob = libhmm_calc.getLogProbability();
 
         cout << "Log-forward variables:" << endl;
@@ -206,7 +204,8 @@ public:
             }
             cout << endl;
         }
-        cout << "Log probability: " << scientific << setprecision(15) << libhmm_log_prob << endl << endl;
+        cout << "Log probability: " << scientific << setprecision(15) << libhmm_log_prob << endl
+             << endl;
 
         cout << "=== HMMLib calculator ===" << endl;
         hmmlib::HMMMatrix<double> F(sequence.size(), 2);
@@ -229,26 +228,27 @@ public:
             cout << scientific << setprecision(6) << scales(t) << " ";
         }
         cout << endl;
-        cout << "Log probability: " << scientific << setprecision(15) << hmmlib_log_prob << endl << endl;
+        cout << "Log probability: " << scientific << setprecision(15) << hmmlib_log_prob << endl
+             << endl;
 
         cout << "=== Step-by-step comparison (normalized per time step) ===" << endl;
         for (size_t t = 0; t < sequence.size(); ++t) {
             const double lse = log_sum_exp(libhmm_log_forward(t, 0), libhmm_log_forward(t, 1));
             for (size_t s = 0; s < 2; ++s) {
                 const double libhmm_norm_log = libhmm_log_forward(t, s) - lse;
-                const double hmmlib_norm_log = (F(t, s) > 0.0)
-                    ? std::log(F(t, s))
-                    : -numeric_limits<double>::infinity();
+                const double hmmlib_norm_log =
+                    (F(t, s) > 0.0) ? std::log(F(t, s)) : -numeric_limits<double>::infinity();
                 const double diff = abs(libhmm_norm_log - hmmlib_norm_log);
-                cout << "NormLogF[" << t << "," << s << "] diff: "
-                     << scientific << setprecision(3) << diff << endl;
+                cout << "NormLogF[" << t << "," << s << "] diff: " << scientific << setprecision(3)
+                     << diff << endl;
             }
         }
 
         double final_diff = abs(libhmm_log_prob - hmmlib_log_prob);
         double final_rel_diff = final_diff / max(abs(hmmlib_log_prob), 1.0);
-        cout << "Final log-prob diff: " << scientific << setprecision(6) << final_diff
-             << " (" << fixed << setprecision(6) << (final_rel_diff * 100) << "%)" << endl << endl;
+        cout << "Final log-prob diff: " << scientific << setprecision(6) << final_diff << " ("
+             << fixed << setprecision(6) << (final_rel_diff * 100) << "%)" << endl
+             << endl;
     }
 
     void investigateScalingDifferences() {
@@ -281,11 +281,11 @@ public:
 
         cout << "=== ForwardBackward probability() cross-check ===" << endl;
         const double fb_prob = fb_ptr.probability();
-        const double fb_log_from_prob = (fb_prob > 0.0)
-            ? log(fb_prob)
-            : -numeric_limits<double>::infinity();
+        const double fb_log_from_prob =
+            (fb_prob > 0.0) ? log(fb_prob) : -numeric_limits<double>::infinity();
         cout << "Raw probability: " << scientific << setprecision(15) << fb_prob << endl;
-        cout << "Log result: " << scientific << setprecision(15) << fb_log_from_prob << endl << endl;
+        cout << "Log result: " << scientific << setprecision(15) << fb_log_from_prob << endl
+             << endl;
 
         cout << "=== ViterbiCalculator ===" << endl;
         libhmm::ViterbiCalculator viterbi(libhmm_hmm.get(), libhmm_obs);
@@ -304,18 +304,16 @@ public:
         cout << "Result: " << scientific << setprecision(15) << hmmlib_result << endl << endl;
 
         cout << "=== Comparison ===" << endl;
-        vector<pair<string, double>> results = {
-            {"ForwardBackward (ptr)", fb_ptr_result},
-            {"ForwardBackward (ref)", fb_ref_result},
-            {"ForwardBackward log(prob)", fb_log_from_prob},
-            {"Viterbi", viterbi_result}
-        };
+        vector<pair<string, double>> results = {{"ForwardBackward (ptr)", fb_ptr_result},
+                                                {"ForwardBackward (ref)", fb_ref_result},
+                                                {"ForwardBackward log(prob)", fb_log_from_prob},
+                                                {"Viterbi", viterbi_result}};
 
-        for (const auto& result : results) {
+        for (const auto &result : results) {
             const double diff = abs(result.second - hmmlib_result);
             const double rel_diff = diff / max(abs(hmmlib_result), 1.0);
-            cout << result.first << " vs HMMLib: " << scientific << setprecision(6) << diff
-                 << " (" << fixed << setprecision(6) << (rel_diff * 100) << "%)" << endl;
+            cout << result.first << " vs HMMLib: " << scientific << setprecision(6) << diff << " ("
+                 << fixed << setprecision(6) << (rel_diff * 100) << "%)" << endl;
         }
     }
 };

@@ -14,20 +14,20 @@ namespace libhmm {
  * convergenceWindow consecutive iterations.
  */
 struct TrainingConfig {
-    double      convergenceTolerance{1e-6};
+    double convergenceTolerance{1e-6};
     std::size_t maxIterations{500};
     std::size_t convergenceWindow{3};
-    bool        enableProgressReporting{false};
+    bool enableProgressReporting{false};
 };
 
 /// Named preset configurations for common training scenarios.
 namespace training_presets {
-    /// Fast convergence, loose tolerance — suitable for initialisation.
-    [[nodiscard]] TrainingConfig fast() noexcept;
-    /// Default balanced settings.
-    [[nodiscard]] TrainingConfig balanced() noexcept;
-    /// Tight tolerance for high-accuracy offline training.
-    [[nodiscard]] TrainingConfig precise() noexcept;
+/// Fast convergence, loose tolerance — suitable for initialisation.
+[[nodiscard]] TrainingConfig fast() noexcept;
+/// Default balanced settings.
+[[nodiscard]] TrainingConfig balanced() noexcept;
+/// Tight tolerance for high-accuracy offline training.
+[[nodiscard]] TrainingConfig precise() noexcept;
 } // namespace training_presets
 
 /**
@@ -43,28 +43,26 @@ namespace training_presets {
  */
 class ViterbiTrainer : public Trainer {
 public:
-    explicit ViterbiTrainer(Hmm& hmm, const ObservationLists& obsLists,
-                            TrainingConfig config = {});
-    explicit ViterbiTrainer(Hmm* hmm, const ObservationLists& obsLists,
-                            TrainingConfig config = {});
+    explicit ViterbiTrainer(Hmm &hmm, const ObservationLists &obsLists, TrainingConfig config = {});
+    explicit ViterbiTrainer(Hmm *hmm, const ObservationLists &obsLists, TrainingConfig config = {});
     ~ViterbiTrainer() override = default;
 
     void train() override;
 
     /// True if the last train() call terminated via convergence criterion.
-    [[nodiscard]] bool hasConverged()          const noexcept { return converged_; }
+    [[nodiscard]] bool hasConverged() const noexcept { return converged_; }
     /// True if the last train() call exhausted maxIterations.
-    [[nodiscard]] bool reachedMaxIterations()  const noexcept { return maxItersReached_; }
+    [[nodiscard]] bool reachedMaxIterations() const noexcept { return maxItersReached_; }
     /// Total log-probability from the final iteration.
     [[nodiscard]] double getLastLogProbability() const noexcept { return lastLogProb_; }
 
-    [[nodiscard]] const TrainingConfig& getConfig() const noexcept { return config_; }
-    void setConfig(const TrainingConfig& config) { config_ = config; }
+    [[nodiscard]] const TrainingConfig &getConfig() const noexcept { return config_; }
+    void setConfig(const TrainingConfig &config) { config_ = config; }
 
 private:
     TrainingConfig config_;
-    bool   converged_{false};
-    bool   maxItersReached_{false};
+    bool converged_{false};
+    bool maxItersReached_{false};
     double lastLogProb_{-std::numeric_limits<double>::infinity()};
 
     /// Run one Viterbi iteration; returns total log-probability over all sequences.

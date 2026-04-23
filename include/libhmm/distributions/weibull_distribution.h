@@ -4,7 +4,7 @@
 #include "libhmm/common/common.h"
 #include <span>
 
-namespace libhmm{
+namespace libhmm {
 
 /**
  * Weibull distribution for reliability analysis and survival modeling.
@@ -29,8 +29,7 @@ namespace libhmm{
  * - Weather modeling (wind speeds)
  * - Materials science (strength of materials)
  */
-class WeibullDistribution : public DistributionBase
-{   
+class WeibullDistribution : public DistributionBase {
 private:
     /**
      * Shape parameter k - must be positive
@@ -48,27 +47,27 @@ private:
      * Cached value of log(k) for efficiency in probability calculations
      */
     mutable double logK_{0.0};
-    
+
     /**
      * Cached value of log(λ) for efficiency in probability calculations
      */
     mutable double logLambda_{0.0};
-    
+
     /**
      * Cached value of (k-1) for efficiency in probability calculations
      */
     mutable double kMinus1_{0.0};
-    
+
     /**
      * Cached value of 1/λ for efficiency (multiply instead of divide)
      */
     mutable double invLambda_{1.0};
-    
+
     /**
      * Cached value of k/λ for PDF normalization
      */
     mutable double kOverLambda_{1.0};
-    
+
     void updateCache() const noexcept {
         logK_ = std::log(k_);
         logLambda_ = std::log(lambda_);
@@ -77,7 +76,7 @@ private:
         kOverLambda_ = k_ * invLambda_;
         markCacheValid();
     }
-    
+
     /**
      * Validates parameters for the Weibull distribution
      * @param k Shape parameter (must be positive and finite)
@@ -93,8 +92,7 @@ private:
         }
     }
 
-    friend std::istream& operator>>(std::istream& is,
-            libhmm::WeibullDistribution& distribution);
+    friend std::istream &operator>>(std::istream &is, libhmm::WeibullDistribution &distribution);
 
 public:
     /**
@@ -104,8 +102,7 @@ public:
      * @param lambda Scale parameter (must be positive)
      * @throws std::invalid_argument if parameters are not positive finite numbers
      */
-    WeibullDistribution(double k = 1.0, double lambda = 1.0)
-        : k_{k}, lambda_{lambda} {
+    WeibullDistribution(double k = 1.0, double lambda = 1.0) : k_{k}, lambda_{lambda} {
         validateParameters(k, lambda);
         updateCache();
     }
@@ -113,41 +110,49 @@ public:
     /**
      * Copy constructor
      */
-    WeibullDistribution(const WeibullDistribution& other)
-        : DistributionBase{other}, k_{other.k_}, lambda_{other.lambda_},
-          logK_{other.logK_}, logLambda_{other.logLambda_}, kMinus1_{other.kMinus1_},
-          invLambda_{other.invLambda_}, kOverLambda_{other.kOverLambda_} {}
-    
+    WeibullDistribution(const WeibullDistribution &other)
+        : DistributionBase{other}, k_{other.k_}, lambda_{other.lambda_}, logK_{other.logK_},
+          logLambda_{other.logLambda_}, kMinus1_{other.kMinus1_}, invLambda_{other.invLambda_},
+          kOverLambda_{other.kOverLambda_} {}
+
     /**
      * Copy assignment operator
      */
-    WeibullDistribution& operator=(const WeibullDistribution& other) {
+    WeibullDistribution &operator=(const WeibullDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            k_ = other.k_; lambda_ = other.lambda_;
-            logK_ = other.logK_; logLambda_ = other.logLambda_; kMinus1_ = other.kMinus1_;
-            invLambda_ = other.invLambda_; kOverLambda_ = other.kOverLambda_;
+            k_ = other.k_;
+            lambda_ = other.lambda_;
+            logK_ = other.logK_;
+            logLambda_ = other.logLambda_;
+            kMinus1_ = other.kMinus1_;
+            invLambda_ = other.invLambda_;
+            kOverLambda_ = other.kOverLambda_;
         }
         return *this;
     }
-    
+
     /**
      * Move constructor
      */
-    WeibullDistribution(WeibullDistribution&& other) noexcept
+    WeibullDistribution(WeibullDistribution &&other) noexcept
         : DistributionBase{std::move(other)}, k_{other.k_}, lambda_{other.lambda_},
           logK_{other.logK_}, logLambda_{other.logLambda_}, kMinus1_{other.kMinus1_},
           invLambda_{other.invLambda_}, kOverLambda_{other.kOverLambda_} {}
-    
+
     /**
      * Move assignment operator
      */
-    WeibullDistribution& operator=(WeibullDistribution&& other) noexcept {
+    WeibullDistribution &operator=(WeibullDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            k_ = other.k_; lambda_ = other.lambda_;
-            logK_ = other.logK_; logLambda_ = other.logLambda_; kMinus1_ = other.kMinus1_;
-            invLambda_ = other.invLambda_; kOverLambda_ = other.kOverLambda_;
+            k_ = other.k_;
+            lambda_ = other.lambda_;
+            logK_ = other.logK_;
+            logLambda_ = other.logLambda_;
+            kMinus1_ = other.kMinus1_;
+            invLambda_ = other.invLambda_;
+            kOverLambda_ = other.kOverLambda_;
         }
         return *this;
     }
@@ -165,9 +170,8 @@ public:
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
 
     /** MOM fit using coefficient of variation to estimate k, then λ = mean / Γ(1+1/k). */
     void fit(std::span<const double> data) override;
@@ -189,7 +193,7 @@ public:
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
-    
+
     /**
      * Computes the cumulative distribution function (CDF) for the Weibull distribution.
      * 
@@ -197,14 +201,14 @@ public:
      * @return Cumulative probability P(X ≤ x), or 0.0 if x is negative
      */
     [[nodiscard]] double CDF(double x) const noexcept;
-    
+
     /**
      * Equality comparison operator with tolerance for floating-point comparison.
      * 
      * @param other Distribution to compare with
      * @return true if distributions have the same parameters within tolerance
      */
-    bool operator==(const WeibullDistribution& other) const noexcept;
+    bool operator==(const WeibullDistribution &other) const noexcept;
 
     /**
      * Gets the shape parameter k.
@@ -212,7 +216,7 @@ public:
      * @return Current k value
      */
     double getK() const noexcept { return k_; }
-    
+
     /**
      * Sets the shape parameter k.
      * 
@@ -231,7 +235,7 @@ public:
      * @return Current lambda value
      */
     double getLambda() const noexcept { return lambda_; }
-    
+
     /**
      * Sets the scale parameter λ (lambda).
      * 
@@ -243,36 +247,34 @@ public:
         lambda_ = lambda;
         invalidateCache();
     }
-    
+
     /**
      * Gets the mean of the distribution.
      * For Weibull(k, λ), mean = λ * Γ(1 + 1/k)
      * 
      * @return Mean value
      */
-    double getMean() const noexcept { 
-        return lambda_ * std::exp(std::lgamma(1.0 + 1.0/k_));
-    }
-    
+    double getMean() const noexcept { return lambda_ * std::exp(std::lgamma(1.0 + 1.0 / k_)); }
+
     /**
      * Gets the variance of the distribution.
      * For Weibull(k, λ), variance = λ² * [Γ(1 + 2/k) - (Γ(1 + 1/k))²]
      * 
      * @return Variance value
      */
-    double getVariance() const noexcept { 
-        double gamma1 = std::exp(std::lgamma(1.0 + 1.0/k_));
-        double gamma2 = std::exp(std::lgamma(1.0 + 2.0/k_));
+    double getVariance() const noexcept {
+        double gamma1 = std::exp(std::lgamma(1.0 + 1.0 / k_));
+        double gamma2 = std::exp(std::lgamma(1.0 + 2.0 / k_));
         return lambda_ * lambda_ * (gamma2 - gamma1 * gamma1);
     }
-    
+
     /**
      * Gets the standard deviation of the distribution.
      * 
      * @return Standard deviation
      */
     double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
-    
+
     /**
      * Gets the scale parameter (alternative name for lambda).
      * This is sometimes called the "characteristic life" in reliability contexts.
@@ -280,7 +282,7 @@ public:
      * @return Scale parameter value
      */
     double getScale() const noexcept { return lambda_; }
-    
+
     /**
      * Gets the shape parameter (alternative name for k).
      * This is sometimes called the "Weibull modulus" in reliability contexts.
@@ -293,12 +295,11 @@ public:
 /**
  * Stream output operator for Weibull distribution.
  */
-std::ostream& operator<<(std::ostream& os, const libhmm::WeibullDistribution& distribution);
+std::ostream &operator<<(std::ostream &os, const libhmm::WeibullDistribution &distribution);
 
 /**
  * Stream input operator for Weibull distribution.
  */
-std::istream& operator>>(std::istream& is, libhmm::WeibullDistribution& distribution);
+std::istream &operator>>(std::istream &is, libhmm::WeibullDistribution &distribution);
 
 } // namespace libhmm
-

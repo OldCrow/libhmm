@@ -7,13 +7,11 @@
 #include "libhmm/common/common.h"
 #include "libhmm/training/trainer.h"
 
-namespace libhmm
-{
+namespace libhmm {
 
 /// Cluster bookkeeping used by segmental k-means training.
 /// Manages the mapping between observations and cluster assignments.
-class Clusters
-{
+class Clusters {
 private:
     class Value {
     private:
@@ -23,13 +21,9 @@ private:
         Value() noexcept : clusterNb_{0} {}
         explicit Value(std::size_t clusterNb) noexcept : clusterNb_{clusterNb} {}
 
-        void setClusterNb(std::size_t clusterNb) noexcept {
-            clusterNb_ = clusterNb;
-        }
+        void setClusterNb(std::size_t clusterNb) noexcept { clusterNb_ = clusterNb; }
 
-        std::size_t getClusterNb() const noexcept {
-            return clusterNb_;
-        }
+        std::size_t getClusterNb() const noexcept { return clusterNb_; }
     };
 
     std::map<std::size_t, Value> clustersHash_;
@@ -37,14 +31,14 @@ private:
 
 public:
     Clusters() = default;
-    Clusters(std::size_t k, const ObservationSet& observations);
+    Clusters(std::size_t k, const ObservationSet &observations);
 
     bool inCluster(std::size_t observation, std::size_t clusterNb) const {
         return clusterNumber(observation) == clusterNb;
     }
 
     std::size_t clusterNumber(std::size_t observation) const;
-    const std::vector<std::size_t>& cluster(std::size_t clusterNb) const;
+    const std::vector<std::size_t> &cluster(std::size_t clusterNb) const;
     void remove(std::size_t observation, std::size_t clusterNb);
     void put(std::size_t observation, std::size_t clusterNb);
     std::size_t size() const noexcept { return clusters_.size(); }
@@ -57,13 +51,12 @@ public:
 /// decoding and parameters are re-estimated from those assignments directly.
 /// It is often useful for initialization or approximate training before further
 /// Baum-Welch refinement on suitable problems.
-class SegmentalKMeansTrainer : public Trainer
-{
+class SegmentalKMeansTrainer : public Trainer {
 private:
     bool terminated_{false};
     Clusters clusters_;
 
-    ObservationSet flattenObservationLists(const ObservationLists& observationLists);
+    ObservationSet flattenObservationLists(const ObservationLists &observationLists);
     void iterate();
     void learnPi();
     void learnTrans();
@@ -72,13 +65,11 @@ private:
     void validateDiscreteDistributions() const;
 
 public:
-    SegmentalKMeansTrainer(Hmm& hmm, const ObservationLists& obsLists)
-        : Trainer(hmm, obsLists) {
+    SegmentalKMeansTrainer(Hmm &hmm, const ObservationLists &obsLists) : Trainer(hmm, obsLists) {
         validateDiscreteDistributions();
     }
 
-    SegmentalKMeansTrainer(Hmm* hmm, const ObservationLists& obsLists)
-        : Trainer(hmm, obsLists) {
+    SegmentalKMeansTrainer(Hmm *hmm, const ObservationLists &obsLists) : Trainer(hmm, obsLists) {
         validateDiscreteDistributions();
     }
 
@@ -86,9 +77,7 @@ public:
 
     void train() override;
 
-    bool isTerminated() const noexcept {
-        return terminated_;
-    }
+    bool isTerminated() const noexcept { return terminated_; }
 }; // class SegmentalKMeansTrainer
 
-} // namespace
+} // namespace libhmm

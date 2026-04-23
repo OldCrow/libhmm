@@ -26,16 +26,20 @@ static std::unique_ptr<Hmm> make_volatility_hmm() {
 
     // Regime transition: low-vol is persistent, high-vol is transient
     Matrix trans(2, 2);
-    trans(0, 0) = 0.92; trans(0, 1) = 0.08;  // Low-vol: mostly stays
-    trans(1, 0) = 0.30; trans(1, 1) = 0.70;  // High-vol: mean-reverts faster
+    trans(0, 0) = 0.92;
+    trans(0, 1) = 0.08; // Low-vol: mostly stays
+    trans(1, 0) = 0.30;
+    trans(1, 1) = 0.70; // High-vol: mean-reverts faster
     hmm->setTrans(trans);
 
-    Vector pi(2); pi(0) = 0.70; pi(1) = 0.30;
+    Vector pi(2);
+    pi(0) = 0.70;
+    pi(1) = 0.30;
     hmm->setPi(pi);
 
     // Student's t: heavier tails than Gaussian
     hmm->setDistribution(0, std::make_unique<StudentTDistribution>(10.0, 0.0, 0.5));
-    hmm->setDistribution(1, std::make_unique<StudentTDistribution>( 3.0, 0.0, 2.0));
+    hmm->setDistribution(1, std::make_unique<StudentTDistribution>(3.0, 0.0, 2.0));
     return hmm;
 }
 
@@ -59,9 +63,10 @@ int main() {
 
     // Stress period (high-vol: fat-tail returns)
     ObservationSet stress(15);
-    double fat_tail_data[] = {0.4, -2.1, 1.8, -3.5, 0.7, 2.9, -1.6, 0.3,
-                              -4.2, 1.1, 3.3, -0.8, 2.0, -1.9, 0.5};
-    for (std::size_t i = 0; i < 15; ++i) stress(i) = fat_tail_data[i];
+    double fat_tail_data[] = {0.4,  -2.1, 1.8, -3.5, 0.7, 2.9,  -1.6, 0.3,
+                              -4.2, 1.1,  3.3, -0.8, 2.0, -1.9, 0.5};
+    for (std::size_t i = 0; i < 15; ++i)
+        stress(i) = fat_tail_data[i];
     obs.push_back(stress);
 
     // Recovery (mixed)
@@ -75,7 +80,8 @@ int main() {
     // -------------------------------------------------------------------------
     std::cout << "Training with Baum-Welch (5 iterations)...\n";
     BaumWelchTrainer trainer(hmm.get(), obs);
-    for (int i = 0; i < 5; ++i) trainer.train();
+    for (int i = 0; i < 5; ++i)
+        trainer.train();
 
     std::cout << "Trained model:\n" << *hmm << "\n";
 
@@ -97,7 +103,8 @@ int main() {
     // Count high-vol assignments
     int high_vol = 0;
     for (std::size_t t = 0; t < path.size(); ++t)
-        if (path(t) == 1) ++high_vol;
+        if (path(t) == 1)
+            ++high_vol;
     std::cout << "  High-volatility steps: " << high_vol << " / " << path.size() << "\n";
     std::cout << "  (expect majority in high-vol during stress period)\n";
 

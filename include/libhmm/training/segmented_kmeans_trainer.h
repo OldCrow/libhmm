@@ -3,6 +3,5 @@
 #include "libhmm/training/segmental_kmeans_trainer.h"
 
 namespace libhmm {
-    using SegmentedKMeansTrainer = SegmentalKMeansTrainer;
+using SegmentedKMeansTrainer = SegmentalKMeansTrainer;
 } // namespace libhmm
-
