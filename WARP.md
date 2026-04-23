@@ -7,9 +7,8 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 ## Current Status
 
 **Version**: v3.0.0-alpha on `main`. Tag pushed; GitHub Release published.
-**Tests**: 35/35 canonical tests passing (`ctest -LE known_broken`).
-**Known failure**: `test_xml_file_io` — pre-existing Windows file-system error handling bug, not a refactor regression.
-**Active phase**: Post-Phase 5 (CI tooling; benchmarks on macOS).
+**Tests**: 36/36 passing (`ctest`). No `known_broken` labels remain.
+**Active phase**: Complete. All phases through Post-Phase 5 (CI/tooling, benchmarks) are done.
 
 See the Warp plan artifact **"libhmm Modernization: Architecture & Refactoring Plan"** for the full roadmap.
 
@@ -84,13 +83,15 @@ benchmarks/         # Comparative benchmarks (requires external HMM libs — def
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push to `main` and `refactor/modern-architecture`.
+`.github/workflows/ci.yml` runs on every push to `main`.
 
 | Job | Runner | Compiler | Notes |
 |---|---|---|---|
-| Linux | ubuntu-latest | GCC | Release, `ctest -LE known_broken` |
-| macOS | macos-latest | AppleClang | Release, `ctest -LE known_broken` |
-| Windows | windows-latest | MSVC | Release, `ctest -LE known_broken` |
+| Linux / GCC | ubuntu-latest | GCC | Release, `ctest` |
+| Linux / Clang | ubuntu-latest | Clang | Release, `ctest` |
+| macOS | macos-latest | AppleClang | Release, `ctest` |
+| Windows | windows-latest | MSVC | Release, `ctest` |
+| Lint | ubuntu-latest | — | clang-format dry-run + cppcheck (warning-only) |
 
 GTest is fetched via `FetchContent` if not found locally — no vcpkg required on CI.
 
@@ -117,14 +118,11 @@ cmake --build "$repo\build" --config Release --parallel 4
 GTest is compiled from source via FetchContent — no DLL copying required.
 
 ```powershell
-# Standard run (mirrors CI — excludes known_broken)
+# Standard run (mirrors CI)
 ctest --test-dir C:\Users\gdwol\Development\libhmm\build -C Release `
-      --parallel 4 -LE known_broken --output-on-failure
+      --parallel 4 --output-on-failure
 
-# Run all tests including known_broken
-ctest --test-dir C:\Users\gdwol\Development\libhmm\build -C Release --parallel 4
-
-# Custom targets (check = correctness suite, excludes known_broken)
+# Custom targets
 cmake --build C:\Users\gdwol\Development\libhmm\build --target check
 ```
 
@@ -153,8 +151,7 @@ CRLF: `.gitattributes` enforces LF. CRLF warnings on `git add` are normal.
 - Homebrew: `/opt/homebrew` (Apple Silicon) or `/usr/local` (Intel)
 - SIMD: `-march=native` automatically selects NEON on arm64, AVX/AVX2 on Intel
 - Configure: `cmake -S libhmm -B libhmm/build`
-- Tests: `ctest --test-dir libhmm/build -LE known_broken --parallel 4`
-- `test_xml_file_io` passes on macOS (it is a Windows-specific known_broken failure)
+- Tests: `ctest --test-dir libhmm/build --parallel 4`
 
 ---
 
