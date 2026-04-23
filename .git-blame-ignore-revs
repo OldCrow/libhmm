@@ -1,0 +1,6 @@
+# Commits to ignore in git blame (pure formatting, no semantic changes).
+# Configure once per clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: bulk reformat all source files with clang-format (2026-04-23)
+7221753
