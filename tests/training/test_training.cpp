@@ -83,13 +83,13 @@ protected:
         
         ObservationSet seq1(10);
         for (std::size_t i = 0; i < seq1.size(); ++i) {
-            seq1(i) = i % 6; // Cycle through die faces
+            seq1(i) = static_cast<double>(i % 6); // Cycle through die faces
         }
         discreteObsLists_.push_back(seq1);
         
         ObservationSet seq2(8);
         for (std::size_t i = 0; i < seq2.size(); ++i) {
-            seq2(i) = (i + 2) % 6;
+            seq2(i) = static_cast<double>((i + 2) % 6);
         }
         discreteObsLists_.push_back(seq2);
         
@@ -171,9 +171,9 @@ TEST_F(TrainingTest, ViterbiTrainerNullHmmThrows) {
 TEST_F(TrainingTest, ViterbiTrainerBasicFunctionality) {
     ViterbiTrainer trainer(gaussianHmm_.get(), gaussianObsLists_);
     
-    // Should not throw on construction
-    EXPECT_NO_THROW(trainer.getHmm());
-    EXPECT_NO_THROW(trainer.getObservationLists());
+    // Should be properly constructed and return correct HMM/obs references
+    EXPECT_EQ(&trainer.getHmm(), gaussianHmm_.get());
+    EXPECT_FALSE(trainer.getObservationLists().empty());
 }
 
 // Segmental K-Means Trainer Tests (SegmentedKMeansTrainer is the compatibility alias)
@@ -303,7 +303,7 @@ TEST_F(TrainingTest, DISABLED_EmptyObservationInSequence) {
     // Add a valid sequence first
     ObservationSet validSeq(5);
     for (std::size_t i = 0; i < validSeq.size(); ++i) {
-        validSeq(i) = i % 6;
+        validSeq(i) = static_cast<double>(i % 6);
     }
     mixedSeqList.push_back(validSeq);
     

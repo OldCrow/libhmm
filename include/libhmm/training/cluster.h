@@ -22,7 +22,7 @@ public:
      * Creates a new Cluster based on one Observation.
      */
     Cluster( Observation o ){
-        centroid.add( o, observations.size( ) );
+        centroid.add( o, static_cast<int>(observations.size()) );
         observations.push_back( o );
     }
 
@@ -30,7 +30,7 @@ public:
      * Adds an observation to the Cluster.
      */
     void onlineAdd( Observation o ){
-        centroid.add( o, observations.size( ) );
+        centroid.add( o, static_cast<int>(observations.size()) );
         observations.push_back( o );
     }
 
@@ -68,7 +68,7 @@ public:
         
         // If observation is found, remove it
         if (i != observations.end()) {
-            centroid.remove( o, observations.size( ) );
+            centroid.remove( o, static_cast<int>(observations.size()) );
             observations.erase( i );
         }
         // Note: If observation not found, we silently ignore it to handle
@@ -93,7 +93,7 @@ public:
      * Returns the number of Observations associated with the Cluster.
      */
     int size( ){
-        return observations.size( );
+        return static_cast<int>(observations.size());
     }
     
     /*

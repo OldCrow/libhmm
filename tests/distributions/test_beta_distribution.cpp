@@ -7,6 +7,9 @@
 #include <chrono>
 #include <iomanip>
 #include "libhmm/distributions/beta_distribution.h"
+#ifdef _MSC_VER
+#pragma warning(disable: 4189)  // assert()-only variables appear unreferenced in Release
+#endif
 
 using libhmm::BetaDistribution;
 using libhmm::Observation;

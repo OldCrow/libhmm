@@ -297,7 +297,7 @@ TEST_F(TrainingEdgeCasesTest, MemorySafetyRAII) {
         
         // Create trainer in a scope that will be destroyed
         auto trainer = std::make_unique<ViterbiTrainer>(gaussianHmm_.get(), normalObs);
-        EXPECT_NO_THROW(trainer->getHmm());
+        EXPECT_EQ(&trainer->getHmm(), gaussianHmm_.get());
         
         // trainer should be automatically cleaned up when scope ends
     }

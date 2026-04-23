@@ -123,7 +123,7 @@ void test_optimized_matrix3d_operations() {
     for (size_t i = 0; i < 2; ++i) {
         for (size_t j = 0; j < 3; ++j) {
             for (size_t k = 0; k < 4; ++k) {
-                mat3d(i, j, k) = i * 100 + j * 10 + k;
+                mat3d(i, j, k) = static_cast<double>(i * 100 + j * 10 + k);
             }
         }
     }
@@ -350,7 +350,7 @@ void test_conversion_constructors() {
     for (size_t i = 0; i < 2; ++i) {
         for (size_t j = 0; j < 3; ++j) {
             for (size_t k = 0; k < 2; ++k) {
-                basic_mat3d(i, j, k) = i * 100 + j * 10 + k;
+                basic_mat3d(i, j, k) = static_cast<double>(i * 100 + j * 10 + k);
             }
         }
     }

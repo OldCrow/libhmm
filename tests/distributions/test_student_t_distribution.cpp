@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 #include "libhmm/distributions/student_t_distribution.h"
+#ifdef _MSC_VER
+#pragma warning(disable: 4189)  // assert()-only variables appear unreferenced in Release
+#endif
 #include <memory>
 #include <vector>
 #include <cmath>

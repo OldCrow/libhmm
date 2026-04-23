@@ -70,7 +70,7 @@ TEST(CasinoEndToEnd, ShortSequence_ProbabilityBounded) {
 TEST(CasinoEndToEnd, LongSequence_LogProbFinite) {
     auto hmm = make_casino_hmm();
     ObservationSet obs(100);
-    for (std::size_t i = 0; i < 100; ++i) obs(i) = i % 6;
+    for (std::size_t i = 0; i < 100; ++i) obs(i) = static_cast<double>(i % 6);
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     EXPECT_TRUE(std::isfinite(fbc.getLogProbability()));
@@ -82,7 +82,7 @@ TEST(CasinoEndToEnd, LongSequence_LogProbFinite) {
 TEST(CasinoEndToEnd, LogConsistency) {
     auto hmm = make_casino_hmm();
     ObservationSet obs(10);
-    for (std::size_t i = 0; i < 10; ++i) obs(i) = i % 6;
+    for (std::size_t i = 0; i < 10; ++i) obs(i) = static_cast<double>(i % 6);
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     EXPECT_NEAR(std::exp(fbc.getLogProbability()), fbc.probability(), 1e-12);
@@ -116,7 +116,7 @@ TEST(CasinoEndToEnd, DiverseFaces_PreferFairState) {
     // no evidence for the loaded die.  Fair state should dominate.
     auto hmm = make_casino_hmm();
     ObservationSet obs(12);
-    for (std::size_t i = 0; i < 12; ++i) obs(i) = i % 6;  // One full cycle x2
+    for (std::size_t i = 0; i < 12; ++i) obs(i) = static_cast<double>(i % 6);  // One full cycle x2
 
     ViterbiCalculator vc(*hmm, obs);
     const auto seq = vc.decode();
@@ -132,7 +132,7 @@ TEST(CasinoEndToEnd, DiverseFaces_PreferFairState) {
 TEST(CasinoEndToEnd, ViterbiLE_ForwardBackward) {
     auto hmm = make_casino_hmm();
     ObservationSet obs(20);
-    for (std::size_t i = 0; i < 20; ++i) obs(i) = i % 6;
+    for (std::size_t i = 0; i < 20; ++i) obs(i) = static_cast<double>(i % 6);
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     ViterbiCalculator        vc(*hmm,  obs);
@@ -149,11 +149,11 @@ TEST(CasinoEndToEnd, BaumWelch_ImprovesLogLikelihood) {
     ObservationLists obs;
     // Mix of sequences: one with many 6s (loaded) and one with diverse faces (fair)
     ObservationSet s1(30);
-    for (std::size_t i = 0; i < 15; ++i) s1(i) = i % 6;
+    for (std::size_t i = 0; i < 15; ++i) s1(i) = static_cast<double>(i % 6);
     for (std::size_t i = 15; i < 30; ++i) s1(i) = 5;
     obs.push_back(s1);
     ObservationSet s2(20);
-    for (std::size_t i = 0; i < 20; ++i) s2(i) = i % 6;
+    for (std::size_t i = 0; i < 20; ++i) s2(i) = static_cast<double>(i % 6);
     obs.push_back(s2);
 
     auto compute_total_ll = [&]() {
@@ -183,7 +183,7 @@ TEST(CasinoEndToEnd, TrainThenDecode_ValidPath) {
 
     ObservationLists obs;
     ObservationSet seq(15);
-    for (std::size_t i = 0; i < 15; ++i) seq(i) = i % 6;
+    for (std::size_t i = 0; i < 15; ++i) seq(i) = static_cast<double>(i % 6);
     obs.push_back(seq);
 
     BaumWelchTrainer trainer(hmm.get(), obs);

@@ -69,10 +69,10 @@ static std::unique_ptr<Hmm> makeGaussianHmm() {
 static ObservationLists makeDiscreteObs() {
     ObservationLists lists;
     ObservationSet s1(10);
-    for (std::size_t i=0; i<10; ++i) s1(i) = i % 6;
+    for (std::size_t i=0; i<10; ++i) s1(i) = static_cast<double>(i % 6);
     lists.push_back(s1);
     ObservationSet s2(8);
-    for (std::size_t i=0; i<8; ++i) s2(i) = (i+2) % 6;
+    for (std::size_t i=0; i<8; ++i) s2(i) = static_cast<double>((i+2) % 6);
     lists.push_back(s2);
     return lists;
 }

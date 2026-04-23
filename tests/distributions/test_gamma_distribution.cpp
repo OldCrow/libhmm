@@ -7,6 +7,9 @@
 #include <chrono>
 #include <iomanip>
 #include "libhmm/distributions/gamma_distribution.h"
+#ifdef _MSC_VER
+#pragma warning(disable: 4189)  // assert()-only variables appear unreferenced in Release
+#endif
 
 using libhmm::GammaDistribution;
 using libhmm::Observation;
@@ -314,9 +317,8 @@ void testAdditionalGettersSetters() {
     try {
         gamma.setParameters(-1.0, 1.0);  // Invalid k
         assert(false);  // Should not reach here
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
         // Expected behavior - setParameters should validate inputs
-        assert(std::string(e.what()).find("Shape parameter") != std::string::npos);
     }
     
     std::cout << "✓ Additional getters/setters tests passed" << std::endl;

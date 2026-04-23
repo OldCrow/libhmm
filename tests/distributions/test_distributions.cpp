@@ -1456,7 +1456,7 @@ protected:
 TEST_F(CommonDistributionTest, PolymorphicInterface) {
     // Test that all distributions implement the base interface
     for (auto& dist : distributions_) {
-        EXPECT_NO_THROW(dist->toString());
+        EXPECT_FALSE(dist->toString().empty());
         EXPECT_NO_THROW(dist->reset());
         
         // Test with some reasonable value
@@ -1480,10 +1480,10 @@ TEST_F(CommonDistributionTest, ResetFunctionality) {
         EXPECT_NO_THROW(dist->reset());
         
         // Should still be able to calculate probabilities
-        EXPECT_NO_THROW(dist->getProbability(1.0));
+        EXPECT_GE(dist->getProbability(1.0), 0.0);
         
         // toString should still work
-        EXPECT_NO_THROW(dist->toString());
+        EXPECT_FALSE(dist->toString().empty());
     }
 }
 
