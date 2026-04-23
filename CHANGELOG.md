@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-04-23
+
+### Fixed
+
+- **test_xml_file_io**: platform-guarded invalid paths; test now passes on all platforms.
+  Removed from `known_broken` — no `known_broken` labels remain in the suite.
+- **cmake RUN_TESTS collision**: Visual Studio generator creates a built-in `RUN_TESTS`
+  target; renamed custom target to `check` / `check_timing` to avoid the conflict.
+- **calculator.h**: removed deprecated `hmm_`/`hmm_legacy_ptr_` alias members that
+  triggered `-Wdeprecated-declarations` on GCC and AppleClang.
+- **Precision**: `log_space_ops.cpp` — `log(1+exp(x))` → `log1p(exp(x))` (two sites);
+  `log_normal_distribution.h` — `exp(σ²)-1` → `expm1(σ²)` in variance formula.
+- **cppcheck findings** (all source): explicit constructors on 5 distributions
+  (`BinomialDistribution`, `NegativeBinomialDistribution`, `LogNormalDistribution`,
+  `ParetoDistribution`, `WeibullDistribution`); `TrainingConfig` passed by const
+  reference in `ViterbiTrainer`; dead `matrix_vector_multiply_fallback` removed;
+  `thread_pool.cpp` cache-size returns typed as `std::size_t`; `starts_with()` in
+  Linux `/proc/cpuinfo` parser; const loop vars in `work_stealing_pool.cpp`;
+  variable scope fixes in 13 distribution `operator>>` methods.
+- **cluster.h C4267**: `static_cast<int>` on four `size_t→int` conversions.
+
+### Added
+
+- **`.clang-format`**: K&R brace style, 4-space indent, 100-col limit. Applied to all
+  source files; `.git-blame-ignore-revs` lists the bulk-reformat commit.
+- **CI lint job**: `clang-format --dry-run` + `cppcheck` on `src/` (ubuntu-latest;
+  warning-only until fully hardened).
+- **Linux/Clang matrix entry**: CI now validates on 4 platforms (Linux/GCC,
+  Linux/Clang, macOS/AppleClang, Windows/MSVC).
+- **`BUILD_TOOLS` CMake option**: all four optional subdirectories
+  (tests/examples/tools/benchmarks) are now consistently option-gated.
+- **Pre-commit hooks**: `clang-format` and `cmake-format` added alongside existing
+  file-hygiene and `#pragma once` checks.
+
+### Changed
+
+- All source files bulk-reformatted to `.clang-format` style (whitespace-only).
+- `tests/CMakeLists.txt`: `add_hmm_test()` now applies `-Wall -Wextra -Wpedantic`
+  (GCC/Clang) or `/W4 /permissive-` (MSVC) to every test target.
+- CI trigger: removed stale `refactor/modern-architecture` branch.
+- `build_windows.bat` removed — hardcoded vcpkg path, vcpkg no longer required.
+
 ## [3.0.0-alpha.1] - 2026-04-22
 
 ### Changed
