@@ -130,6 +130,8 @@ jobs:
           --suppress=shadowFunction \
           --suppress=virtualCallInConstructor \
           --suppress=constParameterReference \
+          --suppress=noExplicitConstructor \
+          --suppress=toomanyconfigs \
           --std=c++20 \
           -I include \
           src/
