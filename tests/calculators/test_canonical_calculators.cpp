@@ -49,7 +49,7 @@ protected:
         obs1_(0) = 3;
 
         obs100_ = ObservationSet(100);
-        for (std::size_t i = 0; i < 100; ++i) obs100_(i) = i % 6;
+        for (std::size_t i = 0; i < 100; ++i) obs100_(i) = static_cast<double>(i % 6);
     }
 
     std::unique_ptr<Hmm> hmm_;

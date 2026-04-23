@@ -8,6 +8,9 @@
 #include <iomanip>
 #include <sstream>
 #include "libhmm/distributions/pareto_distribution.h"
+#ifdef _MSC_VER
+#pragma warning(disable: 4189)  // assert()-only variables appear unreferenced in Release
+#endif
 #include "libhmm/common/common.h"
 
 using libhmm::ParetoDistribution;

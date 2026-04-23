@@ -117,7 +117,7 @@ TEST_F(OptimizedMatrix3DTest, SliceFunctionality) {
     for (std::size_t i = 0; i < 5; ++i) {
         for (std::size_t j = 0; j < 4; ++j) {
             for (std::size_t k = 0; k < 3; ++k) {
-                matrix(i, j, k) = i * 100 + j * 10 + k;
+                matrix(i, j, k) = static_cast<double>(i * 100 + j * 10 + k);
             }
         }
     }
@@ -126,8 +126,8 @@ TEST_F(OptimizedMatrix3DTest, SliceFunctionality) {
     auto slice = matrix.slice(2);
     for (std::size_t j = 0; j < 4; ++j) {
         for (std::size_t k = 0; k < 3; ++k) {
-            EXPECT_DOUBLE_EQ(slice(j, k), 200 + j * 10 + k);
-            EXPECT_DOUBLE_EQ(slice[j][k], 200 + j * 10 + k);
+            EXPECT_DOUBLE_EQ(slice(j, k), static_cast<double>(200 + j * 10 + k));
+            EXPECT_DOUBLE_EQ(slice[j][k], static_cast<double>(200 + j * 10 + k));
         }
     }
 }
@@ -196,12 +196,21 @@ TEST_F(OptimizedMatrix3DTest, LegacyCompatibility) {
     OptimizedMatrix3D<double> matrix(small_x, small_y, small_z);
     
     // Legacy methods should still work (though deprecated)
+#ifndef _MSC_VER
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#else
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
+#endif
     EXPECT_EQ(matrix.GetXDimensionSize(), static_cast<int>(small_x));
     EXPECT_EQ(matrix.GetYDimensionSize(), static_cast<int>(small_y));
     EXPECT_EQ(matrix.GetZDimensionSize(), static_cast<int>(small_z));
+#ifndef _MSC_VER
     #pragma GCC diagnostic pop
+#else
+    #pragma warning(pop)
+#endif
 }
 
 // Performance benchmark comparing old vs new implementation
@@ -290,7 +299,7 @@ TEST_F(OptimizedMatrix3DTest, CorrectnessComparison) {
     for (std::size_t i = 0; i < x; ++i) {
         for (std::size_t j = 0; j < y; ++j) {
             for (std::size_t k = 0; k < z; ++k) {
-                double value = i * 1000 + j * 100 + k;
+                const double value = static_cast<double>(i * 1000 + j * 100 + k);
                 original.Set(i, j, k, value);
                 optimized(i, j, k) = value;
             }

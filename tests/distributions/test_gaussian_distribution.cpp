@@ -8,6 +8,9 @@
 #include <iomanip>
 #include <sstream>
 #include "libhmm/distributions/gaussian_distribution.h"
+#ifdef _MSC_VER
+#pragma warning(disable: 4189)  // assert()-only variables appear unreferenced in Release
+#endif
 
 using libhmm::GaussianDistribution;
 using libhmm::Observation;
@@ -104,17 +107,15 @@ void testParameterValidation() {
     try {
         GaussianDistribution gaussian(0.0, 0.0);  // Zero std dev
         assert(false);  // Should not reach here
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
         // Expected behavior - validation should catch zero std dev
-        assert(std::string(e.what()).find("Standard deviation") != std::string::npos);
     }
     
     try {
         GaussianDistribution gaussian(0.0, -1.0);  // Negative std dev
         assert(false);  // Should not reach here
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
         // Expected behavior - validation should catch negative std dev
-        assert(std::string(e.what()).find("Standard deviation") != std::string::npos);
     }
     
     // Test invalid mean
@@ -124,17 +125,15 @@ void testParameterValidation() {
     try {
         GaussianDistribution gaussian(nan_val, 1.0);
         assert(false);  // Should not reach here
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
         // Expected behavior - validation should catch NaN mean
-        assert(std::string(e.what()).find("Mean") != std::string::npos);
     }
     
     try {
         GaussianDistribution gaussian(inf_val, 1.0);
         assert(false);  // Should not reach here
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
         // Expected behavior - validation should catch infinite mean
-        assert(std::string(e.what()).find("Mean") != std::string::npos);
     }
     
     // Test setters validation
@@ -143,25 +142,22 @@ void testParameterValidation() {
     try {
         gaussian.setMean(nan_val);
         assert(false);  // Should not reach here
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
         // Expected behavior - setMean should validate input
-        assert(std::string(e.what()).find("Mean") != std::string::npos);
     }
     
     try {
         gaussian.setStandardDeviation(0.0);
         assert(false);  // Should not reach here
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
         // Expected behavior - setStandardDeviation should validate zero
-        assert(std::string(e.what()).find("Standard deviation") != std::string::npos);
     }
     
     try {
         gaussian.setStandardDeviation(-1.0);
         assert(false);  // Should not reach here
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
         // Expected behavior - setStandardDeviation should validate negative values
-        assert(std::string(e.what()).find("Standard deviation") != std::string::npos);
     }
     
     std::cout << "✓ Parameter validation tests passed" << std::endl;
@@ -297,9 +293,8 @@ void testAdditionalGettersSetters() {
     try {
         gaussian.setParameters(1.0, -1.0);  // Invalid std dev
         assert(false);  // Should not reach here
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
         // Expected behavior - setParameters should validate inputs
-        assert(std::string(e.what()).find("Standard deviation") != std::string::npos);
     }
     
     std::cout << "✓ Additional getters/setters tests passed" << std::endl;

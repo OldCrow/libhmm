@@ -8,6 +8,9 @@
 #include <iomanip>
 #include <sstream>
 #include "libhmm/distributions/binomial_distribution.h"
+#ifdef _MSC_VER
+#pragma warning(disable: 4189)  // assert()-only variables appear unreferenced in Release
+#endif
 
 using libhmm::BinomialDistribution;
 using libhmm::Observation;

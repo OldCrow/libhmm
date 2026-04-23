@@ -47,11 +47,11 @@ protected:
 
         // Three observation sequences of varying length
         obs_.clear();
-        ObservationSet s1(20); for (std::size_t i = 0; i < 20; ++i) s1(i) = i % 6;
+        ObservationSet s1(20); for (std::size_t i = 0; i < 20; ++i) s1(i) = static_cast<double>(i % 6);
         obs_.push_back(s1);
-        ObservationSet s2(15); for (std::size_t i = 0; i < 15; ++i) s2(i) = (i * 2 + 1) % 6;
+        ObservationSet s2(15); for (std::size_t i = 0; i < 15; ++i) s2(i) = static_cast<double>((i * 2 + 1) % 6);
         obs_.push_back(s2);
-        ObservationSet s3(12); for (std::size_t i = 0; i < 12; ++i) s3(i) = (i + 3) % 6;
+        ObservationSet s3(12); for (std::size_t i = 0; i < 12; ++i) s3(i) = static_cast<double>((i + 3) % 6);
         obs_.push_back(s3);
     }
 

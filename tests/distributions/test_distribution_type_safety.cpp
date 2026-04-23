@@ -221,8 +221,8 @@ TEST_F(DistributionTypeSafetyTest, MultipleDistributionTypeSafety) {
         double prob_nan = dist->getProbability(std::numeric_limits<double>::quiet_NaN());
         EXPECT_DOUBLE_EQ(prob_nan, 0.0) << "Distribution failed NaN input test";
         
-        // Should not crash on any reasonable input
-        EXPECT_NO_THROW(dist->getProbability(0.0));
-        EXPECT_NO_THROW(dist->getProbability(1.0));
+        // Should not crash on any reasonable input and must return non-negative value
+        EXPECT_GE(dist->getProbability(0.0), 0.0);
+        EXPECT_GE(dist->getProbability(1.0), 0.0);
     }
 }

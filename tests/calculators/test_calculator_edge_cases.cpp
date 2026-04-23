@@ -61,7 +61,7 @@ protected:
 TEST_F(CalculatorEdgeCasesTest, SingleState_FB_Finite) {
     auto hmm = make_single_state_hmm();
     ObservationSet obs(5);
-    for (std::size_t i = 0; i < 5; ++i) obs(i) = i % 4;
+    for (std::size_t i = 0; i < 5; ++i) obs(i) = static_cast<double>(i % 4);
 
     ForwardBackwardCalculator fbc(*hmm, obs);
     EXPECT_TRUE(std::isfinite(fbc.getLogProbability()));
@@ -71,7 +71,7 @@ TEST_F(CalculatorEdgeCasesTest, SingleState_FB_Finite) {
 TEST_F(CalculatorEdgeCasesTest, SingleState_Viterbi_OnlyState0) {
     auto hmm = make_single_state_hmm();
     ObservationSet obs(5);
-    for (std::size_t i = 0; i < 5; ++i) obs(i) = i % 4;
+    for (std::size_t i = 0; i < 5; ++i) obs(i) = static_cast<double>(i % 4);
 
     ViterbiCalculator vc(*hmm, obs);
     const auto seq = vc.decode();
@@ -154,7 +154,7 @@ TEST_F(CalculatorEdgeCasesTest, DeterministicEmissions_FB_NoNaN) {
 TEST_F(CalculatorEdgeCasesTest, LongSequence_FB_NoUnderflow) {
     auto hmm = make_single_state_hmm();
     ObservationSet longObs(500);
-    for (std::size_t i = 0; i < 500; ++i) longObs(i) = i % 4;
+    for (std::size_t i = 0; i < 500; ++i) longObs(i) = static_cast<double>(i % 4);
 
     ForwardBackwardCalculator fbc(*hmm, longObs);
     EXPECT_TRUE(std::isfinite(fbc.getLogProbability()));
@@ -167,7 +167,7 @@ TEST_F(CalculatorEdgeCasesTest, LongSequence_FB_NoUnderflow) {
 TEST_F(CalculatorEdgeCasesTest, LongSequence_Viterbi_NoErrors) {
     auto hmm = make_single_state_hmm();
     ObservationSet longObs(500);
-    for (std::size_t i = 0; i < 500; ++i) longObs(i) = i % 4;
+    for (std::size_t i = 0; i < 500; ++i) longObs(i) = static_cast<double>(i % 4);
 
     EXPECT_NO_THROW({
         ViterbiCalculator vc(*hmm, longObs);
