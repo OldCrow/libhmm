@@ -187,9 +187,8 @@ std::ostream &operator<<(std::ostream &os, const libhmm::LogNormalDistribution &
 }
 
 std::istream &operator>>(std::istream &is, libhmm::LogNormalDistribution &distribution) {
-    std::string token, mean_str, stddev_str;
-
     try {
+        std::string token, mean_str, stddev_str;
         is >> token; //" Mean"
         is >> token; // "="
         is >> mean_str;

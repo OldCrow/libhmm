@@ -164,9 +164,8 @@ std::ostream &operator<<(std::ostream &os, const libhmm::ExponentialDistribution
 }
 
 std::istream &operator>>(std::istream &is, libhmm::ExponentialDistribution &distribution) {
-    std::string token, lambda_str;
-
     try {
+        std::string token, lambda_str;
         is >> token; // "Rate"
         is >> token; // "parameter"
         is >> token; // "="

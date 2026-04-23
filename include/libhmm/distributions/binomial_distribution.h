@@ -62,7 +62,7 @@ private:
     friend std::istream &operator>>(std::istream &is, libhmm::BinomialDistribution &distribution);
 
 public:
-    BinomialDistribution(int n = 10, double p = 0.5) : n_{n}, p_{p} {
+    explicit BinomialDistribution(int n = 10, double p = 0.5) : n_{n}, p_{p} {
         validateParameters(n, p);
         updateCache();
     }

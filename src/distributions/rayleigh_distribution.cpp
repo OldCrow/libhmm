@@ -121,8 +121,8 @@ std::ostream &operator<<(std::ostream &os, const RayleighDistribution &distribut
 }
 
 std::istream &operator>>(std::istream &is, RayleighDistribution &distribution) {
-    std::string token, sigma_str;
     try {
+        std::string token, sigma_str;
         is >> token >> token >> token; // Read "σ", "(scale", "parameter)"
         is >> sigma_str;
         double sigma = std::stod(sigma_str);

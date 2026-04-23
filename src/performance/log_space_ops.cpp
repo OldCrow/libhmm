@@ -23,7 +23,7 @@ void LogSpaceOps::initialize() {
 
     for (std::size_t i = 0; i < LOOKUP_TABLE_SIZE; ++i) {
         const double x = LOG_SUM_THRESHOLD + i * step;
-        logOnePlusExpTable_[i] = std::log(1.0 + std::exp(x));
+        logOnePlusExpTable_[i] = std::log1p(std::exp(x));
     }
 
     initialized_ = true;
@@ -34,7 +34,7 @@ double LogSpaceOps::lookupLogOnePlusExp(double x) noexcept {
         return 0.0; // log(1 + exp(x)) ≈ 0 when x is very negative
     }
     if (x >= 0.0) {
-        return x + std::log(1.0 + std::exp(-x)); // More stable for x >= 0
+        return x + std::log1p(std::exp(-x)); // More stable for x >= 0
     }
 
     // Map x from [LOG_SUM_THRESHOLD, 0] to [0, LOOKUP_TABLE_SIZE-1]

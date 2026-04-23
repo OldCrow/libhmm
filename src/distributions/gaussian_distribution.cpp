@@ -185,9 +185,8 @@ std::ostream &operator<<(std::ostream &os, const libhmm::GaussianDistribution &d
 }
 
 std::istream &operator>>(std::istream &is, libhmm::GaussianDistribution &distribution) {
-    std::string token, mean_str, stddev_str;
-
     try {
+        std::string token, mean_str, stddev_str;
         is >> token; // "Mean"
         is >> token; // "="
         is >> mean_str;

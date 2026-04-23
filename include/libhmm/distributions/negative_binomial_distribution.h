@@ -104,7 +104,7 @@ public:
      * @param p Success probability (must be in (0,1])
      * @throws std::invalid_argument if parameters are invalid
      */
-    NegativeBinomialDistribution(double r = 5.0, double p = 0.5) : r_{r}, p_{p} {
+    explicit NegativeBinomialDistribution(double r = 5.0, double p = 0.5) : r_{r}, p_{p} {
         validateParameters(r, p);
         // Initialize factorial cache
         logFactorialCache_.resize(MAX_FACTORIAL_CACHE + 1, 0.0);

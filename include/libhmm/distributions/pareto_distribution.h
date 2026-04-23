@@ -112,7 +112,7 @@ public:
      * @param xm Scale parameter x_m (must be positive)
      * @throws std::invalid_argument if parameters are invalid
      */
-    ParetoDistribution(double k = 1.0, double xm = 1.0) : k_{k}, xm_{xm} {
+    explicit ParetoDistribution(double k = 1.0, double xm = 1.0) : k_{k}, xm_{xm} {
         validateParameters(k, xm);
         updateCache();
     }

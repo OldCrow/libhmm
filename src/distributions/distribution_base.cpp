@@ -62,16 +62,16 @@ void DistributionBase::getBatchLogProbabilities(std::span<const double> observat
 
 double DistributionBase::gammap(double a, double x) noexcept {
     using namespace libhmm::constants;
-    double gamser = 0.0, gammcf = 0.0, gln = 0.0;
-
     if (x < math::ZERO_DOUBLE || a <= math::ZERO_DOUBLE) {
         return math::ZERO_DOUBLE;
     }
 
     if (x < (a + math::ONE)) {
+        double gamser = 0.0, gln = 0.0;
         gser(gamser, a, x, gln);
         return gamser;
     } else {
+        double gammcf = 0.0, gln = 0.0;
         gcf(gammcf, a, x, gln);
         return math::ONE - gammcf;
     }

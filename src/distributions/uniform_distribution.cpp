@@ -212,10 +212,9 @@ std::ostream &operator<<(std::ostream &os, const UniformDistribution &dist) {
 }
 
 std::istream &operator>>(std::istream &is, UniformDistribution &dist) {
-    std::string token;
-    double a = 0.0, b = 0.0;
-
     try {
+        std::string token;
+        double a = 0.0, b = 0.0;
         // Expected format: "Uniform Distribution: a = <value>, b = <value>"
         std::string a_str, b_str;
         is >> token >> token >> token >> token >> a_str >> token >> token >> token >>
