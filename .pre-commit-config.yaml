@@ -2,9 +2,7 @@
 # Install: bash scripts/setup-pre-commit.sh
 # Or manually: pip install pre-commit && pre-commit install
 #
-# Active hooks: hygiene checks + #pragma once enforcement.
-# Deliberately minimal during the active refactor (Phase 2+).
-# Add clang-format and cmake-format enforcement once the refactor stabilises.
+# Active hooks: file hygiene, #pragma once, clang-format, cmake-format.
 
 default_language_version:
   python: python3
@@ -30,6 +28,23 @@ repos:
         args: ['--maxkb=500']
       - id: check-merge-conflict
         name: Block merge conflict markers
+
+  # ─── C/C++ formatting ────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v19.1.7
+    hooks:
+      - id: clang-format
+        name: clang-format
+        types_or: [c++, c]
+        args: ['--style=file']
+
+  # ─── CMake formatting ─────────────────────────────────────────────────────────
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+      - id: cmake-format
+        name: cmake-format
+        args: ['--config-file=.cmake-format.yaml']
 
   # ─── libhmm-specific checks ──────────────────────────────────────────────────
   - repo: local
