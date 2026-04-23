@@ -5,7 +5,7 @@
 #include <numeric>
 #include <span>
 
-namespace libhmm{
+namespace libhmm {
 
 /**
  * Modern C++20 Discrete distribution for modeling categorical data.
@@ -30,53 +30,52 @@ namespace libhmm{
  * - Multinomial experiments
  * - Any scenario with discrete, mutually exclusive outcomes
  */
-class DiscreteDistribution : public DistributionBase
-{    
+class DiscreteDistribution : public DistributionBase {
 private:
     /**
      * Number of discrete symbols/categories
      * Must be > 0, typically small (e.g., 2-100)
      */
     std::size_t numSymbols_;
-    
+
     /**
      * Contains probabilities for discrete observations
      * pdf_[i] = P(X = i) for i ∈ {0, 1, ..., numSymbols-1}
      * Using std::vector for modern C++ performance and semantics
      */
     std::vector<double> pdf_;
-    
+
     /**
      * Comprehensive cached values for maximum performance
      */
-    mutable double cachedSum_{1.0};              // Sum of all probabilities (validation)
-    mutable double cachedEntropy_{0.0};          // Shannon entropy: H(X) = -∑p_i*log(p_i)
-    mutable std::vector<double> cachedLogProbs_; // Pre-computed log probabilities
-    mutable std::vector<double> cachedCDF_;      // Pre-computed cumulative distribution
-    mutable std::size_t cachedMode_{0};          // Index of most probable symbol
-    mutable double cachedMaxProb_{0.0};          // Maximum probability value
+    mutable double cachedSum_{1.0};                   // Sum of all probabilities (validation)
+    mutable double cachedEntropy_{0.0};               // Shannon entropy: H(X) = -∑p_i*log(p_i)
+    mutable std::vector<double> cachedLogProbs_;      // Pre-computed log probabilities
+    mutable std::vector<double> cachedCDF_;           // Pre-computed cumulative distribution
+    mutable std::size_t cachedMode_{0};               // Index of most probable symbol
+    mutable double cachedMaxProb_{0.0};               // Maximum probability value
     mutable std::vector<std::size_t> nonZeroIndices_; // Indices with non-zero probabilities
-    
+
     void updateCache() const noexcept {
         // Basic statistics
         cachedSum_ = std::accumulate(pdf_.begin(), pdf_.end(), 0.0);
-        
+
         // Pre-compute log probabilities and entropy
         cachedLogProbs_.resize(numSymbols_);
         cachedEntropy_ = 0.0;
         cachedMaxProb_ = 0.0;
         cachedMode_ = 0;
         nonZeroIndices_.clear();
-        
+
         for (std::size_t i = 0; i < numSymbols_; ++i) {
             const double p = pdf_[i];
-            
+
             // Cache log probabilities
             if (p > 0.0) {
                 cachedLogProbs_[i] = std::log(p);
                 cachedEntropy_ -= p * cachedLogProbs_[i];
                 nonZeroIndices_.push_back(i);
-                
+
                 // Track mode (most probable symbol)
                 if (p > cachedMaxProb_) {
                     cachedMaxProb_ = p;
@@ -86,24 +85,22 @@ private:
                 cachedLogProbs_[i] = -std::numeric_limits<double>::infinity();
             }
         }
-        
+
         // Pre-compute CDF
         cachedCDF_.resize(numSymbols_);
         cachedCDF_[0] = pdf_[0];
         for (std::size_t i = 1; i < numSymbols_; ++i) {
-            cachedCDF_[i] = cachedCDF_[i-1] + pdf_[i];
+            cachedCDF_[i] = cachedCDF_[i - 1] + pdf_[i];
         }
-        
+
         markCacheValid();
     }
-    
+
     /**
      * Validates that an observation index is within valid range
      */
-    bool isValidIndex(std::size_t index) const noexcept {
-        return index < numSymbols_;
-    }
-    
+    bool isValidIndex(std::size_t index) const noexcept { return index < numSymbols_; }
+
     static std::size_t validateSymbols(int symbols) {
         if (symbols <= 0)
             throw std::invalid_argument("Number of symbols must be greater than 0");
@@ -116,7 +113,7 @@ private:
             throw std::invalid_argument("Probability value must be between 0 and 1");
     }
 
-public:    
+public:
     /**
      * Constructs a Discrete distribution with given number of symbols.
      * Initializes to uniform distribution.
@@ -125,56 +122,53 @@ public:
      * @throws std::invalid_argument if symbols <= 0
      */
     explicit DiscreteDistribution(int symbols = 10)
-        : DistributionBase{},
-          numSymbols_{validateSymbols(symbols)}, pdf_(numSymbols_),
+        : DistributionBase{}, numSymbols_{validateSymbols(symbols)}, pdf_(numSymbols_),
           cachedSum_{1.0}, cachedEntropy_{0.0} {
         reset();
     }
 
-    DiscreteDistribution(const DiscreteDistribution& other)
+    DiscreteDistribution(const DiscreteDistribution &other)
         : DistributionBase{other}, numSymbols_{other.numSymbols_}, pdf_{other.pdf_},
           cachedSum_{other.cachedSum_}, cachedEntropy_{other.cachedEntropy_},
           cachedLogProbs_{other.cachedLogProbs_}, cachedCDF_{other.cachedCDF_},
           cachedMode_{other.cachedMode_}, cachedMaxProb_{other.cachedMaxProb_},
           nonZeroIndices_{other.nonZeroIndices_} {}
 
-    DiscreteDistribution& operator=(const DiscreteDistribution& other) {
+    DiscreteDistribution &operator=(const DiscreteDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            numSymbols_      = other.numSymbols_;
-            pdf_             = other.pdf_;
-            cachedSum_       = other.cachedSum_;
-            cachedEntropy_   = other.cachedEntropy_;
-            cachedLogProbs_  = other.cachedLogProbs_;
-            cachedCDF_       = other.cachedCDF_;
-            cachedMode_      = other.cachedMode_;
-            cachedMaxProb_   = other.cachedMaxProb_;
-            nonZeroIndices_  = other.nonZeroIndices_;
+            numSymbols_ = other.numSymbols_;
+            pdf_ = other.pdf_;
+            cachedSum_ = other.cachedSum_;
+            cachedEntropy_ = other.cachedEntropy_;
+            cachedLogProbs_ = other.cachedLogProbs_;
+            cachedCDF_ = other.cachedCDF_;
+            cachedMode_ = other.cachedMode_;
+            cachedMaxProb_ = other.cachedMaxProb_;
+            nonZeroIndices_ = other.nonZeroIndices_;
         }
         return *this;
     }
 
-    DiscreteDistribution(DiscreteDistribution&& other) noexcept
+    DiscreteDistribution(DiscreteDistribution &&other) noexcept
         : DistributionBase{std::move(other)}, numSymbols_{other.numSymbols_},
-          pdf_{std::move(other.pdf_)},
-          cachedSum_{other.cachedSum_}, cachedEntropy_{other.cachedEntropy_},
-          cachedLogProbs_{std::move(other.cachedLogProbs_)},
-          cachedCDF_{std::move(other.cachedCDF_)},
-          cachedMode_{other.cachedMode_}, cachedMaxProb_{other.cachedMaxProb_},
-          nonZeroIndices_{std::move(other.nonZeroIndices_)} {}
+          pdf_{std::move(other.pdf_)}, cachedSum_{other.cachedSum_},
+          cachedEntropy_{other.cachedEntropy_}, cachedLogProbs_{std::move(other.cachedLogProbs_)},
+          cachedCDF_{std::move(other.cachedCDF_)}, cachedMode_{other.cachedMode_},
+          cachedMaxProb_{other.cachedMaxProb_}, nonZeroIndices_{std::move(other.nonZeroIndices_)} {}
 
-    DiscreteDistribution& operator=(DiscreteDistribution&& other) noexcept {
+    DiscreteDistribution &operator=(DiscreteDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            numSymbols_      = other.numSymbols_;
-            pdf_             = std::move(other.pdf_);
-            cachedSum_       = other.cachedSum_;
-            cachedEntropy_   = other.cachedEntropy_;
-            cachedLogProbs_  = std::move(other.cachedLogProbs_);
-            cachedCDF_       = std::move(other.cachedCDF_);
-            cachedMode_      = other.cachedMode_;
-            cachedMaxProb_   = other.cachedMaxProb_;
-            nonZeroIndices_  = std::move(other.nonZeroIndices_);
+            numSymbols_ = other.numSymbols_;
+            pdf_ = std::move(other.pdf_);
+            cachedSum_ = other.cachedSum_;
+            cachedEntropy_ = other.cachedEntropy_;
+            cachedLogProbs_ = std::move(other.cachedLogProbs_);
+            cachedCDF_ = std::move(other.cachedCDF_);
+            cachedMode_ = other.cachedMode_;
+            cachedMaxProb_ = other.cachedMaxProb_;
+            nonZeroIndices_ = std::move(other.nonZeroIndices_);
         }
         return *this;
     }
@@ -244,7 +238,7 @@ public:
      * @return Number of symbols/categories
      */
     std::size_t getNumSymbols() const noexcept { return numSymbols_; }
-    
+
     /**
      * Gets the probability for a specific symbol.
      * 
@@ -258,16 +252,28 @@ public:
             throw std::out_of_range("Symbol index out of range");
         return pdf_[index];
     }
-    
+
     /**
      * Gets the sum of all probabilities (should be approximately 1.0).
      * 
      * @return Sum of all probabilities
      */
-    double getProbabilitySum() const { if (!isCacheValid()) updateCache(); return cachedSum_; }
-    double getEntropy()        const { if (!isCacheValid()) updateCache(); return cachedEntropy_; }
-    std::size_t getMode()      const { if (!isCacheValid()) updateCache(); return cachedMode_; }
-    
+    double getProbabilitySum() const {
+        if (!isCacheValid())
+            updateCache();
+        return cachedSum_;
+    }
+    double getEntropy() const {
+        if (!isCacheValid())
+            updateCache();
+        return cachedEntropy_;
+    }
+    std::size_t getMode() const {
+        if (!isCacheValid())
+            updateCache();
+        return cachedMode_;
+    }
+
     /**
      * Gets the mean of the distribution.
      * For discrete distribution, mean = ∑(i * p_i) for i = 0 to numSymbols-1
@@ -281,7 +287,7 @@ public:
         }
         return mean;
     }
-    
+
     /**
      * Gets the variance of the distribution.
      * For discrete distribution, variance = ∑(i² * p_i) - mean²
@@ -297,28 +303,28 @@ public:
         }
         return secondMoment - mean * mean;
     }
-    
+
     /**
      * Gets the standard deviation of the distribution.
      * 
      * @return Standard deviation value
      */
-    double getStandardDeviation() const noexcept {
-        return std::sqrt(getVariance());
-    }
-    
+    double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
+
     /**
      * Normalizes the distribution so probabilities sum to 1.0.
      * Useful after manual probability modifications.
      */
     void normalize() {
-        if (!isCacheValid()) updateCache();
+        if (!isCacheValid())
+            updateCache();
         if (cachedSum_ > 0.0) {
-            for (double& p : pdf_) p /= cachedSum_;
+            for (double &p : pdf_)
+                p /= cachedSum_;
             invalidateCache();
         }
     }
-    
+
     /**
      * Evaluates the logarithm of the probability mass function
      * More numerically stable for small probabilities
@@ -330,10 +336,9 @@ public:
 
     /// Concrete non-virtual batch log-PMF (table lookup). Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
-    
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
+
     /**
      * Evaluates the CDF at k using cumulative sum approach
      * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
@@ -342,27 +347,25 @@ public:
      * @return Cumulative probability P(X ≤ value)
      */
     [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
-    
+
     /**
      * Equality comparison operator
      * @param other Other distribution to compare with
      * @return true if distributions are equal within tolerance
      */
-    bool operator==(const DiscreteDistribution& other) const;
-    
+    bool operator==(const DiscreteDistribution &other) const;
+
     /**
      * Inequality comparison operator
      * @param other Other distribution to compare with
      * @return true if distributions are not equal
      */
-    bool operator!=(const DiscreteDistribution& other) const { return !(*this == other); }
+    bool operator!=(const DiscreteDistribution &other) const { return !(*this == other); }
 
 private:
-    friend std::istream& operator>>(std::istream& is,
-            libhmm::DiscreteDistribution& distribution);
+    friend std::istream &operator>>(std::istream &is, libhmm::DiscreteDistribution &distribution);
 };
 
-std::ostream& operator<<( std::ostream&, 
-        const libhmm::DiscreteDistribution& );
+std::ostream &operator<<(std::ostream &, const libhmm::DiscreteDistribution &);
 
-} // namespace
+} // namespace libhmm

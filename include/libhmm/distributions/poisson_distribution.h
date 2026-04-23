@@ -5,7 +5,7 @@
 #include <array>
 #include <span>
 
-namespace libhmm{
+namespace libhmm {
 
 /**
  * Modern C++20 Poisson distribution for modeling count data and rare events.
@@ -17,8 +17,7 @@ namespace libhmm{
  * PMF: P(X = k) = (λ^k * e^(-λ)) / k!  for k = 0, 1, 2, ...
  * where λ (lambda) is the rate parameter (mean number of events per interval)
  */
-class PoissonDistribution : public DistributionBase
-{   
+class PoissonDistribution : public DistributionBase {
 private:
     /**
      * Rate parameter λ (lambda) - average number of events per interval.
@@ -29,31 +28,31 @@ private:
     /**
      * Comprehensive cached values for efficiency in probability calculations
      */
-    mutable double logLambda_{0.0};         // log(λ) - used in log probability calculations
-    mutable double expNegLambda_{1.0};      // exp(-λ) - used frequently in PMF calculations
-    mutable double sqrtLambda_{1.0};        // sqrt(λ) - used in standard deviation and CDF
-    mutable double invSqrtLambda_{1.0};     // 1/sqrt(λ) - used in normal approximation
-    mutable double sqrtTwoPiLambda_{1.0};   // sqrt(2πλ) - used in normal approximation
-    
+    mutable double logLambda_{0.0};       // log(λ) - used in log probability calculations
+    mutable double expNegLambda_{1.0};    // exp(-λ) - used frequently in PMF calculations
+    mutable double sqrtLambda_{1.0};      // sqrt(λ) - used in standard deviation and CDF
+    mutable double invSqrtLambda_{1.0};   // 1/sqrt(λ) - used in normal approximation
+    mutable double sqrtTwoPiLambda_{1.0}; // sqrt(2πλ) - used in normal approximation
+
     /**
      * Pre-computed small factorial values for efficiency (0! through 12!)
      * Computing factorials directly for small values is faster than Stirling's approximation
      */
     mutable std::array<double, 13> smallFactorials_;
-    
+
     void updateCache() const noexcept {
-        logLambda_        = std::log(lambda_);
-        expNegLambda_     = std::exp(-lambda_);
-        sqrtLambda_       = std::sqrt(lambda_);
-        invSqrtLambda_    = 1.0 / sqrtLambda_;
-        sqrtTwoPiLambda_  = std::sqrt(2.0 * constants::math::PI * lambda_);
+        logLambda_ = std::log(lambda_);
+        expNegLambda_ = std::exp(-lambda_);
+        sqrtLambda_ = std::sqrt(lambda_);
+        invSqrtLambda_ = 1.0 / sqrtLambda_;
+        sqrtTwoPiLambda_ = std::sqrt(2.0 * constants::math::PI * lambda_);
         smallFactorials_[0] = 1.0;
         smallFactorials_[1] = 1.0;
         for (int i = 2; i <= 12; ++i)
-            smallFactorials_[i] = smallFactorials_[i-1] * static_cast<double>(i);
+            smallFactorials_[i] = smallFactorials_[i - 1] * static_cast<double>(i);
         markCacheValid();
     }
-    
+
     /**
      * Computes log(k!) using Stirling's approximation for large k,
      * exact computation for small k.
@@ -62,12 +61,12 @@ private:
      * @return log(k!)
      */
     double logFactorial(int k) const noexcept;
-    
+
     static void validateParameters(double lambda) {
         if (std::isnan(lambda) || std::isinf(lambda) || lambda <= 0.0)
             throw std::invalid_argument("Lambda must be a positive finite number");
     }
-    
+
     /**
      * Validates that k is a valid count (non-negative integer)
      * 
@@ -78,8 +77,7 @@ private:
         return k >= 0.0 && std::floor(k) == k && std::isfinite(k);
     }
 
-    friend std::istream& operator>>(std::istream& is,
-            libhmm::PoissonDistribution& distribution);
+    friend std::istream &operator>>(std::istream &is, libhmm::PoissonDistribution &distribution);
 
 public:
     /**
@@ -96,44 +94,42 @@ public:
     /**
      * Copy constructor
      */
-    PoissonDistribution(const PoissonDistribution& other)
-        : DistributionBase{other}, lambda_{other.lambda_},
-          logLambda_{other.logLambda_}, expNegLambda_{other.expNegLambda_},
-          sqrtLambda_{other.sqrtLambda_}, invSqrtLambda_{other.invSqrtLambda_},
-          sqrtTwoPiLambda_{other.sqrtTwoPiLambda_},
+    PoissonDistribution(const PoissonDistribution &other)
+        : DistributionBase{other}, lambda_{other.lambda_}, logLambda_{other.logLambda_},
+          expNegLambda_{other.expNegLambda_}, sqrtLambda_{other.sqrtLambda_},
+          invSqrtLambda_{other.invSqrtLambda_}, sqrtTwoPiLambda_{other.sqrtTwoPiLambda_},
           smallFactorials_{other.smallFactorials_} {}
 
-    PoissonDistribution& operator=(const PoissonDistribution& other) {
+    PoissonDistribution &operator=(const PoissonDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            lambda_           = other.lambda_;
-            logLambda_        = other.logLambda_;
-            expNegLambda_     = other.expNegLambda_;
-            sqrtLambda_       = other.sqrtLambda_;
-            invSqrtLambda_    = other.invSqrtLambda_;
-            sqrtTwoPiLambda_  = other.sqrtTwoPiLambda_;
-            smallFactorials_  = other.smallFactorials_;
+            lambda_ = other.lambda_;
+            logLambda_ = other.logLambda_;
+            expNegLambda_ = other.expNegLambda_;
+            sqrtLambda_ = other.sqrtLambda_;
+            invSqrtLambda_ = other.invSqrtLambda_;
+            sqrtTwoPiLambda_ = other.sqrtTwoPiLambda_;
+            smallFactorials_ = other.smallFactorials_;
         }
         return *this;
     }
 
-    PoissonDistribution(PoissonDistribution&& other) noexcept
-        : DistributionBase{std::move(other)}, lambda_{other.lambda_},
-          logLambda_{other.logLambda_}, expNegLambda_{other.expNegLambda_},
-          sqrtLambda_{other.sqrtLambda_}, invSqrtLambda_{other.invSqrtLambda_},
-          sqrtTwoPiLambda_{other.sqrtTwoPiLambda_},
+    PoissonDistribution(PoissonDistribution &&other) noexcept
+        : DistributionBase{std::move(other)}, lambda_{other.lambda_}, logLambda_{other.logLambda_},
+          expNegLambda_{other.expNegLambda_}, sqrtLambda_{other.sqrtLambda_},
+          invSqrtLambda_{other.invSqrtLambda_}, sqrtTwoPiLambda_{other.sqrtTwoPiLambda_},
           smallFactorials_{std::move(other.smallFactorials_)} {}
 
-    PoissonDistribution& operator=(PoissonDistribution&& other) noexcept {
+    PoissonDistribution &operator=(PoissonDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            lambda_           = other.lambda_;
-            logLambda_        = other.logLambda_;
-            expNegLambda_     = other.expNegLambda_;
-            sqrtLambda_       = other.sqrtLambda_;
-            invSqrtLambda_    = other.invSqrtLambda_;
-            sqrtTwoPiLambda_  = other.sqrtTwoPiLambda_;
-            smallFactorials_  = std::move(other.smallFactorials_);
+            lambda_ = other.lambda_;
+            logLambda_ = other.logLambda_;
+            expNegLambda_ = other.expNegLambda_;
+            sqrtLambda_ = other.sqrtLambda_;
+            invSqrtLambda_ = other.invSqrtLambda_;
+            sqrtTwoPiLambda_ = other.sqrtTwoPiLambda_;
+            smallFactorials_ = std::move(other.smallFactorials_);
         }
         return *this;
     }
@@ -175,7 +171,7 @@ public:
      * @return Current lambda value
      */
     double getLambda() const noexcept { return lambda_; }
-    
+
     /**
      * Sets the rate parameter λ.
      * 
@@ -187,21 +183,21 @@ public:
         lambda_ = lambda;
         invalidateCache();
     }
-    
+
     /**
      * Gets the mean of the distribution (equal to λ).
      * 
      * @return Mean value
      */
     double getMean() const noexcept { return lambda_; }
-    
+
     /**
      * Gets the variance of the distribution (equal to λ).
      * 
      * @return Variance value
      */
     double getVariance() const noexcept { return lambda_; }
-    
+
     /**
      * Gets the standard deviation of the distribution (sqrt(λ)).
      * Uses cached value for efficiency.
@@ -209,10 +205,11 @@ public:
      * @return Standard deviation
      */
     double getStandardDeviation() const noexcept {
-        if (!isCacheValid()) updateCache();
+        if (!isCacheValid())
+            updateCache();
         return sqrtLambda_;
     }
-    
+
     /**
      * Evaluates the logarithm of the probability mass function
      * More numerically stable for small probabilities
@@ -224,10 +221,9 @@ public:
 
     /// Concrete non-virtual batch log-PMF. Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
-    
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
+
     /**
      * Evaluates the CDF at k using cumulative sum approach
      * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
@@ -236,26 +232,25 @@ public:
      * @return Cumulative probability P(X ≤ k)
      */
     [[nodiscard]] double getCumulativeProbability(double k) const noexcept;
-    
+
     /**
      * Equality comparison operator
      * @param other Other distribution to compare with
      * @return true if parameters are equal within tolerance
      */
-    bool operator==(const PoissonDistribution& other) const;
-    
+    bool operator==(const PoissonDistribution &other) const;
+
     /**
      * Inequality comparison operator
      * @param other Other distribution to compare with
      * @return true if parameters are not equal
      */
-    bool operator!=(const PoissonDistribution& other) const { return !(*this == other); }
+    bool operator!=(const PoissonDistribution &other) const { return !(*this == other); }
 };
 
 /**
  * Stream output operator for Poisson distribution.
  */
-std::ostream& operator<<(std::ostream& os, const libhmm::PoissonDistribution& distribution);
+std::ostream &operator<<(std::ostream &os, const libhmm::PoissonDistribution &distribution);
 
 } // namespace libhmm
-

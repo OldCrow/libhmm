@@ -9,32 +9,32 @@
 #include <sstream>
 #include "libhmm/distributions/poisson_distribution.h"
 #ifdef _MSC_VER
-#pragma warning(disable: 4189)  // assert()-only variables appear unreferenced in Release
+#pragma warning(disable : 4189) // assert()-only variables appear unreferenced in Release
 #endif
 
-using libhmm::PoissonDistribution;
 using libhmm::Observation;
+using libhmm::PoissonDistribution;
 
 /**
  * Test basic Poisson distribution functionality
  */
 void testBasicFunctionality() {
     std::cout << "Testing basic Poisson distribution functionality..." << std::endl;
-    
+
     // Test default constructor
     PoissonDistribution poisson;
     assert(poisson.getLambda() == 1.0);
     assert(poisson.getMean() == 1.0);
     assert(poisson.getVariance() == 1.0);
     assert(std::abs(poisson.getStandardDeviation() - 1.0) < 1e-10);
-    
+
     // Test parameterized constructor
     PoissonDistribution poisson2(3.5);
     assert(poisson2.getLambda() == 3.5);
     assert(poisson2.getMean() == 3.5);
     assert(poisson2.getVariance() == 3.5);
     assert(std::abs(poisson2.getStandardDeviation() - std::sqrt(3.5)) < 1e-10);
-    
+
     std::cout << "✓ Basic functionality tests passed" << std::endl;
 }
 
@@ -43,27 +43,27 @@ void testBasicFunctionality() {
  */
 void testProbabilities() {
     std::cout << "Testing probability calculations..." << std::endl;
-    
+
     PoissonDistribution poisson(2.0);
-    
+
     // Test known values for λ = 2.0
     // P(X=0) = e^(-2) ≈ 0.1353
     double p0 = poisson.getProbability(0.0);
     assert(std::abs(p0 - std::exp(-2.0)) < 1e-10);
-    
+
     // P(X=1) = 2 * e^(-2) ≈ 0.2707
     double p1 = poisson.getProbability(1.0);
     assert(std::abs(p1 - 2.0 * std::exp(-2.0)) < 1e-10);
-    
+
     // P(X=2) = 4/2 * e^(-2) = 2 * e^(-2) ≈ 0.2707
     double p2 = poisson.getProbability(2.0);
     assert(std::abs(p2 - 2.0 * std::exp(-2.0)) < 1e-10);
-    
+
     // Invalid inputs should return 0
     assert(poisson.getProbability(-1.0) == 0.0);
-    assert(poisson.getProbability(1.5) == 0.0);  // non-integer
+    assert(poisson.getProbability(1.5) == 0.0); // non-integer
     assert(poisson.getProbability(std::numeric_limits<double>::infinity()) == 0.0);
-    
+
     std::cout << "✓ Probability calculation tests passed" << std::endl;
 }
 
@@ -72,30 +72,30 @@ void testProbabilities() {
  */
 void testFitting() {
     std::cout << "Testing parameter fitting..." << std::endl;
-    
+
     PoissonDistribution poisson;
-    
+
     // Test with known data (should fit λ ≈ 2.5)
     std::vector<Observation> data = {1, 2, 2, 3, 3, 3, 4, 2, 1, 4};
-    double expectedMean = 2.5;  // Sum = 25, n = 10
-    
+    double expectedMean = 2.5; // Sum = 25, n = 10
+
     poisson.fit(data);
     assert(std::abs(poisson.getLambda() - expectedMean) < 1e-10);
-    
+
     // Test with empty data (should reset to default)
     std::vector<Observation> emptyData;
     poisson.fit(emptyData);
     assert(poisson.getLambda() == 1.0);
-    
+
     // Test with invalid data (should throw)
     std::vector<Observation> invalidData = {1, 2, -1, 3};
     try {
         poisson.fit(invalidData);
-        assert(false);  // Should not reach here
-    } catch (const std::invalid_argument&) {
+        assert(false); // Should not reach here
+    } catch (const std::invalid_argument &) {
         // Expected behavior
     }
-    
+
     std::cout << "✓ Parameter fitting tests passed" << std::endl;
 }
 
@@ -104,38 +104,38 @@ void testFitting() {
  */
 void testParameterValidation() {
     std::cout << "Testing parameter validation..." << std::endl;
-    
+
     // Test invalid lambda values in constructor
     try {
         PoissonDistribution poisson(-1.0);
-        assert(false);  // Should not reach here
-    } catch (const std::invalid_argument&) {
+        assert(false); // Should not reach here
+    } catch (const std::invalid_argument &) {
         // Expected behavior
     }
-    
+
     try {
         PoissonDistribution poisson(0.0);
-        assert(false);  // Should not reach here
-    } catch (const std::invalid_argument&) {
+        assert(false); // Should not reach here
+    } catch (const std::invalid_argument &) {
         // Expected behavior
     }
-    
+
     try {
         PoissonDistribution poisson(std::numeric_limits<double>::infinity());
-        assert(false);  // Should not reach here
-    } catch (const std::invalid_argument&) {
+        assert(false); // Should not reach here
+    } catch (const std::invalid_argument &) {
         // Expected behavior
     }
-    
+
     // Test setLambda validation
     PoissonDistribution poisson(1.0);
     try {
         poisson.setLambda(-1.0);
-        assert(false);  // Should not reach here
-    } catch (const std::invalid_argument&) {
+        assert(false); // Should not reach here
+    } catch (const std::invalid_argument &) {
         // Expected behavior
     }
-    
+
     std::cout << "✓ Parameter validation tests passed" << std::endl;
 }
 
@@ -144,16 +144,16 @@ void testParameterValidation() {
  */
 void testStringRepresentation() {
     std::cout << "Testing string representation..." << std::endl;
-    
+
     PoissonDistribution poisson(2.5);
     std::string str = poisson.toString();
-    
+
     // Should contain key information
     assert(str.find("Poisson") != std::string::npos);
     assert(str.find("2.5") != std::string::npos);
     assert(str.find("Mean") != std::string::npos);
     assert(str.find("Variance") != std::string::npos);
-    
+
     std::cout << "String representation: " << str << std::endl;
     std::cout << "✓ String representation tests passed" << std::endl;
 }
@@ -163,28 +163,28 @@ void testStringRepresentation() {
  */
 void testCopyMoveSemantics() {
     std::cout << "Testing copy/move semantics..." << std::endl;
-    
+
     PoissonDistribution original(3.14);
-    
+
     // Test copy constructor
     PoissonDistribution copied(original);
     assert(copied.getLambda() == original.getLambda());
-    
+
     // Test copy assignment
     PoissonDistribution assigned;
     assigned = original;
     assert(assigned.getLambda() == original.getLambda());
-    
+
     // Test move constructor
     PoissonDistribution moved(std::move(original));
     assert(moved.getLambda() == 3.14);
-    
+
     // Test move assignment
     PoissonDistribution moveAssigned;
     PoissonDistribution temp(2.71);
     moveAssigned = std::move(temp);
     assert(moveAssigned.getLambda() == 2.71);
-    
+
     std::cout << "✓ Copy/move semantics tests passed" << std::endl;
 }
 
@@ -193,23 +193,23 @@ void testCopyMoveSemantics() {
  */
 void testNumericalStability() {
     std::cout << "Testing numerical stability..." << std::endl;
-    
+
     // Test with large lambda
     PoissonDistribution poissonLarge(500.0);
-    double probLarge = poissonLarge.getProbability(500.0);  // Should be around mode
+    double probLarge = poissonLarge.getProbability(500.0); // Should be around mode
     assert(probLarge > 0.0 && probLarge < 1.0);
-    
+
     // Test with very small lambda
     PoissonDistribution poissonSmall(1e-6);
     double probSmall = poissonSmall.getProbability(0.0);
     assert(probSmall > 0.0 && probSmall < 1.0);
-    
+
     // Test extreme cases that might cause overflow/underflow
     PoissonDistribution poissonExtreme(100.0);
-    double probExtreme = poissonExtreme.getProbability(200.0);  // Far from mean
+    double probExtreme = poissonExtreme.getProbability(200.0); // Far from mean
     // Should return a very small but positive number, or 0 due to underflow
     assert(probExtreme >= 0.0);
-    
+
     std::cout << "✓ Numerical stability tests passed" << std::endl;
 }
 
@@ -218,28 +218,30 @@ void testNumericalStability() {
  */
 void testLogProbability() {
     std::cout << "Testing log probability calculations..." << std::endl;
-    
+
     PoissonDistribution poisson(2.0);
-    
+
     // Test valid values
     double logProb2 = poisson.getLogProbability(2.0);
     double prob2 = poisson.getProbability(2.0);
-    
+
     // log(prob) should equal logProb (within numerical precision)
     assert(std::abs(std::log(prob2) - logProb2) < 1e-10);
-    
+
     // Test invalid inputs (should return -infinity)
     double logProbNeg = poisson.getLogProbability(-1.0);
     double logProbFloat = poisson.getLogProbability(2.5);
     assert(std::isinf(logProbNeg) && logProbNeg < 0);
     assert(std::isinf(logProbFloat) && logProbFloat < 0);
-    
+
     // Test with invalid inputs
     double nan_val = std::numeric_limits<double>::quiet_NaN();
     double inf_val = std::numeric_limits<double>::infinity();
-    assert(std::isinf(poisson.getLogProbability(nan_val)) && poisson.getLogProbability(nan_val) < 0);
-    assert(std::isinf(poisson.getLogProbability(inf_val)) && poisson.getLogProbability(inf_val) < 0);
-    
+    assert(std::isinf(poisson.getLogProbability(nan_val)) &&
+           poisson.getLogProbability(nan_val) < 0);
+    assert(std::isinf(poisson.getLogProbability(inf_val)) &&
+           poisson.getLogProbability(inf_val) < 0);
+
     std::cout << "✓ Log probability tests passed" << std::endl;
 }
 
@@ -248,33 +250,33 @@ void testLogProbability() {
  */
 void testCDF() {
     std::cout << "Testing CDF calculations..." << std::endl;
-    
+
     PoissonDistribution poisson(2.0);
-    
+
     // Test basic properties
     double cdf0 = poisson.getCumulativeProbability(0.0);
     double cdf2 = poisson.getCumulativeProbability(2.0);
     double cdf10 = poisson.getCumulativeProbability(10.0);
-    
+
     assert(cdf0 >= 0.0 && cdf0 <= 1.0);
     assert(cdf2 >= 0.0 && cdf2 <= 1.0);
     assert(cdf10 >= 0.0 && cdf10 <= 1.0);
-    
+
     // CDF should be monotonic
     assert(cdf0 <= cdf2);
     assert(cdf2 <= cdf10);
-    
+
     // CDF should approach 1 for large values
     assert(cdf10 > 0.99);
-    
+
     // Test boundary cases
     assert(poisson.getCumulativeProbability(-1.0) == 0.0);
-    
+
     // Test large lambda normal approximation
     PoissonDistribution poissonLarge(200.0);
     double cdfLarge = poissonLarge.getCumulativeProbability(200.0);
     assert(cdfLarge >= 0.0 && cdfLarge <= 1.0);
-    
+
     std::cout << "✓ CDF tests passed" << std::endl;
 }
 
@@ -283,26 +285,26 @@ void testCDF() {
  */
 void testEqualityAndIO() {
     std::cout << "Testing equality and I/O operators..." << std::endl;
-    
+
     PoissonDistribution poisson1(2.5);
     PoissonDistribution poisson2(2.5);
     PoissonDistribution poisson3(3.0);
-    
+
     // Test equality
     assert(poisson1 == poisson2);
     assert(!(poisson1 == poisson3));
-    
+
     // Test inequality
     assert(!(poisson1 != poisson2));
     assert(poisson1 != poisson3);
-    
+
     // Test stream output
     std::ostringstream oss;
     oss << poisson1;
     std::string output = oss.str();
     assert(!output.empty());
     assert(output.find("Poisson") != std::string::npos);
-    
+
     std::cout << "✓ Equality and I/O tests passed" << std::endl;
 }
 
@@ -311,58 +313,59 @@ void testEqualityAndIO() {
  */
 void testPerformance() {
     std::cout << "Testing performance characteristics..." << std::endl;
-    
+
     PoissonDistribution poisson(10.0);
-    
+
     // Test PDF timing
     auto start = std::chrono::high_resolution_clock::now();
     const int pdfIterations = 10000;
-    volatile double sum = 0.0;  // volatile to prevent optimization
-    
+    volatile double sum = 0.0; // volatile to prevent optimization
+
     for (int i = 0; i < pdfIterations; ++i) {
-        sum += poisson.getProbability(i % 50);  // 0 to 49
+        sum += poisson.getProbability(i % 50); // 0 to 49
     }
-    
+
     auto end = std::chrono::high_resolution_clock::now();
     auto pdfDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     double pdfTimePerCall = static_cast<double>(pdfDuration.count()) / pdfIterations;
-    
+
     // Test Log PDF timing
     start = std::chrono::high_resolution_clock::now();
     volatile double logSum = 0.0;
-    
+
     for (int i = 0; i < pdfIterations; ++i) {
-        logSum += poisson.getLogProbability(i % 50);  // 0 to 49
+        logSum += poisson.getLogProbability(i % 50); // 0 to 49
     }
-    
+
     end = std::chrono::high_resolution_clock::now();
     auto logPdfDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     double logPdfTimePerCall = static_cast<double>(logPdfDuration.count()) / pdfIterations;
-    
+
     // Test fitting timing
     std::vector<Observation> fitData(1000);
     for (size_t i = 0; i < fitData.size(); ++i) {
-        fitData[i] = static_cast<double>(i % 25);  // Values 0-24
+        fitData[i] = static_cast<double>(i % 25); // Values 0-24
     }
-    
+
     start = std::chrono::high_resolution_clock::now();
     poisson.fit(fitData);
     end = std::chrono::high_resolution_clock::now();
     auto fitDuration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     double fitTimePerPoint = static_cast<double>(fitDuration.count()) / fitData.size();
-    
-    std::cout << "  PDF timing:       " << std::fixed << std::setprecision(3) 
-              << pdfTimePerCall << " μs/call (" << pdfIterations << " calls)" << std::endl;
-    std::cout << "  Log PDF timing:   " << std::fixed << std::setprecision(3) 
-              << logPdfTimePerCall << " μs/call (" << pdfIterations << " calls)" << std::endl;
-    std::cout << "  Fit timing:       " << std::fixed << std::setprecision(3) 
-              << fitTimePerPoint << " μs/point (" << fitData.size() << " points)" << std::endl;
-    
+
+    std::cout << "  PDF timing:       " << std::fixed << std::setprecision(3) << pdfTimePerCall
+              << " μs/call (" << pdfIterations << " calls)" << std::endl;
+    std::cout << "  Log PDF timing:   " << std::fixed << std::setprecision(3) << logPdfTimePerCall
+              << " μs/call (" << pdfIterations << " calls)" << std::endl;
+    std::cout << "  Fit timing:       " << std::fixed << std::setprecision(3) << fitTimePerPoint
+              << " μs/point (" << fitData.size() << " points)" << std::endl;
+
     // Performance requirements (should be reasonable)
-    assert(pdfTimePerCall < 10.0);    // Less than 10 μs per PDF call
-    assert(logPdfTimePerCall < 5.0);  // Less than 5 μs per log PDF call
-    assert(fitTimePerPoint < 5.0);    // Less than 5 μs per data point for fitting (Poisson fitting is simple)
-    
+    assert(pdfTimePerCall < 10.0);   // Less than 10 μs per PDF call
+    assert(logPdfTimePerCall < 5.0); // Less than 5 μs per log PDF call
+    assert(fitTimePerPoint <
+           5.0); // Less than 5 μs per data point for fitting (Poisson fitting is simple)
+
     std::cout << "✓ Performance tests passed" << std::endl;
 }
 
@@ -371,35 +374,35 @@ void testPerformance() {
  */
 void testCaching() {
     std::cout << "Testing caching mechanism..." << std::endl;
-    
+
     PoissonDistribution poisson(3.0);
-    
+
     // First calculation should populate cache
     double prob1 = poisson.getProbability(3.0);
-    
+
     // Second calculation should use cache (should be identical)
     double prob2 = poisson.getProbability(3.0);
     assert(prob1 == prob2);
-    
+
     // Changing parameters should invalidate cache
     poisson.setLambda(5.0);
     double prob3 = poisson.getProbability(3.0);
-    
+
     // The probabilities should be different (λ=3 vs λ=5 significantly affects P(X=3))
     assert(std::abs(prob3 - prob1) > 1e-6);
-    
+
     // Test that log probability also works with caching
     double logProb1 = poisson.getLogProbability(3.0);
     double logProb2 = poisson.getLogProbability(3.0);
     assert(logProb1 == logProb2);
-    
+
     std::cout << "✓ Caching tests passed" << std::endl;
 }
 
 int main() {
     std::cout << "Running Poisson distribution tests..." << std::endl;
     std::cout << "=====================================" << std::endl;
-    
+
     try {
         testBasicFunctionality();
         testProbabilities();
@@ -408,19 +411,19 @@ int main() {
         testStringRepresentation();
         testCopyMoveSemantics();
         testNumericalStability();
-        
+
         // Gold Standard Tests
         testLogProbability();
         testCDF();
         testEqualityAndIO();
         testPerformance();
         testCaching();
-        
+
         std::cout << "=====================================" << std::endl;
         std::cout << "✅ All Poisson distribution tests passed!" << std::endl;
         return 0;
-        
-    } catch (const std::exception& e) {
+
+    } catch (const std::exception &e) {
         std::cerr << "❌ Test failed with exception: " << e.what() << std::endl;
         return 1;
     } catch (...) {

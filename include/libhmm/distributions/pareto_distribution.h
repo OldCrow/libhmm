@@ -4,7 +4,7 @@
 #include "libhmm/common/common.h"
 #include <span>
 
-namespace libhmm{
+namespace libhmm {
 
 /**
  * Modern C++20 Pareto distribution for modeling power-law phenomena.
@@ -25,8 +25,7 @@ namespace libhmm{
  * - Support: x ∈ [x_m, ∞)
  * - Heavy-tailed distribution (polynomial decay)
  */
-class ParetoDistribution : public DistributionBase
-{   
+class ParetoDistribution : public DistributionBase {
 private:
     /**
      * Shape parameter k - must be positive
@@ -42,37 +41,37 @@ private:
      * All observations must be ≥ x_m
      */
     double xm_{1.0};
-    
+
     /**
      * Cached value of ln(k) for efficiency in probability calculations
      */
     mutable double logK_{0.0};
-    
+
     /**
      * Cached value of k * ln(x_m) for efficiency in probability calculations
      */
     mutable double kLogXm_{0.0};
-    
+
     /**
      * Cached value of (k+1) for efficiency in probability calculations
      */
     mutable double kPlus1_{2.0};
-    
+
     /**
      * Cached value of k * x_m^k for efficiency in PDF calculations
      */
     mutable double kXmPowK_{1.0};
-    
+
     /**
      * Cached value of -k for efficiency in CDF calculations
      */
     mutable double negK_{-1.0};
-    
+
     /**
      * Cached value of log(x_m) for efficiency in log probability calculations
      */
     mutable double logXm_{0.0};
-    
+
     void updateCache() const noexcept {
         logK_ = std::log(k_);
         logXm_ = std::log(xm_);
@@ -82,7 +81,7 @@ private:
         negK_ = -k_;
         markCacheValid();
     }
-    
+
     /**
      * Validates parameters for the Pareto distribution
      * @param k Shape parameter (must be positive and finite)
@@ -103,8 +102,7 @@ private:
      */
     double CDF(double x) const noexcept;
 
-    friend std::istream& operator>>(std::istream& is,
-            libhmm::ParetoDistribution& distribution);
+    friend std::istream &operator>>(std::istream &is, libhmm::ParetoDistribution &distribution);
 
 public:
     /**
@@ -114,50 +112,59 @@ public:
      * @param xm Scale parameter x_m (must be positive)
      * @throws std::invalid_argument if parameters are invalid
      */
-    ParetoDistribution(double k = 1.0, double xm = 1.0)
-        : k_{k}, xm_{xm} {
+    ParetoDistribution(double k = 1.0, double xm = 1.0) : k_{k}, xm_{xm} {
         validateParameters(k, xm);
         updateCache();
     }
-    
+
     /**
      * Copy constructor
      */
-    ParetoDistribution(const ParetoDistribution& other)
-        : DistributionBase{other}, k_{other.k_}, xm_{other.xm_},
-          logK_{other.logK_}, kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_},
-          kXmPowK_{other.kXmPowK_}, negK_{other.negK_}, logXm_{other.logXm_} {}
-    
+    ParetoDistribution(const ParetoDistribution &other)
+        : DistributionBase{other}, k_{other.k_}, xm_{other.xm_}, logK_{other.logK_},
+          kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_}, kXmPowK_{other.kXmPowK_},
+          negK_{other.negK_}, logXm_{other.logXm_} {}
+
     /**
      * Copy assignment operator
      */
-    ParetoDistribution& operator=(const ParetoDistribution& other) {
+    ParetoDistribution &operator=(const ParetoDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            k_ = other.k_; xm_ = other.xm_;
-            logK_ = other.logK_; kLogXm_ = other.kLogXm_; kPlus1_ = other.kPlus1_;
-            kXmPowK_ = other.kXmPowK_; negK_ = other.negK_; logXm_ = other.logXm_;
+            k_ = other.k_;
+            xm_ = other.xm_;
+            logK_ = other.logK_;
+            kLogXm_ = other.kLogXm_;
+            kPlus1_ = other.kPlus1_;
+            kXmPowK_ = other.kXmPowK_;
+            negK_ = other.negK_;
+            logXm_ = other.logXm_;
         }
         return *this;
     }
-    
+
     /**
      * Move constructor
      */
-    ParetoDistribution(ParetoDistribution&& other) noexcept
-        : DistributionBase{std::move(other)}, k_{other.k_}, xm_{other.xm_},
-          logK_{other.logK_}, kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_},
-          kXmPowK_{other.kXmPowK_}, negK_{other.negK_}, logXm_{other.logXm_} {}
-    
+    ParetoDistribution(ParetoDistribution &&other) noexcept
+        : DistributionBase{std::move(other)}, k_{other.k_}, xm_{other.xm_}, logK_{other.logK_},
+          kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_}, kXmPowK_{other.kXmPowK_},
+          negK_{other.negK_}, logXm_{other.logXm_} {}
+
     /**
      * Move assignment operator
      */
-    ParetoDistribution& operator=(ParetoDistribution&& other) noexcept {
+    ParetoDistribution &operator=(ParetoDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            k_ = other.k_; xm_ = other.xm_;
-            logK_ = other.logK_; kLogXm_ = other.kLogXm_; kPlus1_ = other.kPlus1_;
-            kXmPowK_ = other.kXmPowK_; negK_ = other.negK_; logXm_ = other.logXm_;
+            k_ = other.k_;
+            xm_ = other.xm_;
+            logK_ = other.logK_;
+            kLogXm_ = other.kLogXm_;
+            kPlus1_ = other.kPlus1_;
+            kXmPowK_ = other.kXmPowK_;
+            negK_ = other.negK_;
+            logXm_ = other.logXm_;
         }
         return *this;
     }
@@ -175,9 +182,8 @@ public:
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
     [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     /** MLE: x_m = min(x_i), k̂ = n / Σ(ln(x_i/x_m)). */
@@ -207,7 +213,7 @@ public:
      * @return Current shape parameter value
      */
     double getK() const noexcept { return k_; }
-    
+
     /**
      * Sets the shape parameter k.
      * 
@@ -226,7 +232,7 @@ public:
      * @return Current scale parameter value
      */
     double getXm() const noexcept { return xm_; }
-    
+
     /**
      * Sets the scale parameter x_m.
      * 
@@ -238,7 +244,7 @@ public:
         xm_ = xm;
         invalidateCache();
     }
-    
+
     /**
      * Sets both parameters simultaneously.
      * 
@@ -248,54 +254,53 @@ public:
      */
     void setParameters(double k, double xm) {
         validateParameters(k, xm);
-        k_ = k; xm_ = xm;
+        k_ = k;
+        xm_ = xm;
         invalidateCache();
     }
-    
+
     /**
      * Gets the mean of the Pareto distribution.
      * For Pareto distribution, mean = k*x_m/(k-1) if k > 1, undefined otherwise
      * 
      * @return Mean value if k > 1, otherwise returns infinity
      */
-    double getMean() const noexcept { 
-        return (k_ > 1.0) ? (k_ * xm_) / (k_ - 1.0) : std::numeric_limits<double>::infinity(); 
+    double getMean() const noexcept {
+        return (k_ > 1.0) ? (k_ * xm_) / (k_ - 1.0) : std::numeric_limits<double>::infinity();
     }
-    
+
     /**
      * Gets the variance of the Pareto distribution.
      * For Pareto distribution, variance = (k*x_m²)/((k-1)²*(k-2)) if k > 2, undefined otherwise
      * 
      * @return Variance value if k > 2, otherwise returns infinity
      */
-    double getVariance() const noexcept { 
+    double getVariance() const noexcept {
         if (k_ > 2.0) {
             double kMinus1 = k_ - 1.0;
             return (k_ * xm_ * xm_) / (kMinus1 * kMinus1 * (k_ - 2.0));
         }
         return std::numeric_limits<double>::infinity();
     }
-    
+
     /**
      * Gets the standard deviation of the Pareto distribution.
      * 
      * @return Standard deviation if k > 2, otherwise returns infinity
      */
-    double getStandardDeviation() const noexcept { 
+    double getStandardDeviation() const noexcept {
         double var = getVariance();
         return std::isinf(var) ? var : std::sqrt(var);
     }
-    
+
     /**
      * Gets the mode of the Pareto distribution.
      * For Pareto distribution, mode = x_m (always at the scale parameter)
      * 
      * @return Mode value (equals x_m)
      */
-    double getMode() const noexcept {
-        return xm_;
-    }
-    
+    double getMode() const noexcept { return xm_; }
+
     /**
      * Gets the median of the Pareto distribution.
      * For Pareto distribution, median = x_m * 2^(1/k)
@@ -309,7 +314,7 @@ public:
     /**
      * Equality operator with tolerance for floating-point comparison
      */
-    bool operator==(const ParetoDistribution& other) const noexcept {
+    bool operator==(const ParetoDistribution &other) const noexcept {
         return std::abs(k_ - other.k_) < constants::precision::ULTRA_HIGH_PRECISION_TOLERANCE &&
                std::abs(xm_ - other.xm_) < constants::precision::ULTRA_HIGH_PRECISION_TOLERANCE;
     }
@@ -317,14 +322,9 @@ public:
     /**
      * Inequality operator
      */
-    bool operator!=(const ParetoDistribution& other) const noexcept {
-        return !(*this == other);
-    }
-
+    bool operator!=(const ParetoDistribution &other) const noexcept { return !(*this == other); }
 };
 
-std::ostream& operator<<( std::ostream&, 
-        const libhmm::ParetoDistribution& );
-std::istream& operator>>( std::istream&,
-        libhmm::ParetoDistribution& );
-} // namespace
+std::ostream &operator<<(std::ostream &, const libhmm::ParetoDistribution &);
+std::istream &operator>>(std::istream &, libhmm::ParetoDistribution &);
+} // namespace libhmm

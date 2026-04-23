@@ -18,13 +18,13 @@ class FileIOManager {
 public:
     FileIOManager() = default;
     ~FileIOManager() = default;
-    
+
     // Non-copyable but movable
-    FileIOManager(const FileIOManager&) = delete;
-    FileIOManager& operator=(const FileIOManager&) = delete;
-    FileIOManager(FileIOManager&&) = default;
-    FileIOManager& operator=(FileIOManager&&) = default;
-    
+    FileIOManager(const FileIOManager &) = delete;
+    FileIOManager &operator=(const FileIOManager &) = delete;
+    FileIOManager(FileIOManager &&) = default;
+    FileIOManager &operator=(FileIOManager &&) = default;
+
     /**
      * Reads entire file content as a string.
      * 
@@ -32,8 +32,8 @@ public:
      * @return File content as string
      * @throws std::runtime_error if file cannot be read
      */
-    static std::string readTextFile(const std::filesystem::path& filepath);
-    
+    static std::string readTextFile(const std::filesystem::path &filepath);
+
     /**
      * Writes string content to a file.
      * 
@@ -42,10 +42,9 @@ public:
      * @param append If true, append to file; if false, overwrite
      * @throws std::runtime_error if file cannot be written
      */
-    static void writeTextFile(const std::filesystem::path& filepath, 
-                             const std::string& content, 
-                             bool append = false);
-    
+    static void writeTextFile(const std::filesystem::path &filepath, const std::string &content,
+                              bool append = false);
+
     /**
      * Reads file content as lines.
      * 
@@ -53,8 +52,8 @@ public:
      * @return Vector of lines
      * @throws std::runtime_error if file cannot be read
      */
-    static std::vector<std::string> readLines(const std::filesystem::path& filepath);
-    
+    static std::vector<std::string> readLines(const std::filesystem::path &filepath);
+
     /**
      * Writes lines to a file.
      * 
@@ -63,10 +62,9 @@ public:
      * @param append If true, append to file; if false, overwrite
      * @throws std::runtime_error if file cannot be written
      */
-    static void writeLines(const std::filesystem::path& filepath, 
-                          const std::vector<std::string>& lines, 
-                          bool append = false);
-    
+    static void writeLines(const std::filesystem::path &filepath,
+                           const std::vector<std::string> &lines, bool append = false);
+
     /**
      * Safely copies a file with error handling.
      * 
@@ -75,10 +73,9 @@ public:
      * @param overwrite If true, overwrite existing file
      * @throws std::runtime_error if copy fails
      */
-    static void copyFile(const std::filesystem::path& source,
-                        const std::filesystem::path& destination,
-                        bool overwrite = false);
-    
+    static void copyFile(const std::filesystem::path &source,
+                         const std::filesystem::path &destination, bool overwrite = false);
+
     /**
      * Creates a backup of a file with timestamp.
      * 
@@ -86,8 +83,8 @@ public:
      * @return Path to the backup file
      * @throws std::runtime_error if backup fails
      */
-    static std::filesystem::path createBackup(const std::filesystem::path& filepath);
-    
+    static std::filesystem::path createBackup(const std::filesystem::path &filepath);
+
     /**
      * Validates file path and permissions.
      * 
@@ -96,18 +93,18 @@ public:
      * @param checkWrite Check write permissions
      * @return true if path is valid and has required permissions
      */
-    static bool validatePath(const std::filesystem::path& filepath,
-                           bool checkRead = false,
-                           bool checkWrite = false) noexcept;
-    
+    static bool validatePath(const std::filesystem::path &filepath, bool checkRead = false,
+                             bool checkWrite = false) noexcept;
+
     /**
      * Gets file size safely.
      * 
      * @param filepath Path to the file
      * @return File size in bytes, or nullopt if file doesn't exist
      */
-    static std::optional<std::uintmax_t> getFileSize(const std::filesystem::path& filepath) noexcept;
-    
+    static std::optional<std::uintmax_t>
+    getFileSize(const std::filesystem::path &filepath) noexcept;
+
     /**
      * Checks if file has expected extension.
      * 
@@ -115,33 +112,32 @@ public:
      * @param expectedExtension Expected file extension (with or without dot)
      * @return true if file has the expected extension
      */
-    static bool hasExtension(const std::filesystem::path& filepath, 
-                           const std::string& expectedExtension) noexcept;
-    
+    static bool hasExtension(const std::filesystem::path &filepath,
+                             const std::string &expectedExtension) noexcept;
+
     /**
      * Creates directory structure if it doesn't exist.
      * 
      * @param dirpath Directory path to create
      * @throws std::runtime_error if directory creation fails
      */
-    static void ensureDirectoryExists(const std::filesystem::path& dirpath);
-    
+    static void ensureDirectoryExists(const std::filesystem::path &dirpath);
+
     /**
      * Gets file modification time.
      * 
      * @param filepath Path to the file
      * @return File modification time, or nullopt if file doesn't exist
      */
-    static std::optional<std::filesystem::file_time_type> getModificationTime(
-        const std::filesystem::path& filepath) noexcept;
+    static std::optional<std::filesystem::file_time_type>
+    getModificationTime(const std::filesystem::path &filepath) noexcept;
 
 private:
     /**
      * Internal helper to validate file operations.
      */
-    static void validateFileOperation(const std::filesystem::path& filepath, 
-                                    const std::string& operation);
+    static void validateFileOperation(const std::filesystem::path &filepath,
+                                      const std::string &operation);
 };
 
-}
-
+} // namespace libhmm

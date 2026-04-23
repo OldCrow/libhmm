@@ -4,6 +4,5 @@
 #include "libhmm/training/trainer.h"
 
 namespace libhmm {
-    using HmmTrainer = Trainer;
+using HmmTrainer = Trainer;
 } // namespace libhmm
-

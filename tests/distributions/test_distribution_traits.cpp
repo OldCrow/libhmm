@@ -22,12 +22,12 @@ TEST_F(DistributionTraitsTest, DiscreteDistributionDetection) {
     EXPECT_TRUE(is_discrete_distribution_v<PoissonDistribution>);
     EXPECT_TRUE(is_discrete_distribution_v<BinomialDistribution>);
     EXPECT_TRUE(is_discrete_distribution_v<NegativeBinomialDistribution>);
-    
+
     // Continuous distributions should not be detected as discrete
     EXPECT_FALSE(is_discrete_distribution_v<GaussianDistribution>);
     EXPECT_FALSE(is_discrete_distribution_v<GammaDistribution>);
     EXPECT_FALSE(is_discrete_distribution_v<ExponentialDistribution>);
-    
+
     // Non-distribution types should not be detected
     EXPECT_FALSE(is_discrete_distribution_v<int>);
     EXPECT_FALSE(is_discrete_distribution_v<std::string>);
@@ -47,12 +47,12 @@ TEST_F(DistributionTraitsTest, ContinuousDistributionDetection) {
     EXPECT_TRUE(is_continuous_distribution_v<StudentTDistribution>);
     EXPECT_TRUE(is_continuous_distribution_v<ChiSquaredDistribution>);
     EXPECT_TRUE(is_continuous_distribution_v<RayleighDistribution>);
-    
+
     // Discrete distributions should not be detected as continuous
     EXPECT_FALSE(is_continuous_distribution_v<DiscreteDistribution>);
     EXPECT_FALSE(is_continuous_distribution_v<PoissonDistribution>);
     EXPECT_FALSE(is_continuous_distribution_v<BinomialDistribution>);
-    
+
     // Non-distribution types should not be detected
     EXPECT_FALSE(is_continuous_distribution_v<int>);
     EXPECT_FALSE(is_continuous_distribution_v<std::string>);
@@ -65,7 +65,7 @@ TEST_F(DistributionTraitsTest, FittingSupportDetection) {
     EXPECT_TRUE(supports_fitting_v<GaussianDistribution>);
     EXPECT_TRUE(supports_fitting_v<PoissonDistribution>);
     EXPECT_TRUE(supports_fitting_v<GammaDistribution>);
-    
+
     // Non-distribution types should not support fitting
     EXPECT_FALSE(supports_fitting_v<int>);
     EXPECT_FALSE(supports_fitting_v<std::string>);
@@ -76,7 +76,7 @@ TEST_F(DistributionTraitsTest, ParameterEstimationDetection) {
     // Distributions with getMean() and getVariance() should be detected
     EXPECT_TRUE(has_parameter_estimation_v<GaussianDistribution>);
     EXPECT_TRUE(has_parameter_estimation_v<PoissonDistribution>);
-    
+
     // Non-distribution types should not have parameter estimation
     EXPECT_FALSE(has_parameter_estimation_v<int>);
     EXPECT_FALSE(has_parameter_estimation_v<std::string>);
@@ -88,11 +88,11 @@ TEST_F(DistributionTraitsTest, BaumWelchCompatibility) {
     EXPECT_TRUE(is_baum_welch_compatible_v<DiscreteDistribution>);
     EXPECT_TRUE(is_baum_welch_compatible_v<PoissonDistribution>);
     EXPECT_TRUE(is_baum_welch_compatible_v<BinomialDistribution>);
-    
+
     // Continuous distributions should not be Baum-Welch compatible
     EXPECT_FALSE(is_baum_welch_compatible_v<GaussianDistribution>);
     EXPECT_FALSE(is_baum_welch_compatible_v<GammaDistribution>);
-    
+
     // Non-distribution types should not be compatible
     EXPECT_FALSE(is_baum_welch_compatible_v<int>);
     EXPECT_FALSE(is_baum_welch_compatible_v<std::string>);
@@ -105,7 +105,7 @@ TEST_F(DistributionTraitsTest, ViterbiCompatibility) {
     EXPECT_TRUE(is_viterbi_compatible_v<GaussianDistribution>);
     EXPECT_TRUE(is_viterbi_compatible_v<PoissonDistribution>);
     EXPECT_TRUE(is_viterbi_compatible_v<GammaDistribution>);
-    
+
     // Non-distribution types should not be compatible
     EXPECT_FALSE(is_viterbi_compatible_v<int>);
     EXPECT_FALSE(is_viterbi_compatible_v<std::string>);
@@ -116,11 +116,11 @@ TEST_F(DistributionTraitsTest, DistributionCategoryFunction) {
     // Test discrete distributions
     EXPECT_EQ(get_distribution_category<DiscreteDistribution>(), DistributionCategory::Discrete);
     EXPECT_EQ(get_distribution_category<PoissonDistribution>(), DistributionCategory::Discrete);
-    
+
     // Test continuous distributions
     EXPECT_EQ(get_distribution_category<GaussianDistribution>(), DistributionCategory::Continuous);
     EXPECT_EQ(get_distribution_category<GammaDistribution>(), DistributionCategory::Continuous);
-    
+
     // Test unknown types
     EXPECT_EQ(get_distribution_category<int>(), DistributionCategory::Unknown);
     EXPECT_EQ(get_distribution_category<std::string>(), DistributionCategory::Unknown);
@@ -131,44 +131,44 @@ TEST_F(DistributionTraitsTest, TrainerSelector) {
     // Discrete distributions should select Baum-Welch (0)
     EXPECT_EQ(trainer_selector_v<DiscreteDistribution>, 0);
     EXPECT_EQ(trainer_selector_v<PoissonDistribution>, 0);
-    
+
     // Continuous distributions should select Viterbi (1)
     EXPECT_EQ(trainer_selector_v<GaussianDistribution>, 1);
     EXPECT_EQ(trainer_selector_v<GammaDistribution>, 1);
 }
 
 // Test SFINAE helpers by creating template functions that only work with specific types
-template<typename T, typename = enable_if_discrete_t<T>>
-bool test_discrete_only(const T&) {
+template <typename T, typename = enable_if_discrete_t<T>>
+bool test_discrete_only(const T &) {
     return true;
 }
 
-template<typename T, typename = enable_if_continuous_t<T>>
-bool test_continuous_only(const T&) {
+template <typename T, typename = enable_if_continuous_t<T>>
+bool test_continuous_only(const T &) {
     return true;
 }
 
-template<typename T, typename = enable_if_baum_welch_compatible_t<T>>
-bool test_baum_welch_only(const T&) {
+template <typename T, typename = enable_if_baum_welch_compatible_t<T>>
+bool test_baum_welch_only(const T &) {
     return true;
 }
 
-template<typename T, typename = enable_if_viterbi_compatible_t<T>>
-bool test_viterbi_only(const T&) {
+template <typename T, typename = enable_if_viterbi_compatible_t<T>>
+bool test_viterbi_only(const T &) {
     return true;
 }
 
 TEST_F(DistributionTraitsTest, SFINAEHelpers) {
     DiscreteDistribution discrete_dist(5);
     GaussianDistribution gaussian_dist(0.0, 1.0);
-    
+
     // Test that SFINAE helpers work correctly
     EXPECT_TRUE(test_discrete_only(discrete_dist));
     EXPECT_TRUE(test_continuous_only(gaussian_dist));
     EXPECT_TRUE(test_baum_welch_only(discrete_dist));
     EXPECT_TRUE(test_viterbi_only(discrete_dist));
     EXPECT_TRUE(test_viterbi_only(gaussian_dist));
-    
+
     // Note: The following should not compile if uncommented:
     // test_discrete_only(gaussian_dist);      // Should fail - Gaussian is not discrete
     // test_continuous_only(discrete_dist);    // Should fail - Discrete is not continuous
@@ -181,14 +181,14 @@ TEST_F(DistributionTraitsTest, CompileTimeValidation) {
     LIBHMM_VALIDATE_DISTRIBUTION(DiscreteDistribution);
     LIBHMM_VALIDATE_DISTRIBUTION(GaussianDistribution);
     LIBHMM_VALIDATE_DISTRIBUTION(PoissonDistribution);
-    
+
     // Note: The following should not compile if uncommented:
     // LIBHMM_VALIDATE_DISTRIBUTION(int);        // Should fail - not a distribution
     // LIBHMM_VALIDATE_DISTRIBUTION(std::string); // Should fail - not a distribution
 }
 
 // Demonstrate practical usage with a template function
-template<typename DistType>
+template <typename DistType>
 auto create_appropriate_trainer_type() {
     if constexpr (is_baum_welch_compatible_v<DistType>) {
         return std::string("BaumWelchTrainer");
@@ -221,7 +221,8 @@ TEST_F(DistributionTraitsTest, AllDistributionsCategorized) {
     EXPECT_NE(get_distribution_category<WeibullDistribution>(), DistributionCategory::Unknown);
     EXPECT_NE(get_distribution_category<UniformDistribution>(), DistributionCategory::Unknown);
     EXPECT_NE(get_distribution_category<BinomialDistribution>(), DistributionCategory::Unknown);
-    EXPECT_NE(get_distribution_category<NegativeBinomialDistribution>(), DistributionCategory::Unknown);
+    EXPECT_NE(get_distribution_category<NegativeBinomialDistribution>(),
+              DistributionCategory::Unknown);
     EXPECT_NE(get_distribution_category<StudentTDistribution>(), DistributionCategory::Unknown);
     EXPECT_NE(get_distribution_category<ChiSquaredDistribution>(), DistributionCategory::Unknown);
     EXPECT_NE(get_distribution_category<RayleighDistribution>(), DistributionCategory::Unknown);

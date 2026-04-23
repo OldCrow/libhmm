@@ -3,19 +3,20 @@
 
 using namespace libhmm::constants;
 
-namespace libhmm
-{
+namespace libhmm {
 
 /**
  * Gets the probability mass function value for a discrete observation.
  * 
  * @param x The discrete value (will be cast to integer index)
  * @return Probability mass for the given value, 0.0 if out of range
- */            
+ */
 double DiscreteDistribution::getProbability(double x) const {
-    if (std::isnan(x) || std::isinf(x) || x < math::ZERO_DOUBLE) return math::ZERO_DOUBLE;
+    if (std::isnan(x) || std::isinf(x) || x < math::ZERO_DOUBLE)
+        return math::ZERO_DOUBLE;
     const auto index = static_cast<std::size_t>(x);
-    if (!isValidIndex(index)) return math::ZERO_DOUBLE;
+    if (!isValidIndex(index))
+        return math::ZERO_DOUBLE;
     assert(pdf_[index] <= 1.0 && pdf_[index] >= 0.0);
     return pdf_[index];
 }
@@ -28,37 +29,52 @@ double DiscreteDistribution::getProbability(double x) const {
  * @param values Vector of observed discrete values
  */
 void DiscreteDistribution::fit(std::span<const double> data) {
-    if (data.empty()) { reset(); return; }
+    if (data.empty()) {
+        reset();
+        return;
+    }
 
     std::fill(pdf_.begin(), pdf_.end(), 0.0);
     std::size_t validCount = 0;
     for (const double val : data) {
         if (val >= 0.0) {
             const auto index = static_cast<std::size_t>(val);
-            if (isValidIndex(index)) { pdf_[index]++; ++validCount; }
+            if (isValidIndex(index)) {
+                pdf_[index]++;
+                ++validCount;
+            }
         }
     }
-    if (validCount == 0) { reset(); return; }
+    if (validCount == 0) {
+        reset();
+        return;
+    }
     const double inv = 1.0 / static_cast<double>(validCount);
-    for (double& p : pdf_) p *= inv;
+    for (double &p : pdf_)
+        p *= inv;
     invalidateCache();
 }
 
-void DiscreteDistribution::fit(std::span<const double> data,
-                               std::span<const double> weights) {
+void DiscreteDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     // Weighted empirical probabilities: P(X=k) = Σ(w_i for x_i=k) / Σ(w_i)
     double sumW = 0.0;
-    for (const double w : weights) sumW += w;
-    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
+    for (const double w : weights)
+        sumW += w;
+    if (sumW < precision::ZERO || std::isnan(sumW)) {
+        reset();
+        return;
+    }
 
     std::fill(pdf_.begin(), pdf_.end(), 0.0);
     for (std::size_t i = 0; i < data.size(); ++i) {
         if (data[i] >= 0.0) {
             const auto index = static_cast<std::size_t>(data[i]);
-            if (isValidIndex(index)) pdf_[index] += weights[i];
+            if (isValidIndex(index))
+                pdf_[index] += weights[i];
         }
     }
-    for (double& p : pdf_) p /= sumW;
+    for (double &p : pdf_)
+        p /= sumW;
     invalidateCache();
 }
 
@@ -97,14 +113,15 @@ double DiscreteDistribution::getLogProbability(double value) const noexcept {
     if (std::isnan(value) || std::isinf(value) || value < math::ZERO_DOUBLE) {
         return -std::numeric_limits<double>::infinity();
     }
-    
+
     // Convert to integer index
     const auto index = static_cast<std::size_t>(value);
     if (!isValidIndex(index)) {
         return -std::numeric_limits<double>::infinity();
     }
-    
-    if (!isCacheValid()) updateCache();
+
+    if (!isCacheValid())
+        updateCache();
     return cachedLogProbs_[index];
 }
 
@@ -117,37 +134,38 @@ double DiscreteDistribution::getCumulativeProbability(double value) const noexce
     if (std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;
     }
-    
+
     if (value < math::ZERO_DOUBLE) {
         return math::ZERO_DOUBLE;
     }
-    
+
     const auto k = static_cast<std::size_t>(std::floor(value));
-    
+
     // If k is beyond our range, CDF = 1.0
     if (k >= numSymbols_) {
         return math::ONE;
     }
-    
-    if (!isCacheValid()) updateCache();
+
+    if (!isCacheValid())
+        updateCache();
     return cachedCDF_[k];
 }
 
 /**
  * Equality comparison operator with numerical tolerance
  */
-bool DiscreteDistribution::operator==(const DiscreteDistribution& other) const {
+bool DiscreteDistribution::operator==(const DiscreteDistribution &other) const {
     if (numSymbols_ != other.numSymbols_) {
         return false;
     }
-    
+
     const double tolerance = 1e-10;
     for (std::size_t i = 0; i < numSymbols_; ++i) {
         if (std::abs(pdf_[i] - other.pdf_[i]) > tolerance) {
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -155,18 +173,18 @@ bool DiscreteDistribution::operator==(const DiscreteDistribution& other) const {
  * Stream input operator implementation
  * Expects format with number of symbols followed by probabilities
  */
-std::istream& operator>>(std::istream& is, libhmm::DiscreteDistribution& distribution) {
+std::istream &operator>>(std::istream &is, libhmm::DiscreteDistribution &distribution) {
     std::size_t numSymbols = 0;
-    
+
     if (!(is >> numSymbols)) {
         is.setstate(std::ios::failbit);
         return is;
     }
-    
+
     // Create new distribution with the specified number of symbols
     try {
         DiscreteDistribution newDist(static_cast<int>(numSymbols));
-        
+
         // Read probabilities
         for (std::size_t i = 0; i < numSymbols; ++i) {
             double prob = 0.0;
@@ -176,36 +194,35 @@ std::istream& operator>>(std::istream& is, libhmm::DiscreteDistribution& distrib
             }
             newDist.setProbability(static_cast<double>(i), prob);
         }
-        
+
         // If successful, update the distribution
         distribution = std::move(newDist);
-        
-    } catch (const std::exception&) {
+
+    } catch (const std::exception &) {
         is.setstate(std::ios::failbit);
     }
-    
+
     return is;
 }
 
-std::ostream& operator<<( std::ostream& os, 
-        const libhmm::DiscreteDistribution& distribution ){
-    
-    os << distribution.toString( );
+std::ostream &operator<<(std::ostream &os, const libhmm::DiscreteDistribution &distribution) {
+
+    os << distribution.toString();
     return os;
 }
 
-void DiscreteDistribution::getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const {
+void DiscreteDistribution::getBatchLogProbabilities(std::span<const double> observations,
+                                                    std::span<double> out) const {
     // Tier 1 — concrete non-virtual loop with O(1) cached-table lookup.
     // Tier 2 upgrade: SIMD gather instructions (_mm512_i64gather_pd) could batch
     // the index lookups, but the per-element index-validation branch limits
     // vectorization benefit. The cached log-probability table is already optimal
     // for the scalar case.
-    if (!isCacheValid()) updateCache();
+    if (!isCacheValid())
+        updateCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = DiscreteDistribution::getLogProbability(observations[i]);
     }
 }
 
-}//namespace
+} // namespace libhmm

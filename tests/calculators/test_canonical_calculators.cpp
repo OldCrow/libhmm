@@ -11,20 +11,25 @@ namespace {
 std::unique_ptr<Hmm> create_two_state_hmm() {
     auto hmm = std::make_unique<Hmm>(2);
     Matrix trans(2, 2);
-    trans(0, 0) = 0.9; trans(0, 1) = 0.1;
-    trans(1, 0) = 0.8; trans(1, 1) = 0.2;
+    trans(0, 0) = 0.9;
+    trans(0, 1) = 0.1;
+    trans(1, 0) = 0.8;
+    trans(1, 1) = 0.2;
     hmm->setTrans(trans);
 
     Vector pi(2);
-    pi(0) = 0.75; pi(1) = 0.25;
+    pi(0) = 0.75;
+    pi(1) = 0.25;
     hmm->setPi(pi);
 
     auto fair = std::make_unique<DiscreteDistribution>(6);
-    for (int i = 0; i < 6; ++i) fair->setProbability(i, 1.0 / 6.0);
+    for (int i = 0; i < 6; ++i)
+        fair->setProbability(i, 1.0 / 6.0);
     hmm->setDistribution(0, std::move(fair));
 
     auto loaded = std::make_unique<DiscreteDistribution>(6);
-    for (int i = 0; i < 5; ++i) loaded->setProbability(i, 0.125);
+    for (int i = 0; i < 5; ++i)
+        loaded->setProbability(i, 0.125);
     loaded->setProbability(5, 0.375);
     hmm->setDistribution(1, std::move(loaded));
 
@@ -42,14 +47,18 @@ protected:
         hmm_ = create_two_state_hmm();
 
         obs5_ = ObservationSet(5);
-        obs5_(0) = 0; obs5_(1) = 1; obs5_(2) = 5;
-        obs5_(3) = 4; obs5_(4) = 2;
+        obs5_(0) = 0;
+        obs5_(1) = 1;
+        obs5_(2) = 5;
+        obs5_(3) = 4;
+        obs5_(4) = 2;
 
         obs1_ = ObservationSet(1);
         obs1_(0) = 3;
 
         obs100_ = ObservationSet(100);
-        for (std::size_t i = 0; i < 100; ++i) obs100_(i) = static_cast<double>(i % 6);
+        for (std::size_t i = 0; i < 100; ++i)
+            obs100_(i) = static_cast<double>(i % 6);
     }
 
     std::unique_ptr<Hmm> hmm_;
@@ -90,12 +99,12 @@ TEST_F(CanonicalCalculatorTest, FB_LogProbConsistentWithProbability) {
 
 TEST_F(CanonicalCalculatorTest, FB_MatrixDimensions) {
     ForwardBackwardCalculator fbc(*hmm_, obs5_);
-    const Matrix& alpha = fbc.getLogForwardVariables();
-    const Matrix& beta  = fbc.getLogBackwardVariables();
+    const Matrix &alpha = fbc.getLogForwardVariables();
+    const Matrix &beta = fbc.getLogBackwardVariables();
     EXPECT_EQ(alpha.size1(), obs5_.size());
     EXPECT_EQ(alpha.size2(), static_cast<std::size_t>(hmm_->getNumStates()));
-    EXPECT_EQ(beta.size1(),  obs5_.size());
-    EXPECT_EQ(beta.size2(),  static_cast<std::size_t>(hmm_->getNumStates()));
+    EXPECT_EQ(beta.size1(), obs5_.size());
+    EXPECT_EQ(beta.size2(), static_cast<std::size_t>(hmm_->getNumStates()));
 }
 
 TEST_F(CanonicalCalculatorTest, FB_SingleObservation) {
@@ -158,7 +167,7 @@ TEST_F(CanonicalCalculatorTest, Viterbi_LogProbFinite) {
 TEST_F(CanonicalCalculatorTest, Viterbi_DecodeMatchesStoredSequence) {
     ViterbiCalculator vc(*hmm_, obs5_);
     StateSequence decoded = vc.decode();
-    const StateSequence& stored = vc.getStateSequence();
+    const StateSequence &stored = vc.getStateSequence();
     ASSERT_EQ(decoded.size(), stored.size());
     for (std::size_t i = 0; i < decoded.size(); ++i) {
         EXPECT_EQ(decoded(i), stored(i));
@@ -193,7 +202,7 @@ TEST_F(CanonicalCalculatorTest, ViterbiLogProbLEForwardBackward) {
     EXPECT_GE(fbc.getLogProbability(), vc.getLogProbability() - 1e-9);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

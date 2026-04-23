@@ -22,12 +22,21 @@ static std::unique_ptr<Hmm> make_3state_hmm() {
     auto hmm = std::make_unique<Hmm>(3);
 
     Matrix trans(3, 3);
-    trans(0, 0) = 0.7; trans(0, 1) = 0.2; trans(0, 2) = 0.1;
-    trans(1, 0) = 0.1; trans(1, 1) = 0.8; trans(1, 2) = 0.1;
-    trans(2, 0) = 0.1; trans(2, 1) = 0.1; trans(2, 2) = 0.8;
+    trans(0, 0) = 0.7;
+    trans(0, 1) = 0.2;
+    trans(0, 2) = 0.1;
+    trans(1, 0) = 0.1;
+    trans(1, 1) = 0.8;
+    trans(1, 2) = 0.1;
+    trans(2, 0) = 0.1;
+    trans(2, 1) = 0.1;
+    trans(2, 2) = 0.8;
     hmm->setTrans(trans);
 
-    Vector pi(3); pi(0) = 0.5; pi(1) = 0.3; pi(2) = 0.2;
+    Vector pi(3);
+    pi(0) = 0.5;
+    pi(1) = 0.3;
+    pi(2) = 0.2;
     hmm->setPi(pi);
 
     hmm->setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.5));
@@ -49,12 +58,11 @@ static ObservationLists make_obs() {
     return obs;
 }
 
-static void run_and_report(const char* label, ViterbiTrainer& trainer) {
+static void run_and_report(const char *label, ViterbiTrainer &trainer) {
     trainer.train();
     std::cout << "  " << std::left << std::setw(14) << label
               << "converged=" << (trainer.hasConverged() ? "yes" : "no ")
-              << "  max_iter=" << (trainer.reachedMaxIterations() ? "yes" : "no")
-              << "\n";
+              << "  max_iter=" << (trainer.reachedMaxIterations() ? "yes" : "no") << "\n";
 }
 
 int main() {
@@ -92,8 +100,8 @@ int main() {
         auto hmm = make_3state_hmm();
         TrainingConfig cfg;
         cfg.convergenceTolerance = 1e-9;
-        cfg.maxIterations        = 500;
-        cfg.convergenceWindow    = 5;
+        cfg.maxIterations = 500;
+        cfg.convergenceWindow = 5;
         ViterbiTrainer trainer(hmm.get(), obs, cfg);
         run_and_report("custom:", trainer);
     }
@@ -108,11 +116,9 @@ int main() {
         trainer.train();
 
         for (int s = 0; s < 3; ++s) {
-            const auto& d = static_cast<const GaussianDistribution&>(
-                hmm->getDistribution(s));
-            std::cout << "  State " << s << ": μ=" << std::fixed
-                      << std::setprecision(3) << d.getMean()
-                      << "  σ=" << d.getStandardDeviation() << "\n";
+            const auto &d = static_cast<const GaussianDistribution &>(hmm->getDistribution(s));
+            std::cout << "  State " << s << ": μ=" << std::fixed << std::setprecision(3)
+                      << d.getMean() << "  σ=" << d.getStandardDeviation() << "\n";
         }
     }
 
@@ -122,24 +128,32 @@ int main() {
     std::cout << "\nSegmental K-means (discrete HMM, for comparison):\n";
     {
         Hmm hmm_disc(2);
-        Matrix t2(2, 2); t2(0, 0) = 0.8; t2(0, 1) = 0.2;
-                         t2(1, 0) = 0.3; t2(1, 1) = 0.7;
+        Matrix t2(2, 2);
+        t2(0, 0) = 0.8;
+        t2(0, 1) = 0.2;
+        t2(1, 0) = 0.3;
+        t2(1, 1) = 0.7;
         hmm_disc.setTrans(t2);
-        Vector pi2(2); pi2(0) = 0.5; pi2(1) = 0.5;
+        Vector pi2(2);
+        pi2(0) = 0.5;
+        pi2(1) = 0.5;
         hmm_disc.setPi(pi2);
 
         auto d0 = std::make_unique<DiscreteDistribution>(6);
-        for (int i = 0; i < 6; ++i) d0->setProbability(i, 1.0 / 6.0);
+        for (int i = 0; i < 6; ++i)
+            d0->setProbability(i, 1.0 / 6.0);
         hmm_disc.setDistribution(0, std::move(d0));
 
         auto d1 = std::make_unique<DiscreteDistribution>(6);
-        for (int i = 0; i < 5; ++i) d1->setProbability(i, 0.1);
+        for (int i = 0; i < 5; ++i)
+            d1->setProbability(i, 0.1);
         d1->setProbability(5, 0.5);
         hmm_disc.setDistribution(1, std::move(d1));
 
         ObservationLists disc_obs;
         ObservationSet ds(12);
-        for (std::size_t i = 0; i < 12; ++i) ds(i) = i % 6;
+        for (std::size_t i = 0; i < 12; ++i)
+            ds(i) = i % 6;
         disc_obs.push_back(ds);
 
         SegmentalKMeansTrainer km(&hmm_disc, disc_obs);

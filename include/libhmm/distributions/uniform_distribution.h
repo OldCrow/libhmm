@@ -26,9 +26,9 @@ namespace libhmm {
  */
 class UniformDistribution : public DistributionBase {
 private:
-    double a_;  ///< Lower bound
-    double b_;  ///< Upper bound
-    
+    double a_; ///< Lower bound
+    double b_; ///< Upper bound
+
     mutable double cached_pdf_{0.0};
     mutable double cached_log_pdf_{0.0};
     mutable double cached_range_{1.0};
@@ -46,7 +46,7 @@ public:
      * Creates a uniform distribution on [0, 1]
      */
     UniformDistribution();
-    
+
     /**
      * @brief Parameterized constructor
      * @param a Lower bound
@@ -54,62 +54,62 @@ public:
      * @throws std::invalid_argument if a >= b or parameters are invalid
      */
     UniformDistribution(double a, double b);
-    
-    UniformDistribution(const UniformDistribution& other)
-        : DistributionBase{other}, a_{other.a_}, b_{other.b_},
-          cached_pdf_{other.cached_pdf_}, cached_log_pdf_{other.cached_log_pdf_},
-          cached_range_{other.cached_range_}, cached_inv_range_{other.cached_inv_range_},
-          cached_mean_{other.cached_mean_}, cached_variance_{other.cached_variance_},
-          cached_std_dev_{other.cached_std_dev_} {}
 
-    UniformDistribution& operator=(const UniformDistribution& other) {
+    UniformDistribution(const UniformDistribution &other)
+        : DistributionBase{other}, a_{other.a_}, b_{other.b_}, cached_pdf_{other.cached_pdf_},
+          cached_log_pdf_{other.cached_log_pdf_}, cached_range_{other.cached_range_},
+          cached_inv_range_{other.cached_inv_range_}, cached_mean_{other.cached_mean_},
+          cached_variance_{other.cached_variance_}, cached_std_dev_{other.cached_std_dev_} {}
+
+    UniformDistribution &operator=(const UniformDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            a_ = other.a_; b_ = other.b_;
-            cached_pdf_      = other.cached_pdf_;
-            cached_log_pdf_  = other.cached_log_pdf_;
-            cached_range_    = other.cached_range_;
-            cached_inv_range_= other.cached_inv_range_;
-            cached_mean_     = other.cached_mean_;
+            a_ = other.a_;
+            b_ = other.b_;
+            cached_pdf_ = other.cached_pdf_;
+            cached_log_pdf_ = other.cached_log_pdf_;
+            cached_range_ = other.cached_range_;
+            cached_inv_range_ = other.cached_inv_range_;
+            cached_mean_ = other.cached_mean_;
             cached_variance_ = other.cached_variance_;
-            cached_std_dev_  = other.cached_std_dev_;
+            cached_std_dev_ = other.cached_std_dev_;
         }
         return *this;
     }
 
-    UniformDistribution(UniformDistribution&& other) noexcept
+    UniformDistribution(UniformDistribution &&other) noexcept
         : DistributionBase{std::move(other)}, a_{other.a_}, b_{other.b_},
           cached_pdf_{other.cached_pdf_}, cached_log_pdf_{other.cached_log_pdf_},
           cached_range_{other.cached_range_}, cached_inv_range_{other.cached_inv_range_},
           cached_mean_{other.cached_mean_}, cached_variance_{other.cached_variance_},
           cached_std_dev_{other.cached_std_dev_} {}
 
-    UniformDistribution& operator=(UniformDistribution&& other) noexcept {
+    UniformDistribution &operator=(UniformDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            a_ = other.a_; b_ = other.b_;
-            cached_pdf_      = other.cached_pdf_;
-            cached_log_pdf_  = other.cached_log_pdf_;
-            cached_range_    = other.cached_range_;
-            cached_inv_range_= other.cached_inv_range_;
-            cached_mean_     = other.cached_mean_;
+            a_ = other.a_;
+            b_ = other.b_;
+            cached_pdf_ = other.cached_pdf_;
+            cached_log_pdf_ = other.cached_log_pdf_;
+            cached_range_ = other.cached_range_;
+            cached_inv_range_ = other.cached_inv_range_;
+            cached_mean_ = other.cached_mean_;
             cached_variance_ = other.cached_variance_;
-            cached_std_dev_  = other.cached_std_dev_;
+            cached_std_dev_ = other.cached_std_dev_;
         }
         return *this;
     }
 
     ~UniformDistribution() override = default;
-    
+
     [[nodiscard]] double getProbability(double val) const override;
     [[nodiscard]] double getLogProbability(double val) const noexcept override;
 
     /// Concrete non-virtual batch log-PDF (constant inside support, -Inf outside).
     /// Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
     double CDF(double x) const;
 
     /** Fit [a, b] to unweighted data using sample min/max with padding. */
@@ -125,42 +125,42 @@ public:
 
     /** Returns false — Uniform is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
-    
+
     /**
      * @brief Reset distribution to default parameters [0, 1]
      */
     void reset() noexcept override;
-    
+
     /**
      * @brief Get string representation of the distribution
      * @return String description
      */
     std::string toString() const override;
-    
+
     /**
      * @brief Get the lower bound parameter
      * @return Lower bound a
      */
     double getA() const { return a_; }
-    
+
     /**
      * @brief Get the upper bound parameter
      * @return Upper bound b
      */
     double getB() const { return b_; }
-    
+
     /**
      * @brief Get the lower bound parameter (alternative name)
      * @return Lower bound a
      */
     double getMin() const { return a_; }
-    
+
     /**
      * @brief Get the upper bound parameter (alternative name)
      * @return Upper bound b
      */
     double getMax() const { return b_; }
-    
+
     /**
      * @brief Set the lower bound parameter
      * @param a New lower bound
@@ -169,24 +169,24 @@ public:
     void setA(double a);
     void setB(double b);
     void setParameters(double a, double b);
-    double getMean()              const;
-    double getVariance()          const;
+    double getMean() const;
+    double getVariance() const;
     double getStandardDeviation() const;
-    
+
     /**
      * @brief Check if two distributions are approximately equal
      * @param other Other distribution to compare
      * @param tolerance Tolerance for floating point comparison
      * @return True if distributions are approximately equal
      */
-    bool isApproximatelyEqual(const UniformDistribution& other, double tolerance = 1e-9) const;
-    
+    bool isApproximatelyEqual(const UniformDistribution &other, double tolerance = 1e-9) const;
+
     /**
      * @brief Equality operator
      * @param other Other distribution to compare
      * @return True if distributions are approximately equal
      */
-    bool operator==(const UniformDistribution& other) const;
+    bool operator==(const UniformDistribution &other) const;
 };
 
 /**
@@ -195,7 +195,7 @@ public:
  * @param dist Distribution to output
  * @return Reference to the output stream
  */
-std::ostream& operator<<(std::ostream& os, const UniformDistribution& dist);
+std::ostream &operator<<(std::ostream &os, const UniformDistribution &dist);
 
 /**
  * @brief Stream input operator
@@ -203,7 +203,6 @@ std::ostream& operator<<(std::ostream& os, const UniformDistribution& dist);
  * @param dist Distribution to input
  * @return Reference to the input stream
  */
-std::istream& operator>>(std::istream& is, UniformDistribution& dist);
+std::istream &operator>>(std::istream &is, UniformDistribution &dist);
 
 } // namespace libhmm
-

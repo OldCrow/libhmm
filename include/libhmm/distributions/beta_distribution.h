@@ -4,7 +4,7 @@
 #include "libhmm/common/common.h"
 #include <span>
 
-namespace libhmm{
+namespace libhmm {
 
 /**
  * Beta distribution for modeling probabilities and proportions.
@@ -22,8 +22,7 @@ namespace libhmm{
  * - α < β: Skewed toward 0
  * - α > β: Skewed toward 1
  */
-class BetaDistribution : public DistributionBase
-{   
+class BetaDistribution : public DistributionBase {
 private:
     /**
      * Shape parameter α (alpha) - must be positive
@@ -39,37 +38,37 @@ private:
      * Cached value of log(B(α, β)) for efficiency in probability calculations
      */
     mutable double logBeta_{0.0};
-    
+
     /**
      * Cached value of (α-1) for efficiency - used in every PDF calculation
      */
     mutable double alphaMinus1_{0.0};
-    
+
     /**
      * Cached value of (β-1) for efficiency - used in every PDF calculation
      */
     mutable double betaMinus1_{0.0};
-    
+
     /**
      * Cached value of 1/B(α,β) for direct PDF calculation efficiency
      */
     mutable double invBeta_{1.0};
-    
+
     void updateCache() const noexcept {
-        logBeta_      = std::lgamma(alpha_) + std::lgamma(beta_) - std::lgamma(alpha_ + beta_);
-        invBeta_      = std::exp(-logBeta_);
-        alphaMinus1_  = alpha_ - 1.0;
-        betaMinus1_   = beta_  - 1.0;
+        logBeta_ = std::lgamma(alpha_) + std::lgamma(beta_) - std::lgamma(alpha_ + beta_);
+        invBeta_ = std::exp(-logBeta_);
+        alphaMinus1_ = alpha_ - 1.0;
+        betaMinus1_ = beta_ - 1.0;
         markCacheValid();
     }
-    
+
     /**
      * Computes the regularized incomplete beta function I_x(a,b)
      * using continued fraction expansion for numerical accuracy.
      * This is essential for the Beta distribution CDF.
      */
     double incompleteBeta(double x, double a, double b) const noexcept;
-    
+
     /**
      * Validates parameters for the Beta distribution
      * @param alpha Alpha parameter (must be positive and finite)
@@ -85,8 +84,7 @@ private:
         }
     }
 
-    friend std::istream& operator>>(std::istream& is,
-            libhmm::BetaDistribution& distribution);
+    friend std::istream &operator>>(std::istream &is, libhmm::BetaDistribution &distribution);
 
 public:
     /**
@@ -96,38 +94,43 @@ public:
      * @param beta Shape parameter β (must be positive)
      * @throws std::invalid_argument if parameters are not positive finite numbers
      */
-    explicit BetaDistribution(double alpha = 1.0, double beta = 1.0)
-        : alpha_{alpha}, beta_{beta} {
+    explicit BetaDistribution(double alpha = 1.0, double beta = 1.0) : alpha_{alpha}, beta_{beta} {
         validateParameters(alpha, beta);
         updateCache();
     }
 
-    BetaDistribution(const BetaDistribution& other)
+    BetaDistribution(const BetaDistribution &other)
         : DistributionBase{other}, alpha_{other.alpha_}, beta_{other.beta_},
           logBeta_{other.logBeta_}, alphaMinus1_{other.alphaMinus1_},
           betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_} {}
 
-    BetaDistribution& operator=(const BetaDistribution& other) {
+    BetaDistribution &operator=(const BetaDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            alpha_ = other.alpha_; beta_ = other.beta_;
-            logBeta_ = other.logBeta_; alphaMinus1_ = other.alphaMinus1_;
-            betaMinus1_ = other.betaMinus1_; invBeta_ = other.invBeta_;
+            alpha_ = other.alpha_;
+            beta_ = other.beta_;
+            logBeta_ = other.logBeta_;
+            alphaMinus1_ = other.alphaMinus1_;
+            betaMinus1_ = other.betaMinus1_;
+            invBeta_ = other.invBeta_;
         }
         return *this;
     }
 
-    BetaDistribution(BetaDistribution&& other) noexcept
+    BetaDistribution(BetaDistribution &&other) noexcept
         : DistributionBase{std::move(other)}, alpha_{other.alpha_}, beta_{other.beta_},
           logBeta_{other.logBeta_}, alphaMinus1_{other.alphaMinus1_},
           betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_} {}
 
-    BetaDistribution& operator=(BetaDistribution&& other) noexcept {
+    BetaDistribution &operator=(BetaDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            alpha_ = other.alpha_; beta_ = other.beta_;
-            logBeta_ = other.logBeta_; alphaMinus1_ = other.alphaMinus1_;
-            betaMinus1_ = other.betaMinus1_; invBeta_ = other.invBeta_;
+            alpha_ = other.alpha_;
+            beta_ = other.beta_;
+            logBeta_ = other.logBeta_;
+            alphaMinus1_ = other.alphaMinus1_;
+            betaMinus1_ = other.betaMinus1_;
+            invBeta_ = other.invBeta_;
         }
         return *this;
     }
@@ -146,9 +149,8 @@ public:
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch;
     /// enables compiler auto-vectorization under -march=native or /arch:AVX2.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
 
     /**
      * Computes the cumulative distribution function for the Beta distribution.
@@ -159,7 +161,7 @@ public:
      * @return Cumulative probability P(X ≤ value)
      */
     double getCumulativeProbability(double value) const noexcept;
-    
+
     void fit(std::span<const double> data) override;
     /** Weighted MOM: α = μ*factor, β = (1-μ)*factor where factor = μ(1-μ)/σ² - 1. */
     void fit(std::span<const double> data, std::span<const double> weights) override;
@@ -172,8 +174,8 @@ public:
      * @param values Vector of input values
      * @param results Output vector for results (will be resized if needed)
      */
-    void getProbabilityBatch(const std::vector<double>& values, std::vector<double>& results);
-    
+    void getProbabilityBatch(const std::vector<double> &values, std::vector<double> &results);
+
     /**
      * Vectorized batch computation of log PDF for multiple values.
      * Optimized for processing many values efficiently with cache reuse.
@@ -181,7 +183,8 @@ public:
      * @param values Vector of input values
      * @param results Output vector for results (will be resized if needed)
      */
-    void getLogProbabilityBatch(const std::vector<double>& values, std::vector<double>& results) const;
+    void getLogProbabilityBatch(const std::vector<double> &values,
+                                std::vector<double> &results) const;
 
     /**
      * Resets the distribution to default parameters (α = 1.0, β = 1.0).
@@ -202,7 +205,7 @@ public:
      * @return Current alpha value
      */
     double getAlpha() const noexcept { return alpha_; }
-    
+
     /**
      * Sets the alpha (α) shape parameter.
      * 
@@ -221,7 +224,7 @@ public:
      * @return Current beta value
      */
     double getBeta() const noexcept { return beta_; }
-    
+
     /**
      * Sets the beta (β) shape parameter.
      * 
@@ -233,7 +236,7 @@ public:
         beta_ = beta;
         invalidateCache();
     }
-    
+
     /**
      * Gets the mean of the distribution.
      * For Beta(α, β), mean = α/(α+β)
@@ -241,29 +244,29 @@ public:
      * @return Mean value
      */
     double getMean() const noexcept { return alpha_ / (alpha_ + beta_); }
-    
+
     /**
      * Gets the variance of the distribution.
      * For Beta(α, β), variance = αβ/((α+β)²(α+β+1))
      * 
      * @return Variance value
      */
-    double getVariance() const noexcept { 
+    double getVariance() const noexcept {
         double sum = alpha_ + beta_;
         return (alpha_ * beta_) / (sum * sum * (sum + 1.0));
     }
-    
+
     /**
      * Gets the standard deviation of the distribution.
      * 
      * @return Standard deviation
      */
     double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
-    
+
     /**
      * Equality operator with tolerance for floating-point comparison
      */
-    bool operator==(const BetaDistribution& other) const noexcept {
+    bool operator==(const BetaDistribution &other) const noexcept {
         const double tolerance = 1e-10;
         return std::abs(alpha_ - other.alpha_) < tolerance &&
                std::abs(beta_ - other.beta_) < tolerance;
@@ -272,15 +275,12 @@ public:
     /**
      * Inequality operator
      */
-    bool operator!=(const BetaDistribution& other) const noexcept {
-        return !(*this == other);
-    }
+    bool operator!=(const BetaDistribution &other) const noexcept { return !(*this == other); }
 };
 
 /**
  * Stream output operator for Beta distribution.
  */
-std::ostream& operator<<(std::ostream& os, const libhmm::BetaDistribution& distribution);
+std::ostream &operator<<(std::ostream &os, const libhmm::BetaDistribution &distribution);
 
 } // namespace libhmm
-

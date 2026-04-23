@@ -17,8 +17,7 @@ namespace libhmm {
  * - Variance: n * p * (1-p)
  * - Support: k ∈ {0, 1, 2, ..., n}
  */
-class BinomialDistribution : public DistributionBase
-{
+class BinomialDistribution : public DistributionBase {
 private:
     /** Number of trials n - must be a positive integer */
     int n_{10};
@@ -37,7 +36,8 @@ private:
         logFactorialCache_[0] = 0.0;
         for (int i = 1; i <= n_; ++i)
             logFactorialCache_[static_cast<std::size_t>(i)] =
-                logFactorialCache_[static_cast<std::size_t>(i-1)] + std::log(static_cast<double>(i));
+                logFactorialCache_[static_cast<std::size_t>(i - 1)] +
+                std::log(static_cast<double>(i));
         markCacheValid();
     }
 
@@ -50,49 +50,53 @@ private:
 
     /** Computes log C(n,k) = log(n!/(k!(n-k)!)) using cached log-factorials. */
     double logBinomialCoefficient(int n, int k) const {
-        if (k < 0 || k > n) return -std::numeric_limits<double>::infinity();
-        if (!isCacheValid()) updateCache();
+        if (k < 0 || k > n)
+            return -std::numeric_limits<double>::infinity();
+        if (!isCacheValid())
+            updateCache();
         const auto un = static_cast<std::size_t>(n);
         const auto uk = static_cast<std::size_t>(k);
         return logFactorialCache_[un] - logFactorialCache_[uk] - logFactorialCache_[un - uk];
     }
 
-    friend std::istream& operator>>(std::istream& is,
-            libhmm::BinomialDistribution& distribution);
+    friend std::istream &operator>>(std::istream &is, libhmm::BinomialDistribution &distribution);
 
 public:
-    BinomialDistribution(int n = 10, double p = 0.5)
-        : n_{n}, p_{p} {
+    BinomialDistribution(int n = 10, double p = 0.5) : n_{n}, p_{p} {
         validateParameters(n, p);
         updateCache();
     }
 
-    BinomialDistribution(const BinomialDistribution& other)
+    BinomialDistribution(const BinomialDistribution &other)
         : DistributionBase{other}, n_{other.n_}, p_{other.p_},
-          logFactorialCache_{other.logFactorialCache_},
-          logP_{other.logP_}, log1MinusP_{other.log1MinusP_} {}
+          logFactorialCache_{other.logFactorialCache_}, logP_{other.logP_},
+          log1MinusP_{other.log1MinusP_} {}
 
-    BinomialDistribution& operator=(const BinomialDistribution& other) {
+    BinomialDistribution &operator=(const BinomialDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            n_ = other.n_; p_ = other.p_;
+            n_ = other.n_;
+            p_ = other.p_;
             logFactorialCache_ = other.logFactorialCache_;
-            logP_ = other.logP_; log1MinusP_ = other.log1MinusP_;
+            logP_ = other.logP_;
+            log1MinusP_ = other.log1MinusP_;
         }
         return *this;
     }
 
-    BinomialDistribution(BinomialDistribution&& other) noexcept
+    BinomialDistribution(BinomialDistribution &&other) noexcept
         : DistributionBase{std::move(other)}, n_{other.n_}, p_{other.p_},
-          logFactorialCache_{std::move(other.logFactorialCache_)},
-          logP_{other.logP_}, log1MinusP_{other.log1MinusP_} {}
+          logFactorialCache_{std::move(other.logFactorialCache_)}, logP_{other.logP_},
+          log1MinusP_{other.log1MinusP_} {}
 
-    BinomialDistribution& operator=(BinomialDistribution&& other) noexcept {
+    BinomialDistribution &operator=(BinomialDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            n_ = other.n_; p_ = other.p_;
+            n_ = other.n_;
+            p_ = other.p_;
             logFactorialCache_ = std::move(other.logFactorialCache_);
-            logP_ = other.logP_; log1MinusP_ = other.log1MinusP_;
+            logP_ = other.logP_;
+            log1MinusP_ = other.log1MinusP_;
         }
         return *this;
     }
@@ -104,9 +108,8 @@ public:
 
     /// Concrete non-virtual batch log-PMF. Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
     [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     /** Fit p̂ = sample_mean / n (n estimated as max observed value). */
@@ -120,7 +123,7 @@ public:
     void reset() noexcept override;
     std::string toString() const override;
 
-    [[nodiscard]] int    getN() const noexcept { return n_; }
+    [[nodiscard]] int getN() const noexcept { return n_; }
     [[nodiscard]] double getP() const noexcept { return p_; }
 
     void setN(int n) {
@@ -135,19 +138,21 @@ public:
     }
     void setParameters(int n, double p) {
         validateParameters(n, p);
-        n_ = n; p_ = p;
+        n_ = n;
+        p_ = p;
         invalidateCache();
     }
 
-    [[nodiscard]] double getMean()              const noexcept { return static_cast<double>(n_) * p_; }
-    [[nodiscard]] double getVariance()          const noexcept { return static_cast<double>(n_) * p_ * (1.0 - p_); }
+    [[nodiscard]] double getMean() const noexcept { return static_cast<double>(n_) * p_; }
+    [[nodiscard]] double getVariance() const noexcept {
+        return static_cast<double>(n_) * p_ * (1.0 - p_);
+    }
     [[nodiscard]] double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
 
-    bool operator==(const BinomialDistribution& other) const;
-    bool operator!=(const BinomialDistribution& other) const { return !(*this == other); }
+    bool operator==(const BinomialDistribution &other) const;
+    bool operator!=(const BinomialDistribution &other) const { return !(*this == other); }
 };
 
-std::ostream& operator<<(std::ostream&, const libhmm::BinomialDistribution&);
+std::ostream &operator<<(std::ostream &, const libhmm::BinomialDistribution &);
 
 } // namespace libhmm
-

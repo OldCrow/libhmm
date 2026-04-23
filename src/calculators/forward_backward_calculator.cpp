@@ -9,18 +9,16 @@
 namespace libhmm {
 
 namespace {
-    constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
+constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
 }
 
 // ---------------------------------------------------------------------------
 // Constructors
 // ---------------------------------------------------------------------------
 
-ForwardBackwardCalculator::ForwardBackwardCalculator(
-        const Hmm& hmm, const ObservationSet& observations)
-    : Calculator(hmm, observations)
-    , numStates_(static_cast<std::size_t>(hmm.getNumStates()))
-{
+ForwardBackwardCalculator::ForwardBackwardCalculator(const Hmm &hmm,
+                                                     const ObservationSet &observations)
+    : Calculator(hmm, observations), numStates_(static_cast<std::size_t>(hmm.getNumStates())) {
     if (observations.empty()) {
         throw std::invalid_argument("Observation sequence cannot be empty");
     }
@@ -28,17 +26,15 @@ ForwardBackwardCalculator::ForwardBackwardCalculator(
     compute();
 }
 
-ForwardBackwardCalculator::ForwardBackwardCalculator(
-        Hmm* hmm, const ObservationSet& observations)
+ForwardBackwardCalculator::ForwardBackwardCalculator(Hmm *hmm, const ObservationSet &observations)
     : ForwardBackwardCalculator(
-        hmm ? *hmm : throw std::invalid_argument("HMM pointer cannot be null"),
-        observations) {}
+          hmm ? *hmm : throw std::invalid_argument("HMM pointer cannot be null"), observations) {}
 
 // ---------------------------------------------------------------------------
 // Public compute interface
 // ---------------------------------------------------------------------------
 
-void ForwardBackwardCalculator::compute(const ObservationSet& observations) {
+void ForwardBackwardCalculator::compute(const ObservationSet &observations) {
     observations_ = observations;
     compute();
 }
@@ -58,14 +54,14 @@ void ForwardBackwardCalculator::compute() {
     // Build observation span once; reuse across all N states.
     logEmitBuf_.resize(T * numStates_);
     std::vector<double> obsVec(T);
-    for (std::size_t t = 0; t < T; ++t) obsVec[t] = observations_(t);
+    for (std::size_t t = 0; t < T; ++t)
+        obsVec[t] = observations_(t);
     const std::span<const double> obsSpan(obsVec.data(), T);
 
-    const Hmm& hmm = getHmmRef();
+    const Hmm &hmm = getHmmRef();
     for (std::size_t i = 0; i < numStates_; ++i) {
         hmm.getDistribution(i).getBatchLogProbabilities(
-            obsSpan,
-            std::span<double>(logEmitBuf_.data() + i * T, T));
+            obsSpan, std::span<double>(logEmitBuf_.data() + i * T, T));
     }
 
     computeLogForward();
@@ -84,8 +80,8 @@ void ForwardBackwardCalculator::compute() {
 // ---------------------------------------------------------------------------
 
 void ForwardBackwardCalculator::precomputeLogTransitions() {
-    const Hmm& hmm = getHmmRef();
-    const Matrix& trans = hmm.getTrans();
+    const Hmm &hmm = getHmmRef();
+    const Matrix &trans = hmm.getTrans();
     logTrans_.resize(numStates_, numStates_);
     for (std::size_t i = 0; i < numStates_; ++i) {
         for (std::size_t j = 0; j < numStates_; ++j) {
@@ -96,8 +92,8 @@ void ForwardBackwardCalculator::precomputeLogTransitions() {
 }
 
 void ForwardBackwardCalculator::computeLogForward() {
-    const Hmm& hmm = getHmmRef();
-    const Vector& pi = hmm.getPi();
+    const Hmm &hmm = getHmmRef();
+    const Vector &pi = hmm.getPi();
     const std::size_t T = observations_.size();
 
     // t = 0: log alpha(0, i) = log pi_i + log b_i(O_0)
@@ -128,27 +124,29 @@ void ForwardBackwardCalculator::computeLogBackward() {
 
     // t < T-1, working backwards
     if (T > 1) {
-        for (std::size_t t = T - 2; ; --t) {
+        for (std::size_t t = T - 2;; --t) {
             for (std::size_t i = 0; i < numStates_; ++i) {
                 double logSum = LOG_ZERO;
                 for (std::size_t j = 0; j < numStates_; ++j) {
-                    logSum = logSumExp(logSum,
-                        logTrans_(i, j) +
-                        logEmitBuf_[j * T + (t + 1)] +
-                        logBeta_(t + 1, j));
+                    logSum = logSumExp(logSum, logTrans_(i, j) + logEmitBuf_[j * T + (t + 1)] +
+                                                   logBeta_(t + 1, j));
                 }
                 logBeta_(t, i) = logSum;
             }
-            if (t == 0) break;
+            if (t == 0)
+                break;
         }
     }
 }
 
 // Numerically stable log(exp(a) + exp(b))
 double ForwardBackwardCalculator::logSumExp(double a, double b) noexcept {
-    if (a == LOG_ZERO) return b;
-    if (b == LOG_ZERO) return a;
-    if (a > b) return a + std::log1p(std::exp(b - a));
+    if (a == LOG_ZERO)
+        return b;
+    if (b == LOG_ZERO)
+        return a;
+    if (a > b)
+        return a + std::log1p(std::exp(b - a));
     return b + std::log1p(std::exp(a - b));
 }
 

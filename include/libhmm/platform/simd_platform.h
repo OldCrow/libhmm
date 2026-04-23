@@ -68,54 +68,55 @@
 
 // Microsoft Visual C++ - Windows
 #ifdef _MSC_VER
-    #include <intrin.h>
-    #define LIBHMM_HAS_SSE2
-    #if defined(__AVX__)
-        #define LIBHMM_HAS_AVX
-    #endif
-    #if defined(__AVX2__)
-        #define LIBHMM_HAS_AVX2
-    #endif
-    #if defined(__AVX512F__)
-        #define LIBHMM_HAS_AVX512
-    #endif
+#include <intrin.h>
+#define LIBHMM_HAS_SSE2
+#if defined(__AVX__)
+#define LIBHMM_HAS_AVX
+#endif
+#if defined(__AVX2__)
+#define LIBHMM_HAS_AVX2
+#endif
+#if defined(__AVX512F__)
+#define LIBHMM_HAS_AVX512
+#endif
 
 // GCC/Clang - x86/x64 platforms (Intel/AMD)
-#elif (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86))
-    #include <immintrin.h>
-    #include <x86intrin.h>
-    
-    #define LIBHMM_HAS_SSE2  // Available on all modern x86_64
-    
-    #if defined(__SSE4_1__)
-        #define LIBHMM_HAS_SSE4_1
-    #endif
-    
-    #if defined(__AVX__)
-        #define LIBHMM_HAS_AVX
-    #endif
-    
-    #if defined(__AVX2__)
-        #define LIBHMM_HAS_AVX2
-    #endif
-    
-    #if defined(__AVX512F__)
-        #define LIBHMM_HAS_AVX512
-    #endif
+#elif (defined(__GNUC__) || defined(__clang__)) &&                                                 \
+    (defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86))
+#include <immintrin.h>
+#include <x86intrin.h>
+
+#define LIBHMM_HAS_SSE2 // Available on all modern x86_64
+
+#if defined(__SSE4_1__)
+#define LIBHMM_HAS_SSE4_1
+#endif
+
+#if defined(__AVX__)
+#define LIBHMM_HAS_AVX
+#endif
+
+#if defined(__AVX2__)
+#define LIBHMM_HAS_AVX2
+#endif
+
+#if defined(__AVX512F__)
+#define LIBHMM_HAS_AVX512
+#endif
 
 // ARM platforms (Apple Silicon, ARM servers, embedded ARM)
 #elif defined(__ARM_NEON) || defined(__aarch64__) || defined(_M_ARM64)
-    #include <arm_neon.h>
-    #define LIBHMM_HAS_NEON
-    
-    // Apple Silicon specific optimizations
-    #if defined(__APPLE__) && defined(__aarch64__)
-        #define LIBHMM_APPLE_SILICON
-    #endif
+#include <arm_neon.h>
+#define LIBHMM_HAS_NEON
+
+// Apple Silicon specific optimizations
+#if defined(__APPLE__) && defined(__aarch64__)
+#define LIBHMM_APPLE_SILICON
+#endif
 
 // Fallback - No SIMD support detected
 #else
-    #warning "No SIMD support detected - using scalar fallback implementations"
+#warning "No SIMD support detected - using scalar fallback implementations"
 #endif
 
 //==============================================================================
@@ -144,15 +145,15 @@ constexpr bool has_simd_support() noexcept {
  */
 constexpr std::size_t double_vector_width() noexcept {
 #if defined(LIBHMM_HAS_AVX512)
-    return 8;  // AVX-512 can handle 8 doubles
+    return 8; // AVX-512 can handle 8 doubles
 #elif defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
-    return 4;  // AVX can handle 4 doubles
+    return 4; // AVX can handle 4 doubles
 #elif defined(LIBHMM_HAS_SSE2)
-    return 2;  // SSE2 can handle 2 doubles
+    return 2; // SSE2 can handle 2 doubles
 #elif defined(LIBHMM_HAS_NEON)
-    return 2;  // ARM NEON can handle 2 doubles (64-bit elements)
+    return 2; // ARM NEON can handle 2 doubles (64-bit elements)
 #else
-    return 1;  // Scalar fallback
+    return 1; // Scalar fallback
 #endif
 }
 
@@ -164,13 +165,13 @@ constexpr std::size_t float_vector_width() noexcept {
 #if defined(LIBHMM_HAS_AVX512)
     return 16; // AVX-512 can handle 16 floats
 #elif defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
-    return 8;  // AVX can handle 8 floats
+    return 8; // AVX can handle 8 floats
 #elif defined(LIBHMM_HAS_SSE2)
-    return 4;  // SSE2 can handle 4 floats
+    return 4; // SSE2 can handle 4 floats
 #elif defined(LIBHMM_HAS_NEON)
-    return 4;  // ARM NEON can handle 4 floats (32-bit elements)
+    return 4; // ARM NEON can handle 4 floats (32-bit elements)
 #else
-    return 1;  // Scalar fallback
+    return 1; // Scalar fallback
 #endif
 }
 
@@ -188,7 +189,7 @@ constexpr std::size_t optimal_alignment() noexcept {
 #elif defined(LIBHMM_HAS_NEON)
     return 16; // ARM NEON benefits from 16-byte alignment
 #else
-    return 8;  // Basic double alignment
+    return 8; // Basic double alignment
 #endif
 }
 
@@ -196,7 +197,7 @@ constexpr std::size_t optimal_alignment() noexcept {
  * @brief Get a human-readable description of available SIMD features
  * @return String describing the detected SIMD capabilities
  */
-inline const char* feature_string() noexcept {
+inline const char *feature_string() noexcept {
 #if defined(LIBHMM_HAS_AVX512)
     return "AVX-512";
 #elif defined(LIBHMM_HAS_AVX2)
@@ -208,11 +209,11 @@ inline const char* feature_string() noexcept {
 #elif defined(LIBHMM_HAS_SSE2)
     return "SSE2";
 #elif defined(LIBHMM_HAS_NEON)
-    #if defined(LIBHMM_APPLE_SILICON)
-        return "ARM NEON (Apple Silicon)";
-    #else
-        return "ARM NEON";
-    #endif
+#if defined(LIBHMM_APPLE_SILICON)
+    return "ARM NEON (Apple Silicon)";
+#else
+    return "ARM NEON";
+#endif
 #else
     return "Scalar (No SIMD)";
 #endif
@@ -257,5 +258,3 @@ static constexpr std::size_t FLOAT_SIMD_WIDTH = float_vector_width();
 } // namespace simd
 } // namespace performance
 } // namespace libhmm
-
-

@@ -5,22 +5,22 @@
 #include <algorithm>
 #include <numeric>
 
-namespace libhmm{
+namespace libhmm {
 
 // Forward declaration for BasicMatrix
-template<typename T> class BasicMatrix;
+template <typename T>
+class BasicMatrix;
 
 /// Improved 3D matrix template class for HMM training algorithms
 /// Uses contiguous memory layout for better cache performance
 /// Provides type-safe, bounds-checked access to 3D data structures
-template<typename T>
-class BasicMatrix3D
-{
+template <typename T>
+class BasicMatrix3D {
 private:
-    std::vector<T> data_;           // Flat contiguous storage
-    std::size_t x_, y_, z_;         // Dimensions
-    std::size_t yz_stride_;         // Pre-computed y*z for faster indexing
-    
+    std::vector<T> data_;   // Flat contiguous storage
+    std::size_t x_, y_, z_; // Dimensions
+    std::size_t yz_stride_; // Pre-computed y*z for faster indexing
+
     /// Convert 3D indices to 1D flat index
     /// Uses row-major order: [i][j][k] -> i*(y*z) + j*z + k
     constexpr std::size_t index(std::size_t i, std::size_t j, std::size_t k) const noexcept {
@@ -30,7 +30,7 @@ private:
 public:
     /// Constructor with dimensions
     /// @param x First dimension size
-    /// @param y Second dimension size  
+    /// @param y Second dimension size
     /// @param z Third dimension size
     /// @throws std::invalid_argument if any dimension is zero
     BasicMatrix3D(std::size_t x, std::size_t y, std::size_t z)
@@ -38,43 +38,43 @@ public:
         if (x == 0 || y == 0 || z == 0) {
             throw std::invalid_argument("BasicMatrix3D dimensions must be greater than zero");
         }
-        
+
         // Check for potential overflow
         if (yz_stride_ < y || yz_stride_ < z) {
             throw std::invalid_argument("BasicMatrix3D dimensions too large (overflow)");
         }
-        
+
         std::size_t total_size = x * yz_stride_;
         if (total_size < x || total_size < yz_stride_) {
             throw std::invalid_argument("BasicMatrix3D total size too large (overflow)");
         }
-        
+
         // Initialize contiguous storage with zero-fill
         data_.resize(total_size, T{0});
     }
-    
+
     /// Constructor with dimensions and initial value
     /// @param x First dimension size
-    /// @param y Second dimension size  
+    /// @param y Second dimension size
     /// @param z Third dimension size
     /// @param init_value Initial value for all elements
     /// @throws std::invalid_argument if any dimension is zero
-    BasicMatrix3D(std::size_t x, std::size_t y, std::size_t z, const T& init_value)
+    BasicMatrix3D(std::size_t x, std::size_t y, std::size_t z, const T &init_value)
         : x_{x}, y_{y}, z_{z}, yz_stride_{y * z} {
         if (x == 0 || y == 0 || z == 0) {
             throw std::invalid_argument("BasicMatrix3D dimensions must be greater than zero");
         }
-        
+
         // Check for potential overflow
         if (yz_stride_ < y || yz_stride_ < z) {
             throw std::invalid_argument("BasicMatrix3D dimensions too large (overflow)");
         }
-        
+
         std::size_t total_size = x * yz_stride_;
         if (total_size < x || total_size < yz_stride_) {
             throw std::invalid_argument("BasicMatrix3D total size too large (overflow)");
         }
-        
+
         // Initialize contiguous storage with specified value
         data_.resize(total_size, init_value);
     }
@@ -83,16 +83,16 @@ public:
     ~BasicMatrix3D() = default;
 
     /// Copy constructor
-    BasicMatrix3D(const BasicMatrix3D&) = default;
-    
+    BasicMatrix3D(const BasicMatrix3D &) = default;
+
     /// Move constructor
-    BasicMatrix3D(BasicMatrix3D&&) = default;
-    
+    BasicMatrix3D(BasicMatrix3D &&) = default;
+
     /// Copy assignment
-    BasicMatrix3D& operator=(const BasicMatrix3D&) = default;
-    
+    BasicMatrix3D &operator=(const BasicMatrix3D &) = default;
+
     /// Move assignment
-    BasicMatrix3D& operator=(BasicMatrix3D&&) = default;
+    BasicMatrix3D &operator=(BasicMatrix3D &&) = default;
 
     /// Bounds-checked element access
     /// @param i First dimension index
@@ -100,7 +100,7 @@ public:
     /// @param k Third dimension index
     /// @return Reference to the element
     /// @throws std::out_of_range if indices are invalid
-    T& operator()(std::size_t i, std::size_t j, std::size_t k) {
+    T &operator()(std::size_t i, std::size_t j, std::size_t k) {
         if (i >= x_ || j >= y_ || k >= z_) {
             throw std::out_of_range("BasicMatrix3D index out of bounds");
         }
@@ -113,7 +113,7 @@ public:
     /// @param k Third dimension index
     /// @return Const reference to the element
     /// @throws std::out_of_range if indices are invalid
-    const T& operator()(std::size_t i, std::size_t j, std::size_t k) const {
+    const T &operator()(std::size_t i, std::size_t j, std::size_t k) const {
         if (i >= x_ || j >= y_ || k >= z_) {
             throw std::out_of_range("BasicMatrix3D index out of bounds");
         }
@@ -126,7 +126,7 @@ public:
     /// @param k Third dimension index
     /// @param value Value to set
     /// @throws std::out_of_range if indices are invalid
-    void Set(std::size_t i, std::size_t j, std::size_t k, const T& value) {
+    void Set(std::size_t i, std::size_t j, std::size_t k, const T &value) {
         if (i >= x_ || j >= y_ || k >= z_) {
             throw std::out_of_range("BasicMatrix3D index out of bounds");
         }
@@ -147,49 +147,35 @@ public:
 
     /// Fill all elements with a value
     /// @param value Value to fill with
-    void fill(const T& value) {
-        std::fill(data_.begin(), data_.end(), value);
-    }
+    void fill(const T &value) { std::fill(data_.begin(), data_.end(), value); }
 
     /// Clear all elements to zero
-    void clear() {
-        fill(T{0});
-    }
-    
+    void clear() { fill(T{0}); }
+
     /// Get total number of elements
     /// @return Total size (x * y * z)
-    std::size_t size() const noexcept {
-        return data_.size();
-    }
-    
+    std::size_t size() const noexcept { return data_.size(); }
+
     /// Get raw pointer to underlying data (for interoperability)
     /// @return Pointer to contiguous data array
-    T* data() noexcept {
-        return data_.data();
-    }
-    
+    T *data() noexcept { return data_.data(); }
+
     /// Get const raw pointer to underlying data
     /// @return Const pointer to contiguous data array
-    const T* data() const noexcept {
-        return data_.data();
-    }
-    
+    const T *data() const noexcept { return data_.data(); }
+
     /// Check if matrix is empty
     /// @return True if any dimension is 0
-    bool empty() const noexcept {
-        return data_.empty();
-    }
-    
+    bool empty() const noexcept { return data_.empty(); }
+
     /// Sum of all elements in the 3D matrix
     /// @return Sum of all elements
-    T sum() const {
-        return std::accumulate(data_.begin(), data_.end(), T{});
-    }
-    
+    T sum() const { return std::accumulate(data_.begin(), data_.end(), T{}); }
+
     /// Get a 2D slice from the 3D matrix (fixes first dimension)
     /// @param i First dimension index (fixed)
     /// @return 2D matrix representing the slice
-    template<typename MatrixType = BasicMatrix<T>>
+    template <typename MatrixType = BasicMatrix<T>>
     MatrixType slice(std::size_t i) const {
         if (i >= x_) {
             throw std::out_of_range("Slice index out of bounds");
@@ -202,12 +188,12 @@ public:
         }
         return result;
     }
-    
+
     /// Set a 2D slice in the 3D matrix (fixes first dimension)
     /// @param i First dimension index (fixed)
     /// @param slice_matrix 2D matrix to copy into the slice
-    template<typename MatrixType>
-    void set_slice(std::size_t i, const MatrixType& slice_matrix) {
+    template <typename MatrixType>
+    void set_slice(std::size_t i, const MatrixType &slice_matrix) {
         if (i >= x_) {
             throw std::out_of_range("Slice index out of bounds");
         }
@@ -220,24 +206,25 @@ public:
             }
         }
     }
-    
+
     /// Element-wise multiplication with another 3D matrix
     /// @param other Matrix to multiply with
     /// @return Reference to this matrix
-    BasicMatrix3D& element_multiply(const BasicMatrix3D& other) {
+    BasicMatrix3D &element_multiply(const BasicMatrix3D &other) {
         if (x_ != other.x_ || y_ != other.y_ || z_ != other.z_) {
-            throw std::invalid_argument("BasicMatrix3D dimensions must match for element-wise multiplication");
+            throw std::invalid_argument(
+                "BasicMatrix3D dimensions must match for element-wise multiplication");
         }
         for (std::size_t i = 0; i < data_.size(); ++i) {
             data_[i] *= other.data_[i];
         }
         return *this;
     }
-    
+
     /// Element-wise addition with another 3D matrix
     /// @param other Matrix to add
     /// @return Reference to this matrix
-    BasicMatrix3D& operator+=(const BasicMatrix3D& other) {
+    BasicMatrix3D &operator+=(const BasicMatrix3D &other) {
         if (x_ != other.x_ || y_ != other.y_ || z_ != other.z_) {
             throw std::invalid_argument("BasicMatrix3D dimensions must match for addition");
         }
@@ -246,11 +233,11 @@ public:
         }
         return *this;
     }
-    
+
     /// Element-wise subtraction with another 3D matrix
     /// @param other Matrix to subtract
     /// @return Reference to this matrix
-    BasicMatrix3D& operator-=(const BasicMatrix3D& other) {
+    BasicMatrix3D &operator-=(const BasicMatrix3D &other) {
         if (x_ != other.x_ || y_ != other.y_ || z_ != other.z_) {
             throw std::invalid_argument("BasicMatrix3D dimensions must match for subtraction");
         }
@@ -259,22 +246,22 @@ public:
         }
         return *this;
     }
-    
+
     /// Scalar multiplication
     /// @param scalar Value to multiply all elements by
     /// @return Reference to this matrix
-    BasicMatrix3D& operator*=(const T& scalar) {
-        for (auto& element : data_) {
+    BasicMatrix3D &operator*=(const T &scalar) {
+        for (auto &element : data_) {
             element *= scalar;
         }
         return *this;
     }
-    
+
     /// Scalar division
     /// @param scalar Value to divide all elements by
     /// @return Reference to this matrix
-    BasicMatrix3D& operator/=(const T& scalar) {
-        for (auto& element : data_) {
+    BasicMatrix3D &operator/=(const T &scalar) {
+        for (auto &element : data_) {
             element /= scalar;
         }
         return *this;
@@ -282,18 +269,20 @@ public:
 
     // Legacy compatibility methods (deprecated)
     [[deprecated("Use getXDimensionSize() instead")]]
-    int GetXDimensionSize() { return static_cast<int>(x_); }
-    
+    int GetXDimensionSize() {
+        return static_cast<int>(x_);
+    }
+
     [[deprecated("Use getYDimensionSize() instead")]]
-    int GetYDimensionSize() { return static_cast<int>(y_); }
-    
+    int GetYDimensionSize() {
+        return static_cast<int>(y_);
+    }
+
     [[deprecated("Use getZDimensionSize() instead")]]
-    int GetZDimensionSize() { return static_cast<int>(z_); }
+    int GetZDimensionSize() {
+        return static_cast<int>(z_);
+    }
 
-};  //end BasicMatrix3D template
+}; //end BasicMatrix3D template
 
-} //namespace
-
-
-
-
+} // namespace libhmm

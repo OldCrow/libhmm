@@ -10,13 +10,13 @@
 namespace libhmm {
 
 namespace {
-    constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
+constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
 }
 
-BaumWelchTrainer::BaumWelchTrainer(Hmm& hmm, const ObservationLists& obsLists)
+BaumWelchTrainer::BaumWelchTrainer(Hmm &hmm, const ObservationLists &obsLists)
     : Trainer(hmm, obsLists) {}
 
-BaumWelchTrainer::BaumWelchTrainer(Hmm* hmm, const ObservationLists& obsLists)
+BaumWelchTrainer::BaumWelchTrainer(Hmm *hmm, const ObservationLists &obsLists)
     : Trainer(hmm, obsLists) {}
 
 // ---------------------------------------------------------------------------
@@ -24,20 +24,20 @@ BaumWelchTrainer::BaumWelchTrainer(Hmm* hmm, const ObservationLists& obsLists)
 // ---------------------------------------------------------------------------
 
 void BaumWelchTrainer::train() {
-    Hmm& hmm = hmm_ref_.get();
+    Hmm &hmm = hmm_ref_.get();
     const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
 
     // Accumulators (linear space, summed across all sequences)
-    std::vector<double>              piNum(N, 0.0);
+    std::vector<double> piNum(N, 0.0);
     std::vector<std::vector<double>> transNum(N, std::vector<double>(N, 0.0));
-    std::vector<double>              transDen(N, 0.0);
+    std::vector<double> transDen(N, 0.0);
 
     // Per-state emission data/weights accumulated across sequences
     std::vector<std::vector<double>> emisData(N);
     std::vector<std::vector<double>> emisWts(N);
 
     // Precompute log-transition matrix from the current model
-    const Matrix& curTrans = hmm.getTrans();
+    const Matrix &curTrans = hmm.getTrans();
     std::vector<std::vector<double>> logTrans(N, std::vector<double>(N));
     for (std::size_t i = 0; i < N; ++i) {
         for (std::size_t j = 0; j < N; ++j) {
@@ -48,20 +48,23 @@ void BaumWelchTrainer::train() {
 
     std::size_t validSeqs = 0;
 
-    for (const auto& obs : obsLists_) {
+    for (const auto &obs : obsLists_) {
         const std::size_t T = obs.size();
-        if (T == 0) continue;
+        if (T == 0)
+            continue;
 
         ForwardBackwardCalculator fbc(hmm, obs);
         const double logP = fbc.getLogProbability();
-        if (!std::isfinite(logP)) continue;
+        if (!std::isfinite(logP))
+            continue;
 
-        const Matrix& logAlpha = fbc.getLogForwardVariables();
-        const Matrix& logBeta  = fbc.getLogBackwardVariables();
+        const Matrix &logAlpha = fbc.getLogForwardVariables();
+        const Matrix &logBeta = fbc.getLogBackwardVariables();
 
         // Precompute log-emissions for this sequence: logEmit[i * T + t]
         std::vector<double> obsVec(T);
-        for (std::size_t t = 0; t < T; ++t) obsVec[t] = obs(t);
+        for (std::size_t t = 0; t < T; ++t)
+            obsVec[t] = obs(t);
 
         std::vector<double> logEmit(N * T);
         for (std::size_t i = 0; i < N; ++i) {
@@ -76,8 +79,10 @@ void BaumWelchTrainer::train() {
                 const double g = std::exp(logAlpha(t, i) + logBeta(t, i) - logP);
                 emisData[i].push_back(obs(t));
                 emisWts[i].push_back(g);
-                if (t == 0)     piNum[i]   += g;
-                if (t < T - 1) transDen[i] += g;
+                if (t == 0)
+                    piNum[i] += g;
+                if (t < T - 1)
+                    transDen[i] += g;
             }
         }
 
@@ -85,11 +90,8 @@ void BaumWelchTrainer::train() {
         for (std::size_t t = 0; t + 1 < T; ++t) {
             for (std::size_t i = 0; i < N; ++i) {
                 for (std::size_t j = 0; j < N; ++j) {
-                    const double logXi =
-                        logAlpha(t, i) +
-                        logTrans[i][j] +
-                        logEmit[j * T + (t + 1)] +
-                        logBeta(t + 1, j) - logP;
+                    const double logXi = logAlpha(t, i) + logTrans[i][j] +
+                                         logEmit[j * T + (t + 1)] + logBeta(t + 1, j) - logP;
                     transNum[i][j] += std::exp(logXi);
                 }
             }
@@ -99,20 +101,18 @@ void BaumWelchTrainer::train() {
     }
 
     if (validSeqs == 0) {
-        throw std::runtime_error(
-            "BaumWelchTrainer: no valid observation sequences "
-            "(all had zero probability under the current model)");
+        throw std::runtime_error("BaumWelchTrainer: no valid observation sequences "
+                                 "(all had zero probability under the current model)");
     }
 
     // ---- M-step: pi ----
     {
         double piSum = 0.0;
-        for (std::size_t i = 0; i < N; ++i) piSum += piNum[i];
+        for (std::size_t i = 0; i < N; ++i)
+            piSum += piNum[i];
         Vector pi(N);
         for (std::size_t i = 0; i < N; ++i) {
-            pi(i) = (piSum > 0.0)
-                ? piNum[i] / piSum
-                : 1.0 / static_cast<double>(N);
+            pi(i) = (piSum > 0.0) ? piNum[i] / piSum : 1.0 / static_cast<double>(N);
         }
         hmm.setPi(pi);
     }
@@ -122,9 +122,8 @@ void BaumWelchTrainer::train() {
         Matrix newTrans(N, N);
         for (std::size_t i = 0; i < N; ++i) {
             for (std::size_t j = 0; j < N; ++j) {
-                newTrans(i, j) = (transDen[i] > 0.0)
-                    ? transNum[i][j] / transDen[i]
-                    : 1.0 / static_cast<double>(N);
+                newTrans(i, j) = (transDen[i] > 0.0) ? transNum[i][j] / transDen[i]
+                                                     : 1.0 / static_cast<double>(N);
             }
         }
         hmm.setTrans(newTrans);
@@ -137,9 +136,8 @@ void BaumWelchTrainer::train() {
             hmm.getDistribution(i).reset();
             continue;
         }
-        hmm.getDistribution(i).fit(
-            std::span<const double>(emisData[i].data(), M),
-            std::span<const double>(emisWts[i].data(),  M));
+        hmm.getDistribution(i).fit(std::span<const double>(emisData[i].data(), M),
+                                   std::span<const double>(emisWts[i].data(), M));
     }
 }
 
@@ -148,9 +146,12 @@ void BaumWelchTrainer::train() {
 // ---------------------------------------------------------------------------
 
 double BaumWelchTrainer::logSumExp(double a, double b) noexcept {
-    if (a == LOG_ZERO) return b;
-    if (b == LOG_ZERO) return a;
-    if (a > b) return a + std::log1p(std::exp(b - a));
+    if (a == LOG_ZERO)
+        return b;
+    if (b == LOG_ZERO)
+        return a;
+    if (a > b)
+        return a + std::log1p(std::exp(b - a));
     return b + std::log1p(std::exp(a - b));
 }
 

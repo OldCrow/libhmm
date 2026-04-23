@@ -27,7 +27,7 @@ TEST_F(HmmCoreTest, DefaultConstructor) {
 TEST_F(HmmCoreTest, SizeConstructor) {
     Hmm hmm3(3);
     EXPECT_EQ(hmm3.getNumStates(), 3);
-    
+
     Hmm hmm5(5);
     EXPECT_EQ(hmm5.getNumStates(), 5);
 }
@@ -47,10 +47,10 @@ TEST_F(HmmCoreTest, SetPiVector) {
     Vector pi(2);
     pi(0) = 0.6;
     pi(1) = 0.4;
-    
+
     EXPECT_NO_THROW(hmm_->setPi(pi));
-    
-    const Vector& retrievedPi = hmm_->getPi();
+
+    const Vector &retrievedPi = hmm_->getPi();
     EXPECT_DOUBLE_EQ(retrievedPi(0), 0.6);
     EXPECT_DOUBLE_EQ(retrievedPi(1), 0.4);
 }
@@ -62,12 +62,14 @@ TEST_F(HmmCoreTest, SetPiWrongSizeThrows) {
 
 TEST_F(HmmCoreTest, SetTransitionMatrix) {
     Matrix trans(2, 2);
-    trans(0, 0) = 0.7; trans(0, 1) = 0.3;
-    trans(1, 0) = 0.4; trans(1, 1) = 0.6;
-    
+    trans(0, 0) = 0.7;
+    trans(0, 1) = 0.3;
+    trans(1, 0) = 0.4;
+    trans(1, 1) = 0.6;
+
     EXPECT_NO_THROW(hmm_->setTrans(trans));
-    
-    const Matrix& retrievedTrans = hmm_->getTrans();
+
+    const Matrix &retrievedTrans = hmm_->getTrans();
     EXPECT_DOUBLE_EQ(retrievedTrans(0, 0), 0.7);
     EXPECT_DOUBLE_EQ(retrievedTrans(0, 1), 0.3);
     EXPECT_DOUBLE_EQ(retrievedTrans(1, 0), 0.4);
@@ -82,28 +84,27 @@ TEST_F(HmmCoreTest, SetTransWrongSizeThrows) {
 // Distribution setter/getter tests
 TEST_F(HmmCoreTest, SetDistribution) {
     auto gaussDist = std::make_unique<GaussianDistribution>(1.0, 2.0);
-    auto* distPtr = gaussDist.get();
+    auto *distPtr = gaussDist.get();
 
     EXPECT_NO_THROW(hmm_->setDistribution(0, std::move(gaussDist)));
 
-    const auto* retrievedDist = &hmm_->getDistribution(0);
+    const auto *retrievedDist = &hmm_->getDistribution(0);
     EXPECT_EQ(retrievedDist, distPtr);
 }
 
 TEST_F(HmmCoreTest, SetDistributionReplace) {
     // Replacing an existing distribution should succeed without memory issues.
     EXPECT_NO_THROW(hmm_->setDistribution(1, std::make_unique<GaussianDistribution>(2.0, 1.5)));
-    EXPECT_NE(dynamic_cast<GaussianDistribution*>(&hmm_->getDistribution(1)), nullptr);
+    EXPECT_NE(dynamic_cast<GaussianDistribution *>(&hmm_->getDistribution(1)), nullptr);
 }
 
 TEST_F(HmmCoreTest, SetNullDistributionThrows) {
-    EXPECT_THROW(
-        hmm_->setDistribution(0, std::unique_ptr<EmissionDistribution>{}),
-        std::invalid_argument);
+    EXPECT_THROW(hmm_->setDistribution(0, std::unique_ptr<EmissionDistribution>{}),
+                 std::invalid_argument);
 }
 
 TEST_F(HmmCoreTest, GetDistributionOutOfBoundsThrows) {
-    EXPECT_THROW(hmm_->getDistribution(2),  std::out_of_range);
+    EXPECT_THROW(hmm_->getDistribution(2), std::out_of_range);
     EXPECT_THROW(hmm_->getDistribution(10), std::out_of_range);
     // The API is size_t-only; verify a clearly out-of-range index is caught.
     EXPECT_THROW(hmm_->getDistribution(static_cast<std::size_t>(100)), std::out_of_range);
@@ -113,14 +114,17 @@ TEST_F(HmmCoreTest, GetDistributionOutOfBoundsThrows) {
 TEST_F(HmmCoreTest, ValidationPasses) {
     // Set up a valid HMM
     Vector pi(2);
-    pi(0) = 0.5; pi(1) = 0.5;
+    pi(0) = 0.5;
+    pi(1) = 0.5;
     hmm_->setPi(pi);
-    
+
     Matrix trans(2, 2);
-    trans(0, 0) = 0.8; trans(0, 1) = 0.2;
-    trans(1, 0) = 0.3; trans(1, 1) = 0.7;
+    trans(0, 0) = 0.8;
+    trans(0, 1) = 0.2;
+    trans(1, 0) = 0.3;
+    trans(1, 1) = 0.7;
     hmm_->setTrans(trans);
-    
+
     EXPECT_NO_THROW(hmm_->validate());
 }
 
@@ -128,7 +132,7 @@ TEST_F(HmmCoreTest, ValidationPasses) {
 TEST_F(HmmCoreTest, MoveConstructor) {
     Hmm original(3);
     auto originalStates = original.getNumStates();
-    
+
     Hmm moved = std::move(original);
     EXPECT_EQ(moved.getNumStates(), originalStates);
 }
@@ -136,7 +140,7 @@ TEST_F(HmmCoreTest, MoveConstructor) {
 TEST_F(HmmCoreTest, MoveAssignment) {
     Hmm target(2);
     Hmm source(5);
-    
+
     target = std::move(source);
     EXPECT_EQ(target.getNumStates(), 5);
 }
@@ -150,7 +154,7 @@ TEST_F(HmmCoreTest, LegacyIntInterface) {
 TEST_F(HmmCoreTest, BoundaryConditions) {
     // Test maximum reasonable size
     EXPECT_NO_THROW(Hmm(100));
-    
+
     // Test edge case of 1 state
     Hmm singleState(1);
     EXPECT_EQ(singleState.getNumStates(), 1);

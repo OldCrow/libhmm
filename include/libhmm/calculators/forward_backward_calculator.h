@@ -31,23 +31,23 @@ public:
      * @param observations  Observation sequence (must be non-empty).
      * @throws std::invalid_argument if observations is empty.
      */
-    ForwardBackwardCalculator(const Hmm& hmm, const ObservationSet& observations);
+    ForwardBackwardCalculator(const Hmm &hmm, const ObservationSet &observations);
 
     /** Legacy pointer constructor for backward compatibility. */
-    ForwardBackwardCalculator(Hmm* hmm, const ObservationSet& observations);
+    ForwardBackwardCalculator(Hmm *hmm, const ObservationSet &observations);
 
     // Non-copyable, movable.
-    ForwardBackwardCalculator(const ForwardBackwardCalculator&) = delete;
-    ForwardBackwardCalculator& operator=(const ForwardBackwardCalculator&) = delete;
-    ForwardBackwardCalculator(ForwardBackwardCalculator&&) = default;
-    ForwardBackwardCalculator& operator=(ForwardBackwardCalculator&&) = default;
+    ForwardBackwardCalculator(const ForwardBackwardCalculator &) = delete;
+    ForwardBackwardCalculator &operator=(const ForwardBackwardCalculator &) = delete;
+    ForwardBackwardCalculator(ForwardBackwardCalculator &&) = default;
+    ForwardBackwardCalculator &operator=(ForwardBackwardCalculator &&) = default;
     ~ForwardBackwardCalculator() override = default;
 
     /**
      * @brief Re-run computation with a new observation sequence.
      * Reuses the precomputed log-transition matrix.
      */
-    void compute(const ObservationSet& observations);
+    void compute(const ObservationSet &observations);
 
     /** Re-run with the current observation sequence (e.g. after HMM parameters change). */
     void compute();
@@ -67,25 +67,19 @@ public:
      * @brief Probability of the observation sequence P(O | λ).
      * May underflow to 0.0 for long sequences; prefer getLogProbability().
      */
-    [[nodiscard]] double probability() const noexcept {
-        return std::exp(logProbability_);
-    }
+    [[nodiscard]] double probability() const noexcept { return std::exp(logProbability_); }
 
     /**
      * @brief Log forward variables: logAlpha(t, i) = log P(O_1..O_t, q_t=i | λ).
      * Matrix dimensions: T x N (observation-length by number of states).
      */
-    [[nodiscard]] const Matrix& getLogForwardVariables() const noexcept {
-        return logAlpha_;
-    }
+    [[nodiscard]] const Matrix &getLogForwardVariables() const noexcept { return logAlpha_; }
 
     /**
      * @brief Log backward variables: logBeta(t, i) = log P(O_{t+1}..O_T | q_t=i, λ).
      * Matrix dimensions: T x N.
      */
-    [[nodiscard]] const Matrix& getLogBackwardVariables() const noexcept {
-        return logBeta_;
-    }
+    [[nodiscard]] const Matrix &getLogBackwardVariables() const noexcept { return logBeta_; }
 
     /** Number of HMM states used by this calculator. */
     [[nodiscard]] std::size_t getNumStates() const noexcept { return numStates_; }
@@ -97,8 +91,8 @@ private:
     Matrix logTrans_;
 
     // Results
-    Matrix logAlpha_;                                           // T x N
-    Matrix logBeta_;                                            // T x N
+    Matrix logAlpha_; // T x N
+    Matrix logBeta_;  // T x N
     double logProbability_{-std::numeric_limits<double>::infinity()};
 
     // Per-state log-emission buffer reused each timestep [T x N, row-major].

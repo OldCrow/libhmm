@@ -20,19 +20,25 @@ static std::unique_ptr<Hmm> makeDiscreteHmm() {
     auto hmm = std::make_unique<Hmm>(2);
 
     Matrix trans(2, 2);
-    trans(0,0)=0.8; trans(0,1)=0.2;
-    trans(1,0)=0.3; trans(1,1)=0.7;
+    trans(0, 0) = 0.8;
+    trans(0, 1) = 0.2;
+    trans(1, 0) = 0.3;
+    trans(1, 1) = 0.7;
     hmm->setTrans(trans);
 
-    Vector pi(2); pi(0)=0.6; pi(1)=0.4;
+    Vector pi(2);
+    pi(0) = 0.6;
+    pi(1) = 0.4;
     hmm->setPi(pi);
 
     auto d0 = std::make_unique<DiscreteDistribution>(6);
-    for (int i=0; i<6; ++i) d0->setProbability(i, 1.0/6.0);
+    for (int i = 0; i < 6; ++i)
+        d0->setProbability(i, 1.0 / 6.0);
     hmm->setDistribution(0, std::move(d0));
 
     auto d1 = std::make_unique<DiscreteDistribution>(6);
-    for (int i=0; i<5; ++i) d1->setProbability(i, 0.1);
+    for (int i = 0; i < 5; ++i)
+        d1->setProbability(i, 0.1);
     d1->setProbability(5, 0.5);
     hmm->setDistribution(1, std::move(d1));
 
@@ -47,12 +53,21 @@ static std::unique_ptr<Hmm> makeGaussianHmm() {
     auto hmm = std::make_unique<Hmm>(3);
 
     Matrix trans(3, 3);
-    trans(0,0)=0.7; trans(0,1)=0.2; trans(0,2)=0.1;
-    trans(1,0)=0.1; trans(1,1)=0.8; trans(1,2)=0.1;
-    trans(2,0)=0.1; trans(2,1)=0.1; trans(2,2)=0.8;
+    trans(0, 0) = 0.7;
+    trans(0, 1) = 0.2;
+    trans(0, 2) = 0.1;
+    trans(1, 0) = 0.1;
+    trans(1, 1) = 0.8;
+    trans(1, 2) = 0.1;
+    trans(2, 0) = 0.1;
+    trans(2, 1) = 0.1;
+    trans(2, 2) = 0.8;
     hmm->setTrans(trans);
 
-    Vector pi(3); pi(0)=0.33; pi(1)=0.33; pi(2)=0.34;
+    Vector pi(3);
+    pi(0) = 0.33;
+    pi(1) = 0.33;
+    pi(2) = 0.34;
     hmm->setPi(pi);
 
     hmm->setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
@@ -69,10 +84,12 @@ static std::unique_ptr<Hmm> makeGaussianHmm() {
 static ObservationLists makeDiscreteObs() {
     ObservationLists lists;
     ObservationSet s1(10);
-    for (std::size_t i=0; i<10; ++i) s1(i) = static_cast<double>(i % 6);
+    for (std::size_t i = 0; i < 10; ++i)
+        s1(i) = static_cast<double>(i % 6);
     lists.push_back(s1);
     ObservationSet s2(8);
-    for (std::size_t i=0; i<8; ++i) s2(i) = static_cast<double>((i+2) % 6);
+    for (std::size_t i = 0; i < 8; ++i)
+        s2(i) = static_cast<double>((i + 2) % 6);
     lists.push_back(s2);
     return lists;
 }
@@ -84,10 +101,12 @@ static ObservationLists makeDiscreteObs() {
 static ObservationLists makeGaussianObs() {
     ObservationLists lists;
     ObservationSet s1(15);
-    for (std::size_t i=0; i<15; ++i) s1(i) = static_cast<double>(i) * 0.5;
+    for (std::size_t i = 0; i < 15; ++i)
+        s1(i) = static_cast<double>(i) * 0.5;
     lists.push_back(s1);
     ObservationSet s2(12);
-    for (std::size_t i=0; i<12; ++i) s2(i) = 5.0 + static_cast<double>(i)*0.3;
+    for (std::size_t i = 0; i < 12; ++i)
+        s2(i) = 5.0 + static_cast<double>(i) * 0.3;
     lists.push_back(s2);
     return lists;
 }
@@ -133,7 +152,7 @@ TEST(BaumWelchTrainerTest, TrainUpdatesParameters) {
     bool changed = false;
     for (std::size_t i = 0; i < 2 && !changed; ++i)
         for (std::size_t j = 0; j < 2 && !changed; ++j)
-            if (std::abs(origTrans(i,j) - newTrans(i,j)) > 1e-10)
+            if (std::abs(origTrans(i, j) - newTrans(i, j)) > 1e-10)
                 changed = true;
     EXPECT_TRUE(changed);
 }
@@ -204,7 +223,7 @@ TEST(ViterbiTrainerTest, TrainUpdatesParameters) {
     bool changed = false;
     for (std::size_t i = 0; i < 3 && !changed; ++i)
         for (std::size_t j = 0; j < 3 && !changed; ++j)
-            if (std::abs(origTrans(i,j) - newTrans(i,j)) > 1e-10)
+            if (std::abs(origTrans(i, j) - newTrans(i, j)) > 1e-10)
                 changed = true;
     EXPECT_TRUE(changed);
 }
@@ -231,8 +250,7 @@ TEST(ViterbiTrainerTest, Presets) {
               training_presets::balanced().convergenceTolerance);
     EXPECT_LT(training_presets::balanced().convergenceTolerance,
               training_presets::fast().convergenceTolerance);
-    EXPECT_GT(training_presets::precise().maxIterations,
-              training_presets::fast().maxIterations);
+    EXPECT_GT(training_presets::precise().maxIterations, training_presets::fast().maxIterations);
 }
 
 // ===========================================================================
@@ -313,7 +331,7 @@ TEST(ClusterTest, BasicOperations) {
 
     cluster.batchAdd(9.0);
     cluster.recalculateCentroid();
-    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), (5.0+7.0+9.0)/3.0);
+    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), (5.0 + 7.0 + 9.0) / 3.0);
 }
 
 TEST(ClusterTest, Remove) {
@@ -323,10 +341,10 @@ TEST(ClusterTest, Remove) {
     EXPECT_EQ(cluster.size(), 3u);
     cluster.remove(20.0);
     EXPECT_EQ(cluster.size(), 2u);
-    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), (10.0+30.0)/2.0);
+    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), (10.0 + 30.0) / 2.0);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

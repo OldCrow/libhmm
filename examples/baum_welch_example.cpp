@@ -21,9 +21,9 @@
 using namespace libhmm;
 
 // Sum log P(O_k | λ) across all sequences (total log-likelihood)
-static double total_ll(const Hmm& hmm, const ObservationLists& seqs) {
+static double total_ll(const Hmm &hmm, const ObservationLists &seqs) {
     double ll = 0.0;
-    for (const auto& seq : seqs) {
+    for (const auto &seq : seqs) {
         ForwardBackwardCalculator fbc(hmm, seq);
         ll += fbc.getLogProbability();
     }
@@ -40,11 +40,15 @@ int main() {
     auto hmm = std::make_unique<Hmm>(2);
 
     Matrix trans(2, 2);
-    trans(0, 0) = 0.7; trans(0, 1) = 0.3;
-    trans(1, 0) = 0.3; trans(1, 1) = 0.7;
+    trans(0, 0) = 0.7;
+    trans(0, 1) = 0.3;
+    trans(1, 0) = 0.3;
+    trans(1, 1) = 0.7;
     hmm->setTrans(trans);
 
-    Vector pi(2); pi(0) = 0.5; pi(1) = 0.5;
+    Vector pi(2);
+    pi(0) = 0.5;
+    pi(1) = 0.5;
     hmm->setPi(pi);
 
     // Deliberately offset initial parameters to show training effect
@@ -62,20 +66,23 @@ int main() {
 
     // Sequence 1: starts near 0, transitions to 5
     ObservationSet s1(20);
-    for (std::size_t i = 0; i < 10; ++i) s1(i) = static_cast<double>(i % 3) * 0.4 - 0.2;
-    for (std::size_t i = 10; i < 20; ++i) s1(i) = 5.0 + static_cast<double>(i % 3) * 0.4 - 0.2;
+    for (std::size_t i = 0; i < 10; ++i)
+        s1(i) = static_cast<double>(i % 3) * 0.4 - 0.2;
+    for (std::size_t i = 10; i < 20; ++i)
+        s1(i) = 5.0 + static_cast<double>(i % 3) * 0.4 - 0.2;
     obs.push_back(s1);
 
     // Sequence 2: all near 0
     ObservationSet s2(15);
-    for (std::size_t i = 0; i < 15; ++i) s2(i) = static_cast<double>(i % 5) * 0.2 - 0.4;
+    for (std::size_t i = 0; i < 15; ++i)
+        s2(i) = static_cast<double>(i % 5) * 0.2 - 0.4;
     obs.push_back(s2);
 
     // Sequence 3: mixed
     ObservationSet s3(18);
     for (std::size_t i = 0; i < 18; ++i)
         s3(i) = (i % 2 == 0) ? static_cast<double>(i % 3) * 0.3
-                              : 5.0 + static_cast<double>(i % 3) * 0.3;
+                             : 5.0 + static_cast<double>(i % 3) * 0.3;
     obs.push_back(s3);
 
     // -------------------------------------------------------------------------
@@ -83,8 +90,7 @@ int main() {
     // -------------------------------------------------------------------------
     std::cout << "Training log-likelihood progression:\n";
     std::cout << std::fixed << std::setprecision(4);
-    std::cout << std::setw(10) << "Iteration"
-              << std::setw(16) << "log-likelihood\n";
+    std::cout << std::setw(10) << "Iteration" << std::setw(16) << "log-likelihood\n";
     std::cout << std::string(26, '-') << "\n";
 
     BaumWelchTrainer trainer(hmm.get(), obs);
@@ -102,12 +108,12 @@ int main() {
     }
 
     std::cout << "\nLearned parameters after 10 iterations:\n";
-    const auto& d0 = static_cast<const GaussianDistribution&>(hmm->getDistribution(0));
-    const auto& d1 = static_cast<const GaussianDistribution&>(hmm->getDistribution(1));
-    std::cout << "  State 0: N(" << d0.getMean() << ", "
-              << d0.getStandardDeviation() << ")  [target ~N(0, 1)]\n";
-    std::cout << "  State 1: N(" << d1.getMean() << ", "
-              << d1.getStandardDeviation() << ")  [target ~N(5, 1)]\n\n";
+    const auto &d0 = static_cast<const GaussianDistribution &>(hmm->getDistribution(0));
+    const auto &d1 = static_cast<const GaussianDistribution &>(hmm->getDistribution(1));
+    std::cout << "  State 0: N(" << d0.getMean() << ", " << d0.getStandardDeviation()
+              << ")  [target ~N(0, 1)]\n";
+    std::cout << "  State 1: N(" << d1.getMean() << ", " << d1.getStandardDeviation()
+              << ")  [target ~N(5, 1)]\n\n";
 
     // -------------------------------------------------------------------------
     // Contrast: Viterbi training on the same data
@@ -122,14 +128,13 @@ int main() {
     hmm_vt->setDistribution(1, std::make_unique<GaussianDistribution>(4.0, 2.0));
 
     ViterbiTrainer vt(hmm_vt.get(), obs);
-    for (int i = 0; i < 5; ++i) vt.train();
+    for (int i = 0; i < 5; ++i)
+        vt.train();
 
-    const auto& vd0 = static_cast<const GaussianDistribution&>(hmm_vt->getDistribution(0));
-    const auto& vd1 = static_cast<const GaussianDistribution&>(hmm_vt->getDistribution(1));
-    std::cout << "  State 0: N(" << vd0.getMean() << ", "
-              << vd0.getStandardDeviation() << ")\n";
-    std::cout << "  State 1: N(" << vd1.getMean() << ", "
-              << vd1.getStandardDeviation() << ")\n\n";
+    const auto &vd0 = static_cast<const GaussianDistribution &>(hmm_vt->getDistribution(0));
+    const auto &vd1 = static_cast<const GaussianDistribution &>(hmm_vt->getDistribution(1));
+    std::cout << "  State 0: N(" << vd0.getMean() << ", " << vd0.getStandardDeviation() << ")\n";
+    std::cout << "  State 1: N(" << vd1.getMean() << ", " << vd1.getStandardDeviation() << ")\n\n";
 
     std::cout << "Baum-Welch log-likelihood: " << total_ll(*hmm, obs) << "\n";
     std::cout << "Viterbi  log-likelihood:   " << total_ll(*hmm_vt, obs) << "\n";

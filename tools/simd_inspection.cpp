@@ -32,11 +32,11 @@ static std::unique_ptr<Hmm> make_test_hmm(int N) {
     }
     hmm->setTrans(trans);
     Vector pi(N);
-    for (int i = 0; i < N; ++i) pi(i) = 1.0 / N;
+    for (int i = 0; i < N; ++i)
+        pi(i) = 1.0 / N;
     hmm->setPi(pi);
     for (int i = 0; i < N; ++i)
-        hmm->setDistribution(i, std::make_unique<GaussianDistribution>(
-            i * 3.0, 1.0));
+        hmm->setDistribution(i, std::make_unique<GaussianDistribution>(i * 3.0, 1.0));
     return hmm;
 }
 
@@ -91,18 +91,20 @@ int main() {
 #else
     std::cout << "  LIBHMM_HAS_NEON   : -\n";
 #endif
-    std::cout << "  Vector width (double) = "
-              << performance::simd::double_vector_width() << " lanes\n";
+    std::cout << "  Vector width (double) = " << performance::simd::double_vector_width()
+              << " lanes\n";
 
     // -------------------------------------------------------------------------
     // Functional smoke tests
     // -------------------------------------------------------------------------
     std::cout << "\nFunctional smoke tests:\n";
     int pass = 0, fail = 0;
-    auto check = [&](const char* name, bool ok) {
-        std::cout << "  " << std::left << std::setw(52) << name
-                  << (ok ? "PASS" : "FAIL") << "\n";
-        if (ok) ++pass; else ++fail;
+    auto check = [&](const char *name, bool ok) {
+        std::cout << "  " << std::left << std::setw(52) << name << (ok ? "PASS" : "FAIL") << "\n";
+        if (ok)
+            ++pass;
+        else
+            ++fail;
     };
 
     // 1. GaussianDistribution::getBatchLogProbabilities — 8 obs (SIMD main loop)
@@ -110,11 +112,14 @@ int main() {
         GaussianDistribution dist(0.0, 1.0);
         std::vector<double> obs = {-1.0, -0.5, 0.0, 0.3, 0.5, 0.8, 1.0, 1.5};
         std::vector<double> out(8);
-        dist.getBatchLogProbabilities(
-            std::span<const double>(obs.data(), obs.size()),
-            std::span<double>(out.data(), out.size()));
+        dist.getBatchLogProbabilities(std::span<const double>(obs.data(), obs.size()),
+                                      std::span<double>(out.data(), out.size()));
         bool ok = true;
-        for (double v : out) if (!std::isfinite(v)) { ok = false; break; }
+        for (double v : out)
+            if (!std::isfinite(v)) {
+                ok = false;
+                break;
+            }
         check("getBatchLogProbabilities: 8 obs (SIMD main loop)", ok);
     }
 
@@ -123,11 +128,14 @@ int main() {
         GaussianDistribution dist(2.0, 0.5);
         std::vector<double> obs = {1.5, 1.8, 2.0, 2.1, 2.3, 2.5, 1.9, 2.2, 2.4};
         std::vector<double> out(9);
-        dist.getBatchLogProbabilities(
-            std::span<const double>(obs.data(), obs.size()),
-            std::span<double>(out.data(), out.size()));
+        dist.getBatchLogProbabilities(std::span<const double>(obs.data(), obs.size()),
+                                      std::span<double>(out.data(), out.size()));
         bool ok = true;
-        for (double v : out) if (!std::isfinite(v)) { ok = false; break; }
+        for (double v : out)
+            if (!std::isfinite(v)) {
+                ok = false;
+                break;
+            }
         check("getBatchLogProbabilities: 9 obs (tests scalar tail)", ok);
     }
 
@@ -136,12 +144,10 @@ int main() {
         GaussianDistribution dist(0.0, 1.0);
         std::vector<double> obs = {0.0, std::numeric_limits<double>::quiet_NaN(), 1.0};
         std::vector<double> out(3);
-        dist.getBatchLogProbabilities(
-            std::span<const double>(obs.data(), obs.size()),
-            std::span<double>(out.data(), out.size()));
-        bool ok = std::isfinite(out[0])
-               && out[1] == -std::numeric_limits<double>::infinity()
-               && std::isfinite(out[2]);
+        dist.getBatchLogProbabilities(std::span<const double>(obs.data(), obs.size()),
+                                      std::span<double>(out.data(), out.size()));
+        bool ok = std::isfinite(out[0]) && out[1] == -std::numeric_limits<double>::infinity() &&
+                  std::isfinite(out[2]);
         check("getBatchLogProbabilities: NaN input → -Inf", ok);
     }
 
@@ -149,16 +155,19 @@ int main() {
     {
         auto hmm = make_test_hmm(2);
         ObservationSet obs(100);
-        for (std::size_t t = 0; t < 100; ++t) obs(t) = (t < 50) ? 0.0 : 3.0;
+        for (std::size_t t = 0; t < 100; ++t)
+            obs(t) = (t < 50) ? 0.0 : 3.0;
         ForwardBackwardCalculator fbc(*hmm, obs);
-        check("ForwardBackwardCalculator: 2 states, 100 obs", std::isfinite(fbc.getLogProbability()));
+        check("ForwardBackwardCalculator: 2 states, 100 obs",
+              std::isfinite(fbc.getLogProbability()));
     }
 
     // 5. ViterbiCalculator — 2-state, 100 obs
     {
         auto hmm = make_test_hmm(2);
         ObservationSet obs(100);
-        for (std::size_t t = 0; t < 100; ++t) obs(t) = (t < 50) ? 0.0 : 3.0;
+        for (std::size_t t = 0; t < 100; ++t)
+            obs(t) = (t < 50) ? 0.0 : 3.0;
         ViterbiCalculator vc(*hmm, obs);
         auto seq = vc.decode();
         check("ViterbiCalculator: 2 states, 100 obs", seq.size() == 100u);
@@ -168,9 +177,11 @@ int main() {
     {
         auto hmm = make_test_hmm(16);
         ObservationSet obs(200);
-        for (std::size_t t = 0; t < 200; ++t) obs(t) = static_cast<double>(t % 16) * 3.0;
+        for (std::size_t t = 0; t < 200; ++t)
+            obs(t) = static_cast<double>(t % 16) * 3.0;
         ForwardBackwardCalculator fbc(*hmm, obs);
-        check("ForwardBackwardCalculator: 16 states, 200 obs", std::isfinite(fbc.getLogProbability()));
+        check("ForwardBackwardCalculator: 16 states, 200 obs",
+              std::isfinite(fbc.getLogProbability()));
     }
 
     std::cout << "\nResult: " << pass << " passed, " << fail << " failed\n";

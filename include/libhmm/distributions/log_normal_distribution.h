@@ -4,7 +4,7 @@
 #include "libhmm/common/common.h"
 #include <span>
 
-namespace libhmm{
+namespace libhmm {
 
 /**
  * Modern C++20 Log-Normal distribution for modeling positive continuous data.
@@ -28,8 +28,7 @@ namespace libhmm{
  * - Mode: exp(μ - σ²)
  * - Support: x ∈ (0, ∞)
  */
-class LogNormalDistribution : public DistributionBase
-{   
+class LogNormalDistribution : public DistributionBase {
 private:
     /**
      * Mean parameter μ of the underlying normal distribution (mean of ln(X))
@@ -42,24 +41,24 @@ private:
      * Must be positive
      */
     double standardDeviation_{1.0};
-    
+
     /**
      * Cached value of ln(σ√(2π)) for efficiency in probability calculations
      */
     mutable double logNormalizationConstant_{0.0};
-    
+
     /**
      * Cached value of -1/(2σ²) for efficiency in probability calculations
      */
     mutable double negHalfSigmaSquaredInv_{0.0};
-    
+
     void updateCache() const noexcept {
         const double sigma2 = standardDeviation_ * standardDeviation_;
         logNormalizationConstant_ = std::log(standardDeviation_) + constants::math::HALF_LN_2PI;
         negHalfSigmaSquaredInv_ = -constants::math::HALF / sigma2;
         markCacheValid();
     }
-    
+
     /**
      * Validates parameters for the Log-Normal distribution
      * @param mean Mean of ln(X) (any finite value)
@@ -75,8 +74,7 @@ private:
         }
     }
 
-    friend std::istream& operator>>(std::istream& is,
-            libhmm::LogNormalDistribution& distribution);
+    friend std::istream &operator>>(std::istream &is, libhmm::LogNormalDistribution &distribution);
 
 public:
     /**
@@ -91,43 +89,46 @@ public:
         validateParameters(mean, standardDeviation);
         updateCache();
     }
-    
+
     /**
      * Copy constructor
      */
-    LogNormalDistribution(const LogNormalDistribution& other)
+    LogNormalDistribution(const LogNormalDistribution &other)
         : DistributionBase{other}, mean_{other.mean_}, standardDeviation_{other.standardDeviation_},
           logNormalizationConstant_{other.logNormalizationConstant_},
           negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_} {}
-    
+
     /**
      * Copy assignment operator
      */
-    LogNormalDistribution& operator=(const LogNormalDistribution& other) {
+    LogNormalDistribution &operator=(const LogNormalDistribution &other) {
         if (this != &other) {
             DistributionBase::operator=(other);
-            mean_ = other.mean_; standardDeviation_ = other.standardDeviation_;
+            mean_ = other.mean_;
+            standardDeviation_ = other.standardDeviation_;
             logNormalizationConstant_ = other.logNormalizationConstant_;
             negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
         }
         return *this;
     }
-    
+
     /**
      * Move constructor
      */
-    LogNormalDistribution(LogNormalDistribution&& other) noexcept
-        : DistributionBase{std::move(other)}, mean_{other.mean_}, standardDeviation_{other.standardDeviation_},
+    LogNormalDistribution(LogNormalDistribution &&other) noexcept
+        : DistributionBase{std::move(other)}, mean_{other.mean_},
+          standardDeviation_{other.standardDeviation_},
           logNormalizationConstant_{other.logNormalizationConstant_},
           negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_} {}
-    
+
     /**
      * Move assignment operator
      */
-    LogNormalDistribution& operator=(LogNormalDistribution&& other) noexcept {
+    LogNormalDistribution &operator=(LogNormalDistribution &&other) noexcept {
         if (this != &other) {
             DistributionBase::operator=(std::move(other));
-            mean_ = other.mean_; standardDeviation_ = other.standardDeviation_;
+            mean_ = other.mean_;
+            standardDeviation_ = other.standardDeviation_;
             logNormalizationConstant_ = other.logNormalizationConstant_;
             negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
         }
@@ -147,9 +148,8 @@ public:
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.
     /// Precondition: observations.size() == out.size()
-    void getBatchLogProbabilities(
-        std::span<const double> observations,
-        std::span<double> out) const override;
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override;
     [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     /** MLE: μ̂ = mean(ln(x_i)), σ̂ = std_dev(ln(x_i)). */
@@ -179,7 +179,7 @@ public:
      * @return Current mean parameter value
      */
     double getMean() const noexcept { return mean_; }
-    
+
     /**
      * Sets the mean parameter μ of the underlying normal distribution.
      * 
@@ -198,7 +198,7 @@ public:
      * @return Current standard deviation parameter value
      */
     double getStandardDeviation() const noexcept { return standardDeviation_; }
-    
+
     /**
      * Sets the standard deviation parameter σ of the underlying normal distribution.
      * 
@@ -210,7 +210,7 @@ public:
         standardDeviation_ = stdDev;
         invalidateCache();
     }
-    
+
     /**
      * Sets both parameters simultaneously.
      * 
@@ -220,41 +220,40 @@ public:
      */
     void setParameters(double mean, double stdDev) {
         validateParameters(mean, stdDev);
-        mean_ = mean; standardDeviation_ = stdDev;
+        mean_ = mean;
+        standardDeviation_ = stdDev;
         invalidateCache();
     }
-    
+
     /**
      * Gets the mean of the Log-Normal distribution (not the underlying normal).
      * For Log-Normal distribution, mean = exp(μ + σ²/2)
      * 
      * @return Mean of the Log-Normal distribution
      */
-    double getDistributionMean() const noexcept { 
+    double getDistributionMean() const noexcept {
         double sigma2 = standardDeviation_ * standardDeviation_;
-        return std::exp(mean_ + sigma2 / 2.0); 
+        return std::exp(mean_ + sigma2 / 2.0);
     }
-    
+
     /**
      * Gets the variance of the Log-Normal distribution.
      * For Log-Normal distribution, variance = (exp(σ²) - 1) * exp(2μ + σ²)
      * 
      * @return Variance of the Log-Normal distribution
      */
-    double getVariance() const noexcept { 
+    double getVariance() const noexcept {
         double sigma2 = standardDeviation_ * standardDeviation_;
-        return (std::exp(sigma2) - 1.0) * std::exp(2.0 * mean_ + sigma2); 
+        return (std::exp(sigma2) - 1.0) * std::exp(2.0 * mean_ + sigma2);
     }
-    
+
     /**
      * Gets the standard deviation of the Log-Normal distribution.
      * 
      * @return Standard deviation of the Log-Normal distribution
      */
-    double getDistributionStandardDeviation() const noexcept { 
-        return std::sqrt(getVariance()); 
-    }
-    
+    double getDistributionStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
+
     /**
      * Gets the mode of the Log-Normal distribution.
      * For Log-Normal distribution, mode = exp(μ - σ²)
@@ -265,21 +264,19 @@ public:
         double sigma2 = standardDeviation_ * standardDeviation_;
         return std::exp(mean_ - sigma2);
     }
-    
+
     /**
      * Gets the median of the Log-Normal distribution.
      * For Log-Normal distribution, median = exp(μ)
      * 
      * @return Median of the Log-Normal distribution
      */
-    double getMedian() const noexcept {
-        return std::exp(mean_);
-    }
-    
+    double getMedian() const noexcept { return std::exp(mean_); }
+
     /**
      * Equality operator with tolerance for floating-point comparison
      */
-    bool operator==(const LogNormalDistribution& other) const noexcept {
+    bool operator==(const LogNormalDistribution &other) const noexcept {
         const double tolerance = 1e-10;
         return std::abs(mean_ - other.mean_) < tolerance &&
                std::abs(standardDeviation_ - other.standardDeviation_) < tolerance;
@@ -288,13 +285,9 @@ public:
     /**
      * Inequality operator
      */
-    bool operator!=(const LogNormalDistribution& other) const noexcept {
-        return !(*this == other);
-    }
-
+    bool operator!=(const LogNormalDistribution &other) const noexcept { return !(*this == other); }
 };
 
-std::ostream& operator<<( std::ostream&, 
-        const libhmm::LogNormalDistribution& );
+std::ostream &operator<<(std::ostream &, const libhmm::LogNormalDistribution &);
 
-} // namespace
+} // namespace libhmm
