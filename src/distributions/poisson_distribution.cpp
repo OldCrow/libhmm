@@ -9,9 +9,9 @@ using namespace libhmm::constants;
 namespace libhmm {
 
 /*
- * Computes log(k!) efficiently using:
+ * Computes log(k!) with exact arithmetic:
  * - Pre-computed cached values for small k (k <= 12)
- * - Stirling's approximation for large k: log(k!) ≈ k*log(k) - k + 0.5*log(2πk)
+ * - std::lgamma(k + 1) for larger k
  */
 double PoissonDistribution::logFactorial(int k) const noexcept {
     if (k < 0)
@@ -22,10 +22,7 @@ double PoissonDistribution::logFactorial(int k) const noexcept {
     if (k <= 12) {
         return std::log(smallFactorials_[k]);
     }
-
-    // For large k, use Stirling's approximation
-    const auto kd = static_cast<double>(k);
-    return kd * std::log(kd) - kd + 0.5 * std::log(2.0 * math::PI * kd);
+    return std::lgamma(static_cast<double>(k) + 1.0);
 }
 
 /*
