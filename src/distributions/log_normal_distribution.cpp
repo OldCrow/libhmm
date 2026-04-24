@@ -30,14 +30,12 @@ double LogNormalDistribution::getProbability(double x) const {
     // Optimize by using cached values and avoiding repeated calculations
 
     const double logX = std::log(x);
-    const double standardized = (logX - mean_) / standardDeviation_;
-    const double standardizedSquared = standardized * standardized;
+    const double delta = logX - mean_;
 
     // Use cached values: negHalfSigmaSquaredInv_ = -1/(2σ²), logNormalizationConstant_ = ln(σ√(2π))
-    // f(x) = exp(-ln(x) - logNormalizationConstant_ + negHalfSigmaSquaredInv_ * standardizedSquared * 2σ²)
-    //      = exp(-ln(x) - logNormalizationConstant_ - ½*standardizedSquared)
-    const double logPdf =
-        -logX - logNormalizationConstant_ + negHalfSigmaSquaredInv_ * standardizedSquared;
+    // log f(x) = -ln(x) - logNormalizationConstant_ - ((ln(x)-μ)^2)/(2σ²)
+    const double logPdf = -logX - logNormalizationConstant_ +
+                          negHalfSigmaSquaredInv_ * delta * delta;
 
     const double pdf = std::exp(logPdf);
 
@@ -58,9 +56,8 @@ double LogNormalDistribution::getLogProbability(double value) const noexcept {
     if (!isCacheValid())
         updateCache();
     const double logX = std::log(value);
-    const double standardized = (logX - mean_) / standardDeviation_;
-    return -logX - logNormalizationConstant_ +
-           negHalfSigmaSquaredInv_ * standardized * standardized;
+    const double delta = logX - mean_;
+    return -logX - logNormalizationConstant_ + negHalfSigmaSquaredInv_ * delta * delta;
 }
 
 double LogNormalDistribution::getCumulativeProbability(double value) const noexcept {
