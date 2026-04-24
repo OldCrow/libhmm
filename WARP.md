@@ -6,7 +6,7 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 
 ## Current Status
 
-**Version**: v3.0.0 on `main`. Tag pushed; GitHub Release published.
+**Version**: v3.0.1 release prep on `main` (`v3.0.0` is latest published tag/release).
 **Tests**: 36/36 passing (`ctest`). No `known_broken` labels remain.
 **Active phase**: Complete. All phases through Post-Phase 5 (CI/tooling, benchmarks) are done.
 
