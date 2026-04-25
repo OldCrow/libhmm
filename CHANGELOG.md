@@ -50,8 +50,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compatibility — `std::filesystem` path helpers replace POSIX equivalents; Windows Java
   binary resolution; classpath separator is `;` on Windows; `_popen` aliased for MSVC.
 - `benchmarks/CMakeLists.txt`: `-lm` not linked on MSVC (math functions are in the CRT).
+- clang-format applied to `libhmm_vs_jahmm_benchmark.cpp`, `libhmm_vs_lamp_benchmark.cpp`,
+  and `log_normal_distribution.cpp` (style-only, no logic changes).
 
-## [3.0.1] - 2026-04-24
+### Fixed
+
+- **Windows test suite** (`tests/CMakeLists.txt`): tests now link against `hmm_static`
+  instead of `hmm`. The OBJECT-library build system always produces `hmm.dll` on Windows
+  regardless of `BUILD_SHARED_LIBS`, so tests that imported symbols from `hmm.dll` failed
+  at startup with `0xc0000135 STATUS_DLL_NOT_FOUND` when the DLL was not on `PATH`.
+  Linking against the static archive avoids the runtime path requirement and is consistent
+  with the CI flag `-DBUILD_SHARED_LIBS=OFF`.
+
+## [3.0.1]
 
 ### Fixed
 
