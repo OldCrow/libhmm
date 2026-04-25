@@ -34,8 +34,8 @@ double LogNormalDistribution::getProbability(double x) const {
 
     // Use cached values: negHalfSigmaSquaredInv_ = -1/(2σ²), logNormalizationConstant_ = ln(σ√(2π))
     // log f(x) = -ln(x) - logNormalizationConstant_ - ((ln(x)-μ)^2)/(2σ²)
-    const double logPdf = -logX - logNormalizationConstant_ +
-                          negHalfSigmaSquaredInv_ * delta * delta;
+    const double logPdf =
+        -logX - logNormalizationConstant_ + negHalfSigmaSquaredInv_ * delta * delta;
 
     const double pdf = std::exp(logPdf);
 

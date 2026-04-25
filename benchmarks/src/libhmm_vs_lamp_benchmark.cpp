@@ -203,9 +203,7 @@ private:
     string temp_dir = "./temp_lamp_benchmark";
     string lamp_dir;
 
-    bool fileExists(const string &filename) {
-        return std::filesystem::exists(filename);
-    }
+    bool fileExists(const string &filename) { return std::filesystem::exists(filename); }
 
     void createTempDirectory() {
 #ifdef _WIN32
@@ -216,9 +214,7 @@ private:
 #endif
     }
 
-    void removeTempDirectory() {
-        std::filesystem::remove_all(temp_dir);
-    }
+    void removeTempDirectory() { std::filesystem::remove_all(temp_dir); }
 
     template <typename ProblemType>
     void createLAMPConfigFile(ProblemType &problem, const string &config_file,
@@ -313,18 +309,20 @@ public:
                 return std::filesystem::absolute(rel).generic_string();
             };
 
-            string config_file   = temp_dir + "/warmup.cfg";
+            string config_file = temp_dir + "/warmup.cfg";
             string sequence_file = temp_dir + "/warmup.seq";
-            string abs_seq       = make_abs(sequence_file);
+            string abs_seq = make_abs(sequence_file);
             string output_prefix = make_abs(temp_dir + "/warmup_out");
 
             // Minimal 2-state, 2-symbol, 10-observation problem
             {
                 ofstream cfg(config_file);
-                cfg << "sequenceName=\n" << abs_seq << "\n"
+                cfg << "sequenceName=\n"
+                    << abs_seq << "\n"
                     << "skipLearning=\n0\n"
                     << "hmmInputName=\n0\n"
-                    << "outputName=\n" << output_prefix << "\n"
+                    << "outputName=\n"
+                    << output_prefix << "\n"
                     << "nbDimensions=\n1\n"
                     << "nbSymbols=\n2\n"
                     << "nbStates=\n2\n"
@@ -336,7 +334,8 @@ public:
             {
                 ofstream seq(sequence_file);
                 seq << "P5\nnbSequences= 1\nT= 10\n";
-                for (int i = 0; i < 10; ++i) seq << (i % 2) << " ";
+                for (int i = 0; i < 10; ++i)
+                    seq << (i % 2) << " ";
                 seq << "\n";
             }
 
@@ -344,15 +343,16 @@ public:
             string abs_output = make_abs(temp_dir + "/warmup_lamp.txt");
 #ifdef _WIN32
             string lamp_exe = lamp_dir + "/hmmFind.exe";
-            string command  = lamp_exe + " " + abs_config + " > " + abs_output + " 2>&1";
+            string command = lamp_exe + " " + abs_config + " > " + abs_output + " 2>&1";
 #else
             string lamp_exe = lamp_dir + "/hmmFind";
-            string command  = "cd \"" + lamp_dir + "\" && ./hmmFind \"" + abs_config +
-                              "\" > \"" + abs_output + "\" 2>&1";
+            string command = "cd \"" + lamp_dir + "\" && ./hmmFind \"" + abs_config + "\" > \"" +
+                             abs_output + "\" 2>&1";
 #endif
             system(command.c_str());
             removeTempDirectory();
-        } catch (...) {}
+        } catch (...) {
+        }
     }
 
     template <typename ProblemType>
@@ -410,8 +410,8 @@ public:
             // cmd.exe /C strips the leading '"' when a command starts with a double-quote,
             // mangling quoted executable paths. Build the command unquoted instead;
             // abs paths produced by filesystem::absolute are space-free in typical installs.
-            string command = lamp_executable + " " + abs_config_path +
-                             " > " + abs_output_path + " 2>&1";
+            string command =
+                lamp_executable + " " + abs_config_path + " > " + abs_output_path + " 2>&1";
 #else
             string command = "cd \"" + lamp_dir + "\" && ./hmmFind \"" + abs_config_path +
                              "\" > \"" + abs_output_path + "\" 2>&1";

@@ -14,7 +14,7 @@
 #include <climits>
 #ifdef _WIN32
 #include <io.h>
-#define popen  _popen
+#define popen _popen
 #define pclose _pclose
 #else
 #include <unistd.h>
@@ -50,7 +50,8 @@ static string findWindowsJavaBin(const string &exe) {
     const char *java_home = getenv("JAVA_HOME");
     if (java_home) {
         string candidate = string(java_home) + "\\bin\\" + exe + ".exe";
-        if (std::filesystem::exists(candidate)) return candidate;
+        if (std::filesystem::exists(candidate))
+            return candidate;
     }
     // Search Microsoft OpenJDK default install location (winget)
     try {
@@ -59,10 +60,12 @@ static string findWindowsJavaBin(const string &exe) {
             auto name = entry.path().filename().string();
             if (name.find("jdk") != string::npos || name.find("JDK") != string::npos) {
                 string candidate = (entry.path() / "bin" / (exe + ".exe")).string();
-                if (std::filesystem::exists(candidate)) return candidate;
+                if (std::filesystem::exists(candidate))
+                    return candidate;
             }
         }
-    } catch (...) {}
+    } catch (...) {
+    }
     return exe;
 }
 #endif
@@ -367,13 +370,16 @@ public:
     JAHMMBenchmark(const string &jahmm_jar_path, const string &java_exec)
         : jahmm_path(jahmm_jar_path), java_bin(java_exec) {
         auto ts = chrono::system_clock::now().time_since_epoch().count();
-        temp_dir = (std::filesystem::temp_directory_path() /
-                    ("jahmm_benchmark_" + to_string(ts))).string();
+        temp_dir = (std::filesystem::temp_directory_path() / ("jahmm_benchmark_" + to_string(ts)))
+                       .string();
         std::filesystem::create_directories(temp_dir);
     }
 
     ~JAHMMBenchmark() {
-        try { std::filesystem::remove_all(temp_dir); } catch (...) {}
+        try {
+            std::filesystem::remove_all(temp_dir);
+        } catch (...) {
+        }
     }
 
     template <typename ProblemType>
@@ -756,8 +762,8 @@ int main() {
 #else
     const char cp_sep = ':';
 #endif
-    string jahmm_classpath = jahmm_source_dir + "/build" + cp_sep +
-                             jahmm_source_dir + "/build/lib/jahmm-0.6.2.jar";
+    string jahmm_classpath =
+        jahmm_source_dir + "/build" + cp_sep + jahmm_source_dir + "/build/lib/jahmm-0.6.2.jar";
 
     // Create benchmark instances
     LibHMMBenchmark libhmm_bench;
