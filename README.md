@@ -165,6 +165,7 @@ No external dependencies. GTest is fetched automatically via CMake `FetchContent
 ## Documentation
 
 - [WARP.md](WARP.md) — session guide for Warp AI agent
+- [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) — build options, library output, CI matrix
 - [docs/GOLD_STANDARD_CHECKLIST.md](docs/GOLD_STANDARD_CHECKLIST.md) — distribution implementation requirements
 - [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) — coding conventions
 

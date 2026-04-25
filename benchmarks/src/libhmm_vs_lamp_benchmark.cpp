@@ -10,8 +10,13 @@
 #include <fstream>
 #include <map>
 #include <cstdlib>
+#include <filesystem>
+#ifdef _WIN32
+#include <direct.h>
+#else
 #include <sys/stat.h>
 #include <unistd.h>
+#endif
 
 // libhmm includes
 #include "libhmm/hmm.h"
@@ -199,18 +204,20 @@ private:
     string lamp_dir;
 
     bool fileExists(const string &filename) {
-        struct stat buffer;
-        return (stat(filename.c_str(), &buffer) == 0);
+        return std::filesystem::exists(filename);
     }
 
     void createTempDirectory() {
+#ifdef _WIN32
+        _mkdir(temp_dir.c_str());
+#else
         string command = "mkdir -p " + temp_dir;
         system(command.c_str());
+#endif
     }
 
     void removeTempDirectory() {
-        string command = "rm -rf " + temp_dir;
-        system(command.c_str());
+        std::filesystem::remove_all(temp_dir);
     }
 
     template <typename ProblemType>
@@ -295,6 +302,59 @@ private:
 
 public:
     explicit LAMPBenchmark(const string &lamp_root) : lamp_dir(lamp_root) {}
+
+    // Run hmmFind once, untimed and discarded, to prime the OS file/process
+    // cache and absorb any first-launch AV scanning before benchmarking starts.
+    void warmup() {
+        try {
+            createTempDirectory();
+
+            auto make_abs = [](const string &rel) {
+                return std::filesystem::absolute(rel).generic_string();
+            };
+
+            string config_file   = temp_dir + "/warmup.cfg";
+            string sequence_file = temp_dir + "/warmup.seq";
+            string abs_seq       = make_abs(sequence_file);
+            string output_prefix = make_abs(temp_dir + "/warmup_out");
+
+            // Minimal 2-state, 2-symbol, 10-observation problem
+            {
+                ofstream cfg(config_file);
+                cfg << "sequenceName=\n" << abs_seq << "\n"
+                    << "skipLearning=\n0\n"
+                    << "hmmInputName=\n0\n"
+                    << "outputName=\n" << output_prefix << "\n"
+                    << "nbDimensions=\n1\n"
+                    << "nbSymbols=\n2\n"
+                    << "nbStates=\n2\n"
+                    << "seed=\n42\n"
+                    << "explicitDuration=\n0\n"
+                    << "gaussianDistribution=\n0\n"
+                    << "EMMethod=\n2\n";
+            }
+            {
+                ofstream seq(sequence_file);
+                seq << "P5\nnbSequences= 1\nT= 10\n";
+                for (int i = 0; i < 10; ++i) seq << (i % 2) << " ";
+                seq << "\n";
+            }
+
+            string abs_config = make_abs(config_file);
+            string abs_output = make_abs(temp_dir + "/warmup_lamp.txt");
+#ifdef _WIN32
+            string lamp_exe = lamp_dir + "/hmmFind.exe";
+            string command  = lamp_exe + " " + abs_config + " > " + abs_output + " 2>&1";
+#else
+            string lamp_exe = lamp_dir + "/hmmFind";
+            string command  = "cd \"" + lamp_dir + "\" && ./hmmFind \"" + abs_config +
+                              "\" > \"" + abs_output + "\" 2>&1";
+#endif
+            system(command.c_str());
+            removeTempDirectory();
+        } catch (...) {}
+    }
+
     template <typename ProblemType>
     BenchmarkResults runBenchmark(ProblemType &problem,
                                   const vector<unsigned int> &full_obs_sequence,
@@ -317,28 +377,25 @@ public:
             string sequence_file = temp_dir + "/sequence.seq";
             string output_file = temp_dir + "/output.dis";
 
-            // Get current working directory for absolute paths
-            char *cwd = getcwd(NULL, 0);
-            string current_dir = string(cwd);
-            free(cwd);
-
-            string abs_sequence_file = current_dir + "/" + sequence_file;
-            string abs_output_prefix = current_dir + "/" + temp_dir + "/output";
+            // Build normalised absolute paths (resolves ./ and backslashes).
+            auto make_abs = [](const string &rel) {
+                return std::filesystem::absolute(rel).generic_string();
+            };
+            string abs_sequence_file = make_abs(sequence_file);
+            string abs_output_prefix = make_abs(temp_dir + "/output");
 
             // Create LAMP config and data files
             createLAMPConfigFile(problem, config_file, abs_sequence_file, abs_output_prefix);
             createLAMPSequenceFile(obs_sequence, sequence_file);
 
-            // Debug output for first test
-            if (sequence_length == 100) {
-                cout << "[DEBUG] LAMP using " << problem.num_states << " states, "
-                     << problem.alphabet_size << " symbols" << endl;
-            }
-
             // Execute LAMP (redirect output to capture log likelihood)
-            string abs_config_path = current_dir + "/" + config_file;
-            string abs_output_path = current_dir + "/" + temp_dir + "/lamp_output.txt";
+            string abs_config_path = make_abs(config_file);
+            string abs_output_path = make_abs(temp_dir + "/lamp_output.txt");
+#ifdef _WIN32
+            string lamp_executable = lamp_dir + "/hmmFind.exe";
+#else
             string lamp_executable = lamp_dir + "/hmmFind";
+#endif
 
             if (!fileExists(lamp_executable)) {
                 if (sequence_length == 100) {
@@ -349,8 +406,16 @@ public:
             }
 
             auto start = high_resolution_clock::now();
+#ifdef _WIN32
+            // cmd.exe /C strips the leading '"' when a command starts with a double-quote,
+            // mangling quoted executable paths. Build the command unquoted instead;
+            // abs paths produced by filesystem::absolute are space-free in typical installs.
+            string command = lamp_executable + " " + abs_config_path +
+                             " > " + abs_output_path + " 2>&1";
+#else
             string command = "cd \"" + lamp_dir + "\" && ./hmmFind \"" + abs_config_path +
                              "\" > \"" + abs_output_path + "\" 2>&1";
+#endif
             int lamp_result = system(command.c_str());
             auto end = high_resolution_clock::now();
             results.forward_time = duration_cast<microseconds>(end - start).count() / 1000.0;
@@ -464,6 +529,11 @@ int main() {
     LibHMMBenchmark libhmm_benchmark;
     LAMPBenchmark lamp_benchmark(lamp_root);
     vector<BenchmarkResults> results;
+
+    // Prime the OS file/process cache so cold-start latency does not
+    // skew the first real benchmark run.
+    cout << "Warming up LAMP..." << endl;
+    lamp_benchmark.warmup();
 
     // Test different sequence lengths for each problem
     vector<int> test_lengths = {100, 500, 1000, 2000, 5000, 10000};

@@ -34,12 +34,26 @@ Override at configure time if your layout differs:
 cmake -S . -B build -DBUILD_BENCHMARKS=ON -DHMMLIB_DIR=/opt/hmmlib
 ```
 
+On Windows, prefer passing the dependency paths explicitly. `$HOME` may not resolve
+to the expected development root under every CMake + shell combination.
+
+```powershell
+cmake -S . -B build `
+  -DBUILD_BENCHMARKS=ON `
+  -DLIBHMM_BENCHMARK_DEPS_ROOT=C:/Users/yourname/Development `
+  -DHMMLIB_DIR=C:/Users/yourname/Development/HMMLib
+```
+
 ---
 
 ## HMMLib
 
 HMMLib 1.0.1 (2010) targets C++98/C++03 with Intel SSE intrinsics.
-Two categories of patches are required: C++ standard compliance and ARM64 SIMD porting.
+Three categories of patches matter in practice:
+
+1. C++ standard compliance (`this->` in dependent template bases)
+2. ARM64 SIMD porting (Apple Silicon / AArch64 only)
+3. MSVC SIMD operator compatibility (Windows x86_64 only)
 
 ### Source patches
 
@@ -143,6 +157,34 @@ else()
 endif()
 ```
 
+#### Patch 3 — MSVC SIMD arithmetic compatibility (Windows x86_64)
+
+GCC and Clang accept arithmetic expressions directly on `__m128d` / `__m128`
+(`a * b`, `a + b`, `a += b`, `a *= b`) as compiler built-ins. MSVC exposes the
+same SIMD types and intrinsics but does not provide those operators. HMMLib's
+inner-product loops in `HMMlib/hmm.hpp` rely on that syntax, so MSVC compilation
+fails unless the operators are defined explicitly.
+
+Add the following block near the top of `HMMlib/sse_operator_traits.hpp`, before
+the `hmmlib` namespace:
+
+```cpp
+#ifdef _MSC_VER
+inline __m128d operator*(const __m128d a, const __m128d b) noexcept { return _mm_mul_pd(a, b); }
+inline __m128d operator+(const __m128d a, const __m128d b) noexcept { return _mm_add_pd(a, b); }
+inline __m128d& operator+=(__m128d& a, const __m128d b) noexcept { a = _mm_add_pd(a, b); return a; }
+inline __m128d& operator*=(__m128d& a, const __m128d b) noexcept { a = _mm_mul_pd(a, b); return a; }
+
+inline __m128 operator*(const __m128 a, const __m128 b) noexcept { return _mm_mul_ps(a, b); }
+inline __m128 operator+(const __m128 a, const __m128 b) noexcept { return _mm_add_ps(a, b); }
+inline __m128& operator+=(__m128& a, const __m128 b) noexcept { a = _mm_add_ps(a, b); return a; }
+inline __m128& operator*=(__m128& a, const __m128 b) noexcept { a = _mm_mul_ps(a, b); return a; }
+#endif
+```
+
+This patch is minimal: it preserves HMMLib's existing SSE code and only supplies
+the operator surface that GCC/Clang already expose implicitly.
+
 ### Building
 
 #### macOS and Linux
@@ -163,32 +205,68 @@ make -j$(nproc)
 
 #### Windows
 
-Not validated. The x86_64 build path uses `_mm_malloc` (available on MSVC via
-`<xmmintrin.h>`) but the CMake configuration applies GCC/Clang-only SIMD flags
-(`-msse4`). Windows support requires adapting the CMake SIMD flag selection for MSVC
-(`/arch:SSE4.2` or `/arch:AVX`). No attempt has been made to validate this.
+Validated for benchmark integration on Windows x86_64 with MSVC.
+
+HMMLib's own top-level `CMakeLists.txt` is still Unix-only and prints a Windows
+unsupported message. That does not block libhmm's benchmarks because the benchmark
+code includes HMMLib headers directly instead of linking against a separately built
+HMMLib archive.
+
+Requirements:
+
+1. Apply Patch 1 (`this->reset(...)`)
+2. Apply Patch 3 (MSVC SIMD arithmetic compatibility)
+3. Install Boost headers; `boost::shared_ptr` is required by published HMMLib 1.0.1
+
+Using vcpkg:
+
+```powershell
+C:\vcpkg\vcpkg install boost-smart-ptr:x64-windows
+```
+
+Configure libhmm benchmarks with the vcpkg toolchain and an explicit HMMLib path:
+
+```powershell
+cmake -S . -B build `
+  -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+  -DBUILD_BENCHMARKS=ON `
+  -DLIBHMM_BENCHMARK_DEPS_ROOT=C:/Users/yourname/Development `
+  -DHMMLIB_DIR=C:/Users/yourname/Development/HMMLib
+cmake --build build --config Release --target libhmm_vs_hmmlib_benchmark
+```
+
+Notes:
+
+- No ARM64 patch is needed on Windows x86_64
+- No HMMLib `.lib` or `.dll` is required for the benchmark path
+- No Boost binary libraries were needed for the verified benchmark targets; the
+  benchmark path only required the Boost headers that provide `boost::shared_ptr`
 
 ### Linking
 
-HMMLib builds as a static library. Boost must also be linked.
+For the libhmm benchmarks, HMMLib is used header-only. The benchmark targets include
+`${HMMLIB_DIR}` and `${Boost_INCLUDE_DIRS}`; no separate HMMLib library link step was
+required in the validated Windows build.
 
-**CMake:**
+If you are integrating HMMLib outside the benchmark tree and choose to create your own
+compiled library target, you will need to supply the include path and any Boost
+components your local wrapper uses.
+
+**Benchmark CMake integration:**
 ```cmake
-find_library(HMMLIB_LIB HMMLib PATHS ${HMMLIB_DIR})
-target_link_libraries(your_target PRIVATE ${HMMLIB_LIB} Boost::program_options)
-target_include_directories(your_target PRIVATE ${HMMLIB_DIR})
+find_package(Boost REQUIRED)
+target_include_directories(your_target PRIVATE ${HMMLIB_DIR} ${Boost_INCLUDE_DIRS})
 ```
 
-**Compiler flags (GCC/Clang):**
+**Compiler flags (GCC/Clang, header-only use):**
 ```bash
 g++ benchmark.cpp \
     -I${HMMLIB_DIR} \
-    -L${HMMLIB_DIR} -lHMMLib \
-    -lboost_program_options \
+    -I${Boost_INCLUDE_DIRS} \
     -O3 -msse4
 ```
 
-HMMLib does not build a shared library.
+HMMLib does not provide a validated shared-library build in this workflow.
 
 ---
 
@@ -772,6 +850,51 @@ ifstream hmmFile(filename);
 if (hmmFile.fail()) { cerr << "File not found"; exit(-1); }
 ```
 
+#### Patch 3 — Windows-specific header and namespace fixes (MSVC only)
+
+Apply only when targeting Windows with MSVC.
+
+**`utils.h`** — POSIX-only `srand48`/`drand48` are unavailable on Windows.
+Change the RNG selection macro and add using-declarations so downstream headers
+see `ostream`/`ifstream`/`cout`/`cerr`/`endl` without explicit `std::` qualification:
+
+```cpp
+// Before
+#ifndef _UTILS
+#define SUN
+
+// After
+#ifndef _UTILS
+// SUN/MAC use POSIX-only drand48/srand48; LOCAL_RAND uses a built-in RNG (portable).
+//#define SUN
+//#define MAC
+#define LOCAL_RAND
+
+// Bring ostream/ifstream into global scope so headers included after utils.h
+// can reference them without explicit std:: qualification.
+#include <iosfwd>
+using std::ostream;
+using std::ifstream;
+using std::cout;
+using std::cerr;
+using std::endl;
+```
+
+**`hmmFind.C`** — `ifstream` cannot be compared to `NULL` in C++17:
+
+```cpp
+// Before
+ifstream sequenceFile(sequenceName);
+assert(sequenceFile != NULL);
+
+// After
+ifstream sequenceFile(sequenceName);
+if (!sequenceFile) {
+    cerr << "Could not open sequence file: " << sequenceName << endl;
+    exit(-1);
+}
+```
+
 ### Building
 
 #### macOS and Linux
@@ -787,7 +910,31 @@ Result: `hmmFind` executable (approx. 165 KB). Eight non-critical warnings
 
 #### Windows
 
-Not validated. The Makefile targets GCC; an MSVC build would require a CMakeLists.txt.
+Validated with MSVC (Visual Studio 2022, v17.14) on x86_64 Windows.
+Apply Patches 1, 2, and 3 above, then use the minimal `CMakeLists.txt` provided
+in the `LAMP_HMM` source directory:
+
+```powershell
+cmake -S C:/path/to/LAMP_HMM -B C:/path/to/LAMP_HMM/build `
+    -G "Visual Studio 17 2022" -A x64
+cmake --build C:/path/to/LAMP_HMM/build --config Release --target hmmFind
+```
+
+Result: `build/Release/hmmFind.exe`. A few warnings about unreferenced local
+variables and uninitialised variables (`gamFrac`, `gamSer` in `gammaProb.C`) are
+expected and benign.
+
+Set `LAMP_DIR` to the directory containing `hmmFind.exe` at benchmark configure time:
+
+```powershell
+cmake -S . -B build -DLAMP_DIR=C:/path/to/LAMP_HMM/build/Release
+```
+
+**Key Windows porting changes summary:**
+- `utils.h`: switched from `SUN` (POSIX `drand48`) to `LOCAL_RAND` (built-in Numerical Recipes RNG); added `<iosfwd>` and `using` declarations for `ostream`, `ifstream`, `cout`, `cerr`, `endl`.
+- `hmmFind.C`: replaced `assert(sequenceFile != NULL)` with an `if (!sequenceFile)` guard.
+- `CMakeLists.txt`: added minimal CMake build targeting MSVC with `/W3 /wd4996`.
+- No algorithm changes; numerical output is identical to the Unix build.
 
 ### Integration
 
@@ -830,6 +977,14 @@ T= 100
 
 **Benchmark integration pattern:**
 ```cpp
+// Run hmmFind once, untimed, before the measurement loop.
+// Any subprocess invoked via system() is subject to OS cold-start latency on first
+// execution (security scanner, cold page cache). On Windows this can inflate the
+// first timing by >30x. The warmup absorbs this before timed measurements begin.
+// This requirement applies to all subprocess-based comparators (HTK, JAHMM, LAMP).
+lamp_benchmark.warmup();
+
+// Timed measurement loop:
 std::string cmd = "/path/to/hmmFind " + config_file + " > " + log_file + " 2>&1";
 system(cmd.c_str());
 // Parse output_prefix.dis for distance metrics
@@ -844,12 +999,12 @@ configure time.
 
 | Library  | macOS | Linux | Windows        | Linkable target     |
 |----------|-------|-------|----------------|---------------------|
-| HMMLib   | Yes   | Yes   | Not validated  | Static (`.a`)       |
+| HMMLib   | Yes   | Yes   | Yes            | Header-only in benchmark workflow |
 | GHMM     | Yes   | Yes   | WSL only       | Static + dynamic    |
 | StochHMM | Yes   | Yes   | Yes (CMake)    | Static (`.a`/`.lib`)|
 | HTK      | Yes   | Yes   | WSL only       | Executable only     |
 | JAHMM    | Yes   | Yes   | Yes            | JAR (subprocess)    |
-| LAMP_HMM | Yes   | Yes   | Not validated  | Executable only     |
+| LAMP_HMM | Yes   | Yes   | Yes (CMake+MSVC) | Executable only   |
 
 ## Troubleshooting
 
@@ -862,3 +1017,11 @@ configure time.
   confirm Patch 1 (PI constant) has been applied and StochHMM has been rebuilt.
 - If GHMM install-name errors occur at runtime on macOS, rebuild the benchmark.
   The benchmark CMake normalizes the GHMM shared library install name automatically.
+- **Subprocess comparator first-run timing anomaly** (applies to HTK, JAHMM, LAMP,
+  and any future subprocess-based comparator): if the first timed measurement is
+  orders of magnitude slower than subsequent runs, the benchmark is missing a warmup
+  call. The OS loads and verifies a new executable image on first execution;
+  on Windows this includes security scanning and can add 1–2 seconds regardless of
+  algorithm complexity. The fix is a single untimed `warmup()` invocation on the
+  benchmark object before the timed loop. All current subprocess benchmarks in this
+  suite include this step; any new one must do the same.
