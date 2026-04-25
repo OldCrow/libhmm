@@ -58,7 +58,7 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-    VERSION 3.0.0
+    VERSION 3.1.0
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -69,7 +69,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Build options
-option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+# Both static and shared libraries are always built (sources compiled once via
+# an OBJECT library). BUILD_SHARED_LIBS is retained for CMake convention
+# compatibility but has no effect — hmm (shared) and hmm_static (static) are
+# always produced regardless of this flag.
+option(BUILD_SHARED_LIBS "Build shared library in addition to static" ON)
 option(BUILD_EXAMPLES "Build example programs" ON)
 option(BUILD_TESTS "Build test programs" ON)
 option(BUILD_TOOLS      "Build performance inspection and validation tools" ON)
@@ -406,44 +410,73 @@ set(LIBHMM_SOURCES
     src/performance/log_space_ops.cpp
 )
 
-# Create the library
-add_library(hmm ${LIBHMM_SOURCES})
+# ── Library targets ───────────────────────────────────────────────────────────
+# Sources are compiled once into an OBJECT library, then linked into both a
+# SHARED and a STATIC target. This avoids compiling the source tree twice and
+# ensures the two library variants are always bit-identical.
 
-# MSVC compiler flags — applied only to hmm, not to FetchContent dependencies.
-# /W4: strong warnings (just below /Wall which adds Microsoft-internal noise).
-# /permissive-: strict C++ standards conformance.
-# /external:anglebrackets /external:W0 suppress warnings from MSVC STL headers
-# (e.g. C4244 narrowing inside <memory> and <algorithm>), which are noise from
-# our template instantiations, not defects in our code.
+add_library(hmm_objects OBJECT ${LIBHMM_SOURCES})
+
+# MSVC compiler flags — applied to the OBJECT library so they affect all
+# compiled TUs regardless of which library type is ultimately consumed.
+# /W4: strong warnings. /permissive-: strict standards conformance.
+# /external:anglebrackets /external:W0 suppresses warnings from system headers
+# (e.g. C4244 from <memory> template instantiations — MSVC limitation).
 if(MSVC)
-    target_compile_options(hmm PRIVATE /W4 /permissive- /external:anglebrackets /external:W0)
+    target_compile_options(hmm_objects PRIVATE
+        /W4 /permissive- /external:anglebrackets /external:W0)
 endif()
 
-# Enable clang-tidy if requested
+# PIC is required for objects that go into the shared library; harmless for static.
+set_property(TARGET hmm_objects PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+# Shared library
+add_library(hmm SHARED $<TARGET_OBJECTS:hmm_objects>)
+
+# MSVC does not generate an import .lib for a DLL unless symbols are explicitly
+# exported or WINDOWS_EXPORT_ALL_SYMBOLS is set. The latter is the pragmatic
+# choice here: it instructs CMake to auto-generate a .def file at link time,
+# which causes MSVC to emit both hmm.dll and hmm.lib (the import library).
+if(MSVC)
+    set_target_properties(hmm PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
+endif()
+
+# Static library (compiled from the same objects — no recompilation)
+add_library(hmm_static STATIC $<TARGET_OBJECTS:hmm_objects>)
+# On Windows the shared library already produces an import library called hmm.lib
+# alongside hmm.dll. Naming the static archive hmm.lib too would cause a collision
+# in the output directory. Use hmm_static.lib on Windows (a common convention:
+# e.g. zlib.lib/zlibstatic.lib). On all other platforms the .a/.lib suffixes
+# distinguish the two types unambiguously, so -lhmm suffices.
+if(WIN32)
+    set_target_properties(hmm_static PROPERTIES OUTPUT_NAME "hmm_static")
+else()
+    set_target_properties(hmm_static PROPERTIES OUTPUT_NAME "hmm")
+endif()
+set_target_properties(hmm_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+
+# Enable clang-tidy if requested — applied to the OBJECT library so analysis
+# runs once on all compiled TUs regardless of which library type is built.
 if(ENABLE_CLANG_TIDY)
-    # Try to find clang-tidy in common Homebrew locations
-    find_program(CLANG_TIDY_EXE 
+    find_program(CLANG_TIDY_EXE
         NAMES clang-tidy
-        PATHS 
+        PATHS
             /usr/local/Cellar/llvm/20.1.7/bin
             /usr/local/Cellar/llvm@19/19.1.7/bin
             /opt/homebrew/bin
             /usr/local/bin
         NO_DEFAULT_PATH
     )
-    
     if(CLANG_TIDY_EXE)
         message(STATUS "Found clang-tidy: ${CLANG_TIDY_EXE}")
-        set_target_properties(
-            hmm PROPERTIES
-            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-quiet"
-        )
+        set_target_properties(hmm_objects PROPERTIES
+            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-quiet")
     else()
         message(WARNING "clang-tidy requested but not found - skipping static analysis")
     endif()
 endif()
 
-# Set library properties with cross-platform considerations
+# ── Shared library properties ─────────────────────────────────────────────────
 set_target_properties(hmm PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
@@ -452,7 +485,6 @@ set_target_properties(hmm PROPERTIES
     CLEAN_DIRECT_OUTPUT 1
 )
 
-# Platform-specific library properties
 if(APPLE)
     set_target_properties(hmm PROPERTIES
         MACOSX_RPATH TRUE
@@ -465,24 +497,24 @@ elseif(LINUX)
     )
 endif()
 
-# Link libraries with platform-specific handling
+# ── Link dependencies ─────────────────────────────────────────────────────────
+# On Linux the math library is a separate DSO; link it into both targets.
+# On macOS and Windows math is part of the system/CRT — no explicit link needed.
 if(LINUX)
-    # On Linux, explicitly link math library
-    target_link_libraries(hmm m)  # Boost libraries removed
-elseif(APPLE)
-    # On macOS, math functions are part of the system library
-    target_link_libraries(hmm)  # Boost libraries removed
-elseif(WIN32)
-    target_link_libraries(hmm)  # Math functions are part of the MSVC CRT; no separate m.lib exists
-else()
-    # Fallback for other Unix systems
-    target_link_libraries(hmm m)  # Boost libraries removed
+    target_link_libraries(hmm        PUBLIC m)
+    target_link_libraries(hmm_static INTERFACE m)  # propagated to static consumers
+elseif(UNIX AND NOT APPLE)
+    target_link_libraries(hmm        PUBLIC m)
+    target_link_libraries(hmm_static INTERFACE m)
 endif()
 
-# Install targets
-install(TARGETS hmm
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
+# ── Install targets ────────────────────────────────────────────────────────────
+# Install both library types. RUNTIME covers the .dll on Windows (placed in bin/
+# by convention so it is found at runtime without PATH manipulation).
+install(TARGETS hmm hmm_static
+    LIBRARY DESTINATION lib          # .so / .dylib
+    ARCHIVE DESTINATION lib          # .a / .lib (static archive + Windows import lib)
+    RUNTIME DESTINATION bin          # .dll (Windows)
     PUBLIC_HEADER DESTINATION include/libhmm
 )
 
@@ -534,17 +566,19 @@ message(STATUS "Platform: ${LIBHMM_PLATFORM}")
 message(STATUS "Version: ${PROJECT_VERSION}")
 message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "Shared Libraries: ${BUILD_SHARED_LIBS}")
+message(STATUS "Library targets: hmm (shared) + hmm_static (static)")
 if(APPLE)
-    message(STATUS "Library Type: .dylib (macOS dynamic library)")
+    message(STATUS "  Shared:  libhmm.${PROJECT_VERSION}.dylib")
+    message(STATUS "  Static:  libhmm.a")
 elseif(WIN32)
-    message(STATUS "Library Type: .lib/.dll (Windows)")
+    message(STATUS "  Shared:  hmm.dll + hmm.lib (import library for DLL consumers)")
+    message(STATUS "  Static:  hmm_static.lib (static archive for fully-static builds)")
 elseif(LINUX)
-    message(STATUS "Library Type: .so (Linux shared object)")
-elseif(UNIX)
-    message(STATUS "Library Type: Unix shared library")
+    message(STATUS "  Shared:  libhmm.so.${PROJECT_VERSION}")
+    message(STATUS "  Static:  libhmm.a")
 else()
-    message(STATUS "Library Type: Platform default")
+    message(STATUS "  Shared:  platform-default shared library")
+    message(STATUS "  Static:  platform-default static library")
 endif()
 message(STATUS "Examples:     ${BUILD_EXAMPLES}")
 message(STATUS "Tests:        ${BUILD_TESTS}")

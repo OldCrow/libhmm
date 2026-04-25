@@ -14,6 +14,21 @@ This document summarizes benchmark results comparing libhmm against major HMM li
 4. **GHMM** - General Hidden Markov Model Library (C)
 5. **HTK** - Hidden Markov Model Toolkit (command-line based)
 
+### Comparator scope and caveats
+
+These benchmarks are useful, but they are not perfectly apples-to-apples. Each
+external library optimizes for a different problem shape, API style, or runtime model.
+Interpret throughput and likelihood tables with these constraints in mind:
+
+| Library | Important constraint for interpretation |
+|---------|-----------------------------------------|
+| **HMMLib** | Specialized discrete-HMM engine built around custom matrix/vector classes and SSE-oriented templates. In this benchmark workflow it is included header-only, and it solves a narrower problem than libhmm's general emission-distribution framework. |
+| **StochHMM** | Designed for bioinformatics workflows and text-defined models. Continuous-distribution comparisons require source patches; in particular, Gaussian results from builds without the PI correction are not valid for numerical-accuracy conclusions. |
+| **GHMM** | Mature C library with a lower-level API and strong performance. Comparisons reflect a more specialized C implementation, not equal developer ergonomics or API scope. **macOS/Linux only** — a native Windows build would require porting Autotools to CMake, Windows-compatible GSL and libxml2, and POSIX API replacement across the full C source; the benchmark links `libghmm` directly so the whole library must build under MSVC. |
+| **HTK** | Toolkit-style workflow invoked through executables and file I/O rather than a native in-process API. It uses deliberately rounded log-likelihood values (often multiples of 1000), which is acceptable for relative scoring in speech workflows but not for exact-likelihood comparisons. **macOS/Linux only** — HTK carries an X11 dependency and a POSIX Makefile build system; unlike LAMP (a small self-contained tree), a Windows MSVC port would be a substantial effort with no upstream support path. |
+| **JAHMM** | Pure Java library invoked through a subprocess bridge in this suite. Results reflect both the Java runtime model and the benchmark bridge, not just core HMM arithmetic. |
+| **LAMP** | Executable/config-file workflow rather than a linkable library. Timings include a much heavier process-and-file-I/O model than in-process C/C++ libraries. |
+
 ### Test Problems
 
 Two classic HMM benchmark problems were used across all libraries:
@@ -49,6 +64,27 @@ To ensure fair comparison and detect numerical issues:
 - **Viterbi algorithm timing**: Secondary performance metric  
 - **Throughput**: Observations processed per millisecond
 - **Scaling behavior**: Performance across different sequence lengths
+
+### Subprocess comparator timing — warmup requirement
+
+Comparators invoked via `system()` or `popen()` (HTK, JAHMM, LAMP) are subject to
+OS-level cold-start latency on the first execution in a session. On Windows this is
+primarily the security scanner loading and verifying the executable image; the effect
+also exists on Linux/macOS but is typically smaller.
+
+**Observed magnitude**: first LAMP invocation on Windows took ~1,440 ms vs ~45 ms for
+all subsequent calls — a >30x inflation unrelated to HMM computation.
+
+**Mitigation**: every subprocess-based benchmark in this suite calls a `warmup()`
+method before the timed loops. The warmup runs the executable once with a minimal
+problem (2 states, 2 symbols, 10 observations) and discards the result. This primes
+the OS page cache and satisfies any one-time security scan so timed runs reflect
+steady-state subprocess overhead.
+
+**General rule**: any benchmark that measures a comparator through a `system()` call
+must include a warmup invocation before timed measurements. Omitting it conflates OS
+scheduling and security overhead with algorithm performance. This applies to any new
+subprocess-based comparator added in future.
 
 ## Key Findings
 
@@ -394,7 +430,7 @@ This section adds an updated snapshot without removing any prior content. Earlie
 | `libhmm_vs_stochhmm_benchmark` | StochHMM | 9433.6 | 5825.6 | 0.62x | `build-benchmarks-release/benchmark-logs/libhmm_vs_stochhmm_benchmark.log` |
 | `libhmm_vs_stochhmm_continuous_benchmark`* | StochHMM | 3605.3 | 5839.5 | 1.62x | `build-benchmarks-release/benchmark-logs/libhmm_vs_stochhmm_continuous_benchmark_after_pi_fix.log` |
 | `libhmm_vs_jahmm_benchmark`** | JAHMM | 7161.5 | 3803.6 | 0.53x | `build-benchmarks-release/benchmark-logs/libhmm_vs_jahmm_benchmark_after_pathfix.log` |
-| `libhmm_vs_lamp_benchmark` | LAMP | 9199.6 | 122.3 | 0.01x | `build-benchmarks-release/benchmark-logs/libhmm_vs_lamp_benchmark_after_pathfix.log` |
+| `libhmm_vs_lamp_benchmark` | LAMP | 6016.7 | 48.2 | 0.01x | Windows x86_64 run, April 2026 (post-warmup) |
 
 \* Uses post-PI-correction StochHMM continuous results (`after_pi_fix`).  
 \** JAHMM benchmark log does not emit an average throughput summary line; values above are computed from per-run forward timings in the same log.
@@ -415,6 +451,7 @@ This section adds an updated snapshot without removing any prior content. Earlie
 
 - The consolidated table shows materially higher libhmm throughput than the original historical table in this document, reflecting updated code paths, release builds, and benchmark harness modernization.
 - Throughput comparisons remain benchmark-specific and should be interpreted per target (`discrete` vs `continuous`, API path, and runtime model differences).
+- Comparator rankings should be read together with the library-specific constraints above. A faster result may reflect narrower scope, coarser numerical output, or a workflow optimized for a different domain rather than a strictly better general-purpose HMM implementation.
 
 ### Post-modernization validation signal (April 2026)
 
