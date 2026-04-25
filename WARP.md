@@ -6,11 +6,9 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 
 ## Current Status
 
-**Version**: v3.0.0 on `main`. Tag pushed; GitHub Release published.
-**Tests**: 36/36 passing (`ctest`). No `known_broken` labels remain.
+**Version**: v3.1.0 — latest tag and published release on `main`.
+**Tests**: 36/36 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
 **Active phase**: Complete. All phases through Post-Phase 5 (CI/tooling, benchmarks) are done.
-
-See the Warp plan artifact **"libhmm Modernization: Architecture & Refactoring Plan"** for the full roadmap.
 
 ---
 
@@ -41,7 +39,10 @@ src/                # Implementation (mirrors include/)
 tests/              # GTest suite — levels 0–7 (see tests/CMakeLists.txt)
 examples/           # 12 usage demonstrations (all canonical API)
 tools/              # Standalone diagnostic/benchmarking executables
-benchmarks/         # Comparative benchmarks (requires external HMM libs — deferred)
+benchmarks/         # Comparative benchmarks
+│   ├── src/        #   libhmm vs HMMLib / LAMP / JAHMM (Windows+Unix)
+│   │               #   libhmm vs GHMM / HTK (macOS/Linux only)
+│   └── docs/       #   BENCHMARKING_RESULTS.md, Library_Compatibility_Guide.md
 ```
 
 ### What was removed in the refactor
@@ -51,6 +52,15 @@ benchmarks/         # Comparative benchmarks (requires external HMM libs — def
 - `ScaledBaumWelchTrainer`, `RobustViterbiTrainer`
 - `ProbabilityDistribution` base class (replaced by `EmissionDistribution`)
 - `HmmTrainer` base (replaced by `Trainer`)
+
+### Build outputs
+
+Sources compile once into `hmm_objects` (OBJECT library), then linked into:
+- `hmm` — shared library (`hmm.dll` / `libhmm.dylib` / `libhmm.so`)
+- `hmm_static` — static archive (`hmm_static.lib` / `libhmm.a`)
+
+Both are always produced regardless of `BUILD_SHARED_LIBS`. Tests link against
+`hmm_static` to avoid Windows DLL path issues at test runtime.
 
 ---
 
@@ -115,7 +125,7 @@ cmake --build "$repo\build" --config Release --parallel 4
 
 ### Run Tests
 
-GTest is compiled from source via FetchContent — no DLL copying required.
+Tests link against `hmm_static`; no DLL on PATH required.
 
 ```powershell
 # Standard run (mirrors CI)
@@ -135,12 +145,20 @@ $tools = "C:\Users\gdwol\Development\libhmm\build\tools\Release"
 & "$tools\hmm_validator.exe" model.xml 100  # Load + validate + infer
 ```
 
-### Git Commits
+### Git Commits and Tags
 
-GPG signing may timeout in non-interactive shells:
+`commit.gpgSign` and `tag.gpgSign` are both `true`. If the GPG agent times out,
+restart it first:
 ```powershell
-git -c commit.gpgsign=false commit -m "message"
+gpgconf --kill all
+git commit -m "message"
 ```
+For tags, use `--no-sign` as a fallback if the agent keeps timing out:
+```powershell
+git tag -a vX.Y.Z --no-sign -m "message"
+```
+When moving an existing tag: add `-f` to both the local `tag` command and the
+`push --force`.
 
 CRLF: `.gitattributes` enforces LF. CRLF warnings on `git add` are normal.
 
@@ -179,7 +197,7 @@ Note: named `check` not `run_tests` to avoid cmake's built-in `RUN_TESTS` on Win
 | Issue | Status | Notes |
 |---|---|---|
 | `test_xml_file_io` | Resolved | Fixed in v3.0.0 — platform-guarded test path now correctly provokes the error on both Windows and Unix. |
-| Benchmarks | Complete | Comparative suite run on macOS (April 2026). Results in `benchmarks/docs/BENCHMARKING_RESULTS.md`. libhmm throughput ~8–14k obs/ms vs old ~1k obs/ms baseline; now faster than StochHMM and JAHMM. HMMLib ~3×, GHMM ~5× faster than libhmm. |
+| Benchmarks | Complete | Comparative suite run on macOS and Windows (April 2026). Results in `benchmarks/docs/BENCHMARKING_RESULTS.md`. LAMP and JAHMM benchmarks now build and run on Windows. GHMM and HTK require macOS/Linux (POSIX/Autotools dependencies); CMake skips their targets on Windows. libhmm throughput ~8–14k obs/ms; faster than StochHMM and JAHMM. HMMLib ~3×, GHMM ~5× faster than libhmm. |
 | StochHMM PI typo | Resolved | `source/src/stochMath.h` had `3.145926...`; corrected to `3.141592653589793`. Post-fix continuous log-likelihoods match libhmm to machine precision. Pre-fix continuous results in `BENCHMARKING_RESULTS.md` are marked invalid. |
 
 ---

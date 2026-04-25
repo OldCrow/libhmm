@@ -9,10 +9,16 @@
 #include <sstream>
 #include <map>
 #include <fstream>
-#include <unistd.h>
-#include <sys/wait.h>
+#include <filesystem>
 #include <cstdlib>
 #include <climits>
+#ifdef _WIN32
+#include <io.h>
+#define popen _popen
+#define pclose _pclose
+#else
+#include <unistd.h>
+#endif
 
 // libhmm includes
 #include "libhmm/hmm.h"
@@ -38,30 +44,62 @@ string getJahmmRootDir() {
     return string(LIBHMM_BENCH_JAHMM_DIR);
 }
 
+#ifdef _WIN32
+static string findWindowsJavaBin(const string &exe) {
+    // Honour JAVA_HOME if set
+    const char *java_home = getenv("JAVA_HOME");
+    if (java_home) {
+        string candidate = string(java_home) + "\\bin\\" + exe + ".exe";
+        if (std::filesystem::exists(candidate))
+            return candidate;
+    }
+    // Search Microsoft OpenJDK default install location (winget)
+    try {
+        for (const auto &entry :
+             std::filesystem::directory_iterator("C:\\Program Files\\Microsoft")) {
+            auto name = entry.path().filename().string();
+            if (name.find("jdk") != string::npos || name.find("JDK") != string::npos) {
+                string candidate = (entry.path() / "bin" / (exe + ".exe")).string();
+                if (std::filesystem::exists(candidate))
+                    return candidate;
+            }
+        }
+    } catch (...) {
+    }
+    return exe;
+}
+#endif
+
 string resolveJavaBinary() {
+#ifdef _WIN32
+    return findWindowsJavaBin("java");
+#else
     const vector<string> candidates = {"/opt/homebrew/opt/openjdk/bin/java",
                                        "/usr/local/opt/openjdk/bin/java", "java"};
     for (const auto &candidate : candidates) {
-        if (!candidate.empty() && candidate[0] == '/' && access(candidate.c_str(), X_OK) == 0) {
+        if (!candidate.empty() && candidate[0] == '/' && access(candidate.c_str(), X_OK) == 0)
             return candidate;
-        }
     }
     return "java";
+#endif
 }
 
 string resolveJavacBinary() {
+#ifdef _WIN32
+    return findWindowsJavaBin("javac");
+#else
     const vector<string> candidates = {"/opt/homebrew/opt/openjdk/bin/javac",
                                        "/usr/local/opt/openjdk/bin/javac", "javac"};
     for (const auto &candidate : candidates) {
-        if (!candidate.empty() && candidate[0] == '/' && access(candidate.c_str(), X_OK) == 0) {
+        if (!candidate.empty() && candidate[0] == '/' && access(candidate.c_str(), X_OK) == 0)
             return candidate;
-        }
     }
     return "javac";
+#endif
 }
 
 bool pathExists(const string &path) {
-    return access(path.c_str(), F_OK) == 0;
+    return std::filesystem::exists(path);
 }
 
 struct BenchmarkResults {
@@ -331,11 +369,18 @@ private:
 public:
     JAHMMBenchmark(const string &jahmm_jar_path, const string &java_exec)
         : jahmm_path(jahmm_jar_path), java_bin(java_exec) {
-        temp_dir = "/tmp/jahmm_benchmark_" + to_string(getpid());
-        system(("mkdir -p " + temp_dir).c_str());
+        auto ts = chrono::system_clock::now().time_since_epoch().count();
+        temp_dir = (std::filesystem::temp_directory_path() / ("jahmm_benchmark_" + to_string(ts)))
+                       .string();
+        std::filesystem::create_directories(temp_dir);
     }
 
-    ~JAHMMBenchmark() { system(("rm -rf " + temp_dir).c_str()); }
+    ~JAHMMBenchmark() {
+        try {
+            std::filesystem::remove_all(temp_dir);
+        } catch (...) {
+        }
+    }
 
     template <typename ProblemType>
     BenchmarkResults runBenchmark(ProblemType &problem,
@@ -711,8 +756,14 @@ int main() {
         return 1;
     }
 
-    // Set up JAHMM classpath
-    string jahmm_classpath = jahmm_source_dir + "/build:" + jahmm_source_dir + "/jahmm.jar";
+    // Set up JAHMM classpath (separator is ; on Windows, : on POSIX)
+#ifdef _WIN32
+    const char cp_sep = ';';
+#else
+    const char cp_sep = ':';
+#endif
+    string jahmm_classpath =
+        jahmm_source_dir + "/build" + cp_sep + jahmm_source_dir + "/build/lib/jahmm-0.6.2.jar";
 
     // Create benchmark instances
     LibHMMBenchmark libhmm_bench;

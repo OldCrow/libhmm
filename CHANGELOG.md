@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [3.1.0] - 2026-04-25
+
+### Added
+
+- **LAMP_HMM Windows port** (`LAMP_HMM/`): native MSVC build via a minimal
+  `CMakeLists.txt`. Three patches applied to the 1999–2003 legacy source:
+  pre-standard header modernisation (`.h` headers → standard equivalents + `using
+  namespace std`); stream-state check (`assert(stream != NULL)` → `if (!stream)`);
+  `utils.h` portability fix — POSIX `drand48`/`srand48` replaced with the built-in
+  Numerical Recipes RNG, and `ostream`/`ifstream`/`cout`/`cerr`/`endl`
+  using-declarations added so downstream headers resolve these names without explicit
+  `std::` qualification under MSVC. No algorithm changes; numerical output is
+  identical to the Unix build.
+- **LAMP benchmark Windows support** (`benchmarks/src/libhmm_vs_lamp_benchmark.cpp`):
+  `<unistd.h>` / POSIX `getcwd` / `mkdir -p` / `rm -rf` replaced with `<filesystem>`,
+  `_mkdir`, and `std::filesystem::remove_all`; relative paths resolved via
+  `std::filesystem::absolute().generic_string()` to eliminate `./` components that
+  cause cmd.exe syntax errors on the redirect target; executable invoked as
+  `hmmFind.exe` via an unquoted absolute path to avoid the cmd.exe `/C`
+  leading-quote mangling bug (quoting a command that starts with `"` causes cmd.exe
+  to strip the outer `"` pair and produce a malformed command line).
+- **Subprocess warmup pattern** (`LAMPBenchmark::warmup()`): untimed throw-away
+  invocation added before all timed LAMP runs to absorb OS cold-start and AV scan
+  latency. On Windows, the first `system()` call for a new executable takes ~1–2 s
+  regardless of algorithm complexity (observed: 1,440 ms first run vs ~45 ms
+  steady-state). Documented in `benchmarks/docs/BENCHMARKING_RESULTS.md` (methodology
+  section) and `benchmarks/docs/Library_Compatibility_Guide.md` (troubleshooting
+  section) as a required pattern for any subprocess-based comparator added in future.
+
+### Changed
+
+- **Build system**: sources compile once into `hmm_objects`
+  both `hmm` (shared) and `hmm_static` (static) — no double compilation. Both targets are
+  always produced regardless of `BUILD_SHARED_LIBS`.
+  - Windows: `hmm.dll` + `hmm.lib` (DLL import library) + `hmm_static.lib` (static archive).
+    `WINDOWS_EXPORT_ALL_SYMBOLS` enables automatic symbol export on MSVC.
+  - macOS: `libhmm.dylib` + `libhmm.a`.
+  - Linux: `libhmm.so` + `libhmm.a`.
+  - `BUILD_SHARED_LIBS=OFF` suppresses the shared library; the static library is always built.
+- **JAHMM benchmark** (`benchmarks/src/libhmm_vs_jahmm_benchmark.cpp`): Windows
+  compatibility — `std::filesystem` path helpers replace POSIX equivalents; Windows Java
+  binary resolution; classpath separator is `;` on Windows; `_popen` aliased for MSVC.
+- `benchmarks/CMakeLists.txt`: `-lm` not linked on MSVC (math functions are in the CRT).
+- clang-format applied to `libhmm_vs_jahmm_benchmark.cpp`, `libhmm_vs_lamp_benchmark.cpp`,
+  and `log_normal_distribution.cpp` (style-only, no logic changes).
+
+### Fixed
+
+- **Windows test suite** (`tests/CMakeLists.txt`): tests now link against `hmm_static`
+  instead of `hmm`. The OBJECT-library build system always produces `hmm.dll` on Windows
+  regardless of `BUILD_SHARED_LIBS`, so tests that imported symbols from `hmm.dll` failed
+  at startup with `0xc0000135 STATUS_DLL_NOT_FOUND` when the DLL was not on `PATH`.
+  Linking against the static archive avoids the runtime path requirement and is consistent
+  with the CI flag `-DBUILD_SHARED_LIBS=OFF`.
+
+## [3.0.1]
+
+### Fixed
+
+- **PoissonDistribution**: improved log-factorial accuracy for larger `k` by using `std::lgamma(k + 1)` in the non-cached path.
+- **LogNormalDistribution**: corrected exponent scaling in probability calculations to use squared deviation (`(x - μ)^2`) with the cached `-1/(2σ^2)` factor.
+
 ## [3.0.0] - 2026-04-23
 
 ### Fixed

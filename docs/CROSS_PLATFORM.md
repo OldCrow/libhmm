@@ -70,16 +70,19 @@ When cmake runs, the SIMD configuration is reported:
 cmake -DBUILD_EXAMPLES=OFF ..    # Skip examples
 cmake -DBUILD_TESTS=OFF ..       # Skip tests
 cmake -DBUILD_TOOLS=OFF ..       # Skip tools
-cmake -DBUILD_SHARED_LIBS=OFF .. # Static library (default is shared)
+cmake -DBUILD_SHARED_LIBS=OFF .. # Suppress shared library (static is always built)
 ```
 
 ## Library Output
 
-| Platform | Library format | Notes |
+Both shared and static libraries are produced in every build. Sources compile once into an
+OBJECT library and link into both targets — no double compilation overhead.
+
+| Platform | Files produced | Notes |
 |---|---|---|
-| macOS | `.dylib` | `@rpath` for flexible loading |
-| Linux | `.so` | `$ORIGIN` RPATH |
-| Windows | `.dll` + `.lib` | Import library for linking |
+| macOS | `libhmm.dylib`, `libhmm.a` | Shared: `@rpath`; static: archive |
+| Linux | `libhmm.so`, `libhmm.a` | Shared: `$ORIGIN` RPATH; static: archive |
+| Windows | `hmm.dll`, `hmm.lib`, `hmm_static.lib` | `hmm.lib` = DLL import lib; `hmm_static.lib` = static archive |
 
 ## CI Matrix
 
