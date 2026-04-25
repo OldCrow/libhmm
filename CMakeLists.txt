@@ -143,33 +143,51 @@ if(APPLE)
         set(LIBHMM_IS_CATALINA ON)
     endif()
 
+    set(LIBHMM_HOMEBREW_LIBCXX_HINT_REGEX
+        "(/usr/local|/opt/homebrew)[^; ]*(lib/c\\+\\+|include/c\\+\\+/v1|opt/llvm|Cellar/llvm|Cellar/llvm@)"
+    )
+
     macro(libhmm_collect_homebrew_libcxx_hint hint_name hint_value)
         if(NOT "${hint_value}" STREQUAL "")
-            if("${hint_value}" MATCHES "(/usr/local|/opt/homebrew)[^; ]*(lib/c\\+\\+|include/c\\+\\+/v1)")
+            if("${hint_value}" MATCHES "${LIBHMM_HOMEBREW_LIBCXX_HINT_REGEX}")
                 list(APPEND LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES "${hint_name}")
             endif()
         endif()
     endmacro()
 
     set(LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES "")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_COMPILER" "${CMAKE_CXX_COMPILER}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_C_COMPILER" "${CMAKE_C_COMPILER}")
+    libhmm_collect_homebrew_libcxx_hint("env:CC" "$ENV{CC}")
+    libhmm_collect_homebrew_libcxx_hint("env:CXX" "$ENV{CXX}")
     libhmm_collect_homebrew_libcxx_hint("env:LDFLAGS" "$ENV{LDFLAGS}")
     libhmm_collect_homebrew_libcxx_hint("env:CPPFLAGS" "$ENV{CPPFLAGS}")
     libhmm_collect_homebrew_libcxx_hint("env:CXXFLAGS" "$ENV{CXXFLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("env:SDKROOT" "$ENV{SDKROOT}")
+    libhmm_collect_homebrew_libcxx_hint("env:MACOSX_DEPLOYMENT_TARGET" "$ENV{MACOSX_DEPLOYMENT_TARGET}")
+    libhmm_collect_homebrew_libcxx_hint("env:CPATH" "$ENV{CPATH}")
+    libhmm_collect_homebrew_libcxx_hint("env:CPLUS_INCLUDE_PATH" "$ENV{CPLUS_INCLUDE_PATH}")
+    libhmm_collect_homebrew_libcxx_hint("env:LIBRARY_PATH" "$ENV{LIBRARY_PATH}")
+    libhmm_collect_homebrew_libcxx_hint("env:DYLD_LIBRARY_PATH" "$ENV{DYLD_LIBRARY_PATH}")
+    libhmm_collect_homebrew_libcxx_hint("env:PKG_CONFIG_PATH" "$ENV{PKG_CONFIG_PATH}")
     libhmm_collect_homebrew_libcxx_hint("CMAKE_EXE_LINKER_FLAGS" "${CMAKE_EXE_LINKER_FLAGS}")
     libhmm_collect_homebrew_libcxx_hint("CMAKE_SHARED_LINKER_FLAGS" "${CMAKE_SHARED_LINKER_FLAGS}")
     libhmm_collect_homebrew_libcxx_hint("CMAKE_MODULE_LINKER_FLAGS" "${CMAKE_MODULE_LINKER_FLAGS}")
     libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_FLAGS" "${CMAKE_CXX_FLAGS}")
     libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES" "${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES" "${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES}")
     list(REMOVE_DUPLICATES LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES)
 
     if(LIBHMM_IS_CATALINA AND LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES AND NOT LIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX)
         string(REPLACE ";" ", " LIBHMM_HOMEBREW_LIBCXX_HINTS_TEXT "${LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES}")
         message(FATAL_ERROR
-            "Detected Homebrew libc++ paths on macOS Catalina (10.15). "
+            "Detected Homebrew LLVM/libc++ hints on macOS Catalina (10.15). "
             "This combination is known to cause runtime segfaults in libhmm tests.\n"
             "Detected in: ${LIBHMM_HOMEBREW_LIBCXX_HINTS_TEXT}\n"
-            "Configure with system runtime instead:\n"
-            "  env -u CC -u CXX -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS cmake -S . -B build\n"
+            "Configure with the Catalina-safe helper script:\n"
+            "  ./scripts/configure_catalina.sh build\n"
+            "Or configure manually with a sanitized environment:\n"
+            "  env -u CC -u CXX -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u SDKROOT -u MACOSX_DEPLOYMENT_TARGET -u CPATH -u CPLUS_INCLUDE_PATH -u LIBRARY_PATH -u DYLD_LIBRARY_PATH -u PKG_CONFIG_PATH cmake -S . -B build\n"
             "To bypass this guard temporarily, pass:\n"
             "  -DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON"
         )
