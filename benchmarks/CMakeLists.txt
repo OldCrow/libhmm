@@ -123,7 +123,7 @@ function(add_libhmm_benchmark target_name source_file)
             ${CMAKE_CURRENT_SOURCE_DIR}/../include
     )
     target_link_libraries(${target_name} PRIVATE ${LIBHMM_LINK_TARGET})
-    if(NOT APPLE)
+    if(NOT APPLE AND NOT MSVC)
         target_link_libraries(${target_name} PRIVATE m)
     endif()
 endfunction()
