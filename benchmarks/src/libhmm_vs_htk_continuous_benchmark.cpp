@@ -199,6 +199,7 @@ public:
 
         return results;
     }
+
 };
 
 class HTKContinuousBenchmark {
@@ -427,6 +428,18 @@ public:
 
         return results;
     }
+
+    template <typename ProblemType>
+    void warmup(ProblemType &problem, const vector<vector<double>> &full_obs_sequence) {
+        const int warmup_length =
+            full_obs_sequence.size() < 10 ? static_cast<int>(full_obs_sequence.size()) : 10;
+        if (warmup_length <= 0) {
+            return;
+        }
+
+        // Prime subprocess launch and file-system cache before timed runs.
+        (void)runBenchmark(problem, full_obs_sequence, warmup_length);
+    }
 };
 
 void printComparisonResults(const vector<BenchmarkResults> &results) {
@@ -514,6 +527,9 @@ int main() {
     // Generate a single, large observation sequence to share between tests
     ContinuousHMMProblems::GaussianSpeechProblem speech;
     auto speech_full_obs_sequence = speech.generateSequence(1000000);
+
+    cout << "Warming up HTK..." << endl;
+    htk_benchmark.warmup(speech, speech_full_obs_sequence);
 
     for (int length : test_lengths) {
         cout << "  libhmm (length: " << length << "): ";

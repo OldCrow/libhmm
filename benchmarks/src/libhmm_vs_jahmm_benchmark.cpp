@@ -276,6 +276,7 @@ public:
 
         return results;
     }
+
 };
 
 class JAHMMBenchmark {
@@ -445,6 +446,18 @@ public:
         }
 
         return results;
+    }
+
+    template <typename ProblemType>
+    void warmup(ProblemType &problem, const vector<unsigned int> &full_obs_sequence) {
+        const int warmup_length =
+            full_obs_sequence.size() < 10 ? static_cast<int>(full_obs_sequence.size()) : 10;
+        if (warmup_length <= 0) {
+            return;
+        }
+
+        // Prime Java process/class loading before timed runs.
+        (void)runBenchmark(problem, full_obs_sequence, warmup_length);
     }
 };
 
@@ -786,6 +799,9 @@ int main() {
     shared_sequences["Dishonest Casino"] = casino_problem.generateSequence(5000);
     shared_sequences["Weather Model"] = weather_problem.generateSequence(5000);
     shared_sequences["CpG Island Detection"] = cpg_problem.generateSequence(5000);
+
+    cout << "Warming up JAHMM..." << endl;
+    jahmm_bench.warmup(casino_problem, shared_sequences["Dishonest Casino"]);
 
     // Run benchmarks for each problem and sequence length
     vector<pair<string, void *>> test_problems = {{"Dishonest Casino", &casino_problem},
