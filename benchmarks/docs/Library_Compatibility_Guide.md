@@ -339,8 +339,16 @@ sudo make install
 
 #### Windows
 
-Not supported. GHMM depends on POSIX APIs and GNU Autotools. Build under WSL if a
-Windows host is required.
+Not supported. GHMM is intentionally macOS/Linux only in this benchmark suite.
+
+A native Windows port would require: porting the GNU Autotools build system to CMake;
+finding or building Windows-compatible GSL and libxml2; and replacing the POSIX API
+usage throughout the C source. The benchmark also links directly against `libghmm` as
+a compiled library — unlike subprocess-based comparators (HTK, JAHMM, LAMP), there is
+no thin integration layer to patch; the full library must build cleanly under MSVC.
+The effort is disproportionate to the value of the comparison.
+
+Build under WSL if a Windows host is required.
 
 ### Linking
 
@@ -713,8 +721,17 @@ export PATH="/path/to/HTK/install/bin:$PATH"
 
 #### Windows
 
-Not practical. HTK's build system is POSIX Makefile-based and the source uses POSIX
-APIs throughout. Build under WSL if a Windows host is required.
+Not supported. HTK is intentionally macOS/Linux only in this benchmark suite.
+
+HTK invokes an external executable (`HVite`) via `system()`, so the benchmark-side
+integration pattern is the same as LAMP — and the same Windows path/subprocess fixes
+could in principle be applied. The obstacle is HTK itself: its build system is POSIX
+Makefiles throughout, and the source carries an X11 dependency even for command-line
+tools. Unlike LAMP (a small self-contained source tree), HTK is a full speech
+recognition toolkit where a Windows MSVC port would be a substantial effort with no
+clear upstream support path.
+
+Build under WSL if a Windows host is required.
 
 ### Integration
 
@@ -1000,9 +1017,9 @@ configure time.
 | Library  | macOS | Linux | Windows        | Linkable target     |
 |----------|-------|-------|----------------|---------------------|
 | HMMLib   | Yes   | Yes   | Yes            | Header-only in benchmark workflow |
-| GHMM     | Yes   | Yes   | WSL only       | Static + dynamic    |
+| GHMM     | Yes   | Yes   | No (macOS/Linux only) | Static + dynamic |
 | StochHMM | Yes   | Yes   | Yes (CMake)    | Static (`.a`/`.lib`)|
-| HTK      | Yes   | Yes   | WSL only       | Executable only     |
+| HTK      | Yes   | Yes   | No (macOS/Linux only) | Executable only  |
 | JAHMM    | Yes   | Yes   | Yes            | JAR (subprocess)    |
 | LAMP_HMM | Yes   | Yes   | Yes (CMake+MSVC) | Executable only   |
 
