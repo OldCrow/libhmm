@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "catalina-safe",
+      "displayName": "Catalina-safe (AppleClang + system libc++)",
+      "description": "Sanitized Catalina configure path that avoids Homebrew LLVM/libc++ contamination.",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-catalina-safe",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "/usr/bin/clang",
+        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "CMAKE_OSX_SYSROOT": "macosx",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "10.15"
+      },
+      "environment": {
+        "CC": "",
+        "CXX": "",
+        "CFLAGS": "",
+        "CXXFLAGS": "",
+        "CPPFLAGS": "",
+        "LDFLAGS": "",
+        "SDKROOT": "",
+        "MACOSX_DEPLOYMENT_TARGET": "",
+        "CPATH": "",
+        "CPLUS_INCLUDE_PATH": "",
+        "LIBRARY_PATH": "",
+        "DYLD_LIBRARY_PATH": "",
+        "PKG_CONFIG_PATH": ""
+      }
+    }
+  ]
+}
