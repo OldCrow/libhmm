@@ -222,8 +222,14 @@ if(APPLE)
         message(STATUS "Detected Intel Mac (${APPLE_ARCH}) - using Homebrew at ${HOMEBREW_PREFIX}")
     endif()
     
-    # Set architecture-specific CMAKE_PREFIX_PATH
-    set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
+    # On Catalina, keep core toolchain/library resolution system-first and rely
+    # on explicit paths for optional external dependencies.
+    if(LIBHMM_IS_CATALINA)
+        message(STATUS "Catalina guard active - skipping global Homebrew CMAKE_PREFIX_PATH injection")
+    else()
+        # Set architecture-specific CMAKE_PREFIX_PATH
+        set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
+    endif()
     
 elseif(LINUX)
     # On Linux, check common package manager locations

@@ -101,6 +101,7 @@ Both are always produced regardless of `BUILD_SHARED_LIBS`. Tests link against
 | Linux / Clang | ubuntu-latest | Clang | Release, `ctest` |
 | macOS | macos-latest | AppleClang | Release, `ctest` |
 | Windows | windows-latest | MSVC | Release, `ctest` |
+| Catalina guard | macos-latest | AppleClang | Configure-only pass/fail guard checks with `CMAKE_OSX_DEPLOYMENT_TARGET=10.15` |
 | Lint | ubuntu-latest | — | clang-format dry-run + cppcheck (warning-only) |
 
 GTest is fetched via `FetchContent` if not found locally — no vcpkg required on CI.
@@ -168,8 +169,15 @@ CRLF: `.gitattributes` enforces LF. CRLF warnings on `git add` are normal.
 
 - Homebrew: `/opt/homebrew` (Apple Silicon) or `/usr/local` (Intel)
 - SIMD: `-march=native` automatically selects NEON on arm64, AVX/AVX2 on Intel
-- Configure: `cmake -S libhmm -B libhmm/build`
+- Configure (non-Catalina): `cmake -S libhmm -B libhmm/build`
 - Tests: `ctest --test-dir libhmm/build --parallel 4`
+
+### Catalina startup workflow (fresh clone/sync)
+
+- Always run `./scripts/configure_catalina.sh build` for the first configure.
+- The script sanitizes toolchain-related environment variables, pins AppleClang via `xcrun`, and sets `CMAKE_OSX_DEPLOYMENT_TARGET=10.15`.
+- Do not point Catalina builds at Homebrew LLVM/libc++ (`/usr/local/opt/llvm`, `Cellar/llvm*`, libc++ include paths). The root `CMakeLists.txt` guard fails configure when those hints are detected.
+- Use `-DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON` only for explicit troubleshooting; runtime stability is not guaranteed.
 
 ---
 
