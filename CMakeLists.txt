@@ -81,6 +81,19 @@ option(BUILD_BENCHMARKS "Build comparison benchmarks (requires external HMM libr
 option(ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" ON)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis during build" OFF)
 option(ENABLE_CPPCHECK "Enable cppcheck analysis" ON)
+option(LIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX
+    "Allow Homebrew libc++ paths on macOS Catalina (unsafe; may crash at runtime)"
+    OFF
+)
+
+# Catalina guard/probe status (reported in configure summary)
+set(LIBHMM_CATALINA_GUARD_ACTIVE OFF)
+set(LIBHMM_CATALINA_CONTAMINATION_CHECKS_RAN OFF)
+set(LIBHMM_CATALINA_CONTAMINATION_CHECKS_CLEAN "N/A")
+set(LIBHMM_CATALINA_CXX20_FEATURE_PROBES_RAN OFF)
+set(LIBHMM_CATALINA_CXX20_FEATURE_PROBES_PASSED "N/A")
+
+include(CheckCXXSourceCompiles)
 
 # Platform detection and setup
 if(APPLE)
@@ -102,6 +115,194 @@ endif()
 
 # Find required packages with platform-specific handling
 if(APPLE)
+    # Guard against unsupported runtime combinations on macOS Catalina.
+    # Homebrew libc++ on 10.15 has shown widespread runtime segfaults in tests.
+    set(LIBHMM_IS_CATALINA OFF)
+    set(LIBHMM_IS_PRE_VENTURA OFF)
+    set(LIBHMM_HOST_MACOS_VERSION "")
+    set(LIBHMM_DARWIN_VERSION "${CMAKE_SYSTEM_VERSION}")
+    execute_process(
+        COMMAND sw_vers -productVersion
+        OUTPUT_VARIABLE LIBHMM_HOST_MACOS_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE LIBHMM_SW_VERS_STATUS
+    )
+    if(LIBHMM_HOST_MACOS_VERSION MATCHES "^([0-9]+)\\.([0-9]+)")
+        set(LIBHMM_HOST_MACOS_VERSION_MAJOR "${CMAKE_MATCH_1}")
+        if(LIBHMM_HOST_MACOS_VERSION_MAJOR LESS 13)
+            set(LIBHMM_IS_PRE_VENTURA ON)
+        endif()
+    endif()
+
+    if(CMAKE_SYSTEM_VERSION MATCHES "^([0-9]+)")
+        set(LIBHMM_DARWIN_VERSION "${CMAKE_MATCH_1}")
+        if(LIBHMM_DARWIN_VERSION LESS 22)
+            set(LIBHMM_IS_PRE_VENTURA ON)
+        endif()
+    endif()
+
+    if(LIBHMM_SW_VERS_STATUS EQUAL 0 AND LIBHMM_HOST_MACOS_VERSION MATCHES "^10\\.15(\\..*)?$")
+        set(LIBHMM_IS_CATALINA ON)
+    elseif(CMAKE_SYSTEM_VERSION MATCHES "^19(\\..*)?$")
+        set(LIBHMM_IS_CATALINA ON)
+    elseif(CMAKE_OSX_DEPLOYMENT_TARGET MATCHES "^10\\.15(\\..*)?$")
+        set(LIBHMM_IS_CATALINA ON)
+    elseif(CMAKE_OSX_SYSROOT MATCHES "MacOSX10\\.15\\.sdk")
+        set(LIBHMM_IS_CATALINA ON)
+    endif()
+    if(LIBHMM_IS_CATALINA)
+        set(LIBHMM_CATALINA_GUARD_ACTIVE ON)
+        set(LIBHMM_CATALINA_CONTAMINATION_CHECKS_RAN ON)
+    endif()
+
+    set(LIBHMM_HOMEBREW_LIBCXX_HINT_REGEX
+        "(/usr/local|/opt/homebrew)[^; ]*(lib/c\\+\\+|include/c\\+\\+/v1|opt/llvm|Cellar/llvm|Cellar/llvm@)"
+    )
+
+    macro(libhmm_collect_homebrew_libcxx_hint hint_name hint_value)
+        if(NOT "${hint_value}" STREQUAL "")
+            if("${hint_value}" MATCHES "${LIBHMM_HOMEBREW_LIBCXX_HINT_REGEX}")
+                list(APPEND LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES "${hint_name}")
+            endif()
+        endif()
+    endmacro()
+
+    set(LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES "")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_COMPILER" "${CMAKE_CXX_COMPILER}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_C_COMPILER" "${CMAKE_C_COMPILER}")
+    if(CMAKE_CXX_COMPILER AND EXISTS "${CMAKE_CXX_COMPILER}")
+        file(REAL_PATH "${CMAKE_CXX_COMPILER}" LIBHMM_CXX_COMPILER_REALPATH)
+        libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_COMPILER(realpath)" "${LIBHMM_CXX_COMPILER_REALPATH}")
+    endif()
+    if(CMAKE_C_COMPILER AND EXISTS "${CMAKE_C_COMPILER}")
+        file(REAL_PATH "${CMAKE_C_COMPILER}" LIBHMM_C_COMPILER_REALPATH)
+        libhmm_collect_homebrew_libcxx_hint("CMAKE_C_COMPILER(realpath)" "${LIBHMM_C_COMPILER_REALPATH}")
+    endif()
+    libhmm_collect_homebrew_libcxx_hint("env:CC" "$ENV{CC}")
+    libhmm_collect_homebrew_libcxx_hint("env:CXX" "$ENV{CXX}")
+    libhmm_collect_homebrew_libcxx_hint("env:LDFLAGS" "$ENV{LDFLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("env:CPPFLAGS" "$ENV{CPPFLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("env:CXXFLAGS" "$ENV{CXXFLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("env:SDKROOT" "$ENV{SDKROOT}")
+    libhmm_collect_homebrew_libcxx_hint("env:MACOSX_DEPLOYMENT_TARGET" "$ENV{MACOSX_DEPLOYMENT_TARGET}")
+    libhmm_collect_homebrew_libcxx_hint("env:CPATH" "$ENV{CPATH}")
+    libhmm_collect_homebrew_libcxx_hint("env:CPLUS_INCLUDE_PATH" "$ENV{CPLUS_INCLUDE_PATH}")
+    libhmm_collect_homebrew_libcxx_hint("env:LIBRARY_PATH" "$ENV{LIBRARY_PATH}")
+    libhmm_collect_homebrew_libcxx_hint("env:DYLD_LIBRARY_PATH" "$ENV{DYLD_LIBRARY_PATH}")
+    libhmm_collect_homebrew_libcxx_hint("env:PKG_CONFIG_PATH" "$ENV{PKG_CONFIG_PATH}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_EXE_LINKER_FLAGS" "${CMAKE_EXE_LINKER_FLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_SHARED_LINKER_FLAGS" "${CMAKE_SHARED_LINKER_FLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_MODULE_LINKER_FLAGS" "${CMAKE_MODULE_LINKER_FLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_FLAGS" "${CMAKE_CXX_FLAGS}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES" "${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES}")
+    libhmm_collect_homebrew_libcxx_hint("CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES" "${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES}")
+    list(REMOVE_DUPLICATES LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES)
+
+    if(LIBHMM_IS_CATALINA AND LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES AND NOT LIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX)
+        string(REPLACE ";" ", " LIBHMM_HOMEBREW_LIBCXX_HINTS_TEXT "${LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES}")
+        message(FATAL_ERROR
+            "Detected Homebrew LLVM/libc++ hints on macOS Catalina (10.15). "
+            "This combination is known to cause runtime segfaults in libhmm tests.\n"
+            "Detected in: ${LIBHMM_HOMEBREW_LIBCXX_HINTS_TEXT}\n"
+            "Configure with the Catalina-safe helper script:\n"
+            "  ./scripts/configure_catalina.sh build\n"
+            "Or configure manually with a sanitized environment:\n"
+            "  env -u CC -u CXX -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u SDKROOT -u MACOSX_DEPLOYMENT_TARGET -u CPATH -u CPLUS_INCLUDE_PATH -u LIBRARY_PATH -u DYLD_LIBRARY_PATH -u PKG_CONFIG_PATH cmake -S . -B build\n"
+            "To bypass this guard temporarily, pass:\n"
+            "  -DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON"
+        )
+    endif()
+    if(LIBHMM_IS_CATALINA)
+        if(LIBHMM_HOMEBREW_LIBCXX_HINT_SOURCES)
+            if(LIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX)
+                set(LIBHMM_CATALINA_CONTAMINATION_CHECKS_CLEAN "OVERRIDDEN")
+            else()
+                set(LIBHMM_CATALINA_CONTAMINATION_CHECKS_CLEAN "NO")
+            endif()
+        else()
+            set(LIBHMM_CATALINA_CONTAMINATION_CHECKS_CLEAN "YES")
+        endif()
+    endif()
+
+    if(LIBHMM_IS_CATALINA AND CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+        set(LIBHMM_CATALINA_CXX20_FEATURE_PROBES_RAN ON)
+        set(_libhmm_saved_required_flags "${CMAKE_REQUIRED_FLAGS}")
+        set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++20")
+
+        check_cxx_source_compiles(
+            "#include <array>
+#include <span>
+int main() {
+    std::array<double, 3> values{1.0, 2.0, 3.0};
+    std::span<const double> view(values);
+    return static_cast<int>(view.size());
+}"
+            LIBHMM_CATALINA_HAS_STD_SPAN
+        )
+
+        set(LIBHMM_CORE_REQUIRES_CONCEPTS OFF)
+        file(GLOB_RECURSE LIBHMM_CONCEPT_SCAN_FILES
+            "${CMAKE_SOURCE_DIR}/include/libhmm/*.h"
+            "${CMAKE_SOURCE_DIR}/include/libhmm/*.hpp"
+            "${CMAKE_SOURCE_DIR}/src/*.cpp"
+        )
+        foreach(_scan_file IN LISTS LIBHMM_CONCEPT_SCAN_FILES)
+            file(STRINGS "${_scan_file}" _concept_decl_lines
+                REGEX "^[ \t]*concept[ \t]+[A-Za-z_]"
+                LIMIT_COUNT 1
+            )
+            if(_concept_decl_lines)
+                set(LIBHMM_CORE_REQUIRES_CONCEPTS ON)
+                break()
+            endif()
+        endforeach()
+
+        if(LIBHMM_CORE_REQUIRES_CONCEPTS)
+            check_cxx_source_compiles(
+                "#include <concepts>
+template <typename T>
+concept Arithmetic = std::integral<T> || std::floating_point<T>;
+template <Arithmetic T>
+constexpr T add(T a, T b) {
+    return a + b;
+}
+int main() {
+    return add(1, 2) == 3 ? 0 : 1;
+}"
+                LIBHMM_CATALINA_HAS_CONCEPTS
+            )
+        else()
+            set(LIBHMM_CATALINA_HAS_CONCEPTS ON)
+            message(STATUS "Catalina concepts probe skipped: core sources do not declare concepts")
+        endif()
+
+        set(CMAKE_REQUIRED_FLAGS "${_libhmm_saved_required_flags}")
+
+        if(NOT LIBHMM_CATALINA_HAS_STD_SPAN OR NOT LIBHMM_CATALINA_HAS_CONCEPTS)
+            set(LIBHMM_CATALINA_CXX20_FEATURE_PROBES_PASSED "NO")
+            message(FATAL_ERROR
+                "AppleClang on macOS Catalina failed required C++20 feature probes (std::span and/or concepts).\n"
+                "Install or update Xcode Command Line Tools, then reconfigure with:\n"
+                "  ./scripts/configure_catalina.sh build"
+            )
+        endif()
+
+        set(LIBHMM_CATALINA_CXX20_FEATURE_PROBES_PASSED "YES")
+    endif()
+
+    set(LIBHMM_LEGACY_WARNING_SUPPRESSIONS "")
+    if(LIBHMM_IS_PRE_VENTURA AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        set(LIBHMM_LEGACY_WARNING_SUPPRESSIONS
+            -Wno-unknown-warning-option
+            -Wno-deprecated-volatile
+        )
+        if(LIBHMM_HOST_MACOS_VERSION)
+            message(STATUS "Pre-Ventura macOS (${LIBHMM_HOST_MACOS_VERSION}) detected - enabling legacy warning suppressions for non-core targets")
+        else()
+            message(STATUS "Pre-Ventura macOS detected - enabling legacy warning suppressions for non-core targets")
+        endif()
+    endif()
     # Architecture-aware Homebrew path detection for macOS
     execute_process(
         COMMAND uname -m
@@ -119,8 +320,14 @@ if(APPLE)
         message(STATUS "Detected Intel Mac (${APPLE_ARCH}) - using Homebrew at ${HOMEBREW_PREFIX}")
     endif()
     
-    # Set architecture-specific CMAKE_PREFIX_PATH
-    set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
+    # On Catalina, keep core toolchain/library resolution system-first and rely
+    # on explicit paths for optional external dependencies.
+    if(LIBHMM_IS_CATALINA)
+        message(STATUS "Catalina guard active - skipping global Homebrew CMAKE_PREFIX_PATH injection")
+    else()
+        # Set architecture-specific CMAKE_PREFIX_PATH
+        set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
+    endif()
     
 elseif(LINUX)
     # On Linux, check common package manager locations
@@ -500,4 +707,11 @@ message(STATUS "Tests:        ${BUILD_TESTS}")
 message(STATUS "Tools:        ${BUILD_TOOLS}")
 message(STATUS "Benchmarks:   ${BUILD_BENCHMARKS}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
+if(APPLE)
+    message(STATUS "Catalina guard active: ${LIBHMM_CATALINA_GUARD_ACTIVE}")
+    message(STATUS "Catalina contamination checks clean: ${LIBHMM_CATALINA_CONTAMINATION_CHECKS_CLEAN}")
+    if(LIBHMM_CATALINA_CXX20_FEATURE_PROBES_RAN)
+        message(STATUS "Catalina C++20 feature probes passed: ${LIBHMM_CATALINA_CXX20_FEATURE_PROBES_PASSED}")
+    endif()
+endif()
 message(STATUS "=")

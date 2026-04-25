@@ -8,6 +8,7 @@
 #include <cstring>
 #include <sstream>
 #include <map>
+#include <limits>
 
 // libhmm includes
 #include "libhmm/hmm.h"
@@ -334,6 +335,7 @@ private:
     template <typename ProblemType>
     string createModelString(ProblemType &problem) {
         stringstream ss;
+        ss << setprecision(numeric_limits<double>::max_digits10);
 
         // Model header
         ss << "#STOCHHMM MODEL FILE\n";

@@ -1,8 +1,14 @@
 # Test configuration for libhmm
 cmake_minimum_required(VERSION 3.20)
 
+set(LIBHMM_FORCE_FETCH_GTEST OFF)
+if(APPLE AND DEFINED LIBHMM_IS_CATALINA AND LIBHMM_IS_CATALINA)
+    set(LIBHMM_FORCE_FETCH_GTEST ON)
+    message(STATUS "macOS Catalina detected - forcing FetchContent GTest to avoid Homebrew libc++ mismatch")
+endif()
+
 # Find required packages with architecture-aware paths
-if(APPLE)
+if(APPLE AND NOT LIBHMM_FORCE_FETCH_GTEST)
     # Use the same architecture detection as the main CMakeLists.txt
     execute_process(
         COMMAND uname -m
@@ -20,7 +26,11 @@ if(APPLE)
     set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
 endif()
 
-find_package(GTest QUIET)
+if(NOT LIBHMM_FORCE_FETCH_GTEST)
+    find_package(GTest QUIET)
+else()
+    set(GTest_FOUND OFF)
+endif()
 find_package(Threads REQUIRED)
 
 # FetchContent fallback: pull GTest from source when not found locally.
@@ -108,6 +118,9 @@ if(GTest_FOUND OR TARGET gtest)
             target_compile_options(${TARGET_NAME} PRIVATE /W4 /permissive-)
         elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+        endif()
+        if(LIBHMM_LEGACY_WARNING_SUPPRESSIONS)
+            target_compile_options(${TARGET_NAME} PRIVATE ${LIBHMM_LEGACY_WARNING_SUPPRESSIONS})
         endif()
 
         if(LIBCXX_LINK_FLAGS)
