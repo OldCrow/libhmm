@@ -70,9 +70,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Build options
 # Both static and shared libraries are always built (sources compiled once via
-# an OBJECT library). BUILD_SHARED_LIBS is retained for compatibility but no
-# longer controls what is built — use -DBUILD_SHARED_LIBS=OFF only to suppress
-# the shared library on platforms where DLLs/dylibs are unwanted.
+# an OBJECT library). BUILD_SHARED_LIBS is retained for CMake convention
+# compatibility but has no effect — hmm (shared) and hmm_static (static) are
+# always produced regardless of this flag.
 option(BUILD_SHARED_LIBS "Build shared library in addition to static" ON)
 option(BUILD_EXAMPLES "Build example programs" ON)
 option(BUILD_TESTS "Build test programs" ON)
