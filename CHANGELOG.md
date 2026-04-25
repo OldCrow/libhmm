@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Catalina configure helper** (`scripts/configure_catalina.sh`): one-command
+  macOS 10.15 setup that sanitizes Homebrew-sensitive environment variables,
+  pins AppleClang via `xcrun`, sets sysroot, and configures
+  `CMAKE_OSX_DEPLOYMENT_TARGET=10.15`.
+
+### Changed
+
+- **Catalina runtime guard hardening** (`CMakeLists.txt`): Catalina fail-fast
+  detection now inspects compiler origin (`CMAKE_CXX_COMPILER`, `CC`, `CXX`),
+  additional environment vectors (`SDKROOT`, `MACOSX_DEPLOYMENT_TARGET`,
+  `CPATH`, `CPLUS_INCLUDE_PATH`, `LIBRARY_PATH`, `DYLD_LIBRARY_PATH`,
+  `PKG_CONFIG_PATH`), and implicit include/link directories to catch Homebrew
+  LLVM/libc++ contamination earlier.
+- **Catalina test dependency policy** (`tests/CMakeLists.txt`): on Catalina,
+  GTest is forced through FetchContent instead of Homebrew discovery to avoid
+  mixed-runtime linkage.
+
 ## [3.1.0] - 2026-04-25
 
 ### Added

@@ -37,6 +37,26 @@ Notes:
 - CMake detects the architecture automatically via `uname -m`
 - SIMD: `-march=native` — selects NEON on AArch64, AVX/AVX2 on Intel Macs
 
+#### macOS Catalina (10.15) runtime guard
+
+On Catalina, Homebrew LLVM/libc++ paths can produce runtime segfaults. Use the
+helper script to configure with a sanitized environment and pinned AppleClang
+toolchain:
+
+```bash
+./scripts/configure_catalina.sh build
+cmake --build build --config Release
+ctest --test-dir build
+```
+
+If CMake detects Homebrew LLVM/libc++ contamination on Catalina, configure
+fails fast with an error describing the detected sources and remediation. A
+temporary escape hatch is available:
+
+```bash
+-DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON
+```
+
 ### Linux (GCC)
 
 ```bash
