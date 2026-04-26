@@ -26,6 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GTest is forced through FetchContent instead of Homebrew discovery to avoid
   mixed-runtime linkage.
 
+## [3.1.1] - 2026-04-26
+
+### Fixed
+
+- **Discrete XML roundtrip parsing** (`src/hmm.cpp`): updated `operator>>` to
+  parse the current labeled `DiscreteDistribution::toString()` format
+  (`Number of symbols = N`, `P(i) = value`) instead of assuming a legacy fixed
+  11-value payload. Kept legacy numeric parsing as fallback for older model
+  files.
+
 ## [3.1.0] - 2026-04-25
 
 ### Added

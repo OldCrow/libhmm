@@ -117,16 +117,61 @@ std::istream &operator>>(std::istream &is, libhmm::Hmm &hmm) {
             {"Discrete",
              [](std::istream &is) {
                  std::string s, t;
-                 is >> s; // "Distribution"
+                 is >> s; // "Distribution:"
+                 if (!is) {
+                     throw std::runtime_error("Failed to parse Discrete distribution header");
+                 }
+
+                 is >> t;
+                 if (!is) {
+                     throw std::runtime_error("Failed to parse Discrete distribution data");
+                 }
+
+                 // Current format:
+                 //   Number of symbols = N
+                 //   P(0) = ...
+                 //   ...
+                 if (t == "Number") {
+                     std::string of, symbols, equals, numSymbolsToken;
+                     is >> of >> symbols >> equals >> numSymbolsToken;
+                     if (of != "of" || symbols != "symbols" || equals != "=") {
+                         throw std::runtime_error("Malformed Discrete distribution symbol header");
+                     }
+
+                     const auto numSymbols = std::stoull(numSymbolsToken);
+                     if (numSymbols == 0) {
+                         throw std::runtime_error(
+                             "Discrete distribution must have at least one symbol");
+                     }
+
+                     auto discreteDist =
+                         std::make_unique<DiscreteDistribution>(static_cast<int>(numSymbols));
+                     for (std::size_t symIndex = 0; symIndex < numSymbols; ++symIndex) {
+                         std::string label, valueEquals, valueToken;
+                         is >> label >> valueEquals >> valueToken;
+                         if (valueEquals != "=") {
+                             throw std::runtime_error(
+                                 "Malformed Discrete distribution probability entry");
+                         }
+                         const double probability = std::stod(valueToken);
+                         discreteDist->setProbability(static_cast<double>(symIndex), probability);
+                     }
+                     return discreteDist;
+                 }
+
+                 // Legacy fallback:
+                 //   Distribution: p0 p1 ... p10
                  constexpr std::size_t MAX_SYMBOLS = 11;
                  std::vector<double> symbols(MAX_SYMBOLS);
-                 for (std::size_t symIndex = 0; symIndex < MAX_SYMBOLS; ++symIndex) {
+                 symbols[0] = std::stod(t);
+                 for (std::size_t symIndex = 1; symIndex < MAX_SYMBOLS; ++symIndex) {
                      is >> t;
                      symbols[symIndex] = std::stod(t);
                  }
+
                  auto discreteDist = std::make_unique<DiscreteDistribution>(MAX_SYMBOLS);
                  for (std::size_t symIndex = 0; symIndex < MAX_SYMBOLS; ++symIndex) {
-                     discreteDist->setProbability(static_cast<int>(symIndex), symbols[symIndex]);
+                     discreteDist->setProbability(static_cast<double>(symIndex), symbols[symIndex]);
                  }
                  return discreteDist;
              }},
