@@ -6,7 +6,7 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 
 ## Current Status
 
-**Version**: v3.1.1 — latest tag and published release on `main`.
+**Version**: v3.1.2 — latest tag and published release on `main`.
 **Tests**: 36/36 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
 **Active phase**: Complete. All phases through Post-Phase 5 (CI/tooling, benchmarks) are done.
 
@@ -102,7 +102,8 @@ Both are always produced regardless of `BUILD_SHARED_LIBS`. Tests link against
 | macOS | macos-latest | AppleClang | Release, `ctest` |
 | Windows | windows-latest | MSVC | Release, `ctest` |
 | Catalina guard | macos-latest | AppleClang | Configure-only pass/fail guard checks with `CMAKE_OSX_DEPLOYMENT_TARGET=10.15` |
-| Lint | ubuntu-latest | — | clang-format dry-run + cppcheck (warning-only) |
+| Pre-commit | ubuntu-latest | — | `pre-commit run --all-files` (gating) |
+| Cppcheck | ubuntu-latest | — | Static analysis on `src/` (gating) |
 
 GTest is fetched via `FetchContent` if not found locally — no vcpkg required on CI.
 

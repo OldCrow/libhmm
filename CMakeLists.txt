@@ -16,25 +16,25 @@ endif()
 #         PATHS /usr/local/Cellar/llvm/20.1.7/bin
 #         NO_DEFAULT_PATH
 #     )
-#     
+#
 #     find_program(LLVM20_C_COMPILER
 #         NAMES clang
 #         PATHS /usr/local/Cellar/llvm/20.1.7/bin
 #         NO_DEFAULT_PATH
 #     )
-#     
+#
 #     find_program(LLVM19_CXX_COMPILER
 #         NAMES clang++
 #         PATHS /usr/local/Cellar/llvm@19/19.1.7/bin
 #         NO_DEFAULT_PATH
 #     )
-#     
+#
 #     find_program(LLVM19_C_COMPILER
 #         NAMES clang
 #         PATHS /usr/local/Cellar/llvm@19/19.1.7/bin
 #         NO_DEFAULT_PATH
 #     )
-#     
+#
 #     if(LLVM20_CXX_COMPILER AND LLVM20_C_COMPILER)
 #         set(CMAKE_CXX_COMPILER ${LLVM20_CXX_COMPILER})
 #         set(CMAKE_C_COMPILER ${LLVM20_C_COMPILER})
@@ -58,7 +58,7 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-    VERSION 3.1.1
+    VERSION 3.1.2
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -309,7 +309,7 @@ int main() {
         OUTPUT_VARIABLE APPLE_ARCH
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    
+
     if(APPLE_ARCH STREQUAL "arm64")
         # Apple Silicon M1/M2/M3 - Homebrew is in /opt/homebrew
         set(HOMEBREW_PREFIX "/opt/homebrew")
@@ -319,7 +319,7 @@ int main() {
         set(HOMEBREW_PREFIX "/usr/local")
         message(STATUS "Detected Intel Mac (${APPLE_ARCH}) - using Homebrew at ${HOMEBREW_PREFIX}")
     endif()
-    
+
     # On Catalina, keep core toolchain/library resolution system-first and rely
     # on explicit paths for optional external dependencies.
     if(LIBHMM_IS_CATALINA)
@@ -328,7 +328,7 @@ int main() {
         # Set architecture-specific CMAKE_PREFIX_PATH
         set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
     endif()
-    
+
 elseif(LINUX)
     # On Linux, check common package manager locations
     set(CMAKE_PREFIX_PATH "/usr" "/usr/local" ${CMAKE_PREFIX_PATH})

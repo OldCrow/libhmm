@@ -161,27 +161,26 @@ struct HMMComparisonRow {
     std::string notes;
 };
 
-
 std::string gateToString(GateStatus status) {
     switch (status) {
-    case GateStatus::Pass:
-        return "PASS";
-    case GateStatus::Warn:
-        return "WARN";
-    case GateStatus::Block:
-        return "BLOCK";
+        case GateStatus::Pass:
+            return "PASS";
+        case GateStatus::Warn:
+            return "WARN";
+        case GateStatus::Block:
+            return "BLOCK";
     }
     return "BLOCK";
 }
 
 int gateSeverity(GateStatus status) {
     switch (status) {
-    case GateStatus::Pass:
-        return 0;
-    case GateStatus::Warn:
-        return 1;
-    case GateStatus::Block:
-        return 2;
+        case GateStatus::Pass:
+            return 0;
+        case GateStatus::Warn:
+            return 1;
+        case GateStatus::Block:
+            return 2;
     }
     return 2;
 }
@@ -402,18 +401,26 @@ std::vector<DistributionCase> buildBenchmarkCases() {
 }
 
 std::vector<CanonicalHMMSpec> buildCanonicalHMMSpecs() {
-    return {
-        {DistributionKind::Gaussian, "Gaussian", 0.0, 1.0, 3.0, 1.5, "state0(mean=0,std=1), state1(mean=3,std=1.5)"},
-        {DistributionKind::Exponential, "Exponential", 0.8, 0.0, 2.2, 0.0, "state0(lambda=0.8), state1(lambda=2.2)"},
-        {DistributionKind::Poisson, "Poisson", 2.0, 0.0, 8.0, 0.0, "state0(lambda=2), state1(lambda=8)"},
-        {DistributionKind::Gamma, "Gamma", 2.0, 0.8, 6.0, 0.5, "state0(shape=2,scale=0.8), state1(shape=6,scale=0.5)"},
-        {DistributionKind::LogNormal, "LogNormal", 0.0, 0.6, 1.2, 0.9, "state0(mu=0,sigma=0.6), state1(mu=1.2,sigma=0.9)"},
-        {DistributionKind::StudentT, "StudentT", 4.0, 0.0, 12.0, 0.0, "state0(nu=4,loc=0,scale=1), state1(nu=12,loc=0,scale=1)"},
-        {DistributionKind::ChiSquared, "ChiSquared", 2.0, 0.0, 8.0, 0.0, "state0(df=2), state1(df=8)"},
-        {DistributionKind::Uniform, "Uniform", 0.0, 2.0, 1.0, 4.0, "state0(a=0,b=2), state1(a=1,b=4)"}};
+    return {{DistributionKind::Gaussian, "Gaussian", 0.0, 1.0, 3.0, 1.5,
+             "state0(mean=0,std=1), state1(mean=3,std=1.5)"},
+            {DistributionKind::Exponential, "Exponential", 0.8, 0.0, 2.2, 0.0,
+             "state0(lambda=0.8), state1(lambda=2.2)"},
+            {DistributionKind::Poisson, "Poisson", 2.0, 0.0, 8.0, 0.0,
+             "state0(lambda=2), state1(lambda=8)"},
+            {DistributionKind::Gamma, "Gamma", 2.0, 0.8, 6.0, 0.5,
+             "state0(shape=2,scale=0.8), state1(shape=6,scale=0.5)"},
+            {DistributionKind::LogNormal, "LogNormal", 0.0, 0.6, 1.2, 0.9,
+             "state0(mu=0,sigma=0.6), state1(mu=1.2,sigma=0.9)"},
+            {DistributionKind::StudentT, "StudentT", 4.0, 0.0, 12.0, 0.0,
+             "state0(nu=4,loc=0,scale=1), state1(nu=12,loc=0,scale=1)"},
+            {DistributionKind::ChiSquared, "ChiSquared", 2.0, 0.0, 8.0, 0.0,
+             "state0(df=2), state1(df=8)"},
+            {DistributionKind::Uniform, "Uniform", 0.0, 2.0, 1.0, 4.0,
+             "state0(a=0,b=2), state1(a=1,b=4)"}};
 }
 
-template <typename Fn> double medianRuntimeMs(Fn &&fn, int warmup, int repeats) {
+template <typename Fn>
+double medianRuntimeMs(Fn &&fn, int warmup, int repeats) {
     const auto timed_run_once_ms = [&]() {
         const auto start = std::chrono::high_resolution_clock::now();
         fn();
@@ -426,8 +433,8 @@ template <typename Fn> double medianRuntimeMs(Fn &&fn, int warmup, int repeats) 
     if (std::isfinite(calibration_ms) && calibration_ms > 0.0 &&
         calibration_ms < kTargetTimingSampleMs) {
         const double desired = std::ceil(kTargetTimingSampleMs / calibration_ms);
-        batch_iterations = static_cast<int>(std::min(
-            static_cast<double>(kMaxTimingBatchIterations), std::max(1.0, desired)));
+        batch_iterations = static_cast<int>(
+            std::min(static_cast<double>(kMaxTimingBatchIterations), std::max(1.0, desired)));
     }
 
     const auto run_batched = [&]() {
@@ -468,62 +475,62 @@ std::vector<double> generateObservations(const DistributionCase &distribution_ca
     observations.reserve(static_cast<std::size_t>(size));
 
     switch (distribution_case.kind) {
-    case DistributionKind::Gaussian: {
-        std::normal_distribution<double> dist(distribution_case.p1, distribution_case.p2);
-        for (int i = 0; i < size; ++i) {
-            observations.push_back(dist(rng));
+        case DistributionKind::Gaussian: {
+            std::normal_distribution<double> dist(distribution_case.p1, distribution_case.p2);
+            for (int i = 0; i < size; ++i) {
+                observations.push_back(dist(rng));
+            }
+            break;
         }
-        break;
-    }
-    case DistributionKind::Exponential: {
-        std::exponential_distribution<double> dist(distribution_case.p1);
-        for (int i = 0; i < size; ++i) {
-            observations.push_back(dist(rng));
+        case DistributionKind::Exponential: {
+            std::exponential_distribution<double> dist(distribution_case.p1);
+            for (int i = 0; i < size; ++i) {
+                observations.push_back(dist(rng));
+            }
+            break;
         }
-        break;
-    }
-    case DistributionKind::Poisson: {
-        std::poisson_distribution<int> dist(distribution_case.p1);
-        for (int i = 0; i < size; ++i) {
-            observations.push_back(static_cast<double>(dist(rng)));
+        case DistributionKind::Poisson: {
+            std::poisson_distribution<int> dist(distribution_case.p1);
+            for (int i = 0; i < size; ++i) {
+                observations.push_back(static_cast<double>(dist(rng)));
+            }
+            break;
         }
-        break;
-    }
-    case DistributionKind::Gamma: {
-        std::gamma_distribution<double> dist(distribution_case.p1, distribution_case.p2);
-        for (int i = 0; i < size; ++i) {
-            observations.push_back(dist(rng));
+        case DistributionKind::Gamma: {
+            std::gamma_distribution<double> dist(distribution_case.p1, distribution_case.p2);
+            for (int i = 0; i < size; ++i) {
+                observations.push_back(dist(rng));
+            }
+            break;
         }
-        break;
-    }
-    case DistributionKind::LogNormal: {
-        std::lognormal_distribution<double> dist(distribution_case.p1, distribution_case.p2);
-        for (int i = 0; i < size; ++i) {
-            observations.push_back(dist(rng));
+        case DistributionKind::LogNormal: {
+            std::lognormal_distribution<double> dist(distribution_case.p1, distribution_case.p2);
+            for (int i = 0; i < size; ++i) {
+                observations.push_back(dist(rng));
+            }
+            break;
         }
-        break;
-    }
-    case DistributionKind::StudentT: {
-        std::student_t_distribution<double> dist(distribution_case.p1);
-        for (int i = 0; i < size; ++i) {
-            observations.push_back(dist(rng));
+        case DistributionKind::StudentT: {
+            std::student_t_distribution<double> dist(distribution_case.p1);
+            for (int i = 0; i < size; ++i) {
+                observations.push_back(dist(rng));
+            }
+            break;
         }
-        break;
-    }
-    case DistributionKind::ChiSquared: {
-        std::chi_squared_distribution<double> dist(distribution_case.p1);
-        for (int i = 0; i < size; ++i) {
-            observations.push_back(dist(rng));
+        case DistributionKind::ChiSquared: {
+            std::chi_squared_distribution<double> dist(distribution_case.p1);
+            for (int i = 0; i < size; ++i) {
+                observations.push_back(dist(rng));
+            }
+            break;
         }
-        break;
-    }
-    case DistributionKind::Uniform: {
-        std::uniform_real_distribution<double> dist(distribution_case.p1, distribution_case.p2);
-        for (int i = 0; i < size; ++i) {
-            observations.push_back(dist(rng));
+        case DistributionKind::Uniform: {
+            std::uniform_real_distribution<double> dist(distribution_case.p1, distribution_case.p2);
+            for (int i = 0; i < size; ++i) {
+                observations.push_back(dist(rng));
+            }
+            break;
         }
-        break;
-    }
     }
 
     return observations;
@@ -539,7 +546,9 @@ DistributionEvalResult evaluateLibhmmBatch(const std::vector<double> &observatio
         const auto obs_span = std::span<const double>(observations.data(), observations.size());
         auto out_span = std::span<double>(result.log_values.data(), result.log_values.size());
 
-        auto run = [&] { distribution.getBatchLogProbabilities(obs_span, out_span); };
+        auto run = [&] {
+            distribution.getBatchLogProbabilities(obs_span, out_span);
+        };
         result.time_ms = medianRuntimeMs(run, warmup, repeats);
         run();
         result.success = true;
@@ -557,30 +566,30 @@ DistributionEvalResult evaluateLibhmmDistribution(const DistributionCase &distri
                                                   const std::vector<double> &observations,
                                                   int warmup, int repeats) {
     switch (distribution_case.kind) {
-    case DistributionKind::Gaussian:
-        return evaluateLibhmmBatch<libhmm::GaussianDistribution>(
-            observations, warmup, repeats, distribution_case.p1, distribution_case.p2);
-    case DistributionKind::Exponential:
-        return evaluateLibhmmBatch<libhmm::ExponentialDistribution>(
-            observations, warmup, repeats, distribution_case.p1);
-    case DistributionKind::Poisson:
-        return evaluateLibhmmBatch<libhmm::PoissonDistribution>(
-            observations, warmup, repeats, distribution_case.p1);
-    case DistributionKind::Gamma:
-        return evaluateLibhmmBatch<libhmm::GammaDistribution>(
-            observations, warmup, repeats, distribution_case.p1, distribution_case.p2);
-    case DistributionKind::LogNormal:
-        return evaluateLibhmmBatch<libhmm::LogNormalDistribution>(
-            observations, warmup, repeats, distribution_case.p1, distribution_case.p2);
-    case DistributionKind::StudentT:
-        return evaluateLibhmmBatch<libhmm::StudentTDistribution>(
-            observations, warmup, repeats, distribution_case.p1, 0.0, 1.0);
-    case DistributionKind::ChiSquared:
-        return evaluateLibhmmBatch<libhmm::ChiSquaredDistribution>(
-            observations, warmup, repeats, distribution_case.p1);
-    case DistributionKind::Uniform:
-        return evaluateLibhmmBatch<libhmm::UniformDistribution>(
-            observations, warmup, repeats, distribution_case.p1, distribution_case.p2);
+        case DistributionKind::Gaussian:
+            return evaluateLibhmmBatch<libhmm::GaussianDistribution>(
+                observations, warmup, repeats, distribution_case.p1, distribution_case.p2);
+        case DistributionKind::Exponential:
+            return evaluateLibhmmBatch<libhmm::ExponentialDistribution>(
+                observations, warmup, repeats, distribution_case.p1);
+        case DistributionKind::Poisson:
+            return evaluateLibhmmBatch<libhmm::PoissonDistribution>(observations, warmup, repeats,
+                                                                    distribution_case.p1);
+        case DistributionKind::Gamma:
+            return evaluateLibhmmBatch<libhmm::GammaDistribution>(
+                observations, warmup, repeats, distribution_case.p1, distribution_case.p2);
+        case DistributionKind::LogNormal:
+            return evaluateLibhmmBatch<libhmm::LogNormalDistribution>(
+                observations, warmup, repeats, distribution_case.p1, distribution_case.p2);
+        case DistributionKind::StudentT:
+            return evaluateLibhmmBatch<libhmm::StudentTDistribution>(
+                observations, warmup, repeats, distribution_case.p1, 0.0, 1.0);
+        case DistributionKind::ChiSquared:
+            return evaluateLibhmmBatch<libhmm::ChiSquaredDistribution>(
+                observations, warmup, repeats, distribution_case.p1);
+        case DistributionKind::Uniform:
+            return evaluateLibhmmBatch<libhmm::UniformDistribution>(
+                observations, warmup, repeats, distribution_case.p1, distribution_case.p2);
     }
 
     DistributionEvalResult result;
@@ -592,22 +601,22 @@ DistributionEvalResult evaluateLibhmmDistribution(const DistributionCase &distri
 double evaluateStochLogProbability(DistributionKind kind, double value,
                                    const std::vector<double> &params) {
     switch (kind) {
-    case DistributionKind::Gaussian:
-        return StochHMM::normal_pdf(value, &params);
-    case DistributionKind::Exponential:
-        return StochHMM::exponential_pdf(value, &params);
-    case DistributionKind::Poisson:
-        return StochHMM::poisson_pdf(value, &params);
-    case DistributionKind::Gamma:
-        return StochHMM::gamma_pdf(value, &params);
-    case DistributionKind::LogNormal:
-        return StochHMM::log_normal_pdf(value, &params);
-    case DistributionKind::StudentT:
-        return StochHMM::students_t_pdf(value, &params);
-    case DistributionKind::ChiSquared:
-        return StochHMM::chi_squared_pdf(value, &params);
-    case DistributionKind::Uniform:
-        return StochHMM::continuous_uniform_pdf(value, &params);
+        case DistributionKind::Gaussian:
+            return StochHMM::normal_pdf(value, &params);
+        case DistributionKind::Exponential:
+            return StochHMM::exponential_pdf(value, &params);
+        case DistributionKind::Poisson:
+            return StochHMM::poisson_pdf(value, &params);
+        case DistributionKind::Gamma:
+            return StochHMM::gamma_pdf(value, &params);
+        case DistributionKind::LogNormal:
+            return StochHMM::log_normal_pdf(value, &params);
+        case DistributionKind::StudentT:
+            return StochHMM::students_t_pdf(value, &params);
+        case DistributionKind::ChiSquared:
+            return StochHMM::chi_squared_pdf(value, &params);
+        case DistributionKind::Uniform:
+            return StochHMM::continuous_uniform_pdf(value, &params);
     }
     return -std::numeric_limits<double>::infinity();
 }
@@ -626,7 +635,8 @@ DistributionEvalResult evaluateStochDistribution(const DistributionCase &distrib
             }
             params = {distribution_case.p1, 1.0 / distribution_case.p2}; // alpha, beta(rate)
         } else if (distribution_case.kind == DistributionKind::LogNormal) {
-            params = {distribution_case.p1, distribution_case.p2 * distribution_case.p2}; // mu, sigma^2
+            params = {distribution_case.p1,
+                      distribution_case.p2 * distribution_case.p2}; // mu, sigma^2
         } else if (distribution_case.kind == DistributionKind::Uniform) {
             params = {distribution_case.p1, distribution_case.p2}; // a, b
         } else {
@@ -713,8 +723,8 @@ double safeReciprocal(double value) {
     return 1.0 / value;
 }
 
-DistributionComparisonRow runDistributionComparison(const DistributionCase &distribution_case, int size,
-                                                    int warmup, int repeats) {
+DistributionComparisonRow runDistributionComparison(const DistributionCase &distribution_case,
+                                                    int size, int warmup, int repeats) {
     DistributionComparisonRow row;
     row.distribution = distribution_case.distribution;
     row.case_name = distribution_case.case_name;
@@ -722,13 +732,14 @@ DistributionComparisonRow runDistributionComparison(const DistributionCase &dist
     row.gate = GateStatus::Block;
     row.success = false;
 
-    const uint64_t seed = makeSeed(distribution_case.distribution, distribution_case.case_name, size,
-                                   0xA11CE);
+    const uint64_t seed =
+        makeSeed(distribution_case.distribution, distribution_case.case_name, size, 0xA11CE);
     const std::vector<double> observations = generateObservations(distribution_case, size, seed);
 
     const auto libhmm_eval =
         evaluateLibhmmDistribution(distribution_case, observations, warmup, repeats);
-    const auto stoch_eval = evaluateStochDistribution(distribution_case, observations, warmup, repeats);
+    const auto stoch_eval =
+        evaluateStochDistribution(distribution_case, observations, warmup, repeats);
 
     row.libhmm_time_ms = libhmm_eval.time_ms;
     row.stoch_time_ms = stoch_eval.time_ms;
@@ -846,10 +857,8 @@ summarizeDistributionGates(const std::vector<DistributionComparisonRow> &rows) {
             summary.mean_speedup_libhmm_over_stoch =
                 inverse_speedup_sums[summary.distribution] / static_cast<double>(speedup_count);
         } else {
-            summary.mean_speedup_stoch_over_libhmm =
-                std::numeric_limits<double>::quiet_NaN();
-            summary.mean_speedup_libhmm_over_stoch =
-                std::numeric_limits<double>::quiet_NaN();
+            summary.mean_speedup_stoch_over_libhmm = std::numeric_limits<double>::quiet_NaN();
+            summary.mean_speedup_libhmm_over_stoch = std::numeric_limits<double>::quiet_NaN();
         }
         out.push_back(summary);
     }
@@ -901,30 +910,30 @@ std::vector<double> generateHMMObservations(const CanonicalHMMSpec &spec, int si
     for (int t = 0; t < size; ++t) {
         double obs = 0.0;
         switch (spec.kind) {
-        case DistributionKind::Gaussian:
-            obs = (state == 0) ? gauss0(rng) : gauss1(rng);
-            break;
-        case DistributionKind::Exponential:
-            obs = (state == 0) ? exp0(rng) : exp1(rng);
-            break;
-        case DistributionKind::Poisson:
-            obs = static_cast<double>((state == 0) ? poisson0(rng) : poisson1(rng));
-            break;
-        case DistributionKind::Gamma:
-            obs = (state == 0) ? gamma0(rng) : gamma1(rng);
-            break;
-        case DistributionKind::LogNormal:
-            obs = (state == 0) ? lognormal0(rng) : lognormal1(rng);
-            break;
-        case DistributionKind::StudentT:
-            obs = (state == 0) ? studentt0(rng) : studentt1(rng);
-            break;
-        case DistributionKind::ChiSquared:
-            obs = (state == 0) ? chisq0(rng) : chisq1(rng);
-            break;
-        case DistributionKind::Uniform:
-            obs = (state == 0) ? uniform0(rng) : uniform1(rng);
-            break;
+            case DistributionKind::Gaussian:
+                obs = (state == 0) ? gauss0(rng) : gauss1(rng);
+                break;
+            case DistributionKind::Exponential:
+                obs = (state == 0) ? exp0(rng) : exp1(rng);
+                break;
+            case DistributionKind::Poisson:
+                obs = static_cast<double>((state == 0) ? poisson0(rng) : poisson1(rng));
+                break;
+            case DistributionKind::Gamma:
+                obs = (state == 0) ? gamma0(rng) : gamma1(rng);
+                break;
+            case DistributionKind::LogNormal:
+                obs = (state == 0) ? lognormal0(rng) : lognormal1(rng);
+                break;
+            case DistributionKind::StudentT:
+                obs = (state == 0) ? studentt0(rng) : studentt1(rng);
+                break;
+            case DistributionKind::ChiSquared:
+                obs = (state == 0) ? chisq0(rng) : chisq1(rng);
+                break;
+            case DistributionKind::Uniform:
+                obs = (state == 0) ? uniform0(rng) : uniform1(rng);
+                break;
         }
         observations.push_back(obs);
 
@@ -956,29 +965,43 @@ HMMRunResult runLibhmmHMM(const CanonicalHMMSpec &spec, const std::vector<double
         hmm.setTrans(trans);
 
         if (spec.kind == DistributionKind::Gaussian) {
-            hmm.setDistribution(0, std::make_unique<libhmm::GaussianDistribution>(spec.state0_p1, spec.state0_p2));
-            hmm.setDistribution(1, std::make_unique<libhmm::GaussianDistribution>(spec.state1_p1, spec.state1_p2));
+            hmm.setDistribution(
+                0, std::make_unique<libhmm::GaussianDistribution>(spec.state0_p1, spec.state0_p2));
+            hmm.setDistribution(
+                1, std::make_unique<libhmm::GaussianDistribution>(spec.state1_p1, spec.state1_p2));
         } else if (spec.kind == DistributionKind::Exponential) {
-            hmm.setDistribution(0, std::make_unique<libhmm::ExponentialDistribution>(spec.state0_p1));
-            hmm.setDistribution(1, std::make_unique<libhmm::ExponentialDistribution>(spec.state1_p1));
+            hmm.setDistribution(0,
+                                std::make_unique<libhmm::ExponentialDistribution>(spec.state0_p1));
+            hmm.setDistribution(1,
+                                std::make_unique<libhmm::ExponentialDistribution>(spec.state1_p1));
         } else if (spec.kind == DistributionKind::Poisson) {
             hmm.setDistribution(0, std::make_unique<libhmm::PoissonDistribution>(spec.state0_p1));
             hmm.setDistribution(1, std::make_unique<libhmm::PoissonDistribution>(spec.state1_p1));
         } else if (spec.kind == DistributionKind::Gamma) {
-            hmm.setDistribution(0, std::make_unique<libhmm::GammaDistribution>(spec.state0_p1, spec.state0_p2));
-            hmm.setDistribution(1, std::make_unique<libhmm::GammaDistribution>(spec.state1_p1, spec.state1_p2));
+            hmm.setDistribution(
+                0, std::make_unique<libhmm::GammaDistribution>(spec.state0_p1, spec.state0_p2));
+            hmm.setDistribution(
+                1, std::make_unique<libhmm::GammaDistribution>(spec.state1_p1, spec.state1_p2));
         } else if (spec.kind == DistributionKind::LogNormal) {
-            hmm.setDistribution(0, std::make_unique<libhmm::LogNormalDistribution>(spec.state0_p1, spec.state0_p2));
-            hmm.setDistribution(1, std::make_unique<libhmm::LogNormalDistribution>(spec.state1_p1, spec.state1_p2));
+            hmm.setDistribution(
+                0, std::make_unique<libhmm::LogNormalDistribution>(spec.state0_p1, spec.state0_p2));
+            hmm.setDistribution(
+                1, std::make_unique<libhmm::LogNormalDistribution>(spec.state1_p1, spec.state1_p2));
         } else if (spec.kind == DistributionKind::StudentT) {
-            hmm.setDistribution(0, std::make_unique<libhmm::StudentTDistribution>(spec.state0_p1, 0.0, 1.0));
-            hmm.setDistribution(1, std::make_unique<libhmm::StudentTDistribution>(spec.state1_p1, 0.0, 1.0));
+            hmm.setDistribution(
+                0, std::make_unique<libhmm::StudentTDistribution>(spec.state0_p1, 0.0, 1.0));
+            hmm.setDistribution(
+                1, std::make_unique<libhmm::StudentTDistribution>(spec.state1_p1, 0.0, 1.0));
         } else if (spec.kind == DistributionKind::ChiSquared) {
-            hmm.setDistribution(0, std::make_unique<libhmm::ChiSquaredDistribution>(spec.state0_p1));
-            hmm.setDistribution(1, std::make_unique<libhmm::ChiSquaredDistribution>(spec.state1_p1));
+            hmm.setDistribution(0,
+                                std::make_unique<libhmm::ChiSquaredDistribution>(spec.state0_p1));
+            hmm.setDistribution(1,
+                                std::make_unique<libhmm::ChiSquaredDistribution>(spec.state1_p1));
         } else {
-            hmm.setDistribution(0, std::make_unique<libhmm::UniformDistribution>(spec.state0_p1, spec.state0_p2));
-            hmm.setDistribution(1, std::make_unique<libhmm::UniformDistribution>(spec.state1_p1, spec.state1_p2));
+            hmm.setDistribution(
+                0, std::make_unique<libhmm::UniformDistribution>(spec.state0_p1, spec.state0_p2));
+            hmm.setDistribution(
+                1, std::make_unique<libhmm::UniformDistribution>(spec.state1_p1, spec.state1_p2));
         }
 
         libhmm::ObservationSet obs_set(observations.size());
@@ -1226,24 +1249,24 @@ std::string jsonEscape(const std::string &value) {
     std::ostringstream oss;
     for (char c : value) {
         switch (c) {
-        case '\\':
-            oss << "\\\\";
-            break;
-        case '\"':
-            oss << "\\\"";
-            break;
-        case '\n':
-            oss << "\\n";
-            break;
-        case '\r':
-            oss << "\\r";
-            break;
-        case '\t':
-            oss << "\\t";
-            break;
-        default:
-            oss << c;
-            break;
+            case '\\':
+                oss << "\\\\";
+                break;
+            case '\"':
+                oss << "\\\"";
+                break;
+            case '\n':
+                oss << "\\n";
+                break;
+            case '\r':
+                oss << "\\r";
+                break;
+            case '\t':
+                oss << "\\t";
+                break;
+            default:
+                oss << c;
+                break;
         }
     }
     return oss.str();
@@ -1257,14 +1280,13 @@ void writeJSONNumber(std::ostream &os, double value) {
     os << std::setprecision(12) << value;
 }
 
-void writeJSON(
-    const fs::path &json_path, const CliOptions &options, const std::vector<int> &sizes,
-    const std::vector<DistributionComparisonRow> &phase1_rows,
-    const std::vector<Phase1AggregateRow> &phase1_aggregates,
-    const std::vector<DistributionGateSummary> &gate_summaries,
-    const std::vector<HMMComparisonRow> &hmm_rows,
-    const std::vector<std::string> &skipped_hmm_distributions, const std::string &overall_assessment,
-    const fs::path &csv_path) {
+void writeJSON(const fs::path &json_path, const CliOptions &options, const std::vector<int> &sizes,
+               const std::vector<DistributionComparisonRow> &phase1_rows,
+               const std::vector<Phase1AggregateRow> &phase1_aggregates,
+               const std::vector<DistributionGateSummary> &gate_summaries,
+               const std::vector<HMMComparisonRow> &hmm_rows,
+               const std::vector<std::string> &skipped_hmm_distributions,
+               const std::string &overall_assessment, const fs::path &csv_path) {
     std::ofstream json(json_path);
     json << "{\n";
     json << "  \"run_config\": {\n";
@@ -1456,18 +1478,19 @@ void writeJSON(
 
 void printPhase1AggregateTable(const std::vector<Phase1AggregateRow> &aggregates) {
     std::cout << "\nPHASE 1 SUMMARY (distribution-level, aggregated by distribution/size)\n";
-    std::cout << "----------------------------------------------------------------------------------\n";
+    std::cout
+        << "----------------------------------------------------------------------------------\n";
     std::cout << std::left << std::setw(14) << "Distribution" << std::setw(10) << "Size"
-              << std::setw(12) << "Gate" << std::setw(18) << "Max|Δlogp|"
-              << std::setw(22) << "Speedup(libhmm/stoch)\n";
-    std::cout << "----------------------------------------------------------------------------------\n";
+              << std::setw(12) << "Gate" << std::setw(18) << "Max|Δlogp|" << std::setw(22)
+              << "Speedup(libhmm/stoch)\n";
+    std::cout
+        << "----------------------------------------------------------------------------------\n";
     for (const auto &row : aggregates) {
         std::cout << std::left << std::setw(14) << row.distribution << std::setw(10) << row.size
                   << std::setw(12) << gateToString(row.worst_gate) << std::setw(18)
                   << std::scientific << std::setprecision(3) << row.max_abs_log_diff
-                  << std::setw(22)
-                  << std::fixed << std::setprecision(3) << row.mean_speedup_libhmm_over_stoch
-                  << "\n";
+                  << std::setw(22) << std::fixed << std::setprecision(3)
+                  << row.mean_speedup_libhmm_over_stoch << "\n";
     }
 }
 
@@ -1479,21 +1502,22 @@ void printHMMSummaryTable(const std::vector<HMMComparisonRow> &hmm_rows) {
     }
 
     std::cout << "\nPHASE 2 SUMMARY (selective HMM stage)\n";
-    std::cout << "--------------------------------------------------------------------------------------------------------\n";
+    std::cout << "---------------------------------------------------------------------------------"
+                 "-----------------------\n";
     std::cout << std::left << std::setw(14) << "Distribution" << std::setw(10) << "Size"
               << std::setw(14) << "GateResult" << std::setw(22) << "FwdSpd(lib/stoch)"
-              << std::setw(18) << "Fwd|ΔlogL|"
-              << std::setw(18) << "libFwd(ms)"
-              << std::setw(18) << "stochFwd(ms)\n";
-    std::cout << "--------------------------------------------------------------------------------------------------------\n";
+              << std::setw(18) << "Fwd|ΔlogL|" << std::setw(18) << "libFwd(ms)" << std::setw(18)
+              << "stochFwd(ms)\n";
+    std::cout << "---------------------------------------------------------------------------------"
+                 "-----------------------\n";
     for (const auto &row : hmm_rows) {
         std::cout << std::left << std::setw(14) << row.distribution << std::setw(10) << row.size
                   << std::setw(14) << (row.success ? "RAN" : "FAILED") << std::setw(22)
                   << std::fixed << std::setprecision(3) << row.speedup_libhmm_over_stoch
                   << std::setw(18) << std::scientific << std::setprecision(3)
                   << row.abs_log_likelihood_diff << std::fixed << std::setprecision(3)
-                  << std::setw(18) << row.libhmm_forward_ms << std::setw(18)
-                  << row.stoch_forward_ms << "\n";
+                  << std::setw(18) << row.libhmm_forward_ms << std::setw(18) << row.stoch_forward_ms
+                  << "\n";
     }
 }
 
@@ -1514,8 +1538,8 @@ std::string buildOverallAssessment(const std::vector<DistributionGateSummary> &g
     }
 
     std::ostringstream oss;
-    oss << "Gate outcome: " << pass_count << " PASS, " << warn_count << " WARN, "
-        << block_count << " BLOCK distributions.";
+    oss << "Gate outcome: " << pass_count << " PASS, " << warn_count << " WARN, " << block_count
+        << " BLOCK distributions.";
 
     if (!hmm_stage_enabled) {
         oss << " HMM stage disabled by CLI.";
@@ -1553,12 +1577,14 @@ int main(int argc, char *argv[]) {
     }
 
     const std::vector<int> sizes = buildSizes(options.include_1e6);
-    fs::path output_dir =
-        options.output_dir_explicit ? options.output_dir : resolveBenchmarkLogDir((argc > 0) ? argv[0] : nullptr);
+    fs::path output_dir = options.output_dir_explicit
+                              ? options.output_dir
+                              : resolveBenchmarkLogDir((argc > 0) ? argv[0] : nullptr);
     std::error_code ec;
     fs::create_directories(output_dir, ec);
     if (ec) {
-        std::cerr << "Could not create output directory " << output_dir << ": " << ec.message() << "\n";
+        std::cerr << "Could not create output directory " << output_dir << ": " << ec.message()
+                  << "\n";
         return 1;
     }
 
@@ -1587,8 +1613,8 @@ int main(int argc, char *argv[]) {
 
     for (const auto &distribution_case : benchmark_cases) {
         for (int size : sizes) {
-            std::cout << "[phase1] " << distribution_case.distribution << "/" << distribution_case.case_name
-                      << " n=" << size << " ... ";
+            std::cout << "[phase1] " << distribution_case.distribution << "/"
+                      << distribution_case.case_name << " n=" << size << " ... ";
             DistributionComparisonRow row =
                 runDistributionComparison(distribution_case, size, options.warmup, options.repeats);
             phase1_rows.push_back(row);
@@ -1597,8 +1623,7 @@ int main(int argc, char *argv[]) {
                           << " | gate=" << gateToString(row.gate)
                           << " | max|Δlogp|=" << std::scientific << std::setprecision(3)
                           << row.max_abs_log_diff << std::fixed << std::setprecision(3)
-                          << " | speedup(libhmm/stoch)=" << row.speedup_libhmm_over_stoch
-                          << "x\n";
+                          << " | speedup(libhmm/stoch)=" << row.speedup_libhmm_over_stoch << "x\n";
             } else {
                 std::cout << "failed"
                           << " | " << row.notes << "\n";
