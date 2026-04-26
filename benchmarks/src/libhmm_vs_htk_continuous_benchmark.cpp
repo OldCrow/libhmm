@@ -199,7 +199,6 @@ public:
 
         return results;
     }
-
 };
 
 class HTKContinuousBenchmark {

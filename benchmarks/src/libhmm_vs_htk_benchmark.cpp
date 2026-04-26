@@ -179,7 +179,6 @@ public:
 
         return results;
     }
-
 };
 
 class HTKBenchmark {

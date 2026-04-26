@@ -26,6 +26,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GTest is forced through FetchContent instead of Homebrew discovery to avoid
   mixed-runtime linkage.
 
+## [3.1.2] - 2026-04-26
+
+### Changed
+
+- **CI workflow hardening** (`.github/workflows/ci.yml`): added least-privilege
+  `permissions: contents: read`, branch-scoped run cancellation via
+  `concurrency`, explicit job timeouts, and manual `workflow_dispatch`.
+- **Quality gate hardening** (`.github/workflows/ci.yml`): replaced ad-hoc
+  format checks with a dedicated gating `precommit` job
+  (`pre-commit run --all-files`) and kept `cppcheck` as a separate gating job.
+- **Build/test flow cleanup** (`.github/workflows/ci.yml`): removed duplicate
+  build steps and aligned CI test execution with project labels by excluding
+  `known_broken|benchmark` from the default test run.
+- **Pre-commit local hook execution metadata**
+  (`scripts/check-pragma-once.sh`): marked executable to keep script-hook
+  execution consistent on Linux CI.
+
+### Fixed
+
+- **Benchmark source formatting consistency** (`benchmarks/src/*.cpp`): applied
+  clang-format normalization during CI-hardening prep; no benchmark logic
+  changes.
+
 ## [3.1.1] - 2026-04-26
 
 ### Fixed
@@ -163,11 +186,11 @@ All external dependencies removed. C++ standard raised to C++20.
 
 ### Breaking Changes
 
-- **`Hmm` API**: `setProbabilityDistribution(state, ptr)` → `setDistribution(state, unique_ptr)`;  
+- **`Hmm` API**: `setProbabilityDistribution(state, ptr)` → `setDistribution(state, unique_ptr)`;
   `getProbabilityDistribution(state)` → `getDistribution(state)` (returns `EmissionDistribution&`, not a pointer)
 - **`ProbabilityDistribution`** removed; replaced by `EmissionDistribution` abstract base
-- **All SIMD calculator variants removed**: `ScaledSIMDForwardBackwardCalculator`,  
-  `LogSIMDForwardBackwardCalculator`, `ScaledSIMDViterbiCalculator`, `LogSIMDViterbiCalculator`,  
+- **All SIMD calculator variants removed**: `ScaledSIMDForwardBackwardCalculator`,
+  `LogSIMDForwardBackwardCalculator`, `ScaledSIMDViterbiCalculator`, `LogSIMDViterbiCalculator`,
   `AdvancedLog*` variants
 - **`AutoCalculator` / `CalculatorSelector` / `CalculatorTraits`** removed
 - **`ScaledBaumWelchTrainer`** removed; `BaumWelchTrainer` now log-space and numerically stable
@@ -339,7 +362,7 @@ endif()
     #include <arm_neon.h>
     typedef float32x4_t __m128;
     typedef float64x2_t __m128d;
-    
+
     // Intel SSE to ARM NEON translations
     #define _mm_add_pd(a, b) vaddq_f64(a, b)
     #define _mm_mul_pd(a, b) vmulq_f64(a, b)
@@ -368,7 +391,7 @@ endif()
 ```
 Architecture Support:
 ├─ Intel Mac (x86_64): ✅ Full compatibility with /usr/local Homebrew
-├─ Apple Silicon (arm64): ✅ Full compatibility with /opt/homebrew Homebrew  
+├─ Apple Silicon (arm64): ✅ Full compatibility with /opt/homebrew Homebrew
 ├─ Linux (x86_64/arm64): ✅ Standard package manager support
 └─ Generic Unix: ✅ Fallback compatibility
 
@@ -558,7 +581,7 @@ This release delivers comprehensive performance optimizations across all probabi
 #### Current Performance Benchmarks
 ```
 Beta Distribution:     0.097μs PDF, 0.047μs log PDF, 0.029μs fitting
-Log-Normal:           0.079μs PDF, 0.045μs log PDF, 0.037μs fitting  
+Log-Normal:           0.079μs PDF, 0.045μs log PDF, 0.037μs fitting
 Gaussian:             0.045μs PDF, 0.027μs log PDF, 0.017μs fitting
 Rayleigh:             Sub-microsecond performance across all operations
 ```
@@ -627,7 +650,7 @@ Existing code continues to work unchanged with enhanced performance and accuracy
 
 This release establishes the foundation for:
 - **SIMD Vectorization**: Batch processing infrastructure ready for vector instructions
-- **Calculator Optimizations**: Next phase focusing on algorithm-level improvements  
+- **Calculator Optimizations**: Next phase focusing on algorithm-level improvements
 - **Advanced Features**: Enhanced parallel processing and specialized distributions
 
 ---
@@ -868,7 +891,7 @@ This version removes all Boost library dependencies and introduces a comprehensi
 ```
 Library Performance vs libhmm:
 ├─ GHMM:      23x faster (100% numerical agreement)
-├─ HMMLib:    17-20x faster (100% numerical agreement)  
+├─ HMMLib:    17-20x faster (100% numerical agreement)
 ├─ HTK:       Variable performance (intentionally rounded results)
 └─ StochHMM:  2x faster (100% numerical agreement)
 
@@ -883,7 +906,7 @@ Numerical Accuracy: Machine precision agreement (≤1e-14)
 - **API Integration**: Corrected indexing assumptions and format handling across libraries
 - **Build Conflicts**: Clean separation of internal vs external dependencies
 
-#### Repository Organization  
+#### Repository Organization
 - **Git Configuration**: Proper `.gitignore` setup for benchmarks and build artifacts
 - **Directory Structure**: Organized source code vs third-party library separation
 - **CMake Integration**: Removed generated `Testing/` directory from version control
@@ -929,7 +952,7 @@ Benefits are automatic:
 
 ### Dependencies
 
-**Before (v2.5.0)**: C++17, CMake 3.15+, Boost Libraries  
+**Before (v2.5.0)**: C++17, CMake 3.15+, Boost Libraries
 **After (v2.6.0)**: C++17, CMake 3.15+ only
 
 ### Future Development
@@ -1195,12 +1218,12 @@ This release adds powerful new statistical distributions and comprehensive perfo
   - Work-stealing algorithm for optimal load balancing
   - Thread affinity support for NUMA systems
   - Configurable thread count with automatic detection
-- **Optimized Forward-Backward Calculator**: 
+- **Optimized Forward-Backward Calculator**:
   - SIMD-accelerated matrix-vector operations
   - Cache-optimized memory layouts
   - Blocked algorithms for large matrices
   - Up to 3x performance improvement on compatible hardware
-- **Calculator Traits System**: 
+- **Calculator Traits System**:
   - Automatic algorithm selection based on problem size
   - Runtime optimization based on CPU capabilities
   - Performance profiling and reporting
@@ -1255,7 +1278,7 @@ This release adds powerful new statistical distributions and comprehensive perfo
 ### Technical Specifications
 
 #### Supported Distributions (17 total)
-**Discrete**: Discrete, Poisson, Binomial, Negative Binomial  
+**Discrete**: Discrete, Poisson, Binomial, Negative Binomial
 **Continuous**: Gaussian, Gamma, Exponential, Log-Normal, Pareto, Beta, Weibull, Uniform, **Student's t**, **Chi-squared**
 
 #### SIMD Support
@@ -1311,7 +1334,7 @@ This release represents a complete modernization of the libhmm library with crit
 - **Modern Loop Constructs**: Range-based for loops and auto type deduction
 
 ### Fixed
-- **CRITICAL**: Fixed segmentation fault in `ViterbiTrainer::train()` 
+- **CRITICAL**: Fixed segmentation fault in `ViterbiTrainer::train()`
   - **Root Cause**: Double ownership of `ProbabilityDistribution*` objects in `viterbi_trainer.cpp:124`
   - **Solution**: Modified distributions in place rather than reassigning ownership
   - **Impact**: ViterbiTrainer now runs successfully without crashes
@@ -1320,14 +1343,14 @@ This release represents a complete modernization of the libhmm library with crit
 - **Build Warnings**: Resolved all compilation warnings in C++17 mode
 
 ### Changed
-- **API Modernization**: 
+- **API Modernization**:
   - `int main(void)` → `int main()`
   - Replaced global `using namespace` with selective imports
   - Modern function parameter styles
-- **Memory Management**: 
+- **Memory Management**:
   - `new`/`delete` → `std::make_unique<>()`
   - Raw pointers → Smart pointers throughout
-- **Loop Syntax**: 
+- **Loop Syntax**:
   - C-style loops → Modern C++17 range-based loops
   - Manual indexing → Iterator-based approaches where appropriate
 - **Error Handling**: Enhanced exception safety and error reporting
