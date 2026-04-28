@@ -109,6 +109,39 @@ GTest is fetched via `FetchContent` if not found locally — no vcpkg required o
 
 ---
 
+## Session Start Baseline Workflow (Required)
+
+Run this sequence at the start of every `libhmm` session:
+
+1. Verify host architecture and CPU family before configuring/building.
+2. Choose the platform-specific build path for this machine (macOS non-Catalina, macOS Catalina, or Windows MSVC).
+3. If the machine/architecture changed since the previous session, reconfigure from a clean build directory before comparing performance or SIMD behavior.
+
+Architecture checks:
+
+```bash
+# macOS/Linux shells
+uname -m
+uname -s
+sysctl -n machdep.cpu.brand_string 2>/dev/null || true
+```
+
+```powershell
+# PowerShell
+[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+[System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
+$env:PROCESSOR_IDENTIFIER
+```
+
+Routing:
+- **Windows/MSVC:** follow `## Windows Session Setup (Asus TUF A16)` and use Visual Studio 2022 x64 Release commands.
+- **macOS (non-Catalina):** follow `## macOS Session Notes` with standard `cmake -S ... -B ...` flow.
+- **macOS Catalina (10.15):** follow `### Catalina startup workflow (fresh clone/sync)` exactly (`./scripts/configure_catalina.sh build`, no Homebrew LLVM/libc++ hints unless troubleshooting).
+
+`libhmm` uses compile-time SIMD dispatch (`-march=native` on GCC/Clang; CPU-selected `/arch` on MSVC), so architecture mismatches directly change generated binaries and observed behavior.
+
+---
+
 ## Windows Session Setup (Asus TUF A16)
 
 ### Configure and Build
