@@ -65,19 +65,24 @@ private:
 
     // Precomputed log-transition matrix [N x N]
     Matrix logTrans_;
+    // Transposed transition matrix [N x N]: logTransT_(j,i) = log a_{ij}
+    Matrix logTransT_;
 
     // Viterbi trellis: logDelta(t,i) = max log-prob path ending at state i at time t
     Matrix logDelta_;
 
-    // Backtrack pointers: psi(t,i) = arg max_j [logDelta(t-1,j) + logTrans(j,i)]
-    std::vector<std::vector<int>> psi_;
+    // Backtrack pointers in time-major contiguous storage:
+    // psi_[t * N + j] = arg max_i [logDelta(t-1,i) + logTrans(i,j)]
+    std::vector<int> psi_;
 
     // Result
     StateSequence sequence_;
     double logProbability_{-std::numeric_limits<double>::infinity()};
 
-    // Per-state emission buffer
-    mutable std::vector<double> logEmitBuf_;
+    // Per-state log-emission buffer: logEmitBuf_[i * T + t] = log b_i(O_t)
+    std::vector<double> logEmitBuf_;
+    // Time-major emission buffer: logEmitByTime_[t * N + i] = log b_i(O_t)
+    std::vector<double> logEmitByTime_;
 
     void precomputeLogTransitions();
     void runViterbi();
