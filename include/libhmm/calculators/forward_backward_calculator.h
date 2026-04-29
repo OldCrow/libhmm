@@ -98,10 +98,17 @@ private:
     // Per-state log-emission buffer reused each timestep [T x N, row-major].
     // Allocated once; filled by getBatchLogProbabilities per state.
     mutable std::vector<double> logEmitBuf_;
+    bool useMaxReduceRecurrence_{false};
 
+    [[nodiscard]] static bool shouldUseMaxReduceRecurrence(std::size_t numStates,
+                                                           std::size_t sequenceLength) noexcept;
     void precomputeLogTransitions();
     void computeLogForward();
     void computeLogBackward();
+    void computeLogForwardPairwise();
+    void computeLogForwardMaxReduce();
+    void computeLogBackwardPairwise();
+    void computeLogBackwardMaxReduce();
 
     /** log-sum-exp of two log-space values: log(exp(a) + exp(b)). */
     static double logSumExp(double a, double b) noexcept;

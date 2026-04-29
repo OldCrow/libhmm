@@ -78,6 +78,14 @@ option(BUILD_EXAMPLES "Build example programs" ON)
 option(BUILD_TESTS "Build test programs" ON)
 option(BUILD_TOOLS      "Build performance inspection and validation tools" ON)
 option(BUILD_BENCHMARKS "Build comparison benchmarks (requires external HMM libraries)" OFF)
+option(LIBHMM_EXPERIMENT_FB_MAX_REDUCE
+    "Enable experimental max-then-reduce accumulation in ForwardBackward recurrences"
+    OFF
+)
+option(LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR
+    "Enable experimental static adaptive selector for ForwardBackward recurrences"
+    OFF
+)
 option(ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" ON)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis during build" OFF)
 option(ENABLE_CPPCHECK "Enable cppcheck analysis" ON)
@@ -538,6 +546,17 @@ set(LIBHMM_SOURCES
 # ensures the two library variants are always bit-identical.
 
 add_library(hmm_objects OBJECT ${LIBHMM_SOURCES})
+if(LIBHMM_EXPERIMENT_FB_MAX_REDUCE AND LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR)
+    message(FATAL_ERROR
+        "LIBHMM_EXPERIMENT_FB_MAX_REDUCE and LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR are mutually exclusive"
+    )
+endif()
+if(LIBHMM_EXPERIMENT_FB_MAX_REDUCE)
+    target_compile_definitions(hmm_objects PRIVATE LIBHMM_EXPERIMENT_FB_MAX_REDUCE=1)
+endif()
+if(LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR)
+    target_compile_definitions(hmm_objects PRIVATE LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR=1)
+endif()
 
 # MSVC compiler flags — applied to the OBJECT library so they affect all
 # compiled TUs regardless of which library type is ultimately consumed.
@@ -706,6 +725,8 @@ message(STATUS "Examples:     ${BUILD_EXAMPLES}")
 message(STATUS "Tests:        ${BUILD_TESTS}")
 message(STATUS "Tools:        ${BUILD_TOOLS}")
 message(STATUS "Benchmarks:   ${BUILD_BENCHMARKS}")
+message(STATUS "FB max-reduce experiment: ${LIBHMM_EXPERIMENT_FB_MAX_REDUCE}")
+message(STATUS "FB adaptive selector experiment: ${LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 if(APPLE)
     message(STATUS "Catalina guard active: ${LIBHMM_CATALINA_GUARD_ACTIVE}")
