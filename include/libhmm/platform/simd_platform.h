@@ -27,9 +27,6 @@
  * - EXTENSIBILITY: Easy to add new SIMD instruction sets or platforms
  * 
  * FILES THAT INCLUDE THIS HEADER:
- * - src/calculators/log_simd_viterbi_calculator.cpp
- * - src/calculators/scaled_simd_viterbi_calculator.cpp
- * - src/performance/log_space_ops.cpp
  * - include/libhmm/performance/simd_support.h
  * - include/libhmm/common/optimized_matrix.h (via simd_support.h)
  * - include/libhmm/common/optimized_vector.h (via simd_support.h)

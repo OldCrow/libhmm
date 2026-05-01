@@ -529,7 +529,6 @@ set(LIBHMM_SOURCES
     src/io/xml_file_writer.cpp
     src/performance/simd_support.cpp
     src/performance/thread_pool.cpp
-    src/performance/log_space_ops.cpp
 )
 
 # ── Library targets ───────────────────────────────────────────────────────────
