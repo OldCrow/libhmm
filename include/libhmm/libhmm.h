@@ -94,9 +94,6 @@
 /// Basic thread pool for parallel processing
 #include "libhmm/performance/thread_pool.h"
 
-/// Performance benchmarking and profiling utilities
-#include "libhmm/performance/benchmark.h"
-
 //==============================================================================
 // CONVENIENCE UTILITIES
 //==============================================================================
