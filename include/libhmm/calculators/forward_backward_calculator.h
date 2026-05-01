@@ -90,10 +90,9 @@ public:
      * @brief Force a specific recurrence kernel for subsequent compute() calls.
      *
      * Pass `std::nullopt` to clear the override and return to adaptive policy.
-     * The override takes precedence over the environment variable (`LIBHMM_FB_MODE`)
-     * and the static policy bins, but is itself superseded by the compile-time
-     * `LIBHMM_EXPERIMENT_FB_MAX_REDUCE` and `LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR`
-     * forcers when those are defined.
+     * The override takes precedence over the static policy bins, but is itself
+     * superseded by the compile-time `LIBHMM_EXPERIMENT_FB_MAX_REDUCE` and
+     * `LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR` forcers when those are defined.
      */
     void setRecurrenceModeOverride(std::optional<FbRecurrenceMode> mode) noexcept {
         modeOverride_ = mode;
@@ -144,15 +143,6 @@ private:
 
     /** log-sum-exp of two log-space values: log(exp(a) + exp(b)). */
     static double logSumExp(double a, double b) noexcept;
-
-    /// Boundary-region probe (Phase A3). Runs a single forward timestep with
-    /// both kernels and returns the faster choice (median of `kProbeRounds`).
-    /// Caches the result in a thread-local cache keyed by N for reuse.
-    [[nodiscard]] static FbRecurrenceMode probeRecurrenceMode(
-        std::size_t numStates,
-        const double *prevAlphaRow,
-        const double *emitRow,
-        const double *logTransTData) noexcept;
 };
 
 } // namespace libhmm
