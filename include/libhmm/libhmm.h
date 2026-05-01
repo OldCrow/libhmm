@@ -94,9 +94,6 @@
 /// Basic thread pool for parallel processing
 #include "libhmm/performance/thread_pool.h"
 
-/// Advanced work-stealing thread pool for high-performance computing
-#include "libhmm/performance/work_stealing_pool.h"
-
 /// Performance benchmarking and profiling utilities
 #include "libhmm/performance/benchmark.h"
 
