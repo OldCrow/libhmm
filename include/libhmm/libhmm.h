@@ -88,9 +88,6 @@
 /// SIMD support detection and vectorized operations (includes simd_platform.h)
 #include "libhmm/performance/simd_support.h"
 
-/// Optimized log-space arithmetic for HMM calculations (includes simd_support.h)
-#include "libhmm/performance/log_space_ops.h"
-
 /// Parallel processing constants and optimization thresholds
 #include "libhmm/performance/parallel_constants.h"
 
