@@ -21,7 +21,6 @@
  *     low-state behavior.
  */
 
-#include "libhmm/platform/simd_platform.h"
 #include <cstddef>
 
 namespace libhmm {
@@ -43,29 +42,14 @@ enum class FbCompiler {
     Gcc,
 };
 
-/// ISA class derived from the simd_platform.h feature macros.
-enum class FbIsaClass {
-    Scalar,
-    Sse2,
-    Avx,
-    Avx2,
-    Avx512,
-    Neon,
-};
-
 /// Host profile derived entirely from compile-time predefined macros.
 struct FbHostProfile {
     FbCompiler compiler;
-    FbIsaClass isa;
 };
 
 /// Build the host profile for the current translation unit.
-///
-/// Note: the FB calculator translation unit is not compiled with
-/// `-march=native`/`/arch:AVX*` by default in this project, so the ISA class
-/// will often resolve to `Sse2` (x86_64) or `Neon` (arm64) regardless of host
-/// peak ISA. The compiler dimension is the dominant policy axis; ISA is
-/// captured for informational use and future refinement.
+/// Compiler identity is the primary policy axis; architecture-specific
+/// branches within each compiler case use preprocessor checks directly.
 constexpr FbHostProfile makeFbHostProfile() noexcept {
     FbCompiler c = FbCompiler::Unknown;
 #if defined(__clang__) && defined(_MSC_VER)
@@ -77,21 +61,7 @@ constexpr FbHostProfile makeFbHostProfile() noexcept {
 #elif defined(__GNUC__)
     c = FbCompiler::Gcc;
 #endif
-
-    FbIsaClass i = FbIsaClass::Scalar;
-#if defined(LIBHMM_HAS_AVX512)
-    i = FbIsaClass::Avx512;
-#elif defined(LIBHMM_HAS_AVX2)
-    i = FbIsaClass::Avx2;
-#elif defined(LIBHMM_HAS_AVX)
-    i = FbIsaClass::Avx;
-#elif defined(LIBHMM_HAS_NEON)
-    i = FbIsaClass::Neon;
-#elif defined(LIBHMM_HAS_SSE2)
-    i = FbIsaClass::Sse2;
-#endif
-
-    return FbHostProfile{c, i};
+    return FbHostProfile{c};
 }
 
 /// Convenience: profile of the current translation unit.
@@ -107,7 +77,7 @@ inline constexpr FbHostProfile kFbCurrentHostProfile = makeFbHostProfile();
  * @param numStates       Number of HMM states (`N`).
  * @param sequenceLength  Observation length (`T`). Currently unused except for
  *                         signature stability; reserved for future T-aware bins.
- * @param profile         Host profile (compiler + ISA class).
+ * @param profile         Host profile (compiler identity).
  */
 constexpr FbRecurrenceMode selectFbRecurrenceMode(std::size_t numStates,
                                                   std::size_t sequenceLength,
@@ -202,25 +172,6 @@ constexpr const char *toString(FbCompiler compiler) noexcept {
         return "gcc";
     case FbCompiler::Unknown:
         return "unknown";
-    }
-    return "unknown";
-}
-
-/// Human-readable name for an ISA class.
-constexpr const char *toString(FbIsaClass isa) noexcept {
-    switch (isa) {
-    case FbIsaClass::Avx512:
-        return "avx512";
-    case FbIsaClass::Avx2:
-        return "avx2";
-    case FbIsaClass::Avx:
-        return "avx";
-    case FbIsaClass::Sse2:
-        return "sse2";
-    case FbIsaClass::Neon:
-        return "neon";
-    case FbIsaClass::Scalar:
-        return "scalar";
     }
     return "unknown";
 }

@@ -122,10 +122,10 @@ private:
 
     // State-major log-emission buffer: logEmitBuf_[i * T + t] = log b_i(O_t).
     // Filled directly by getBatchLogProbabilities per state.
-    mutable std::vector<double> logEmitBuf_;
+    std::vector<double> logEmitBuf_;
     // Time-major emission buffer: logEmitByTime_[t * N + i] = log b_i(O_t).
     // Derived from logEmitBuf_ for contiguous per-time access in recurrences.
-    mutable std::vector<double> logEmitByTime_;
+    std::vector<double> logEmitByTime_;
     // Recurrence kernel resolved by the policy + override pipeline on the most
     // recent compute() call. Defaults to Pairwise (the comparator-safe choice).
     FbRecurrenceMode currentMode_{FbRecurrenceMode::Pairwise};
