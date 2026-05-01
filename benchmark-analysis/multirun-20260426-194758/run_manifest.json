@@ -1,0 +1,7 @@
+{
+  "output_root": "C:\\Users\\gdwol\\Development\\libhmm\\benchmark-analysis\\multirun-20260426-194758",
+  "raw_results_csv": "C:\\Users\\gdwol\\Development\\libhmm\\benchmark-analysis\\multirun-20260426-194758\\raw_results.csv",
+  "summary_stats_csv": "C:\\Users\\gdwol\\Development\\libhmm\\benchmark-analysis\\multirun-20260426-194758\\summary_stats.csv",
+  "delta_csv": "C:\\Users\\gdwol\\Development\\libhmm\\benchmark-analysis\\multirun-20260426-194758\\perf_vs_main_delta.csv",
+  "runs_per_benchmark_per_branch": 5
+}

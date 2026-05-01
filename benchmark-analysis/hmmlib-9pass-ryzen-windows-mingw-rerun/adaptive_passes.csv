@@ -1,0 +1,10 @@
+label,pass,libhmm_avg_obs_ms,hmmlib_avg_obs_ms,ratio_hmmlib_over_libhmm
+mingw_adaptive,1,10078.5,34151.8,3.39
+mingw_adaptive,2,8781.1,29842.7,3.4
+mingw_adaptive,3,9702.9,33915.3,3.5
+mingw_adaptive,4,10226.5,34044.0,3.33
+mingw_adaptive,5,9529.7,32876.4,3.45
+mingw_adaptive,6,10208.4,34532.0,3.38
+mingw_adaptive,7,10291.1,34420.4,3.34
+mingw_adaptive,8,10247.6,34227.6,3.34
+mingw_adaptive,9,10227.4,34389.8,3.36

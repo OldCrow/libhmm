@@ -1,0 +1,500 @@
+diff --git a/include/libhmm/calculators/forward_backward_calculator.h b/include/libhmm/calculators/forward_backward_calculator.h
+index 3efd38d..c661736 100755
+--- a/include/libhmm/calculators/forward_backward_calculator.h
++++ b/include/libhmm/calculators/forward_backward_calculator.h
+@@ -89,15 +89,20 @@ private:
+ 
+     // Precomputed log-transition matrix [N x N]: logTrans_(i,j) = log a_{ij}
+     Matrix logTrans_;
++    // Transposed transition matrix [N x N]: logTransT_(j,i) = log a_{ij}
++    // Used to improve locality in forward recursion (fixed destination state j).
++    Matrix logTransT_;
+ 
+     // Results
+     Matrix logAlpha_; // T x N
+     Matrix logBeta_;  // T x N
+     double logProbability_{-std::numeric_limits<double>::infinity()};
+ 
+-    // Per-state log-emission buffer reused each timestep [T x N, row-major].
+-    // Allocated once; filled by getBatchLogProbabilities per state.
+-    mutable std::vector<double> logEmitBuf_;
++    // Per-state log-emission buffer: logEmitBuf_[i * T + t] = log b_i(O_t)
++    std::vector<double> logEmitBuf_;
++    // Time-major emission buffer: logEmitByTime_[t * N + i] = log b_i(O_t)
++    // Built once per compute() to improve locality in DP kernels.
++    std::vector<double> logEmitByTime_;
+ 
+     void precomputeLogTransitions();
+     void computeLogForward();
+diff --git a/include/libhmm/calculators/viterbi_calculator.h b/include/libhmm/calculators/viterbi_calculator.h
+index 7b9ae64..a341ecb 100755
+--- a/include/libhmm/calculators/viterbi_calculator.h
++++ b/include/libhmm/calculators/viterbi_calculator.h
+@@ -65,19 +65,24 @@ private:
+ 
+     // Precomputed log-transition matrix [N x N]
+     Matrix logTrans_;
++    // Transposed transition matrix [N x N]: logTransT_(j,i) = log a_{ij}
++    Matrix logTransT_;
+ 
+     // Viterbi trellis: logDelta(t,i) = max log-prob path ending at state i at time t
+     Matrix logDelta_;
+ 
+-    // Backtrack pointers: psi(t,i) = arg max_j [logDelta(t-1,j) + logTrans(j,i)]
+-    std::vector<std::vector<int>> psi_;
++    // Backtrack pointers in time-major contiguous storage:
++    // psi_[t * N + j] = arg max_i [logDelta(t-1,i) + logTrans(i,j)]
++    std::vector<int> psi_;
+ 
+     // Result
+     StateSequence sequence_;
+     double logProbability_{-std::numeric_limits<double>::infinity()};
+ 
+-    // Per-state emission buffer
+-    mutable std::vector<double> logEmitBuf_;
++    // Per-state log-emission buffer: logEmitBuf_[i * T + t] = log b_i(O_t)
++    std::vector<double> logEmitBuf_;
++    // Time-major emission buffer: logEmitByTime_[t * N + i] = log b_i(O_t)
++    std::vector<double> logEmitByTime_;
+ 
+     void precomputeLogTransitions();
+     void runViterbi();
+diff --git a/src/calculators/forward_backward_calculator.cpp b/src/calculators/forward_backward_calculator.cpp
+index 1097acc..789e632 100755
+--- a/src/calculators/forward_backward_calculator.cpp
++++ b/src/calculators/forward_backward_calculator.cpp
+@@ -50,27 +50,33 @@ void ForwardBackwardCalculator::compute() {
+     logAlpha_.resize(T, numStates_);
+     logBeta_.resize(T, numStates_);
+ 
+-    // Pre-fill the log-emission buffer: logEmitBuf_[i * T + t] = log b_i(O_t)
+-    // Build observation span once; reuse across all N states.
++    // Fill per-state log-emission buffer: logEmitBuf_[i * T + t] = log b_i(O_t)
++    // Build observation span directly from ObservationSet storage; no copy.
+     logEmitBuf_.resize(T * numStates_);
+-    std::vector<double> obsVec(T);
+-    for (std::size_t t = 0; t < T; ++t)
+-        obsVec[t] = observations_(t);
+-    const std::span<const double> obsSpan(obsVec.data(), T);
++    const std::span<const double> obsSpan(observations_.data(), T);
+ 
+     const Hmm &hmm = getHmmRef();
+     for (std::size_t i = 0; i < numStates_; ++i) {
+         hmm.getDistribution(i).getBatchLogProbabilities(
+             obsSpan, std::span<double>(logEmitBuf_.data() + i * T, T));
+     }
++    // Build time-major emission buffer once to improve locality in DP recurrences.
++    logEmitByTime_.resize(T * numStates_);
++    for (std::size_t i = 0; i < numStates_; ++i) {
++        const double *stateRow = logEmitBuf_.data() + i * T;
++        for (std::size_t t = 0; t < T; ++t) {
++            logEmitByTime_[t * numStates_ + i] = stateRow[t];
++        }
++    }
+ 
+     computeLogForward();
+     computeLogBackward();
+ 
+     // log P(O|λ) = log-sum-exp over states at final timestep
++    const double *finalAlphaRow = logAlpha_.data() + (T - 1) * numStates_;
+     double lp = LOG_ZERO;
+     for (std::size_t i = 0; i < numStates_; ++i) {
+-        lp = logSumExp(lp, logAlpha_(T - 1, i));
++        lp = logSumExp(lp, finalAlphaRow[i]);
+     }
+     logProbability_ = lp;
+ }
+@@ -83,10 +89,13 @@ void ForwardBackwardCalculator::precomputeLogTransitions() {
+     const Hmm &hmm = getHmmRef();
+     const Matrix &trans = hmm.getTrans();
+     logTrans_.resize(numStates_, numStates_);
++    logTransT_.resize(numStates_, numStates_);
+     for (std::size_t i = 0; i < numStates_; ++i) {
+         for (std::size_t j = 0; j < numStates_; ++j) {
+             const double a = trans(i, j);
+-            logTrans_(i, j) = (a > 0.0) ? std::log(a) : LOG_ZERO;
++            const double logA = (a > 0.0) ? std::log(a) : LOG_ZERO;
++            logTrans_(i, j) = logA;
++            logTransT_(j, i) = logA;
+         }
+     }
+ }
+@@ -96,42 +105,57 @@ void ForwardBackwardCalculator::computeLogForward() {
+     const Vector &pi = hmm.getPi();
+     const std::size_t T = observations_.size();
+ 
++    const double *logEmitByTimeData = logEmitByTime_.data();
++    const double *logTransTData = logTransT_.data();
++    double *logAlphaData = logAlpha_.data();
++    const std::size_t N = numStates_;
++
+     // t = 0: log alpha(0, i) = log pi_i + log b_i(O_0)
++    const double *emitRow0 = logEmitByTimeData;
+     for (std::size_t i = 0; i < numStates_; ++i) {
+         const double logPi = (pi(i) > 0.0) ? std::log(pi(i)) : LOG_ZERO;
+-        logAlpha_(0, i) = logPi + logEmitBuf_[i * T + 0];
++        logAlphaData[i] = logPi + emitRow0[i];
+     }
+ 
+     // t > 0
+     for (std::size_t t = 1; t < T; ++t) {
++        const double *prevAlphaRow = logAlphaData + (t - 1) * N;
++        double *alphaRow = logAlphaData + t * N;
++        const double *emitRow = logEmitByTimeData + t * N;
+         for (std::size_t j = 0; j < numStates_; ++j) {
+             double logSum = LOG_ZERO;
++            const double *transCol = logTransTData + j * N;
+             for (std::size_t i = 0; i < numStates_; ++i) {
+-                logSum = logSumExp(logSum, logAlpha_(t - 1, i) + logTrans_(i, j));
++                logSum = logSumExp(logSum, prevAlphaRow[i] + transCol[i]);
+             }
+-            logAlpha_(t, j) = logEmitBuf_[j * T + t] + logSum;
++            alphaRow[j] = emitRow[j] + logSum;
+         }
+     }
+ }
+ 
+ void ForwardBackwardCalculator::computeLogBackward() {
+     const std::size_t T = observations_.size();
++    const double *logTransData = logTrans_.data();
++    const double *logEmitByTimeData = logEmitByTime_.data();
++    double *logBetaData = logBeta_.data();
++    const std::size_t N = numStates_;
+ 
+     // t = T-1: log beta(T-1, i) = log(1) = 0
+-    for (std::size_t i = 0; i < numStates_; ++i) {
+-        logBeta_(T - 1, i) = 0.0;
+-    }
++    std::fill(logBetaData + (T - 1) * N, logBetaData + T * N, 0.0);
+ 
+     // t < T-1, working backwards
+     if (T > 1) {
+         for (std::size_t t = T - 2;; --t) {
++            const double *nextBetaRow = logBetaData + (t + 1) * N;
++            double *betaRow = logBetaData + t * N;
++            const double *nextEmitRow = logEmitByTimeData + (t + 1) * N;
+             for (std::size_t i = 0; i < numStates_; ++i) {
+                 double logSum = LOG_ZERO;
++                const double *transRow = logTransData + i * N;
+                 for (std::size_t j = 0; j < numStates_; ++j) {
+-                    logSum = logSumExp(logSum, logTrans_(i, j) + logEmitBuf_[j * T + (t + 1)] +
+-                                                   logBeta_(t + 1, j));
++                    logSum = logSumExp(logSum, transRow[j] + nextEmitRow[j] + nextBetaRow[j]);
+                 }
+-                logBeta_(t, i) = logSum;
++                betaRow[i] = logSum;
+             }
+             if (t == 0)
+                 break;
+diff --git a/src/calculators/viterbi_calculator.cpp b/src/calculators/viterbi_calculator.cpp
+index 3ade510..1df7a3f 100755
+--- a/src/calculators/viterbi_calculator.cpp
++++ b/src/calculators/viterbi_calculator.cpp
+@@ -44,16 +44,21 @@ StateSequence ViterbiCalculator::decode() {
+     // Fill log-emission buffer: logEmitBuf_[i * T + t] = log b_i(O_t)
+     logEmitBuf_.resize(T * numStates_);
+     const Hmm &hmm = getHmmRef();
+-
+-    std::vector<double> obsVec(T);
+-    for (std::size_t t = 0; t < T; ++t)
+-        obsVec[t] = observations_(t);
++    const std::span<const double> obsSpan(observations_.data(), T);
+ 
+     for (std::size_t i = 0; i < numStates_; ++i) {
+         hmm.getDistribution(i).getBatchLogProbabilities(
+-            std::span<const double>(obsVec.data(), T),
++            obsSpan,
+             std::span<double>(logEmitBuf_.data() + i * T, T));
+     }
++    // Build time-major emission buffer once for locality in dynamic programming.
++    logEmitByTime_.resize(T * numStates_);
++    for (std::size_t i = 0; i < numStates_; ++i) {
++        const double *stateRow = logEmitBuf_.data() + i * T;
++        for (std::size_t t = 0; t < T; ++t) {
++            logEmitByTime_[t * numStates_ + i] = stateRow[t];
++        }
++    }
+ 
+     runViterbi();
+     backtrack();
+@@ -68,10 +73,13 @@ void ViterbiCalculator::precomputeLogTransitions() {
+     const Hmm &hmm = getHmmRef();
+     const Matrix &trans = hmm.getTrans();
+     logTrans_.resize(numStates_, numStates_);
++    logTransT_.resize(numStates_, numStates_);
+     for (std::size_t i = 0; i < numStates_; ++i) {
+         for (std::size_t j = 0; j < numStates_; ++j) {
+             const double a = trans(i, j);
+-            logTrans_(i, j) = (a > 0.0) ? std::log(a) : LOG_ZERO;
++            const double logA = (a > 0.0) ? std::log(a) : LOG_ZERO;
++            logTrans_(i, j) = logA;
++            logTransT_(j, i) = logA;
+         }
+     }
+ }
+@@ -82,37 +90,48 @@ void ViterbiCalculator::runViterbi() {
+     const std::size_t T = observations_.size();
+ 
+     logDelta_.resize(T, numStates_);
+-    psi_.assign(T, std::vector<int>(numStates_, 0));
++    psi_.assign(T * numStates_, 0);
++
++    const double *logTransTData = logTransT_.data();
++    const double *logEmitByTimeData = logEmitByTime_.data();
++    double *logDeltaData = logDelta_.data();
++    const std::size_t N = numStates_;
+ 
+     // t = 0: initialise
++    const double *emitRow0 = logEmitByTimeData;
+     for (std::size_t i = 0; i < numStates_; ++i) {
+         const double logPi = (pi(i) > 0.0) ? std::log(pi(i)) : LOG_ZERO;
+-        logDelta_(0, i) = logPi + logEmitBuf_[i * T + 0];
++        logDeltaData[i] = logPi + emitRow0[i];
+     }
+ 
+     // t > 0: recursion
+     for (std::size_t t = 1; t < T; ++t) {
++        const double *prevDeltaRow = logDeltaData + (t - 1) * N;
++        double *deltaRow = logDeltaData + t * N;
++        const double *emitRow = logEmitByTimeData + t * N;
+         for (std::size_t j = 0; j < numStates_; ++j) {
+             double maxVal = LOG_ZERO;
+             int maxFrom = 0;
++            const double *transCol = logTransTData + j * N;
+             for (std::size_t i = 0; i < numStates_; ++i) {
+-                const double val = logDelta_(t - 1, i) + logTrans_(i, j);
++                const double val = prevDeltaRow[i] + transCol[i];
+                 if (val > maxVal) {
+                     maxVal = val;
+                     maxFrom = static_cast<int>(i);
+                 }
+             }
+-            logDelta_(t, j) = maxVal + logEmitBuf_[j * T + t];
+-            psi_[t][j] = maxFrom;
++            deltaRow[j] = maxVal + emitRow[j];
++            psi_[t * N + j] = maxFrom;
+         }
+     }
+ 
+     // Termination: best last state
+     double bestVal = LOG_ZERO;
+     int bestLast = 0;
++    const double *finalDeltaRow = logDeltaData + (T - 1) * N;
+     for (std::size_t i = 0; i < numStates_; ++i) {
+-        if (logDelta_(T - 1, i) > bestVal) {
+-            bestVal = logDelta_(T - 1, i);
++        if (finalDeltaRow[i] > bestVal) {
++            bestVal = finalDeltaRow[i];
+             bestLast = static_cast<int>(i);
+         }
+     }
+@@ -126,9 +145,10 @@ void ViterbiCalculator::backtrack() {
+     const std::size_t T = observations_.size();
+     if (T <= 1)
+         return;
++    const std::size_t N = numStates_;
+ 
+     for (std::size_t t = T - 2;; --t) {
+-        sequence_(t) = psi_[t + 1][static_cast<std::size_t>(sequence_(t + 1))];
++        sequence_(t) = psi_[(t + 1) * N + static_cast<std::size_t>(sequence_(t + 1))];
+         if (t == 0)
+             break;
+     }
+diff --git a/src/training/baum_welch_trainer.cpp b/src/training/baum_welch_trainer.cpp
+index 7ae236f..37d1b9c 100755
+--- a/src/training/baum_welch_trainer.cpp
++++ b/src/training/baum_welch_trainer.cpp
+@@ -29,22 +29,40 @@ void BaumWelchTrainer::train() {
+ 
+     // Accumulators (linear space, summed across all sequences)
+     std::vector<double> piNum(N, 0.0);
+-    std::vector<std::vector<double>> transNum(N, std::vector<double>(N, 0.0));
++    Matrix transNum(N, N);
++    clear_matrix(transNum);
+     std::vector<double> transDen(N, 0.0);
+ 
+     // Per-state emission data/weights accumulated across sequences
+     std::vector<std::vector<double>> emisData(N);
+     std::vector<std::vector<double>> emisWts(N);
++    std::size_t totalObservations = 0;
++    for (const auto &obs : obsLists_) {
++        totalObservations += obs.size();
++    }
++    const std::size_t reservePerState = (N > 0) ? (totalObservations / N + 1) : 0;
++    for (std::size_t i = 0; i < N; ++i) {
++        emisData[i].reserve(reservePerState);
++        emisWts[i].reserve(reservePerState);
++    }
+ 
+     // Precompute log-transition matrix from the current model
+     const Matrix &curTrans = hmm.getTrans();
+-    std::vector<std::vector<double>> logTrans(N, std::vector<double>(N));
++    Matrix logTrans(N, N);
++    std::vector<std::vector<std::size_t>> activeNextStates(N);
+     for (std::size_t i = 0; i < N; ++i) {
++        activeNextStates[i].reserve(N);
+         for (std::size_t j = 0; j < N; ++j) {
+             const double a = curTrans(i, j);
+-            logTrans[i][j] = (a > 0.0) ? std::log(a) : LOG_ZERO;
++            if (a > 0.0) {
++                logTrans(i, j) = std::log(a);
++                activeNextStates[i].push_back(j);
++            } else {
++                logTrans(i, j) = LOG_ZERO;
++            }
+         }
+     }
++    const double *logTransData = logTrans.data();
+ 
+     std::size_t validSeqs = 0;
+ 
+@@ -60,24 +78,29 @@ void BaumWelchTrainer::train() {
+ 
+         const Matrix &logAlpha = fbc.getLogForwardVariables();
+         const Matrix &logBeta = fbc.getLogBackwardVariables();
++        const double *logAlphaData = logAlpha.data();
++        const double *logBetaData = logBeta.data();
++        const double *obsData = obs.data();
+ 
+         // Precompute log-emissions for this sequence: logEmit[i * T + t]
+-        std::vector<double> obsVec(T);
+-        for (std::size_t t = 0; t < T; ++t)
+-            obsVec[t] = obs(t);
+ 
+         std::vector<double> logEmit(N * T);
++        const std::span<const double> obsSpan(obsData, T);
+         for (std::size_t i = 0; i < N; ++i) {
+             hmm.getDistribution(i).getBatchLogProbabilities(
+-                std::span<const double>(obsVec.data(), T),
++                obsSpan,
+                 std::span<double>(logEmit.data() + i * T, T));
+         }
+ 
+         // Accumulate gamma (per timestep per state) and pi/trans denominators
+         for (std::size_t t = 0; t < T; ++t) {
++            const double *alphaRow = logAlphaData + t * N;
++            const double *betaRow = logBetaData + t * N;
++            const double obsValue = obsData[t];
+             for (std::size_t i = 0; i < N; ++i) {
+-                const double g = std::exp(logAlpha(t, i) + logBeta(t, i) - logP);
+-                emisData[i].push_back(obs(t));
++                const double logGamma = alphaRow[i] + betaRow[i] - logP;
++                const double g = std::isfinite(logGamma) ? std::exp(logGamma) : 0.0;
++                emisData[i].push_back(obsValue);
+                 emisWts[i].push_back(g);
+                 if (t == 0)
+                     piNum[i] += g;
+@@ -88,11 +111,25 @@ void BaumWelchTrainer::train() {
+ 
+         // Accumulate xi (transition counts)
+         for (std::size_t t = 0; t + 1 < T; ++t) {
++            const double *alphaRow = logAlphaData + t * N;
++            const double *betaNextRow = logBetaData + (t + 1) * N;
+             for (std::size_t i = 0; i < N; ++i) {
+-                for (std::size_t j = 0; j < N; ++j) {
+-                    const double logXi = logAlpha(t, i) + logTrans[i][j] +
+-                                         logEmit[j * T + (t + 1)] + logBeta(t + 1, j) - logP;
+-                    transNum[i][j] += std::exp(logXi);
++                const double alphaVal = alphaRow[i];
++                if (!std::isfinite(alphaVal)) {
++                    continue;
++                }
++                const double *logTransRow = logTransData + i * N;
++                for (const std::size_t j : activeNextStates[i]) {
++                    const double betaNext = betaNextRow[j];
++                    const double emitNext = logEmit[j * T + (t + 1)];
++                    if (!std::isfinite(betaNext) || !std::isfinite(emitNext)) {
++                        continue;
++                    }
++                    const double logXi =
++                        alphaVal + logTransRow[j] + emitNext + betaNext - logP;
++                    if (std::isfinite(logXi)) {
++                        transNum(i, j) += std::exp(logXi);
++                    }
+                 }
+             }
+         }
+@@ -122,7 +159,7 @@ void BaumWelchTrainer::train() {
+         Matrix newTrans(N, N);
+         for (std::size_t i = 0; i < N; ++i) {
+             for (std::size_t j = 0; j < N; ++j) {
+-                newTrans(i, j) = (transDen[i] > 0.0) ? transNum[i][j] / transDen[i]
++                newTrans(i, j) = (transDen[i] > 0.0) ? transNum(i, j) / transDen[i]
+                                                      : 1.0 / static_cast<double>(N);
+             }
+         }
+diff --git a/src/training/viterbi_trainer.cpp b/src/training/viterbi_trainer.cpp
+index d159bb0..8943940 100755
+--- a/src/training/viterbi_trainer.cpp
++++ b/src/training/viterbi_trainer.cpp
+@@ -91,6 +91,15 @@ double ViterbiTrainer::runIteration() {
+     Matrix trans(N, N);
+     clear_matrix(trans);
+     std::vector<std::vector<double>> emisData(N);
++    std::size_t totalObservations = 0;
++    for (const auto &obs : obsLists_) {
++        totalObservations += obs.size();
++    }
++    const std::size_t reservePerState = (N > 0) ? (totalObservations / N + 1) : 0;
++    for (std::size_t i = 0; i < N; ++i) {
++        emisData[i].reserve(reservePerState);
++    }
++    std::vector<double> transRowSums(N, 0.0);
+ 
+     double totalLogProb = 0.0;
+     std::size_t validSeqs = 0;
+@@ -107,15 +116,18 @@ double ViterbiTrainer::runIteration() {
+             totalLogProb += lp;
+             const StateSequence &seq = vc.getStateSequence();
+             const std::size_t T = obs.size();
++            const int *seqData = seq.data();
++            const double *obsData = obs.data();
+ 
+-            pi(static_cast<std::size_t>(seq(0))) += 1.0;
++            pi(static_cast<std::size_t>(seqData[0])) += 1.0;
+ 
+             for (std::size_t t = 0; t < T; ++t) {
+-                const std::size_t s = static_cast<std::size_t>(seq(t));
+-                emisData[s].push_back(obs(t));
++                const std::size_t s = static_cast<std::size_t>(seqData[t]);
++                emisData[s].push_back(obsData[t]);
+                 if (t + 1 < T) {
+-                    const std::size_t sNext = static_cast<std::size_t>(seq(t + 1));
++                    const std::size_t sNext = static_cast<std::size_t>(seqData[t + 1]);
+                     trans(s, sNext) += 1.0;
++                    transRowSums[s] += 1.0;
+                 }
+             }
+             ++validSeqs;
+@@ -129,12 +141,10 @@ double ViterbiTrainer::runIteration() {
+ 
+     // Normalise pi
+     {
+-        double piSum = 0.0;
+-        for (std::size_t i = 0; i < N; ++i)
+-            piSum += pi(i);
+-        if (piSum > 0.0) {
++        if (validSeqs > 0) {
++            const double invValidSeqs = 1.0 / static_cast<double>(validSeqs);
+             for (std::size_t i = 0; i < N; ++i)
+-                pi(i) /= piSum;
++                pi(i) *= invValidSeqs;
+         } else {
+             for (std::size_t i = 0; i < N; ++i)
+                 pi(i) = 1.0 / static_cast<double>(N);
+@@ -144,12 +154,11 @@ double ViterbiTrainer::runIteration() {
+ 
+     // Normalise transition rows
+     for (std::size_t i = 0; i < N; ++i) {
+-        double rowSum = 0.0;
+-        for (std::size_t j = 0; j < N; ++j)
+-            rowSum += trans(i, j);
++        const double rowSum = transRowSums[i];
+         if (rowSum > 0.0) {
++            const double invRowSum = 1.0 / rowSum;
+             for (std::size_t j = 0; j < N; ++j)
+-                trans(i, j) /= rowSum;
++                trans(i, j) *= invRowSum;
+         } else {
+             for (std::size_t j = 0; j < N; ++j)
+                 trans(i, j) = 1.0 / static_cast<double>(N);

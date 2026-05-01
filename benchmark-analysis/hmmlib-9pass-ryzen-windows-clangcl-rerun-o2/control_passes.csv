@@ -1,0 +1,10 @@
+label,pass,libhmm_avg_obs_ms,hmmlib_avg_obs_ms,ratio_hmmlib_over_libhmm
+clangcl_control_o2,1,8844.3,28803.3,3.26
+clangcl_control_o2,2,10440.4,30681.8,2.94
+clangcl_control_o2,3,10607.2,30760.2,2.9
+clangcl_control_o2,4,10244.6,30830.2,3.01
+clangcl_control_o2,5,10492.5,30586.3,2.92
+clangcl_control_o2,6,10371.1,30365.2,2.93
+clangcl_control_o2,7,10235.7,30156.6,2.95
+clangcl_control_o2,8,10331.6,30036.8,2.91
+clangcl_control_o2,9,10265.7,30875.1,3.01
