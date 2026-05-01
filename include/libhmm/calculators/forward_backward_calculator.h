@@ -1,7 +1,9 @@
 #pragma once
 
 #include "libhmm/calculators/calculator.h"
+#include "libhmm/calculators/fb_recurrence_policy.h"
 #include <limits>
+#include <optional>
 #include <vector>
 
 namespace libhmm {
@@ -84,24 +86,54 @@ public:
     /** Number of HMM states used by this calculator. */
     [[nodiscard]] std::size_t getNumStates() const noexcept { return numStates_; }
 
+    /**
+     * @brief Force a specific recurrence kernel for subsequent compute() calls.
+     *
+     * Pass `std::nullopt` to clear the override and return to adaptive policy.
+     * The override takes precedence over the environment variable (`LIBHMM_FB_MODE`)
+     * and the static policy bins, but is itself superseded by the compile-time
+     * `LIBHMM_EXPERIMENT_FB_MAX_REDUCE` and `LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR`
+     * forcers when those are defined.
+     */
+    void setRecurrenceModeOverride(std::optional<FbRecurrenceMode> mode) noexcept {
+        modeOverride_ = mode;
+    }
+
+    /** Currently active recurrence-mode override, if any. */
+    [[nodiscard]] std::optional<FbRecurrenceMode> getRecurrenceModeOverride() const noexcept {
+        return modeOverride_;
+    }
+
+    /** Recurrence mode resolved on the most recent compute() call. */
+    [[nodiscard]] FbRecurrenceMode getRecurrenceMode() const noexcept { return currentMode_; }
+
 private:
     std::size_t numStates_{0};
 
     // Precomputed log-transition matrix [N x N]: logTrans_(i,j) = log a_{ij}
     Matrix logTrans_;
+    // Transposed transition matrix [N x N]: logTransT_(j,i) = log a_{ij}
+    Matrix logTransT_;
 
     // Results
     Matrix logAlpha_; // T x N
     Matrix logBeta_;  // T x N
     double logProbability_{-std::numeric_limits<double>::infinity()};
 
-    // Per-state log-emission buffer reused each timestep [T x N, row-major].
-    // Allocated once; filled by getBatchLogProbabilities per state.
+    // State-major log-emission buffer: logEmitBuf_[i * T + t] = log b_i(O_t).
+    // Filled directly by getBatchLogProbabilities per state.
     mutable std::vector<double> logEmitBuf_;
-    bool useMaxReduceRecurrence_{false};
+    // Time-major emission buffer: logEmitByTime_[t * N + i] = log b_i(O_t).
+    // Derived from logEmitBuf_ for contiguous per-time access in recurrences.
+    mutable std::vector<double> logEmitByTime_;
+    // Recurrence kernel resolved by the policy + override pipeline on the most
+    // recent compute() call. Defaults to Pairwise (the comparator-safe choice).
+    FbRecurrenceMode currentMode_{FbRecurrenceMode::Pairwise};
+    // Optional per-instance override (Phase A4). Set via setRecurrenceModeOverride().
+    std::optional<FbRecurrenceMode> modeOverride_;
 
-    [[nodiscard]] static bool shouldUseMaxReduceRecurrence(std::size_t numStates,
-                                                           std::size_t sequenceLength) noexcept;
+    [[nodiscard]] FbRecurrenceMode resolveRecurrenceMode(std::size_t numStates,
+                                                         std::size_t sequenceLength) const noexcept;
     void precomputeLogTransitions();
     void computeLogForward();
     void computeLogBackward();
@@ -112,6 +144,15 @@ private:
 
     /** log-sum-exp of two log-space values: log(exp(a) + exp(b)). */
     static double logSumExp(double a, double b) noexcept;
+
+    /// Boundary-region probe (Phase A3). Runs a single forward timestep with
+    /// both kernels and returns the faster choice (median of `kProbeRounds`).
+    /// Caches the result in a thread-local cache keyed by N for reuse.
+    [[nodiscard]] static FbRecurrenceMode probeRecurrenceMode(
+        std::size_t numStates,
+        const double *prevAlphaRow,
+        const double *emitRow,
+        const double *logTransTData) noexcept;
 };
 
 } // namespace libhmm
