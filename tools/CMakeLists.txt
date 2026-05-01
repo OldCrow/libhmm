@@ -36,6 +36,7 @@ add_hmm_tool(batch_performance batch_performance.cpp)
 add_hmm_tool(hmm_validator     hmm_validator.cpp)
 add_hmm_tool(hotspot_breakdown hotspot_breakdown.cpp)
 add_hmm_tool(fb_contour_sweep  fb_contour_sweep.cpp)
+add_hmm_tool(bw_hotspot        bw_hotspot.cpp)
 if(LIBHMM_EXPERIMENT_FB_MAX_REDUCE)
     target_compile_definitions(hotspot_breakdown PRIVATE LIBHMM_EXPERIMENT_FB_MAX_REDUCE=1)
     target_compile_definitions(fb_contour_sweep PRIVATE LIBHMM_EXPERIMENT_FB_MAX_REDUCE=1)
@@ -61,8 +62,9 @@ install(TARGETS
     hmm_validator
     hotspot_breakdown
     fb_contour_sweep
+    bw_hotspot
     RUNTIME DESTINATION bin/tools
     COMPONENT tools
 )
 
-message(STATUS "Tools: analyze_overhead debug_parallel simd_inspection batch_performance hmm_validator hotspot_breakdown fb_contour_sweep")
+message(STATUS "Tools: analyze_overhead debug_parallel simd_inspection batch_performance hmm_validator hotspot_breakdown fb_contour_sweep bw_hotspot")
