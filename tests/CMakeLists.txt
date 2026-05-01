@@ -195,6 +195,7 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_canonical_calculators calculators/test_canonical_calculators.cpp)
     add_hmm_test(test_calculator_continuous calculators/test_calculator_continuous.cpp)
     add_hmm_test(test_calculator_edge_cases calculators/test_calculator_edge_cases.cpp)
+    add_hmm_test(test_fb_mode_parity        calculators/test_fb_mode_parity.cpp)
 
     # =========================================================================
     # Level 6: Trainers
@@ -203,6 +204,7 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_training               training/test_training.cpp)
     add_hmm_test(test_training_edge_cases    training/test_training_edge_cases.cpp)
     add_hmm_test(test_baum_welch_convergence training/test_baum_welch_convergence.cpp)
+    add_hmm_test(test_bw_parity              training/test_bw_parity.cpp)
 
     # =========================================================================
     # Level 7: IO & Integration
