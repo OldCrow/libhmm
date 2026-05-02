@@ -479,9 +479,9 @@ set(LIBHMM_SIMD_SOURCES
     src/distributions/weibull_distribution.cpp
 )
 
-# FB calculator and BW trainer also include transcendental_kernels.h, which
-# contains the #if LIBHMM_HAS_* cascade. They must be compiled with the same
-# SIMD flags so those guards fire correctly.
+# Additional TUs that include simd_kernels_internal.h or transcendental_kernels.h
+# and therefore need LIBHMM_BEST_SIMD_FLAGS to activate the #if LIBHMM_HAS_* cascade.
+# (log_normal and pareto are already in LIBHMM_SIMD_SOURCES above.)
 list(APPEND LIBHMM_SIMD_SOURCES
     src/performance/transcendental_kernels.cpp
     src/calculators/forward_backward_calculator.cpp

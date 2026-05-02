@@ -1,29 +1,33 @@
 // src/performance/transcendental_kernels.cpp
 //
-// SIMD implementations of the five TranscendentalKernels methods.
+// SIMD implementations of TranscendentalKernels methods plus free-function
+// vector log/exp primitives used by Tier-2 distribution kernels.
 //
-// Compiled with LIBHMM_BEST_SIMD_FLAGS (same flags as distribution TUs in
-// LIBHMM_SIMD_SOURCES), so the LIBHMM_HAS_* macros are active and each
-// cascading #if block fires for the build machine's highest available ISA.
-//
-// ISA cascade pattern mirrors gaussian_distribution.cpp / exponential_distribution.cpp:
+// Compiled with LIBHMM_BEST_SIMD_FLAGS, activating the ISA cascade:
 //   AVX-512  8-wide __m512d
 //   AVX/AVX2 4-wide __m256d   (AVX-1 compatible; compiler fuses FMA under AVX2)
 //   SSE2     2-wide __m128d
 //   NEON     2-wide float64x2_t
 //   scalar   tail and portable fallback
 //
-// Vector exp(double) design:
-//   Range reduction : x = N*ln2 + r,  |r| <= ln2/2
-//                     Cephes-style ln2 = ln2_hi + ln2_lo for accuracy.
-//   Polynomial      : 13-term Horner of sum(r^k/k!), k=0..12.
-//                     Truncation < 7.4e-17 at r = ln2/2; accumulated
-//                     rounding stays inside ~1 ulp.
-//   2^N             : bias 1023, shift left 52, reinterpret-cast to double.
-//   Underflow guard : clamp x >= MIN_LOG_PROBABILITY before polynomial;
-//                     mask output lanes to 0.0 where original x was <= that
-//                     threshold.  Handles LOG_ZERO = -inf sentinel branch-free.
-//   No +inf / NaN handling: FB/BW callers guarantee finite or LOG_ZERO inputs.
+// Vector exp(double) design (exp_pd_*):
+//   Range reduction : x = N*ln2 + r,  |r| <= ln2/2  (Cephes split)
+//   Polynomial      : 13-term Horner of sum(r^k/k!); ~1 ulp
+//   2^N             : (n + 1023) << 52 via integer bit manipulation
+//   Underflow guard : clamp x >= MIN_LOG_PROBABILITY; mask to 0 below threshold
+//   No +inf / NaN:   FB/BW callers guarantee finite or LOG_ZERO inputs
+//
+// Vector log(double) design (log_pd_*):
+//   Range reduction : extract IEEE754 exponent e and mantissa m; x = 2^e * m
+//                     m in [1, 2).  If m > sqrt(2): e += 1, m *= 0.5
+//                     so m in [1/sqrt(2), sqrt(2)].
+//   Substitution    : y = (m - 1) / (m + 1),  |y| <= 0.172
+//   Polynomial      : log(m) = 2y * (1 + y^2/3 + y^4/5 + ... + y^12/13)
+//                     7-term Horner; truncation < ~5 ulp at |y|_max
+//                     Distribution callers need < 1e-10 absolute; well covered.
+//   Reconstruction  : log(x) = e * LN2_HI + e * LN2_LO + log(m)  (split)
+//   Guard           : x <= 0 lanes are masked to -inf
+//   No NaN:          distribution callers validate x > 0 before calling batch
 
 #include "libhmm/performance/transcendental_kernels.h"
 #include "libhmm/math/constants.h"
@@ -360,6 +364,293 @@ static inline double hadd_pd_avx(__m256d v) noexcept {
     return hadd_pd_sse2(s);
 }
 #endif
+
+// ---------------------------------------------------------------------------
+// Vector log(double) helpers — used by Tier-2 distribution kernels.
+//
+// Shared constants.
+// ---------------------------------------------------------------------------
+// log polynomial: log(m) = 2y*(c0 + c1*y^2 + c2*y^4 + ... + c6*y^12)
+// where y = (m-1)/(m+1), m in [1/sqrt(2), sqrt(2)].  c_k = 1/(2k+1).
+static constexpr double LOG_C0 = 1.0;                        // 1/1
+static constexpr double LOG_C1 = 3.3333333333333333e-1;      // 1/3
+static constexpr double LOG_C2 = 2.0000000000000000e-1;      // 1/5
+static constexpr double LOG_C3 = 1.4285714285714285e-1;      // 1/7
+static constexpr double LOG_C4 = 1.1111111111111111e-1;      // 1/9
+static constexpr double LOG_C5 = 9.0909090909090909e-2;      // 1/11
+static constexpr double LOG_C6 = 7.6923076923076923e-2;      // 1/13
+static constexpr double SQRT2  = 1.41421356237309504880168872420969807;
+
+// ---------------------------------------------------------------------------
+// AVX-512: 8-wide log(double)
+// ---------------------------------------------------------------------------
+#if defined(LIBHMM_HAS_AVX512)
+
+// Exposed in the anonymous namespace so lognormal/pareto TUs can call it.
+static inline __m512d log_pd_avx512(__m512d x) noexcept {
+    const __m512d neg_inf_v  = _mm512_set1_pd(-std::numeric_limits<double>::infinity());
+    const __m512d sqrt2_v    = _mm512_set1_pd(SQRT2);
+    const __m512d one_v      = _mm512_set1_pd(1.0);
+    const __m512d half_v     = _mm512_set1_pd(0.5);
+    const __m512d two_v      = _mm512_set1_pd(2.0);
+    const __m512d ln2hi_v    = _mm512_set1_pd(LN2_HI);
+    const __m512d ln2lo_v    = _mm512_set1_pd(LN2_LO);
+
+    // Guard: x <= 0 -> -inf.
+    const __mmask8 invalid_mask = _mm512_cmp_pd_mask(x, _mm512_setzero_pd(), _CMP_LE_OS);
+
+    // Extract exponent e and mantissa m: x = 2^e * m, m in [1,2).
+    // bits = reinterpret as int64; e_biased = bits >> 52 (upper 11 bits)
+    __m512i bits = _mm512_castpd_si512(x);
+    // Exponent field: e_biased = (bits >> 52) & 0x7FF
+    __m512i e_biased = _mm512_srli_epi64(bits, 52);
+    // Clear exponent bits; set exponent to 1023 (= exponent of 1.0) to get m.
+    const __m512i mantissa_mask  = _mm512_set1_epi64(0x000FFFFFFFFFFFFFLL);
+    const __m512i exponent_one   = _mm512_set1_epi64(0x3FF0000000000000LL);
+    __m512i mbits = _mm512_or_si512(_mm512_and_si512(bits, mantissa_mask), exponent_one);
+    __m512d m = _mm512_castsi512_pd(mbits);
+    // Unbiased exponent as double: e = e_biased - 1023
+    // _mm512_cvtepi64_pd requires AVX-512 DQ; scalar workaround via store/convert.
+    // Since e_biased is in [0, 2046] for normal doubles, the subtract fits in int32.
+    // Truncate to int32 (upper 32 bits of each int64 are zero after srli_epi64),
+    // then use the existing cvtpd path: extract as two 256-bit halves of int32.
+    __m512i e_unbiased64 = _mm512_sub_epi64(e_biased, _mm512_set1_epi64(1023LL));
+    // Convert int64 exponents to double via scalar (8 lanes).
+    alignas(64) long long e_arr[8];
+    _mm512_storeu_si512(reinterpret_cast<__m512i*>(e_arr), e_unbiased64);
+    __m512d e = _mm512_set_pd(
+        static_cast<double>(e_arr[7]), static_cast<double>(e_arr[6]),
+        static_cast<double>(e_arr[5]), static_cast<double>(e_arr[4]),
+        static_cast<double>(e_arr[3]), static_cast<double>(e_arr[2]),
+        static_cast<double>(e_arr[1]), static_cast<double>(e_arr[0]));
+
+    // If m > sqrt(2): e += 1, m *= 0.5  (so m in [1/sqrt(2), sqrt(2)])
+    __mmask8 adj_mask = _mm512_cmp_pd_mask(m, sqrt2_v, _CMP_GT_OS);
+    e = _mm512_mask_add_pd(e, adj_mask, e, one_v);
+    m = _mm512_mask_mul_pd(m, adj_mask, m, half_v);
+
+    // y = (m - 1) / (m + 1)
+    __m512d y = _mm512_div_pd(_mm512_sub_pd(m, one_v), _mm512_add_pd(m, one_v));
+    __m512d y2 = _mm512_mul_pd(y, y);
+
+    // Horner: p = c0 + y2*(c1 + y2*(c2 + ... y2*c6))
+    __m512d p = _mm512_set1_pd(LOG_C6);
+    p = _mm512_fmadd_pd(p, y2, _mm512_set1_pd(LOG_C5));
+    p = _mm512_fmadd_pd(p, y2, _mm512_set1_pd(LOG_C4));
+    p = _mm512_fmadd_pd(p, y2, _mm512_set1_pd(LOG_C3));
+    p = _mm512_fmadd_pd(p, y2, _mm512_set1_pd(LOG_C2));
+    p = _mm512_fmadd_pd(p, y2, _mm512_set1_pd(LOG_C1));
+    p = _mm512_fmadd_pd(p, y2, _mm512_set1_pd(LOG_C0));
+    // log(m) = 2 * y * p
+    __m512d log_m = _mm512_mul_pd(_mm512_mul_pd(two_v, y), p);
+
+    // log(x) = e * LN2_HI + e * LN2_LO + log(m)
+    __m512d result = _mm512_fmadd_pd(e, ln2hi_v,
+                       _mm512_fmadd_pd(e, ln2lo_v, log_m));
+
+    // Apply invalid guard.
+    result = _mm512_mask_blend_pd(invalid_mask, result, neg_inf_v);
+    return result;
+}
+
+#endif // LIBHMM_HAS_AVX512
+
+// ---------------------------------------------------------------------------
+// AVX: 4-wide log(double)
+// Uses _mm256_cvtepi64_pd (AVX-512 DQ), so falls back to two 128-bit extracts
+// for AVX-1 / AVX2 compatibility.
+// ---------------------------------------------------------------------------
+#if defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
+
+static inline __m256d log_pd_avx(__m256d x) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    const __m256d neg_inf_v = _mm256_set1_pd(neg_inf);
+    const __m256d sqrt2_v   = _mm256_set1_pd(SQRT2);
+    const __m256d one_v     = _mm256_set1_pd(1.0);
+    const __m256d half_v    = _mm256_set1_pd(0.5);
+    const __m256d two_v     = _mm256_set1_pd(2.0);
+    const __m256d ln2hi_v   = _mm256_set1_pd(LN2_HI);
+    const __m256d ln2lo_v   = _mm256_set1_pd(LN2_LO);
+
+    // Guard: x <= 0 -> -inf.
+    const __m256d invalid_mask = _mm256_cmp_pd(x, _mm256_setzero_pd(), _CMP_LE_OS);
+
+    // Extract exponent and mantissa via two 128-bit halves (AVX-1 compatible).
+    auto extract_em = [](__m128d xh, __m128d &mh, __m128d &eh) {
+        // Reinterpret as int64.
+        __m128i bits   = _mm_castpd_si128(xh);
+        // e_biased = bits >> 52  (signed shift via arithmetic right)
+        __m128i eb = _mm_srli_epi64(bits, 52);
+        // mantissa bits: clear exponent, set to 1.0 exponent
+        __m128i mant_mask = _mm_set1_epi64x(0x000FFFFFFFFFFFFFLL);
+        __m128i exp_one   = _mm_set1_epi64x(0x3FF0000000000000LL);
+        __m128i mbits = _mm_or_si128(_mm_and_si128(bits, mant_mask), exp_one);
+        mh = _mm_castsi128_pd(mbits);
+        // Convert e_biased to double and subtract bias 1023.
+        // e_biased is in [0, 2046] for normal doubles; fits in 32-bit.
+        // Use unpack trick: put e_biased into low 32 bits of 64-bit int, convert to float.
+        // Actually: e_biased is already in the right int64 lane from srli_epi64.
+        // Simpler: store, load as int64, subtract 1023, store, load as double.
+        // Pure SIMD: broadcast 1023, subtract.
+        __m128i bias = _mm_set1_epi64x(1023LL);
+        __m128i eu   = _mm_sub_epi64(eb, bias);
+        // Convert int64 to double: no direct SSE2/AVX instruction.
+        // Use scalar workaround for the 2 lanes.
+        long long e0, e1;
+        _mm_storel_epi64(reinterpret_cast<__m128i*>(&e0), eu);
+        _mm_storel_epi64(reinterpret_cast<__m128i*>(&e1),
+                         _mm_unpackhi_epi64(eu, eu));
+        eh = _mm_set_pd(static_cast<double>(e1), static_cast<double>(e0));
+    };
+
+    __m128d x_lo = _mm256_castpd256_pd128(x);
+    __m128d x_hi = _mm256_extractf128_pd(x, 1);
+    __m128d m_lo, e_lo, m_hi, e_hi;
+    extract_em(x_lo, m_lo, e_lo);
+    extract_em(x_hi, m_hi, e_hi);
+    __m256d m = _mm256_set_m128d(m_hi, m_lo);
+    __m256d e = _mm256_set_m128d(e_hi, e_lo);
+
+    // If m > sqrt(2): e += 1, m *= 0.5.
+    __m256d adj_mask = _mm256_cmp_pd(m, sqrt2_v, _CMP_GT_OS);
+    e = _mm256_add_pd(e, _mm256_and_pd(adj_mask, one_v));
+    m = _mm256_blendv_pd(m, _mm256_mul_pd(m, half_v), adj_mask);
+
+    // y = (m-1)/(m+1),  y2 = y*y.
+    __m256d y  = _mm256_div_pd(_mm256_sub_pd(m, one_v), _mm256_add_pd(m, one_v));
+    __m256d y2 = _mm256_mul_pd(y, y);
+
+#define FMA256(a, b, c) _mm256_add_pd(_mm256_mul_pd((a), (b)), (c))
+    __m256d p = _mm256_set1_pd(LOG_C6);
+    p = FMA256(p, y2, _mm256_set1_pd(LOG_C5));
+    p = FMA256(p, y2, _mm256_set1_pd(LOG_C4));
+    p = FMA256(p, y2, _mm256_set1_pd(LOG_C3));
+    p = FMA256(p, y2, _mm256_set1_pd(LOG_C2));
+    p = FMA256(p, y2, _mm256_set1_pd(LOG_C1));
+    p = FMA256(p, y2, _mm256_set1_pd(LOG_C0));
+#undef FMA256
+    __m256d log_m = _mm256_mul_pd(_mm256_mul_pd(two_v, y), p);
+
+    __m256d result = _mm256_add_pd(
+        _mm256_mul_pd(e, ln2hi_v),
+        _mm256_add_pd(_mm256_mul_pd(e, ln2lo_v), log_m));
+    result = _mm256_blendv_pd(result, neg_inf_v, invalid_mask);
+    return result;
+}
+
+#endif // LIBHMM_HAS_AVX || LIBHMM_HAS_AVX2
+
+// ---------------------------------------------------------------------------
+// SSE2: 2-wide log(double)
+// ---------------------------------------------------------------------------
+#if defined(LIBHMM_HAS_SSE2)
+
+static inline __m128d log_pd_sse2(__m128d x) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    const __m128d neg_inf_v = _mm_set1_pd(neg_inf);
+    const __m128d sqrt2_v   = _mm_set1_pd(SQRT2);
+    const __m128d one_v     = _mm_set1_pd(1.0);
+    const __m128d half_v    = _mm_set1_pd(0.5);
+    const __m128d two_v     = _mm_set1_pd(2.0);
+    const __m128d ln2hi_v   = _mm_set1_pd(LN2_HI);
+    const __m128d ln2lo_v   = _mm_set1_pd(LN2_LO);
+
+    const __m128d invalid_mask = _mm_cmple_pd(x, _mm_setzero_pd());
+
+    __m128i bits     = _mm_castpd_si128(x);
+    __m128i eb       = _mm_srli_epi64(bits, 52);
+    __m128i mant_mask = _mm_set1_epi64x(0x000FFFFFFFFFFFFFLL);
+    __m128i exp_one   = _mm_set1_epi64x(0x3FF0000000000000LL);
+    __m128i mbits     = _mm_or_si128(_mm_and_si128(bits, mant_mask), exp_one);
+    __m128d m         = _mm_castsi128_pd(mbits);
+    // Convert int64 exponent to double via scalar.
+    __m128i bias = _mm_set1_epi64x(1023LL);
+    __m128i eu   = _mm_sub_epi64(eb, bias);
+    long long e0, e1;
+    _mm_storel_epi64(reinterpret_cast<__m128i*>(&e0), eu);
+    _mm_storel_epi64(reinterpret_cast<__m128i*>(&e1),
+                     _mm_unpackhi_epi64(eu, eu));
+    __m128d e = _mm_set_pd(static_cast<double>(e1), static_cast<double>(e0));
+
+    __m128d adj_mask = _mm_cmpgt_pd(m, sqrt2_v);
+    e = _mm_add_pd(e, _mm_and_pd(adj_mask, one_v));
+    m = _mm_or_pd(_mm_andnot_pd(adj_mask, m),
+                  _mm_and_pd(adj_mask, _mm_mul_pd(m, half_v)));
+
+    __m128d y  = _mm_div_pd(_mm_sub_pd(m, one_v), _mm_add_pd(m, one_v));
+    __m128d y2 = _mm_mul_pd(y, y);
+
+#define FMA128(a, b, c) _mm_add_pd(_mm_mul_pd((a), (b)), (c))
+    __m128d p = _mm_set1_pd(LOG_C6);
+    p = FMA128(p, y2, _mm_set1_pd(LOG_C5));
+    p = FMA128(p, y2, _mm_set1_pd(LOG_C4));
+    p = FMA128(p, y2, _mm_set1_pd(LOG_C3));
+    p = FMA128(p, y2, _mm_set1_pd(LOG_C2));
+    p = FMA128(p, y2, _mm_set1_pd(LOG_C1));
+    p = FMA128(p, y2, _mm_set1_pd(LOG_C0));
+#undef FMA128
+    __m128d log_m = _mm_mul_pd(_mm_mul_pd(two_v, y), p);
+
+    __m128d result = _mm_add_pd(_mm_mul_pd(e, ln2hi_v),
+                       _mm_add_pd(_mm_mul_pd(e, ln2lo_v), log_m));
+    result = _mm_or_pd(_mm_andnot_pd(invalid_mask, result),
+                       _mm_and_pd(invalid_mask, neg_inf_v));
+    return result;
+}
+
+#endif // LIBHMM_HAS_SSE2
+
+// ---------------------------------------------------------------------------
+// NEON: 2-wide log(double)
+// ---------------------------------------------------------------------------
+#if defined(LIBHMM_HAS_NEON)
+
+static inline float64x2_t log_pd_neon(float64x2_t x) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    const float64x2_t neg_inf_v = vdupq_n_f64(neg_inf);
+    const float64x2_t sqrt2_v   = vdupq_n_f64(SQRT2);
+    const float64x2_t one_v     = vdupq_n_f64(1.0);
+    const float64x2_t half_v    = vdupq_n_f64(0.5);
+    const float64x2_t two_v     = vdupq_n_f64(2.0);
+    const float64x2_t ln2hi_v   = vdupq_n_f64(LN2_HI);
+    const float64x2_t ln2lo_v   = vdupq_n_f64(LN2_LO);
+
+    const uint64x2_t invalid_mask = vcleq_f64(x, vdupq_n_f64(0.0));
+
+    // Extract exponent and mantissa.
+    uint64x2_t bits  = vreinterpretq_u64_f64(x);
+    uint64x2_t eb    = vshrq_n_u64(bits, 52);
+    const uint64x2_t mant_mask = vdupq_n_u64(0x000FFFFFFFFFFFFFULL);
+    const uint64x2_t exp_one   = vdupq_n_u64(0x3FF0000000000000ULL);
+    uint64x2_t mbits = vorrq_u64(vandq_u64(bits, mant_mask), exp_one);
+    float64x2_t m    = vreinterpretq_f64_u64(mbits);
+    // e = (int64)(e_biased - 1023) -> double
+    int64x2_t ei = vsubq_s64(vreinterpretq_s64_u64(eb), vdupq_n_s64(1023LL));
+    float64x2_t e = vcvtq_f64_s64(ei);
+
+    // If m > sqrt(2): e += 1, m *= 0.5.
+    uint64x2_t adj_mask = vcgtq_f64(m, sqrt2_v);
+    e = vbslq_f64(adj_mask, vaddq_f64(e, one_v), e);
+    m = vbslq_f64(adj_mask, vmulq_f64(m, half_v), m);
+
+    float64x2_t y  = vdivq_f64(vsubq_f64(m, one_v), vaddq_f64(m, one_v));
+    float64x2_t y2 = vmulq_f64(y, y);
+
+    float64x2_t p = vdupq_n_f64(LOG_C6);
+    p = vfmaq_f64(vdupq_n_f64(LOG_C5), p, y2);
+    p = vfmaq_f64(vdupq_n_f64(LOG_C4), p, y2);
+    p = vfmaq_f64(vdupq_n_f64(LOG_C3), p, y2);
+    p = vfmaq_f64(vdupq_n_f64(LOG_C2), p, y2);
+    p = vfmaq_f64(vdupq_n_f64(LOG_C1), p, y2);
+    p = vfmaq_f64(vdupq_n_f64(LOG_C0), p, y2);
+    float64x2_t log_m = vmulq_f64(vmulq_f64(two_v, y), p);
+
+    float64x2_t result = vfmaq_f64(vfmaq_f64(log_m, e, ln2lo_v), e, ln2hi_v);
+    result = vbslq_f64(invalid_mask, neg_inf_v, result);
+    return result;
+}
+
+#endif // LIBHMM_HAS_NEON
 
 } // anonymous namespace
 
