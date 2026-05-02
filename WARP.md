@@ -210,6 +210,7 @@ CRLF: `.gitattributes` enforces LF. CRLF warnings on `git add` are normal.
 
 - Always run `./scripts/configure_catalina.sh build` for the first configure.
 - The script sanitizes toolchain-related environment variables, pins AppleClang via `xcrun`, and sets `CMAKE_OSX_DEPLOYMENT_TARGET=10.15`.
+- **Build type:** the script defaults to `Release` (`-O3`). This is required for correctness: at `-O0`, AppleClang inserts `VZEROUPPER` in the prologue of large-frame AVX functions before saving the `__m256d` argument, silently zeroing `x[2]` and `x[3]`. For debuggable builds use `RelWithDebInfo` (`-O2 -g`) — SIMD helpers inline at `-O2` so the issue cannot occur: `./scripts/configure_catalina.sh build -DCMAKE_BUILD_TYPE=RelWithDebInfo`. Pure `Debug` (`-O0`) is unsafe for any code path that passes `__m256d` through a real call boundary.
 - Do not point Catalina builds at Homebrew LLVM/libc++ (`/usr/local/opt/llvm`, `Cellar/llvm*`, libc++ include paths). The root `CMakeLists.txt` guard fails configure when those hints are detected.
 - Use `-DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON` only for explicit troubleshooting; runtime stability is not guaranteed.
 
