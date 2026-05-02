@@ -3,45 +3,45 @@
 /**
  * @file simd_platform.h
  * @brief Platform-specific SIMD intrinsics and feature detection
- * 
+ *
  * This header centralizes all SIMD-related includes and platform detection logic.
  * It provides a clean interface for SIMD functionality across different architectures
  * while handling platform-specific quirks and compatibility issues.
- * 
+ *
  * DESIGN DECISION RATIONALE:
- * 
+ *
  * Previously, SIMD intrinsics were scattered across multiple files with inconsistent
  * platform detection logic. This led to several problems:
- * 
+ *
  * 1. DUPLICATE CODE: Multiple files had similar #ifdef blocks for SIMD detection
  * 2. INCONSISTENT LOGIC: Different files used different platform detection approaches
  * 3. MAINTENANCE BURDEN: Changes to platform support required updates in many files
  * 4. SEPARATION OF CONCERNS: common.h contained SIMD logic mixed with basic types
- * 
+ *
  * This header solves these issues by:
- * 
+ *
  * - CENTRALIZED DETECTION: All SIMD platform logic in one location
  * - CONSISTENT API: Unified feature macros (LIBHMM_HAS_*) across all files
  * - SEPARATION OF CONCERNS: SIMD functionality separate from general utilities
  * - SINGLE RESPONSIBILITY: This header only handles SIMD platform concerns
  * - EXTENSIBILITY: Easy to add new SIMD instruction sets or platforms
- * 
+ *
  * FILES THAT INCLUDE THIS HEADER:
  * - src/distributions/gaussian_distribution.cpp (tier-2 SIMD intrinsics)
  * - src/distributions/exponential_distribution.cpp (tier-2 SIMD intrinsics)
  * - tools/simd_inspection.cpp (ISA capability report + smoke tests)
  * - include/libhmm/performance/transcendental_kernels.h (perf branch)
- * 
+ *
  * Features:
  * - Cross-platform SIMD intrinsics inclusion
  * - Apple Silicon vs Intel chipset detection on macOS
  * - Feature detection macros with standardized naming
  * - Safe fallback for unsupported platforms
  * - Compile-time utility functions for SIMD capabilities
- * 
+ *
  * Usage:
  *   #include "libhmm/platform/simd_platform.h"
- *   
+ *
  *   #ifdef LIBHMM_HAS_AVX
  *       // Use AVX instructions
  *   #elif defined(LIBHMM_HAS_SSE2)
@@ -51,7 +51,7 @@
  *   #else
  *       // Use scalar fallback
  *   #endif
- * 
+ *
  * Or use the utility functions:
  *   if constexpr (libhmm::performance::simd::has_simd_support()) {
  *       // SIMD path
@@ -231,7 +231,7 @@ constexpr bool supports_vectorization() noexcept {
 
 /**
  * @brief Optimal SIMD alignment based on detected platform capabilities
- * 
+ *
  * This constant adapts to the actual SIMD capabilities detected at compile time,
  * ensuring optimal memory alignment for the available instruction set.
  */
@@ -239,7 +239,7 @@ static constexpr std::size_t SIMD_ALIGNMENT = optimal_alignment();
 
 /**
  * @brief SIMD vector width for double precision based on detected platform
- * 
+ *
  * This constant adapts to the actual SIMD capabilities detected at compile time,
  * providing the correct vector width for double precision operations.
  */
@@ -247,7 +247,7 @@ static constexpr std::size_t DOUBLE_SIMD_WIDTH = double_vector_width();
 
 /**
  * @brief SIMD vector width for single precision based on detected platform
- * 
+ *
  * This constant adapts to the actual SIMD capabilities detected at compile time,
  * providing the correct vector width for single precision operations.
  */

@@ -27,10 +27,10 @@ cmake --build build --config Release
 ## Example Overview
 
 ### 🎲 [basic_hmm_example.cpp](basic_hmm_example.cpp)
-**Topic**: Fundamental HMM operations and distribution testing  
-**Distributions**: Gaussian, Gamma, Log-Normal, Exponential, Poisson  
-**Concepts**: Basic HMM construction, probability calculations, Viterbi training  
-**Use Case**: Learning HMM fundamentals and distribution behavior  
+**Topic**: Fundamental HMM operations and distribution testing
+**Distributions**: Gaussian, Gamma, Log-Normal, Exponential, Poisson
+**Concepts**: Basic HMM construction, probability calculations, Viterbi training
+**Use Case**: Learning HMM fundamentals and distribution behavior
 
 **Key Features:**
 - Classic "Occasionally Dishonest Casino" example
@@ -41,10 +41,10 @@ cmake --build build --config Release
 ---
 
 ### 🎯 [segmental_kmeans_example.cpp](segmental_kmeans_example.cpp)
-**Topic**: Hard-assignment training for discrete-emission HMMs  
-**Distributions**: Discrete  
-**Concepts**: K-means style training, Baum-Welch warm-start pattern, discrete-only constraint  
-**Use Case**: Fast initialisation of discrete HMMs before EM refinement  
+**Topic**: Hard-assignment training for discrete-emission HMMs
+**Distributions**: Discrete
+**Concepts**: K-means style training, Baum-Welch warm-start pattern, discrete-only constraint
+**Use Case**: Fast initialisation of discrete HMMs before EM refinement
 
 **Key Features:**
 - Path A: SegmentalKMeansTrainer used standalone on a 2-state biased-die HMM
@@ -55,10 +55,10 @@ cmake --build build --config Release
 ---
 
 ### 📊 [poisson_hmm_example.cpp](poisson_hmm_example.cpp)
-**Topic**: Count data modeling and event frequency analysis  
-**Distributions**: Poisson  
-**Concepts**: Discrete count modeling, state inference, parameter estimation  
-**Use Case**: Website traffic analysis, call center modeling, rare event detection  
+**Topic**: Count data modeling and event frequency analysis
+**Distributions**: Poisson
+**Concepts**: Discrete count modeling, state inference, parameter estimation
+**Use Case**: Website traffic analysis, call center modeling, rare event detection
 
 **Key Features:**
 - Website traffic state detection (normal vs. high traffic)
@@ -75,10 +75,10 @@ cmake --build build --config Release
 ---
 
 ### 💰 [financial_hmm_example.cpp](financial_hmm_example.cpp)
-**Topic**: Financial market regime detection and volatility modeling  
-**Distributions**: Beta, Log-Normal  
-**Concepts**: Market state transitions, volatility regimes, returns modeling  
-**Use Case**: Algorithmic trading, risk management, market analysis  
+**Topic**: Financial market regime detection and volatility modeling
+**Distributions**: Beta, Log-Normal
+**Concepts**: Market state transitions, volatility regimes, returns modeling
+**Use Case**: Algorithmic trading, risk management, market analysis
 
 **Key Features:**
 - Volatility modeling with Beta distribution (bounded [0,1])
@@ -95,10 +95,10 @@ cmake --build build --config Release
 ---
 
 ### 🔧 [reliability_hmm_example.cpp](reliability_hmm_example.cpp)
-**Topic**: System reliability and failure analysis  
-**Distributions**: Weibull, Exponential  
-**Concepts**: Hazard rates, lifetime modeling, degradation processes  
-**Use Case**: Predictive maintenance, quality control, safety analysis  
+**Topic**: System reliability and failure analysis
+**Distributions**: Weibull, Exponential
+**Concepts**: Hazard rates, lifetime modeling, degradation processes
+**Use Case**: Predictive maintenance, quality control, safety analysis
 
 **Key Features:**
 - Component lifetime modeling with Weibull distribution
@@ -115,10 +115,10 @@ cmake --build build --config Release
 ---
 
 ### 🏭 [quality_control_hmm_example.cpp](quality_control_hmm_example.cpp)
-**Topic**: Manufacturing quality control and statistical process control  
-**Distributions**: Binomial, Uniform  
-**Concepts**: Defect counting, tolerance analysis, process monitoring  
-**Use Case**: Manufacturing quality assurance, process control  
+**Topic**: Manufacturing quality control and statistical process control
+**Distributions**: Binomial, Uniform
+**Concepts**: Defect counting, tolerance analysis, process monitoring
+**Use Case**: Manufacturing quality assurance, process control
 
 **Key Features:**
 - Defect count modeling with Binomial distribution
@@ -135,10 +135,10 @@ cmake --build build --config Release
 ---
 
 ### 📈 [economics_hmm_example.cpp](economics_hmm_example.cpp)
-**Topic**: Economic and social science modeling  
-**Distributions**: Negative Binomial, Pareto  
-**Concepts**: Overdispersed count data, power-law phenomena, inequality analysis  
-**Use Case**: Customer behavior analysis, economic regime detection, social science research  
+**Topic**: Economic and social science modeling
+**Distributions**: Negative Binomial, Pareto
+**Concepts**: Overdispersed count data, power-law phenomena, inequality analysis
+**Use Case**: Customer behavior analysis, economic regime detection, social science research
 
 **Key Features:**
 - Customer purchase behavior with Negative Binomial distribution (overdispersed counts)
@@ -155,10 +155,10 @@ cmake --build build --config Release
 ---
 
 ### ⏱️ [queuing_theory_hmm_example.cpp](queuing_theory_hmm_example.cpp)
-**Topic**: Service systems and queuing theory analysis  
-**Distributions**: Poisson, Exponential, Gamma  
-**Concepts**: Service load modeling, arrival processes, performance metrics  
-**Use Case**: Call center optimization, system performance analysis, service design  
+**Topic**: Service systems and queuing theory analysis
+**Distributions**: Poisson, Exponential, Gamma
+**Concepts**: Service load modeling, arrival processes, performance metrics
+**Use Case**: Call center optimization, system performance analysis, service design
 
 **Key Features:**
 - Customer arrival modeling with Poisson distribution (load states)
@@ -176,10 +176,10 @@ cmake --build build --config Release
 ---
 
 ### 💪 [student_t_hmm_example.cpp](student_t_hmm_example.cpp)
-**Topic**: Heavy-tailed financial modeling and outlier-robust analysis  
-**Distributions**: Student's t-distribution  
-**Concepts**: Heavy tails, robust statistics, financial outliers, location-scale modeling  
-**Use Case**: Robust financial modeling, risk management with extreme events  
+**Topic**: Heavy-tailed financial modeling and outlier-robust analysis
+**Distributions**: Student's t-distribution
+**Concepts**: Heavy tails, robust statistics, financial outliers, location-scale modeling
+**Use Case**: Robust financial modeling, risk management with extreme events
 
 **Key Features:**
 - Student's t-distribution for heavy-tailed financial returns
@@ -198,10 +198,10 @@ cmake --build build --config Release
 ---
 
 ### 🔬 [statistical_process_control_hmm_example.cpp](statistical_process_control_hmm_example.cpp)
-**Topic**: Advanced statistical process control and quality monitoring  
-**Distributions**: Chi-squared distribution  
-**Concepts**: Goodness-of-fit testing, categorical analysis, process variation monitoring  
-**Use Case**: Advanced quality control, hypothesis testing, process capability analysis  
+**Topic**: Advanced statistical process control and quality monitoring
+**Distributions**: Chi-squared distribution
+**Concepts**: Goodness-of-fit testing, categorical analysis, process variation monitoring
+**Use Case**: Advanced quality control, hypothesis testing, process capability analysis
 
 **Key Features:**
 - Chi-squared distribution for goodness-of-fit testing

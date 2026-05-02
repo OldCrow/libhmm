@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-05-02
+
+CI hygiene fix; no functional changes.
+
+### Fixed
+
+- **`pre-commit` `cmake-format` hook crash on Ubuntu CI**
+  (`.pre-commit-config.yaml`): `cmakelang` lazy-imports `yaml` from
+  `load_yaml()` but does not declare `pyyaml` as a runtime dependency.
+  With Python 3.14 in the pre-commit hook venv (the current
+  `ubuntu-latest` default), this surfaced as
+  `ModuleNotFoundError: No module named 'yaml'` and caused the gating
+  pre-commit job to fail on every push. Added
+  `additional_dependencies: ['pyyaml']` to the `cmake-format` hook so
+  pre-commit injects pyyaml into the hook's venv.
+- **Trailing whitespace in v3.2.0 edits** (`examples/README.md`,
+  `examples/CMakeLists.txt`, `tests/CMakeLists.txt`,
+  `include/libhmm/libhmm.h`, `include/libhmm/platform/simd_platform.h`,
+  `include/libhmm/common/common.h`): six files committed in v3.2.0 had
+  trailing whitespace on otherwise-blank indented lines. The
+  `trailing-whitespace` pre-commit hook auto-fixed them on Ubuntu CI but
+  exited non-zero; the fixes are now committed directly so the hook
+  passes cleanly.
+
 ## [3.2.0] - 2026-05-02
 
 Completes the cleanup that the v3.0.0-alpha refactor ("Modern C++20
