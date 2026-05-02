@@ -27,9 +27,10 @@
  * - EXTENSIBILITY: Easy to add new SIMD instruction sets or platforms
  * 
  * FILES THAT INCLUDE THIS HEADER:
- * - include/libhmm/performance/simd_support.h
- * - include/libhmm/common/optimized_matrix.h (via simd_support.h)
- * - include/libhmm/common/optimized_vector.h (via simd_support.h)
+ * - src/distributions/gaussian_distribution.cpp (tier-2 SIMD intrinsics)
+ * - src/distributions/exponential_distribution.cpp (tier-2 SIMD intrinsics)
+ * - tools/simd_inspection.cpp (ISA capability report + smoke tests)
+ * - include/libhmm/performance/transcendental_kernels.h (perf branch)
  * 
  * Features:
  * - Cross-platform SIMD intrinsics inclusion
@@ -39,7 +40,7 @@
  * - Compile-time utility functions for SIMD capabilities
  * 
  * Usage:
- *   #include "libhmm/performance/simd_platform.h"
+ *   #include "libhmm/platform/simd_platform.h"
  *   
  *   #ifdef LIBHMM_HAS_AVX
  *       // Use AVX instructions

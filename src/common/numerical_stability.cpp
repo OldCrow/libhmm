@@ -1,4 +1,4 @@
-#include "libhmm/common/numerical_stability.h"
+#include "libhmm/math/numerical_stability.h"
 #include <algorithm>
 #include <sstream>
 #include <iomanip>

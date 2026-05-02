@@ -43,15 +43,6 @@
 #include "libhmm/hmm.h"
 
 //==============================================================================
-// HIGH-PERFORMANCE LINEAR ALGEBRA (OPTIONAL)
-//==============================================================================
-
-/// Complete linear algebra with both basic and optimized classes
-/// Comment out this line if you only need basic linear algebra functionality
-/// and want to minimize compilation time and dependencies
-#include "libhmm/common/linear_algebra.h"
-
-//==============================================================================
 // PROBABILITY DISTRIBUTIONS
 //==============================================================================
 
@@ -80,25 +71,6 @@
 #include "libhmm/io/file_io_manager.h"
 #include "libhmm/io/xml_file_reader.h"
 #include "libhmm/io/xml_file_writer.h"
-
-//==============================================================================
-// PERFORMANCE OPTIMIZATION
-//==============================================================================
-
-/// SIMD support detection and vectorized operations (includes simd_platform.h)
-#include "libhmm/performance/simd_support.h"
-
-/// Parallel processing constants and optimization thresholds
-#include "libhmm/performance/parallel_constants.h"
-
-/// Basic thread pool for parallel processing
-#include "libhmm/performance/thread_pool.h"
-
-/// Advanced work-stealing thread pool for high-performance computing
-#include "libhmm/performance/work_stealing_pool.h"
-
-/// Performance benchmarking and profiling utilities
-#include "libhmm/performance/benchmark.h"
 
 //==============================================================================
 // CONVENIENCE UTILITIES

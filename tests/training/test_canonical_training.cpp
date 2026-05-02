@@ -2,8 +2,6 @@
 #include "libhmm/training/baum_welch_trainer.h"
 #include "libhmm/training/viterbi_trainer.h"
 #include "libhmm/training/segmental_kmeans_trainer.h"
-#include "libhmm/training/centroid.h"
-#include "libhmm/training/cluster.h"
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/distributions/discrete_distribution.h"
@@ -286,62 +284,6 @@ TEST(SegmentalKMeansTrainerTest, InitialState) {
     SegmentalKMeansTrainer trainer(hmm.get(), obs);
     EXPECT_FALSE(trainer.isTerminated());
     EXPECT_EQ(&trainer.getHmm(), hmm.get());
-}
-
-// ===========================================================================
-// Centroid (from legacy tests — still valid)
-// ===========================================================================
-
-TEST(CentroidTest, DefaultValue) {
-    Centroid c;
-    EXPECT_DOUBLE_EQ(c.getValue(), 0.0);
-}
-
-TEST(CentroidTest, SetAndGetValue) {
-    Centroid c;
-    c.setValue(5.0);
-    EXPECT_DOUBLE_EQ(c.getValue(), 5.0);
-}
-
-TEST(CentroidTest, Distance) {
-    Centroid c;
-    c.setValue(5.0);
-    EXPECT_DOUBLE_EQ(c.distance(7.0), 2.0);
-}
-
-TEST(CentroidTest, AddObservations) {
-    Centroid c;
-    c.add(10.0, 0);
-    EXPECT_DOUBLE_EQ(c.getValue(), 10.0);
-    c.add(20.0, 1);
-    EXPECT_DOUBLE_EQ(c.getValue(), 15.0);
-}
-
-// ===========================================================================
-// Cluster (from legacy tests — still valid)
-// ===========================================================================
-
-TEST(ClusterTest, BasicOperations) {
-    Cluster cluster(5.0);
-    EXPECT_EQ(cluster.size(), 1u);
-    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), 5.0);
-
-    cluster.onlineAdd(7.0);
-    EXPECT_EQ(cluster.size(), 2u);
-
-    cluster.batchAdd(9.0);
-    cluster.recalculateCentroid();
-    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), (5.0 + 7.0 + 9.0) / 3.0);
-}
-
-TEST(ClusterTest, Remove) {
-    Cluster cluster(10.0);
-    cluster.onlineAdd(20.0);
-    cluster.onlineAdd(30.0);
-    EXPECT_EQ(cluster.size(), 3u);
-    cluster.remove(20.0);
-    EXPECT_EQ(cluster.size(), 2u);
-    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), (10.0 + 30.0) / 2.0);
 }
 
 int main(int argc, char **argv) {

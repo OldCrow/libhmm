@@ -1,121 +1,34 @@
 # Performance Architecture
-
-This document outlines the architecture for performance optimization within the libhmm project. Our goal is to leverage platform-specific SIMD instructions and parallel execution to optimize performance across a variety of hardware while maintaining clean, maintainable code.
-
-## Overview
-
-The performance architecture was designed to solve the circular dependency and platform detection issues that arose during development. It provides a clear hierarchy that enables advanced optimizations without compromising code maintainability.
-
-## Hierarchical Design
-
-The design is structured into four levels to ensure clear separation of responsibilities and to prevent circular dependencies.
-
-### Level 1: Platform Detection (Foundation)
-- **Files**: 
-  - `performance/simd_platform.h` - SIMD instruction set detection
-  - `performance/parallel_execution.h` - C++17 parallel execution policy detection
-- **Purpose**: Pure platform detection with zero dependencies
-- **Features**:
-  - Compile-time detection of AVX, SSE2, ARM NEON
-  - Platform-specific alignment requirements
-  - Thread pool availability detection
-- **Example Constants**:
-  ```cpp
-  #define LIBHMM_HAS_AVX 1
-  constexpr std::size_t SIMD_ALIGNMENT = 32;  // AVX alignment
-  constexpr std::size_t DOUBLE_SIMD_WIDTH = 4; // AVX doubles per register
-  ```
-
-### Level 2: Performance Infrastructure (Core)
-- **Files**: 
-  - `performance/simd_support.h` - SIMD operations and aligned allocators
-  - `performance/parallel_constants.h` - Parallel processing thresholds
-  - `common/common.h` - Basic mathematical constants
-- **Purpose**: Provides centralized performance constants and utilities
-- **Dependency**: Only depends on Level 1
-- **Key Features**:
-  - Platform-adaptive constants based on detected capabilities
-  - SIMD operation wrappers with fallbacks
-  - Parallel processing thresholds optimized for different workload types
-- **Example Constants**:
-  ```cpp
-  namespace performance::parallel {
-      constexpr std::size_t MIN_STATES_FOR_CALCULATOR_PARALLEL = 512;
-      constexpr std::size_t CALCULATOR_GRAIN_SIZE = 64;
-  }
-  namespace constants::simd {
-      constexpr std::size_t DEFAULT_BLOCK_SIZE = 8;
-      constexpr std::size_t MAX_BLOCK_SIZE = 32;
-  }
-  ```
-
-### Level 3: Optimized Classes (Implementation)
-- **Files**: 
-  - `common/optimized_vector.h` - High-performance vector operations
-  - `common/optimized_matrix.h` - High-performance matrix operations  
-  - `common/optimized_matrix3d.h` - High-performance 3D matrix operations
-- **Purpose**: High-performance data structures utilizing SIMD and parallel operations
-- **Dependency**: Uses Level 2 for constants and Level 1 detection macros
-- **Key Features**:
-  - Automatic SIMD vs serial selection based on data size
-  - Parallel execution for large datasets
-  - Cache-friendly memory layouts
-  - Backward compatibility with basic classes
-- **Example Usage**:
-  ```cpp
-  // In OptimizedVector.h
-  static constexpr std::size_t SIMD_BLOCK_SIZE = constants::simd::DEFAULT_BLOCK_SIZE;
-  static constexpr std::size_t PARALLEL_THRESHOLD = performance::parallel::MIN_WORK_PER_THREAD;
-  
-  T sum() const {
-      if (data_.size() > PARALLEL_THRESHOLD) {
-          return sum_parallel();
-      } else {
-          return sum_serial();
-      }
-  }
-  ```
-
-### Level 4: Application Classes (Integration)
-- **Usage**: 
-  - Calculator classes (Viterbi, Forward-Backward)
-  - Training algorithms (Baum-Welch)
-  - Other HMM components
-- **Purpose**: Integrates optimized classes into higher-level HMM functionality
-- **Dependency**: Uses Level 3 for high-performance operations
-- **Benefits**:
-  - Transparent performance improvements
-  - No API changes required for existing code
-  - Automatic platform optimization
-- **Example Integration**:
-  ```cpp
-  class ForwardBackwardCalculator {
-      OptimizedMatrix<double> alpha_;    // Automatically optimized
-      OptimizedVector<double> scaling_;  // SIMD operations
-      // Uses performance::parallel::MIN_STATES_FOR_CALCULATOR_PARALLEL
-  };
-  ```
-
-## Core Principles
-
-1. **Single Source of Truth**: All performance constants are defined in the performance module.
-2. **No Upward Dependencies**: Lower levels never include higher levels.
-3. **Consistent Constants Access**: Classes use `performance::` and `constants::` consistently.
-4. **Automatic Platform Adaptation**: Determines optimal settings at compile-time for any platform.
-
-## Benefits
-
-- **Modular Design**: Easy to test and maintain.
-- **Performance Scaling**: Automatically chooses SIMD/parallel based on data size.
-- **Platform Portability**: Adapts to use native instructions on macOS, Intel, etc.
-- **Maintainability**: Isolated changes at each level.
-- **Testing**: Independent testing at each hierarchy level.
-
-## Next Steps
-
-1. Implement full SIMD infrastructure in `simd_support.cpp`.
-2. Replace serial implementations with SIMD-optimized versions.
-3. Integrate into calculators and trainers.
-4. Benchmark improvements across platforms.
-
-This architecture ensures that libhmm can harness the full power of modern hardware for performance-critical operations efficiently and maintainably.
+Where SIMD lives, where threading lives, and what's reserved for future work.
+## SIMD strategy: per-distribution batch evaluation
+SIMD in libhmm targets the natural batch unit of HMM inference: "compute log P(O\_t | state\_i) for all T observations of a given state." Each `EmissionDistribution` exposes:
+```cpp path=null start=null
+void getBatchLogProbabilities(std::span<const double> observations,
+                              std::span<double> out) const;
+```
+The canonical calculators (`ForwardBackwardCalculator`, `ViterbiCalculator`) call this once per state per `compute()`, producing T contiguous log-emission values that the recurrences then consume from a flat row-major buffer.
+Two tiers of implementation:
+- **Tier 2 — explicit intrinsics.** `GaussianDistribution` and `ExponentialDistribution` ship hand-written `detail::` free functions with an AVX-512 → AVX/AVX2 → SSE2 → NEON → scalar dispatch chain. See `src/distributions/gaussian_distribution.cpp` `detail::gaussian_logpdf_batch` for the canonical shape. The free-function pattern is deliberately extractable to a separate TU for future runtime dispatch without API changes.
+- **Tier 1 — auto-vectorization-friendly loops.** The other 13 distributions implement `getBatchLogProbabilities` as concrete non-virtual loops over plain arrays, compiled with `LIBHMM_BEST_SIMD_FLAGS` (the highest CPU-verified ISA on the build machine). Whether the compiler actually emits vector instructions depends on the loop body — transcendentals like `std::exp` are not auto-vectorized by MSVC even with `/arch:AVX2`, so tier 1 is best read as "well-shaped scalar code" rather than "guaranteed SIMD."
+All 15 distribution TUs are listed in `LIBHMM_SIMD_SOURCES` in the top-level `CMakeLists.txt` and receive the SIMD compile flags.
+## Where SIMD does and doesn't live today
+- ✅ **Distribution batch emission evaluation** — `getBatchLogProbabilities`. Effective for emission-bound workloads (continuous distributions, large T). Tier 2 in particular delivers measurable speedups; tier 1 depends on compiler heuristics.
+- ⚠️ **Recurrence kernels** — FB max-reduce, BW xi accumulation, Viterbi inner loop. These are state×state inner loops dominated by `exp` / `log1p` calls. Currently scalar. The active perf-branch work introduces an internal `TranscendentalKernels` abstraction in `include/libhmm/performance/transcendental_kernels.h` with scalar today and AVX2/NEON backends planned, so future explicit vector-math implementations can plug in without rewriting the call sites.
+- The runtime `Matrix`/`Vector` typedefs in `common/common.h` resolve to `BasicMatrix<double>`/`BasicVector<double>`. The library no longer ships separate "optimized" container variants (see Historical context).
+## Threading: not currently used
+Production calculators and trainers run single-threaded on every workload. Specifically:
+- No code in `src/` instantiates a thread pool or invokes `std::execution::par_unseq` on the production path.
+- `ThreadPool` (in `platform/thread_pool.h`) is alive but only consumed by two diagnostic tools (`tools/analyze_overhead.cpp`, `tools/debug_parallel.cpp`); nothing in the library itself uses it.
+- The `std::atomic<bool>` cache in `DistributionBase` exists for read-safety in case a downstream consumer multiplexes a single HMM instance across threads, not because libhmm threads internally.
+### Where threading would have leverage if reintroduced
+- **Per-sequence work in Baum-Welch** — multiple training sequences are embarrassingly parallel; each computes its own α/β/γ/ξ contribution before a synchronized M-step accumulate. Determinism requires a stable reduction order.
+- **Per-state work inside a recurrence timestep** — each state's column in the FB max-reduce is independent. N is typically small (2-64), so a persistent pool with cache-line-aligned per-state buffers is the only way thread-launch overhead pays off; parallel reductions break determinism unless explicitly ordered.
+Any reintroduction of threading should come with an explicit determinism story and per-kernel scoping. A general-purpose work-stealing pool was tried in an earlier design pass and abandoned without a consumer; it should not be reintroduced without a target kernel in mind.
+## Build-time SIMD selection
+The build system picks the highest CPU-verified ISA per machine and applies it as a per-TU compile flag to `LIBHMM_SIMD_SOURCES`:
+- **GCC/Clang on all platforms**: `-march=native`. Selects NEON on AArch64, the highest available x86 ISA on Intel/AMD.
+- **MSVC on x86_64**: probes `/arch:AVX512`, `/arch:AVX2`, `/arch:AVX` via `check_cxx_source_runs` and selects the highest one the build machine can actually execute (not just the highest the compiler accepts). Falls back to SSE2 baseline in cross-compilation.
+- **AArch64**: NEON is the mandatory ISA baseline; no flag needed.
+See the `# SIMD DETECTION` block in `CMakeLists.txt` for details. The non-distribution sources (`src/common/`, `src/calculators/`, `src/training/`, `src/io/`, `src/performance/`) compile at the platform baseline ISA so that explicit intrinsics in the distribution TUs are the only place SIMD codegen is committed to.
+## Historical context
+An earlier draft of this document described a four-level hierarchy in which calculators consumed `OptimizedMatrix`/`OptimizedVector` containers and a `WorkStealingPool` provided per-state parallelism. That plan was superseded by the v3.0.0-alpha (Phase 4) refactor (see `CHANGELOG.md`), which removed the per-calculator SIMD variants (`ScaledSIMD*`, `LogSIMD*`, `AdvancedLog*`) in favor of the per-distribution batch interface documented above. The Optimized\* containers, `WorkStealingPool`, the per-library `Benchmark` framework, and the parallel-execution constants/utilities they depended on were retained for several releases as "future hooks" but never wired into the canonical calculator/trainer pipeline; they were removed in a subsequent dead-code cleanup. The SIMD investment in `getBatchLogProbabilities` is the canonical and current strategy.
