@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   macOS 10.15 setup that sanitizes Homebrew-sensitive environment variables,
   pins AppleClang via `xcrun`, sets sysroot, and configures
   `CMAKE_OSX_DEPLOYMENT_TARGET=10.15`.
+- **Segmental k-means example** (`examples/segmental_kmeans_example.cpp`):
+  closes the only example-coverage gap. Demonstrates standalone use, the
+  Baum-Welch warm-start pattern, and the discrete-only constraint.
 
 ### Changed
 
@@ -25,6 +28,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Catalina test dependency policy** (`tests/CMakeLists.txt`): on Catalina,
   GTest is forced through FetchContent instead of Homebrew discovery to avoid
   mixed-runtime linkage.
+- **ThreadPool relocation** (`tools/thread_pool.{h,cpp}`): moved out of the
+  library and into `tools/`. Only `analyze_overhead` and `debug_parallel`
+  consumed it; no production code path uses thread pools today. Trimmed
+  dead-on-arrival `ThreadAffinityGuard` and unused `CpuInfo` cache-size
+  helpers while moving.
+- **Phase-1 forwarding-stub migration**: deleted six 4-line stubs in
+  `include/libhmm/common/` and `include/libhmm/performance/` (`basic_*`,
+  `optimized_*`, `linear_algebra`, `numerical_stability`, `simd_platform`,
+  `simd_support`); migrated the six remaining call sites to the canonical
+  `linalg/`, `math/`, and `platform/` paths.
+- **Performance docs rewrite** (`performance/PERFORMANCE_ARCHITECTURE.md`):
+  replaced the abandoned Plan-A four-level-hierarchy description with the
+  canonical Plan-B per-distribution batch-SIMD strategy (matches what
+  `getBatchLogProbabilities` actually does in production).
+
+### Fixed
+
+- **Windows examples crash** (`examples/CMakeLists.txt`): switched all
+  examples to link against `hmm_static` instead of the `hmm` DLL. Mixed
+  `std::vector`-based types across the .exe / .dll boundary on MSVC produced
+  `STATUS_STACK_BUFFER_OVERRUN` at runtime in Release (and an access
+  violation in Debug) before any output was emitted. Tests already linked
+  statically for the same reason; examples now follow suit.
+
+### Removed
+
+- **Dead `LogSpaceOps`** (`include/libhmm/math/log_space_ops.h`,
+  `src/performance/log_space_ops.cpp`): zero callers outside the file pair
+  itself; the misleading SIMD path computed a mask but never consumed it,
+  and a header-defined `static LogSpaceInitializer globalLogSpaceInit`
+  created per-TU static initialisers. Removed entirely.
+- **Dead `WorkStealingPool`** (`include/libhmm/platform/work_stealing_pool.h`,
+  `src/performance/work_stealing_pool.cpp`): only used inside its own
+  file pair; the .cpp was not even in `LIBHMM_SOURCES` so the class could
+  not link. Speculative Plan-A parallelism layer with no consumer.
+- **Dead `Benchmark` framework** (`include/libhmm/platform/benchmark.h`):
+  declared `Timer`, `Benchmark`, `BenchmarkResult`, `BenchmarkStats`,
+  `HmmBenchmarkUtils`, and `RegressionTester` but nothing implemented or
+  used them. Benchmarks under `benchmarks/src/` define their own local
+  timing structs.
+- **Dead `Optimized*` class family** (`include/libhmm/linalg/optimized_*.h`,
+  `src/common/optimized_*_simd.cpp`, three dedicated test files): the
+  Plan-A high-performance data layer that the Phase-4 refactor superseded
+  with per-distribution batch SIMD via `getBatchLogProbabilities`. ~3,200
+  lines removed; production `Matrix`/`Vector` typedefs continue to resolve
+  to `BasicMatrix<double>`/`BasicVector<double>`.
+- **Dead training scaffolding**: `Centroid`, `Cluster`, the `HmmTrainer =
+  Trainer` alias, the `SegmentedKMeansTrainer = SegmentalKMeansTrainer`
+  alias, and the isolated tests that exercised `Centroid`/`Cluster` only
+  through their own getters/setters.
+- **Orphaned parallelism constants/utilities**
+  (`include/libhmm/platform/parallel_{constants,execution}.h`): zero
+  consumers after `Optimized*` removal; ten size/grain-size thresholds
+  and a `safe_*` algorithm-wrapper family that nothing called.
+- **Dead `SIMDOps`** (`include/libhmm/platform/simd_support.h`,
+  `src/performance/simd_support.cpp`): ~600 lines of SSE2/AVX/NEON
+  dot/add/multiply specialisations with no callers. Distributions and
+  the `simd_inspection` tool depend only on `simd_platform.h` directly.
+- **Uncompiled `optimized_simd_stubs.cpp`**: 198 lines of `_simd`
+  template-method specialisations for the now-removed `Optimized*` types.
+  Was never in `LIBHMM_SOURCES` so it never built.
+- **Stale design docs**: `include/libhmm/common/matrix_architecture.md`
+  (described the abandoned Plan-A `Optimized*` hierarchy) and
+  `tests/performance/README.md` (referenced five development tools, three
+  of which were removed long ago, plus calculator variants and constants
+  removed in this cleanup).
+
+Net effect: roughly 6,500 lines of dead code and stale infrastructure
+removed; 33/33 tests still pass; production behaviour unchanged.
 
 ## [3.1.2] - 2026-04-26
 

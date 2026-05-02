@@ -7,7 +7,7 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 ## Current Status
 
 **Version**: v3.1.2 — latest tag and published release on `main`.
-**Tests**: 36/36 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
+**Tests**: 33/33 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
 **Active phase**: Complete. All phases through Post-Phase 5 (CI/tooling, benchmarks) are done.
 
 ---
@@ -37,7 +37,7 @@ include/libhmm/
 └── io/             # XML I/O
 src/                # Implementation (mirrors include/)
 tests/              # GTest suite — levels 0–7 (see tests/CMakeLists.txt)
-examples/           # 12 usage demonstrations (all canonical API)
+examples/           # 13 usage demonstrations (all canonical API)
 tools/              # Standalone diagnostic/benchmarking executables
 benchmarks/         # Comparative benchmarks
 │   ├── src/        #   libhmm vs HMMLib / LAMP / JAHMM (Windows+Unix)
