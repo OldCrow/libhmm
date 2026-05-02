@@ -7,13 +7,10 @@ matching the library layered dependency graph.
 
 ```
 tests/
-├── common/                     # Levels 1-2: Math, Linear Algebra
+├── common/                     # Level 1: Math, basic types
 │   ├── test_modern_constants.cpp
 │   ├── test_numerical_stability.cpp
-│   ├── test_common.cpp
-│   ├── test_optimized_linear_operations.cpp
-│   ├── test_linear_operations_classes.cpp
-│   └── test_optimized_matrix3d.cpp
+│   └── test_common.cpp
 ├── distributions/              # Level 3: All 15 distributions
 │   ├── test_distributions.cpp
 │   ├── test_distribution_type_safety.cpp
@@ -35,8 +32,6 @@ tests/
 │   └── test_hmm_stream_io.cpp
 ├── integration/                # Level 7: End-to-end
 │   └── test_end_to_end.cpp
-├── performance/
-│   └── README.md               (tools moved to tools/ in Phase 4.5.2)
 ├── CMakeLists.txt
 └── TESTING_STRATEGY.md
 ```
@@ -44,7 +39,7 @@ tests/
 ## Running Tests
 
 ```bash
-# Standard run -- all 36 tests (mirrors CI)
+# Standard run -- all 33 tests (mirrors CI)
 ctest --test-dir build -C Release --output-on-failure
 
 # cmake custom targets
@@ -64,12 +59,13 @@ cmake --build build --config Release --target test_canonical_calculators
 | Level | Content |
 |-------|---------|
 | 1 | Math & Numerics |
-| 2 | Linear Algebra |
 | 3 | Distributions (15 individual + 4 shared) |
 | 4 | Core HMM |
 | 5 | Calculators |
 | 6 | Trainers |
 | 7 | IO + Integration |
+
+(Level 2 'Linear Algebra' tests were removed alongside the dead `Optimized*` class family.)
 
 ## Warning Policy
 
@@ -90,4 +86,4 @@ Performance tools live in tools/, not tests/:
 
 ---
 
-36/36 tests pass on all platforms (Linux/GCC, Linux/Clang, macOS, Windows/MSVC).
+33/33 tests pass on all platforms (Linux/GCC, Linux/Clang, macOS, Windows/MSVC).
