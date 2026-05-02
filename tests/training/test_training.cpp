@@ -2,8 +2,6 @@
 #include "libhmm/training/baum_welch_trainer.h"
 #include "libhmm/training/viterbi_trainer.h"
 #include "libhmm/training/segmental_kmeans_trainer.h"
-#include "libhmm/training/cluster.h"
-#include "libhmm/training/centroid.h"
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/discrete_distribution.h"
 #include "libhmm/distributions/gaussian_distribution.h"
@@ -187,7 +185,7 @@ TEST_F(TrainingTest, ViterbiTrainerBasicFunctionality) {
     EXPECT_FALSE(trainer.getObservationLists().empty());
 }
 
-// Segmental K-Means Trainer Tests (SegmentedKMeansTrainer is the compatibility alias)
+// Segmental K-Means Trainer Tests
 TEST_F(TrainingTest, SegmentalKMeansTrainerConstruction) {
     EXPECT_NO_THROW(SegmentalKMeansTrainer(discreteHmm_.get(), discreteObsLists_));
 }
@@ -197,81 +195,6 @@ TEST_F(TrainingTest, SegmentalKMeansTrainerBasicFunctionality) {
 
     EXPECT_FALSE(trainer.isTerminated());
     EXPECT_EQ(&trainer.getHmm(), discreteHmm_.get());
-}
-
-// Cluster and Centroid Tests
-TEST_F(TrainingTest, CentroidFunctionality) {
-    Centroid centroid;
-
-    // Test initial state
-    EXPECT_DOUBLE_EQ(centroid.getValue(), 0.0);
-
-    // Test setting value
-    centroid.setValue(5.0);
-    EXPECT_DOUBLE_EQ(centroid.getValue(), 5.0);
-
-    // Test distance calculation
-    double distance = centroid.distance(7.0);
-    EXPECT_DOUBLE_EQ(distance, 2.0);
-
-    // Test adding observations
-    centroid.add(10.0, 0); // Adding to empty centroid
-    EXPECT_DOUBLE_EQ(centroid.getValue(), 10.0);
-
-    centroid.add(20.0, 1);                       // Now we have one observation, adding another
-    EXPECT_DOUBLE_EQ(centroid.getValue(), 15.0); // (10 + 20) / 2
-}
-
-TEST_F(TrainingTest, CentroidWithObservations) {
-    std::vector<Observation> observations = {1.0, 2.0, 3.0, 4.0, 5.0};
-
-    Centroid centroid;
-    centroid.setValue(observations);
-
-    // Mean should be 3.0
-    EXPECT_DOUBLE_EQ(centroid.getValue(), 3.0);
-}
-
-TEST_F(TrainingTest, ClusterFunctionality) {
-    Cluster cluster(5.0); // Initialize with observation 5.0
-
-    EXPECT_EQ(cluster.size(), 1);
-    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), 5.0);
-
-    // Test adding observations
-    cluster.onlineAdd(7.0);
-    EXPECT_EQ(cluster.size(), 2);
-
-    // Test batch add (doesn't update centroid immediately)
-    cluster.batchAdd(9.0);
-    EXPECT_EQ(cluster.size(), 3);
-
-    // Recalculate centroid
-    cluster.recalculateCentroid();
-    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), (5.0 + 7.0 + 9.0) / 3.0);
-
-    // Test distance calculation
-    double distance = cluster.getDistance(6.0);
-    EXPECT_GT(distance, 0.0);
-
-    // Test getting observations
-    auto observations = cluster.getObservations();
-    EXPECT_EQ(observations.size(), 3u);
-}
-
-TEST_F(TrainingTest, ClusterRemoveObservation) {
-    Cluster cluster(10.0);
-    cluster.onlineAdd(20.0);
-    cluster.onlineAdd(30.0);
-
-    EXPECT_EQ(cluster.size(), 3);
-
-    // Remove an observation
-    cluster.remove(20.0);
-    EXPECT_EQ(cluster.size(), 2);
-
-    // Centroid should update to mean of remaining observations
-    EXPECT_DOUBLE_EQ(cluster.getCentroidValue(), (10.0 + 30.0) / 2.0);
 }
 
 // Integration Tests

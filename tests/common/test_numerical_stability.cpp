@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "libhmm/common/numerical_stability.h"
+#include "libhmm/math/numerical_stability.h"
 #include <limits>
 #include <cmath>
 

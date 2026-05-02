@@ -6,8 +6,8 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 
 ## Current Status
 
-**Version**: v3.1.2 — latest tag and published release on `main`.
-**Tests**: 36/36 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
+**Version**: v3.2.0 — latest tag and published release on `main`.
+**Tests**: 33/33 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
 **Active phase**: Complete. All phases through Post-Phase 5 (CI/tooling, benchmarks) are done.
 
 ---
@@ -37,7 +37,7 @@ include/libhmm/
 └── io/             # XML I/O
 src/                # Implementation (mirrors include/)
 tests/              # GTest suite — levels 0–7 (see tests/CMakeLists.txt)
-examples/           # 12 usage demonstrations (all canonical API)
+examples/           # 13 usage demonstrations (all canonical API)
 tools/              # Standalone diagnostic/benchmarking executables
 benchmarks/         # Comparative benchmarks
 │   ├── src/        #   libhmm vs HMMLib / LAMP / JAHMM (Windows+Unix)
@@ -72,7 +72,7 @@ Both are always produced regardless of `BUILD_SHARED_LIBS`. Tests link against
 
 3. **Compile-time SIMD dispatch** — source-distributed; each machine builds for its own CPU. GCC/Clang: `-march=native`. MSVC: `check_cxx_source_runs`-verified `/arch:AVX512`/`AVX2`/`AVX`. All 15 distribution TUs in `LIBHMM_SIMD_SOURCES`. Tier 2 explicit intrinsics: Gaussian + Exponential via `detail::` free functions (extractable to separate TU for future runtime dispatch).
 
-4. **Thread-safe cache** — `std::atomic<bool> cacheValid_` in `DistributionBase`. Avoids mutex; safe for concurrent const reads from the calculator thread pool.
+4. **Thread-safe cache** — `std::atomic<bool> cacheValid_` in `DistributionBase`. Avoids mutex; safe for concurrent const reads if the library is invoked from multiple threads (calculators and trainers themselves run single-threaded — see `performance/PERFORMANCE_ARCHITECTURE.md`).
 
 5. **`TrainingConfig` presets** — `training_presets::fast()`, `balanced()`, `precise()` in `viterbi_trainer.h`.
 

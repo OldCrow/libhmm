@@ -1,6 +1,6 @@
 # libhmm Examples
 
-This directory contains 12 comprehensive examples demonstrating real-world applications of Hidden Markov Models using the libhmm library. Each example showcases different probability distributions and modeling scenarios, covering major application domains from finance to manufacturing.
+This directory contains 13 comprehensive examples demonstrating real-world applications of Hidden Markov Models using the libhmm library. Each example showcases different probability distributions and modeling scenarios, covering major application domains from finance to manufacturing.
 
 ## Building Examples
 
@@ -12,6 +12,7 @@ cmake --build build --config Release
 ./build/examples/Release/basic_hmm_example
 ./build/examples/Release/baum_welch_example
 ./build/examples/Release/viterbi_trainer_example
+./build/examples/Release/segmental_kmeans_example
 ./build/examples/Release/student_t_hmm_example
 ./build/examples/Release/poisson_hmm_example
 ./build/examples/Release/financial_hmm_example
@@ -36,6 +37,20 @@ cmake --build build --config Release
 - Multiple distribution demonstrations
 - Forward-backward algorithm comparisons
 - Modern C++17 coding patterns
+
+---
+
+### 🎯 [segmental_kmeans_example.cpp](segmental_kmeans_example.cpp)
+**Topic**: Hard-assignment training for discrete-emission HMMs  
+**Distributions**: Discrete  
+**Concepts**: K-means style training, Baum-Welch warm-start pattern, discrete-only constraint  
+**Use Case**: Fast initialisation of discrete HMMs before EM refinement  
+
+**Key Features:**
+- Path A: SegmentalKMeansTrainer used standalone on a 2-state biased-die HMM
+- Path B: segmental k-means warm-start followed by Baum-Welch refinement
+- Constraint demonstration: trainer rejects non-discrete distributions with `std::runtime_error`
+- Log-likelihood comparison across the two training paths
 
 ---
 
@@ -228,7 +243,7 @@ Each example includes:
 1. **Start with `basic_hmm_example.cpp`** to understand fundamental concepts
 2. **Choose domain-specific examples** based on your application:
    - Count data → `poisson_hmm_example.cpp`
-   - Financial data → `financial_hmm_example.cpp` or `robust_financial_hmm_example.cpp`
+   - Financial data → `financial_hmm_example.cpp` or `student_t_hmm_example.cpp`
    - Reliability data → `reliability_hmm_example.cpp`
    - Quality data → `quality_control_hmm_example.cpp` or `statistical_process_control_hmm_example.cpp`
    - Economics → `economics_hmm_example.cpp`
