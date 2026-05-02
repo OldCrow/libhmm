@@ -2,10 +2,15 @@
 # These are standalone executables built against the hmm library.
 # They are NOT registered with CTest; run them manually from build/tools/.
 
-# Helper: create a tool executable with standard settings
-function(add_hmm_tool TARGET_NAME SOURCE_FILE)
-    add_executable(${TARGET_NAME} ${SOURCE_FILE})
-    target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
+# Helper: create a tool executable with standard settings.
+# Accepts one or more source files (the first is the canonical one;
+# additional sources let tools pull in shared utilities like thread_pool.cpp).
+function(add_hmm_tool TARGET_NAME)
+    add_executable(${TARGET_NAME} ${ARGN})
+    target_include_directories(${TARGET_NAME}
+        PRIVATE
+            ${CMAKE_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR})
 
     if(LINUX)
         target_link_libraries(${TARGET_NAME} hmm m)
@@ -22,15 +27,12 @@ function(add_hmm_tool TARGET_NAME SOURCE_FILE)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools")
 endfunction()
 
-# =============================================================================
-# Moved from tests/performance/ (clean — no removed-API dependencies)
-# =============================================================================
-add_hmm_tool(analyze_overhead  analyze_overhead.cpp)
-add_hmm_tool(debug_parallel    debug_parallel.cpp)
+# Tool-local thread pool (analyze_overhead and debug_parallel only).
+# Lives here, not in the library, because no production code uses it.
+set(LIBHMM_TOOL_THREADPOOL thread_pool.cpp)
 
-# =============================================================================
-# New tools (Phase 4.5.2)
-# =============================================================================
+add_hmm_tool(analyze_overhead  analyze_overhead.cpp ${LIBHMM_TOOL_THREADPOOL})
+add_hmm_tool(debug_parallel    debug_parallel.cpp   ${LIBHMM_TOOL_THREADPOOL})
 add_hmm_tool(simd_inspection   simd_inspection.cpp)
 add_hmm_tool(batch_performance batch_performance.cpp)
 add_hmm_tool(hmm_validator     hmm_validator.cpp)

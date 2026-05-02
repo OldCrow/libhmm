@@ -217,34 +217,12 @@ public:
     static ThreadPool &getGlobalThreadPool();
 };
 
-/// RAII helper for thread affinity setting
-class ThreadAffinityGuard {
-private:
-    bool affinitySet_;
-    std::thread::id threadId_;
-
-public:
-    /// Constructor that optionally sets thread affinity
-    /// @param cpuId CPU core to bind to (-1 for no binding)
-    explicit ThreadAffinityGuard(int cpuId = -1);
-
-    /// Destructor restores original affinity
-    ~ThreadAffinityGuard();
-
-    /// Set thread affinity to specific CPU core
-    /// @param cpuId CPU core ID
-    /// @return True if affinity was successfully set
-    bool setAffinity(int cpuId);
-
-    /// Get current CPU core (if available)
-    /// @return Current CPU core ID or -1 if unknown
-    int getCurrentCpu() const noexcept;
-};
-
-/// CPU information and optimization hints
+/// CPU information used by ThreadPool::getOptimalThreadCount() to choose
+/// physical-core count when hyperthreading is detected.
 class CpuInfo {
 public:
-    /// CPU feature flags
+    /// CPU feature flags. Only `hasHyperthreading` is consumed today;
+    /// the SIMD bools are populated for completeness and future use.
     struct Features {
         bool hasSSE2 = false;
         bool hasSSE4_1 = false;
@@ -256,36 +234,13 @@ public:
     };
 
     /// Get CPU feature information
-    /// @return CPU features detected at runtime
     static Features getCpuFeatures() noexcept;
 
-    /// Get number of physical CPU cores
-    /// @return Number of physical cores
+    /// Get number of physical CPU cores (one entry per physical chip+core).
     static std::size_t getPhysicalCores() noexcept;
 
-    /// Get number of logical CPU cores (including hyperthreads)
-    /// @return Number of logical cores
+    /// Get number of logical CPU cores (including hyperthreads).
     static std::size_t getLogicalCores() noexcept;
-
-    /// Get L1 cache size per core
-    /// @return L1 cache size in bytes
-    static std::size_t getL1CacheSize() noexcept;
-
-    /// Get L2 cache size per core
-    /// @return L2 cache size in bytes
-    static std::size_t getL2CacheSize() noexcept;
-
-    /// Get L3 cache size (shared)
-    /// @return L3 cache size in bytes
-    static std::size_t getL3CacheSize() noexcept;
-
-    /// Get cache line size
-    /// @return Cache line size in bytes
-    static std::size_t getCacheLineSize() noexcept;
-
-    /// Get CPU information summary
-    /// @return String describing CPU capabilities
-    static std::string getCpuInfoString();
 };
 
 } // namespace performance
