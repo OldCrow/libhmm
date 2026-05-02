@@ -79,9 +79,6 @@
 /// SIMD support detection and vectorized operations (includes simd_platform.h)
 #include "libhmm/performance/simd_support.h"
 
-/// Basic thread pool for parallel processing
-#include "libhmm/performance/thread_pool.h"
-
 //==============================================================================
 // CONVENIENCE UTILITIES
 //==============================================================================
