@@ -142,20 +142,32 @@ if(GTest_FOUND OR TARGET gtest)
     set(ALL_TEST_TARGETS "")
 
     # =========================================================================
-    # Level 0: Platform
-    # No tests yet. test_simd_platform will be added in Phase 4.5.2 (tools)
-    # and referenced here when a portable SIMD-capability test is available.
+    # Platform Capabilities
     # =========================================================================
+    add_hmm_test(test_simd_platform platform/test_simd_platform.cpp)
 
     # =========================================================================
-    # Level 1: Math & Numerics
+    # Math & Numerics
     # =========================================================================
     add_hmm_test(test_modern_constants    common/test_modern_constants.cpp)
     add_hmm_test(test_numerical_stability common/test_numerical_stability.cpp)
     add_hmm_test(test_common              common/test_common.cpp)
 
     # =========================================================================
-    # Level 3: Distributions
+    # Performance Primitives
+    # Cross-cutting SIMD kernels consumed by both calculators and trainers.
+    # Compiled with LIBHMM_BEST_SIMD_FLAGS so the active SIMD path matches
+    # the production library -- parity is checked against std::exp.
+    # =========================================================================
+    add_hmm_test(test_transcendental_kernels performance/test_transcendental_kernels.cpp)
+    if(LIBHMM_BEST_SIMD_FLAGS)
+        set_source_files_properties(
+            performance/test_transcendental_kernels.cpp
+            PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}")
+    endif()
+
+    # =========================================================================
+    # Distributions
     # =========================================================================
     add_hmm_test(test_distribution_traits       distributions/test_distribution_traits.cpp)
     add_hmm_test(test_distributions_header      distributions/test_distributions_header.cpp)
@@ -178,12 +190,12 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_weibull_distribution           distributions/test_weibull_distribution.cpp)
 
     # =========================================================================
-    # Level 4: Core HMM
+    # Core HMM
     # =========================================================================
     add_hmm_test(test_hmm_core test_hmm_core.cpp)
 
     # =========================================================================
-    # Level 5: Calculators
+    # Calculators
     # =========================================================================
     add_hmm_test(test_canonical_calculators calculators/test_canonical_calculators.cpp)
     add_hmm_test(test_calculator_continuous calculators/test_calculator_continuous.cpp)
@@ -191,7 +203,7 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_fb_mode_parity        calculators/test_fb_mode_parity.cpp)
 
     # =========================================================================
-    # Level 6: Trainers
+    # Trainers
     # =========================================================================
     add_hmm_test(test_canonical_training     training/test_canonical_training.cpp)
     add_hmm_test(test_training               training/test_training.cpp)
@@ -200,24 +212,11 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_bw_parity              training/test_bw_parity.cpp)
 
     # =========================================================================
-    # Level 7: IO & Integration
+    # IO & Integration
     # =========================================================================
     add_hmm_test(test_xml_file_io   io/test_xml_file_io.cpp)
     add_hmm_test(test_hmm_stream_io io/test_hmm_stream_io.cpp)
     add_hmm_test(test_end_to_end    integration/test_end_to_end.cpp)
-
-    # =========================================================================
-    # Level 8: Kernel Primitives
-    # Cross-cutting performance kernels consumed by both calculators and
-    # trainers.  Compiled with LIBHMM_BEST_SIMD_FLAGS so the active SIMD path
-    # matches the production library — parity is checked against std::exp.
-    # =========================================================================
-    add_hmm_test(test_transcendental_kernels performance/test_transcendental_kernels.cpp)
-    if(LIBHMM_BEST_SIMD_FLAGS)
-        set_source_files_properties(
-            performance/test_transcendental_kernels.cpp
-            PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}")
-    endif()
 
 else()
     message(STATUS "Google Test not found - building basic test suite only")

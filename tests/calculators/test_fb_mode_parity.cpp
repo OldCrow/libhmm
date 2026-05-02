@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "libhmm/calculators/fb_recurrence_policy.h"
+#include "libhmm/performance/fb_recurrence_policy.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
 #include "libhmm/distributions/discrete_distribution.h"
 #include "libhmm/distributions/gaussian_distribution.h"

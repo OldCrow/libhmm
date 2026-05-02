@@ -3,13 +3,9 @@
 //
 // Internal header — NOT part of the public API.
 //
-// Provides inline vector exp/log helpers for use by Tier-2 distribution
-// TUs (log_normal_distribution.cpp, pareto_distribution.cpp, etc.) that
-// are compiled with LIBHMM_BEST_SIMD_FLAGS.
-//
-// This header defines the same helpers that transcendental_kernels.cpp
-// uses internally.  Keeping them here avoids cross-TU linkage while still
-// allowing multiple distribution TUs to share the implementation.
+// Single source of truth for vector exp/log helpers shared between
+// transcendental_kernels.cpp and Tier-2 distribution TUs
+// (log_normal_distribution.cpp, pareto_distribution.cpp).
 //
 // Include only from .cpp files compiled with LIBHMM_BEST_SIMD_FLAGS.
 
@@ -25,7 +21,7 @@ namespace detail {
 namespace kernels {
 
 // ---------------------------------------------------------------------------
-// Shared constants (must match transcendental_kernels.cpp).
+// Shared constants
 // ---------------------------------------------------------------------------
 static constexpr double K_LN2_HI = 6.93147180369123816490e-1;
 static constexpr double K_LN2_LO = 1.90821492927058770002e-10;

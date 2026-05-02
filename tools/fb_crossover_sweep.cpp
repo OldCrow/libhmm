@@ -6,7 +6,7 @@
 //
 // Output: tab-separated table of N, pairwise_ms, maxreduce_ms, ratio.
 
-#include "libhmm/calculators/fb_recurrence_policy.h"
+#include "libhmm/performance/fb_recurrence_policy.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
 #include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/hmm.h"
