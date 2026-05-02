@@ -27,11 +27,14 @@ function(add_hmm_example target_name source_file)
     target_include_directories(${target_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/support)
     
-    # Link with hmm library and platform-specific math library
+    # Link with hmm library and platform-specific math library.
+    # Using hmm_static avoids Windows DLL boundary issues that can corrupt
+    # std::vector iterator state across the .exe / .dll boundary in Release
+    # builds (the same reason tests link statically; see tests/CMakeLists.txt).
     if(LINUX)
-        target_link_libraries(${target_name} hmm m)
+        target_link_libraries(${target_name} hmm_static m)
     else()
-        target_link_libraries(${target_name} hmm)
+        target_link_libraries(${target_name} hmm_static)
     endif()
     
     # Apply LLVM-specific linking flags if needed
@@ -58,6 +61,9 @@ add_hmm_example(baum_welch_example baum_welch_example.cpp)
 # Viterbi training with TrainingConfig presets
 add_hmm_example(viterbi_trainer_example viterbi_trainer_example.cpp)
 
+# Segmental k-means training (discrete-only; useful as a Baum-Welch warm-start)
+add_hmm_example(segmental_kmeans_example segmental_kmeans_example.cpp)
+
 # Continuous distributions
 add_hmm_example(poisson_hmm_example              poisson_hmm_example.cpp)
 add_hmm_example(financial_hmm_example            financial_hmm_example.cpp)
@@ -76,6 +82,7 @@ install(TARGETS
     basic_hmm_example
     baum_welch_example
     viterbi_trainer_example
+    segmental_kmeans_example
     poisson_hmm_example
     financial_hmm_example
     reliability_hmm_example
