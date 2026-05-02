@@ -525,7 +525,6 @@ set(LIBHMM_SOURCES
     src/io/file_io_manager.cpp
     src/io/xml_file_reader.cpp
     src/io/xml_file_writer.cpp
-    src/performance/simd_support.cpp
 )
 
 # ── Library targets ───────────────────────────────────────────────────────────

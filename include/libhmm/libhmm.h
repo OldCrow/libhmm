@@ -73,13 +73,6 @@
 #include "libhmm/io/xml_file_writer.h"
 
 //==============================================================================
-// PERFORMANCE OPTIMIZATION
-//==============================================================================
-
-/// SIMD support detection and vectorized operations (includes simd_platform.h)
-#include "libhmm/platform/simd_support.h"
-
-//==============================================================================
 // CONVENIENCE UTILITIES
 //==============================================================================
 
