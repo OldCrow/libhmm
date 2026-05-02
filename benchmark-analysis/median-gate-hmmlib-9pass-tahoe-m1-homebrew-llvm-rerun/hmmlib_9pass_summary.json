@@ -1,0 +1,117 @@
+{
+  "control_median_ratio_hmmlib_over_libhmm": 7.595913843781621,
+  "adaptive_median_ratio_hmmlib_over_libhmm": 7.60328317373461,
+  "delta_percent_adaptive_vs_control": 0.09701702921527999,
+  "control_passes": [
+    {
+      "pass": 1,
+      "libhmm_avg_throughput_obs_per_ms": 3340.7,
+      "hmmlib_avg_throughput_obs_per_ms": 27567.1,
+      "ratio_hmmlib_over_libhmm": 8.251893315772143
+    },
+    {
+      "pass": 2,
+      "libhmm_avg_throughput_obs_per_ms": 4187.9,
+      "hmmlib_avg_throughput_obs_per_ms": 31588.5,
+      "ratio_hmmlib_over_libhmm": 7.542801881611309
+    },
+    {
+      "pass": 3,
+      "libhmm_avg_throughput_obs_per_ms": 4171.2,
+      "hmmlib_avg_throughput_obs_per_ms": 31666.0,
+      "ratio_hmmlib_over_libhmm": 7.591580360567702
+    },
+    {
+      "pass": 4,
+      "libhmm_avg_throughput_obs_per_ms": 4182.0,
+      "hmmlib_avg_throughput_obs_per_ms": 31595.3,
+      "ratio_hmmlib_over_libhmm": 7.555069344811095
+    },
+    {
+      "pass": 5,
+      "libhmm_avg_throughput_obs_per_ms": 4150.6,
+      "hmmlib_avg_throughput_obs_per_ms": 31527.6,
+      "ratio_hmmlib_over_libhmm": 7.595913843781621
+    },
+    {
+      "pass": 6,
+      "libhmm_avg_throughput_obs_per_ms": 3931.3,
+      "hmmlib_avg_throughput_obs_per_ms": 31573.2,
+      "ratio_hmmlib_over_libhmm": 8.031236486658358
+    },
+    {
+      "pass": 7,
+      "libhmm_avg_throughput_obs_per_ms": 4176.6,
+      "hmmlib_avg_throughput_obs_per_ms": 31611.1,
+      "ratio_hmmlib_over_libhmm": 7.568620408945074
+    },
+    {
+      "pass": 8,
+      "libhmm_avg_throughput_obs_per_ms": 4161.4,
+      "hmmlib_avg_throughput_obs_per_ms": 31685.3,
+      "ratio_hmmlib_over_libhmm": 7.614096217619071
+    },
+    {
+      "pass": 9,
+      "libhmm_avg_throughput_obs_per_ms": 4164.3,
+      "hmmlib_avg_throughput_obs_per_ms": 31757.8,
+      "ratio_hmmlib_over_libhmm": 7.626203683692337
+    }
+  ],
+  "adaptive_passes": [
+    {
+      "pass": 1,
+      "libhmm_avg_throughput_obs_per_ms": 3561.1,
+      "hmmlib_avg_throughput_obs_per_ms": 27534.9,
+      "ratio_hmmlib_over_libhmm": 7.732133329589172
+    },
+    {
+      "pass": 2,
+      "libhmm_avg_throughput_obs_per_ms": 4057.8,
+      "hmmlib_avg_throughput_obs_per_ms": 31262.9,
+      "ratio_hmmlib_over_libhmm": 7.704396470994134
+    },
+    {
+      "pass": 3,
+      "libhmm_avg_throughput_obs_per_ms": 4046.3,
+      "hmmlib_avg_throughput_obs_per_ms": 31150.0,
+      "ratio_hmmlib_over_libhmm": 7.698391122754121
+    },
+    {
+      "pass": 4,
+      "libhmm_avg_throughput_obs_per_ms": 4090.4,
+      "hmmlib_avg_throughput_obs_per_ms": 30688.5,
+      "ratio_hmmlib_over_libhmm": 7.502566986113828
+    },
+    {
+      "pass": 5,
+      "libhmm_avg_throughput_obs_per_ms": 4102.6,
+      "hmmlib_avg_throughput_obs_per_ms": 31126.7,
+      "ratio_hmmlib_over_libhmm": 7.58706673816604
+    },
+    {
+      "pass": 6,
+      "libhmm_avg_throughput_obs_per_ms": 4093.6,
+      "hmmlib_avg_throughput_obs_per_ms": 31124.8,
+      "ratio_hmmlib_over_libhmm": 7.60328317373461
+    },
+    {
+      "pass": 7,
+      "libhmm_avg_throughput_obs_per_ms": 4134.9,
+      "hmmlib_avg_throughput_obs_per_ms": 31160.5,
+      "ratio_hmmlib_over_libhmm": 7.535974267817844
+    },
+    {
+      "pass": 8,
+      "libhmm_avg_throughput_obs_per_ms": 4111.6,
+      "hmmlib_avg_throughput_obs_per_ms": 30903.3,
+      "ratio_hmmlib_over_libhmm": 7.516125109446444
+    },
+    {
+      "pass": 9,
+      "libhmm_avg_throughput_obs_per_ms": 3833.6,
+      "hmmlib_avg_throughput_obs_per_ms": 31131.7,
+      "ratio_hmmlib_over_libhmm": 8.120748121869783
+    }
+  ]
+}
