@@ -48,11 +48,11 @@ typedef int StateIndex;
 
 } // namespace libhmm
 
-// linalg types (headers forward to libhmm/linalg/ as of Phase 1 refactor)
-// Must be included after basic typedefs to avoid naming conflicts
-#include "libhmm/common/basic_matrix.h"
-#include "libhmm/common/basic_vector.h"
-#include "libhmm/common/basic_matrix3d.h"
+// linalg types live in libhmm/linalg/ (Phase 1 refactor).
+// Must be included after basic typedefs to avoid naming conflicts.
+#include "libhmm/linalg/basic_matrix.h"
+#include "libhmm/linalg/basic_vector.h"
+#include "libhmm/linalg/basic_matrix3d.h"
 
 // Constants extracted to their own header in Phase 1 refactor
 #include "libhmm/math/constants.h"

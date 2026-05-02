@@ -1,4 +1,4 @@
-#include "libhmm/performance/simd_support.h"
+#include "libhmm/platform/simd_support.h"
 #include <cstring>
 #include <cstdlib>
 
