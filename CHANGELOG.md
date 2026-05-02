@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-05-02
+
+Completes the cleanup that the v3.0.0-alpha refactor ("Modern C++20
+Architecture Refactor") started but did not finish. That release pivoted
+libhmm from a planned "calculators consume `Optimized*` containers backed by
+a `WorkStealingPool`" architecture to the canonical "per-distribution batch
+SIMD via `getBatchLogProbabilities`" architecture. The pivot was sound, but
+the abandoned Plan-A infrastructure was retained in the tree as nominal
+"future hooks" that no production code ever wired up. This release deletes
+that orphaned material and fixes the small set of associated edits that
+followed from the deletions.
+
+No behavioural changes to the live API: the canonical calculators, trainers,
+distributions, HMM core, examples, tools, benchmarks, and tests are all
+unaffected. 33/33 tests pass.
+
 ### Added
 
 - **Catalina configure helper** (`scripts/configure_catalina.sh`): one-command
