@@ -116,6 +116,9 @@ void BaumWelchTrainer::train() {
 
         // Accumulate xi (transition counts). Dense models take a branch-free
         // path; sparse models keep the zero-transition skip.
+        // Sparse path is intentionally scalar: masking non-zero transitions in
+        // a SIMD loop costs more than it saves for the typically small fraction
+        // of non-zero entries in a sparse model.
         if (hasZeroTransitions) {
             for (std::size_t t = 0; t + 1 < T; ++t) {
                 const double *alphaRow = logAlphaData + t * N;
