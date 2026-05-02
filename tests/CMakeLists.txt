@@ -15,13 +15,13 @@ if(APPLE AND NOT LIBHMM_FORCE_FETCH_GTEST)
         OUTPUT_VARIABLE APPLE_ARCH
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    
+
     if(APPLE_ARCH STREQUAL "arm64")
         set(HOMEBREW_PREFIX "/opt/homebrew")
     else()
         set(HOMEBREW_PREFIX "/usr/local")
     endif()
-    
+
     # Set GTest search paths to avoid mixing Intel and ARM libraries
     set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
 endif()
@@ -140,7 +140,7 @@ if(GTest_FOUND OR TARGET gtest)
     endfunction()
 
     set(ALL_TEST_TARGETS "")
-    
+
     # =========================================================================
     # Level 0: Platform
     # No tests yet. test_simd_platform will be added in Phase 4.5.2 (tools)

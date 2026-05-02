@@ -38,13 +38,18 @@ repos:
         types_or: [c++, c]
         args: ['--style=file']
 
-  # ─── CMake formatting ─────────────────────────────────────────────────────────
+  # ─── CMake formatting ─────────────────────────────────────────────────────
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
     hooks:
       - id: cmake-format
         name: cmake-format
         args: ['--config-file=.cmake-format.yaml']
+        # cmakelang lazy-imports yaml in load_yaml() but does not declare
+        # pyyaml as a dependency. With Python 3.14 in the pre-commit env on
+        # Ubuntu CI, this surfaces as ModuleNotFoundError: No module named
+        # 'yaml'. Inject pyyaml into the hook venv to make load_yaml work.
+        additional_dependencies: ['pyyaml']
 
   # ─── libhmm-specific checks ──────────────────────────────────────────────────
   - repo: local
