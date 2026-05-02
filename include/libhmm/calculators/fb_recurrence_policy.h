@@ -8,12 +8,19 @@
  *   - Pairwise: repeated two-argument log-sum-exp
  *   - MaxReduce: max-then-reduce
  *
- * The only policy decision retained here is a conservative ISA-family cutoff:
+ * The only policy decision retained here is an ISA-family cutoff:
  *   - arm64: switch at N>=4
- *   - x86/x64: switch at N>=5
+ *   - x86/x64: switch at N>=4
  *
- * This keeps the useful large-N reduction in exp/log1p traffic without the
- * previous per-compiler and runtime-probing complexity.
+ * Threshold calibrated by fb_crossover_sweep on Zen 4 / MSVC / AVX-512
+ * (Ryzen 7 7745HX, T=1000, median 8 runs):
+ *   N=2: MaxReduce 2.1x slower (Pairwise wins)
+ *   N=3: MaxReduce 1.1x slower (Pairwise wins)
+ *   N=4: MaxReduce 1.7x faster -- crossover
+ *   N=8: MaxReduce 5.0x faster
+ *   N=32: MaxReduce 15x faster
+ * Previous x86 threshold was N>=5; N=4 was incorrectly left on the slower
+ * Pairwise path before the TranscendentalKernels SIMD backends landed.
  */
 
 #include <cstddef>
@@ -40,13 +47,8 @@ constexpr FbRecurrenceMode selectFbRecurrenceMode(std::size_t numStates,
     if (numStates < 2) {
         return FbRecurrenceMode::Pairwise;
     }
-#if defined(__aarch64__) || defined(_M_ARM64)
     return (numStates >= 4) ? FbRecurrenceMode::MaxReduce
                             : FbRecurrenceMode::Pairwise;
-#else
-    return (numStates >= 5) ? FbRecurrenceMode::MaxReduce
-                            : FbRecurrenceMode::Pairwise;
-#endif
 }
 
 /// Human-readable name for a recurrence mode.
