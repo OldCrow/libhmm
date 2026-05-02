@@ -5,7 +5,7 @@
 #include <type_traits>
 
 // Import all SIMD platform detection and intrinsics
-#include "libhmm/performance/simd_platform.h"
+#include "libhmm/platform/simd_platform.h"
 
 namespace libhmm {
 namespace performance {

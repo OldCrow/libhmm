@@ -77,7 +77,7 @@
 //==============================================================================
 
 /// SIMD support detection and vectorized operations (includes simd_platform.h)
-#include "libhmm/performance/simd_support.h"
+#include "libhmm/platform/simd_support.h"
 
 //==============================================================================
 // CONVENIENCE UTILITIES
