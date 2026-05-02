@@ -1,156 +1,63 @@
 #pragma once
 
-#include <cmath>
 #include <cstddef>
-#include <limits>
+
+/**
+ * @file transcendental_kernels.h
+ * @brief SIMD-accelerated inner-loop kernels for FB max-reduce and BW xi accumulation.
+ *
+ * Declares five static methods on TranscendentalKernels. Implementations live in
+ * src/performance/transcendental_kernels.cpp and are compiled with
+ * LIBHMM_BEST_SIMD_FLAGS, activating the appropriate #if LIBHMM_HAS_* cascade:
+ *   AVX-512  8-wide __m512d
+ *   AVX/AVX2 4-wide __m256d  (AVX-1 compatible; AVX2 compiler fuses FMA)
+ *   SSE2     2-wide __m128d
+ *   NEON     2-wide float64x2_t
+ *   scalar   tail / fallback
+ *
+ * Active ISA diagnostics use libhmm::performance::simd::feature_string() and
+ * double_vector_width() from simd_platform.h — consistent with the rest of the library.
+ */
 
 namespace libhmm {
 namespace performance {
 namespace detail {
 
 /**
- * @brief Internal backend tag for explicit transcendental-vector kernels.
+ * @brief Vectorised inner-loop kernels shared by ForwardBackwardCalculator (max-reduce
+ *        recurrence) and BaumWelchTrainer (dense-xi accumulation).
  *
- * Current implementation is scalar-only. The enum and helper boundaries exist
- * so AVX2 / NEON implementations can replace these scalar loops without
- * another structural rewrite of FB max-reduce and BW dense-xi call sites.
+ * All methods are noexcept and operate on raw double pointers.  Inputs are
+ * expected to be either finite log-probabilities or LOG_ZERO (-inf); +inf and
+ * NaN are not produced by any production caller and are not guarded.
  */
-enum class TranscendentalBackend {
-    Scalar,
-    Avx2,
-    Neon,
-};
-
-[[nodiscard]] constexpr TranscendentalBackend currentTranscendentalBackend() noexcept {
-#if defined(LIBHMM_HAS_AVX2)
-    return TranscendentalBackend::Avx2;
-#elif defined(LIBHMM_HAS_NEON)
-    return TranscendentalBackend::Neon;
-#else
-    return TranscendentalBackend::Scalar;
-#endif
-}
-
-[[nodiscard]] constexpr std::size_t currentTranscendentalLaneCount() noexcept {
-    switch (currentTranscendentalBackend()) {
-    case TranscendentalBackend::Avx2:
-        return 4;
-    case TranscendentalBackend::Neon:
-        return 2;
-    case TranscendentalBackend::Scalar:
-        return 1;
-    }
-    return 1;
-}
-
-[[nodiscard]] constexpr const char *toString(TranscendentalBackend backend) noexcept {
-    switch (backend) {
-    case TranscendentalBackend::Scalar:
-        return "scalar";
-    case TranscendentalBackend::Avx2:
-        return "avx2";
-    case TranscendentalBackend::Neon:
-        return "neon";
-    }
-    return "unknown";
-}
-
 class TranscendentalKernels {
 public:
-    [[nodiscard]] static inline double reduce_max_sum2(const double *a, const double *b,
-                                                       std::size_t size) noexcept {
-        return reduce_max_sum2_scalar(a, b, size);
-    }
+    /// Element-wise max of (a[i]+b[i]) over [0, size).  No exp calls.
+    [[nodiscard]] static double reduce_max_sum2(const double *a, const double *b,
+                                                std::size_t size) noexcept;
 
-    [[nodiscard]] static inline double sum_exp_sum2_minus_max(const double *a, const double *b,
-                                                              std::size_t size,
-                                                              double maxVal) noexcept {
-        return sum_exp_sum2_minus_max_scalar(a, b, size, maxVal);
-    }
+    /// Sum of exp(a[i]+b[i] - maxVal) for finite terms, over [0, size).
+    /// Returns 0 when maxVal is not finite.
+    [[nodiscard]] static double sum_exp_sum2_minus_max(const double *a, const double *b,
+                                                       std::size_t size,
+                                                       double maxVal) noexcept;
 
-    [[nodiscard]] static inline double reduce_max_sum3(const double *a, const double *b,
+    /// Element-wise max of (a[i]+b[i]+c[i]) over [0, size).  No exp calls.
+    [[nodiscard]] static double reduce_max_sum3(const double *a, const double *b,
+                                                const double *c,
+                                                std::size_t size) noexcept;
+
+    /// Sum of exp(a[i]+b[i]+c[i] - maxVal) for finite terms, over [0, size).
+    /// Returns 0 when maxVal is not finite.
+    [[nodiscard]] static double sum_exp_sum3_minus_max(const double *a, const double *b,
                                                        const double *c,
-                                                       std::size_t size) noexcept {
-        return reduce_max_sum3_scalar(a, b, c, size);
-    }
+                                                       std::size_t size,
+                                                       double maxVal) noexcept;
 
-    [[nodiscard]] static inline double sum_exp_sum3_minus_max(const double *a, const double *b,
-                                                              const double *c,
-                                                              std::size_t size,
-                                                              double maxVal) noexcept {
-        return sum_exp_sum3_minus_max_scalar(a, b, c, size, maxVal);
-    }
-
-    static inline void accumulate_exp_sum2_bias(double *dst, const double *a, const double *b,
-                                                std::size_t size, double bias) noexcept {
-        accumulate_exp_sum2_bias_scalar(dst, a, b, size, bias);
-    }
-
-private:
-    [[nodiscard]] static inline double reduce_max_sum2_scalar(const double *a, const double *b,
-                                                              std::size_t size) noexcept {
-        double maxVal = -std::numeric_limits<double>::infinity();
-        for (std::size_t i = 0; i < size; ++i) {
-            const double term = a[i] + b[i];
-            if (term > maxVal) {
-                maxVal = term;
-            }
-        }
-        return maxVal;
-    }
-
-    [[nodiscard]] static inline double
-    sum_exp_sum2_minus_max_scalar(const double *a, const double *b, std::size_t size,
-                                  double maxVal) noexcept {
-        if (!std::isfinite(maxVal)) {
-            return 0.0;
-        }
-        double sum = 0.0;
-        for (std::size_t i = 0; i < size; ++i) {
-            const double term = a[i] + b[i];
-            if (std::isfinite(term)) {
-                sum += std::exp(term - maxVal);
-            }
-        }
-        return sum;
-    }
-
-    [[nodiscard]] static inline double reduce_max_sum3_scalar(const double *a, const double *b,
-                                                              const double *c,
-                                                              std::size_t size) noexcept {
-        double maxVal = -std::numeric_limits<double>::infinity();
-        for (std::size_t i = 0; i < size; ++i) {
-            const double term = a[i] + b[i] + c[i];
-            if (term > maxVal) {
-                maxVal = term;
-            }
-        }
-        return maxVal;
-    }
-
-    [[nodiscard]] static inline double
-    sum_exp_sum3_minus_max_scalar(const double *a, const double *b, const double *c,
-                                  std::size_t size, double maxVal) noexcept {
-        if (!std::isfinite(maxVal)) {
-            return 0.0;
-        }
-        double sum = 0.0;
-        for (std::size_t i = 0; i < size; ++i) {
-            const double term = a[i] + b[i] + c[i];
-            if (std::isfinite(term)) {
-                sum += std::exp(term - maxVal);
-            }
-        }
-        return sum;
-    }
-
-    static inline void accumulate_exp_sum2_bias_scalar(double *dst, const double *a,
-                                                       const double *b, std::size_t size,
-                                                       double bias) noexcept {
-        for (std::size_t i = 0; i < size; ++i) {
-            dst[i] += std::exp(a[i] + b[i] + bias);
-        }
-    }
+    /// dst[i] += exp(a[i] + b[i] + bias) for i in [0, size).
+    static void accumulate_exp_sum2_bias(double *dst, const double *a, const double *b,
+                                         std::size_t size, double bias) noexcept;
 };
 
 } // namespace detail

@@ -206,6 +206,19 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_hmm_stream_io io/test_hmm_stream_io.cpp)
     add_hmm_test(test_end_to_end    integration/test_end_to_end.cpp)
 
+    # =========================================================================
+    # Level 8: Kernel Primitives
+    # Cross-cutting performance kernels consumed by both calculators and
+    # trainers.  Compiled with LIBHMM_BEST_SIMD_FLAGS so the active SIMD path
+    # matches the production library — parity is checked against std::exp.
+    # =========================================================================
+    add_hmm_test(test_transcendental_kernels performance/test_transcendental_kernels.cpp)
+    if(LIBHMM_BEST_SIMD_FLAGS)
+        set_source_files_properties(
+            performance/test_transcendental_kernels.cpp
+            PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}")
+    endif()
+
 else()
     message(STATUS "Google Test not found - building basic test suite only")
     set(ALL_TEST_TARGETS "")
