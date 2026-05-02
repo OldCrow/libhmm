@@ -42,6 +42,7 @@ env -u CC \
         -DCMAKE_C_COMPILER="${CC_BIN}" \
         -DCMAKE_CXX_COMPILER="${CXX_BIN}" \
         -DCMAKE_OSX_SYSROOT="${SYSROOT}" \
+        -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
         "$@"
 
