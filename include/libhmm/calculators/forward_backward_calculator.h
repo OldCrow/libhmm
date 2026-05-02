@@ -1,7 +1,7 @@
 #pragma once
 
 #include "libhmm/calculators/calculator.h"
-#include "libhmm/calculators/fb_recurrence_policy.h"
+#include "libhmm/performance/fb_recurrence_policy.h"
 #include <limits>
 #include <optional>
 #include <vector>
