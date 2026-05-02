@@ -3,31 +3,31 @@
 /**
  * @file libhmm.h
  * @brief Master header for the libhmm Hidden Markov Model library
- * 
+ *
  * This header provides a single include point for the complete libhmm library.
  * It includes all major components: core HMM classes, probability distributions,
  * calculation algorithms, training methods, and I/O functionality.
- * 
+ *
  * @section usage Basic Usage
  * @code
  * #include "libhmm/libhmm.h"
- * 
+ *
  * using namespace libhmm;
- * 
+ *
  * // Create HMM with Gaussian distributions
  * Hmm hmm(2);
  * hmm.setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
  * hmm.setDistribution(1, std::make_unique<GaussianDistribution>(3.0, 2.0));
- * 
+ *
  * // Train with Viterbi algorithm
  * ViterbiTrainer trainer(hmm, observations);
  * trainer.train();
  * @endcode
- * 
+ *
  * @section performance Performance Note
  * For large projects or when compilation time is critical, consider including
  * only the specific headers you need instead of this master header.
- * 
+ *
  * @version 2.8.0
  * @author libhmm development team
  */
@@ -79,10 +79,10 @@
 /**
  * @namespace libhmm
  * @brief Main namespace for all libhmm functionality
- * 
+ *
  * The libhmm namespace contains all classes, functions, and utilities
  * provided by the Hidden Markov Model library. Key components include:
- * 
+ *
  * - **Core Classes**: Hmm, ObservationSet, StateSequence
  * - **Distributions**: 14+ probability distributions for discrete and continuous data
  * - **Calculators**: Forward-Backward and Viterbi algorithms with SIMD optimization

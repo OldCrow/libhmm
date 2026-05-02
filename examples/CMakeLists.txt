@@ -26,7 +26,7 @@ function(add_hmm_example target_name source_file)
     add_executable(${target_name} ${source_file})
     target_include_directories(${target_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/support)
-    
+
     # Link with hmm library and platform-specific math library.
     # Using hmm_static avoids Windows DLL boundary issues that can corrupt
     # std::vector iterator state across the .exe / .dll boundary in Release
@@ -36,14 +36,14 @@ function(add_hmm_example target_name source_file)
     else()
         target_link_libraries(${target_name} hmm_static)
     endif()
-    
+
     # Apply LLVM-specific linking flags if needed
     if(LIBCXX_LINK_FLAGS)
         set_target_properties(${target_name} PROPERTIES
             LINK_FLAGS "${LIBCXX_LINK_FLAGS}"
         )
     endif()
-    
+
     # Ensure C++20 standard
     set_property(TARGET ${target_name} PROPERTY CXX_STANDARD 20)
     set_property(TARGET ${target_name} PROPERTY CXX_STANDARD_REQUIRED ON)

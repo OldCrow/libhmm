@@ -35,13 +35,13 @@
 
 namespace libhmm {
 
-/* 
+/*
  * If we make all observations as double, we can truncate as needed and still
  * retain tons of precision for most of the operations.
  */
 typedef double Observation;
 
-/* 
+/*
  * We know that a state is an integral value, so...
  */
 typedef int StateIndex;
@@ -81,7 +81,7 @@ void clear_vector(StateSequence &v);
  * Custom C++17 serialization functions for matrices and vectors.
  * These replace the Boost serialization functionality with lightweight,
  * standards-compliant serialization using simple XML format.
- * 
+ *
  * Design Goals:
  * - Zero external dependencies (pure C++17)
  * - Backward compatibility with existing XML format where possible
