@@ -155,13 +155,6 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_common              common/test_common.cpp)
 
     # =========================================================================
-    # Level 2: Linear Algebra
-    # =========================================================================
-    add_hmm_test(test_optimized_linear_operations common/test_optimized_linear_operations.cpp)
-    add_hmm_test(test_linear_operations_classes   common/test_linear_operations_classes.cpp)
-    add_hmm_test(test_optimized_matrix3d          common/test_optimized_matrix3d.cpp)
-
-    # =========================================================================
     # Level 3: Distributions
     # =========================================================================
     add_hmm_test(test_distribution_traits       distributions/test_distribution_traits.cpp)

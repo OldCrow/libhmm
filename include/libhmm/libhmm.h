@@ -43,15 +43,6 @@
 #include "libhmm/hmm.h"
 
 //==============================================================================
-// HIGH-PERFORMANCE LINEAR ALGEBRA (OPTIONAL)
-//==============================================================================
-
-/// Complete linear algebra with both basic and optimized classes
-/// Comment out this line if you only need basic linear algebra functionality
-/// and want to minimize compilation time and dependencies
-#include "libhmm/common/linear_algebra.h"
-
-//==============================================================================
 // PROBABILITY DISTRIBUTIONS
 //==============================================================================
 

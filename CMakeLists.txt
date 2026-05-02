@@ -499,8 +499,6 @@ set(LIBHMM_SOURCES
     src/common/common.cpp
     src/common/string_tokenizer.cpp
     src/common/numerical_stability.cpp
-    src/common/optimized_vector_simd.cpp
-    src/common/optimized_matrix_simd.cpp
     src/distributions/distribution_base.cpp
     src/distributions/discrete_distribution.cpp
     src/distributions/gaussian_distribution.cpp
