@@ -1,5 +1,5 @@
 #include "libhmm/hmm.h"
-#include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/distributions/distributions.h"
 #include "libhmm/math/constants.h"
 #include <algorithm>
 #include <chrono>

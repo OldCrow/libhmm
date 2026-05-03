@@ -185,15 +185,7 @@ void BaumWelchTrainer::train() {
     }
 
     // ---- M-step: emission distributions ----
-    for (std::size_t i = 0; i < N; ++i) {
-        const std::size_t M = emisData[i].size();
-        if (M == 0) {
-            hmm.getDistribution(i).reset();
-            continue;
-        }
-        hmm.getDistribution(i).fit(std::span<const double>(emisData[i].data(), M),
-                                   std::span<const double>(emisWts[i].data(), M));
-    }
+    apply_emission_fits(hmm, N, emisData, emisWts);
 }
 
 // ---------------------------------------------------------------------------

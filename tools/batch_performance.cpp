@@ -13,7 +13,7 @@
 #include "libhmm/hmm.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
 #include "libhmm/calculators/viterbi_calculator.h"
-#include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/distributions/distributions.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>

@@ -24,64 +24,6 @@ StudentTDistribution::StudentTDistribution(double degrees_of_freedom, double loc
     updateCache();
 }
 
-StudentTDistribution::StudentTDistribution(const StudentTDistribution &other)
-    : DistributionBase{other}, degrees_of_freedom_(other.degrees_of_freedom_),
-      location_(other.location_), scale_(other.scale_),
-      cached_log_gamma_half_nu_plus_one_(other.cached_log_gamma_half_nu_plus_one_),
-      cached_log_gamma_half_nu_(other.cached_log_gamma_half_nu_),
-      cached_log_normalization_(other.cached_log_normalization_),
-      cached_normalization_factor_(other.cached_normalization_factor_),
-      cached_half_nu_plus_one_(other.cached_half_nu_plus_one_),
-      cached_half_nu_(other.cached_half_nu_), cached_inv_scale_(other.cached_inv_scale_),
-      cached_log_scale_(other.cached_log_scale_) {}
-
-StudentTDistribution &StudentTDistribution::operator=(const StudentTDistribution &other) {
-    if (this != &other) {
-        DistributionBase::operator=(other);
-        degrees_of_freedom_ = other.degrees_of_freedom_;
-        location_ = other.location_;
-        scale_ = other.scale_;
-        cached_log_gamma_half_nu_plus_one_ = other.cached_log_gamma_half_nu_plus_one_;
-        cached_log_gamma_half_nu_ = other.cached_log_gamma_half_nu_;
-        cached_log_normalization_ = other.cached_log_normalization_;
-        cached_normalization_factor_ = other.cached_normalization_factor_;
-        cached_half_nu_plus_one_ = other.cached_half_nu_plus_one_;
-        cached_half_nu_ = other.cached_half_nu_;
-        cached_inv_scale_ = other.cached_inv_scale_;
-        cached_log_scale_ = other.cached_log_scale_;
-    }
-    return *this;
-}
-
-StudentTDistribution::StudentTDistribution(StudentTDistribution &&other) noexcept
-    : DistributionBase{std::move(other)}, degrees_of_freedom_(other.degrees_of_freedom_),
-      location_(other.location_), scale_(other.scale_),
-      cached_log_gamma_half_nu_plus_one_(other.cached_log_gamma_half_nu_plus_one_),
-      cached_log_gamma_half_nu_(other.cached_log_gamma_half_nu_),
-      cached_log_normalization_(other.cached_log_normalization_),
-      cached_normalization_factor_(other.cached_normalization_factor_),
-      cached_half_nu_plus_one_(other.cached_half_nu_plus_one_),
-      cached_half_nu_(other.cached_half_nu_), cached_inv_scale_(other.cached_inv_scale_),
-      cached_log_scale_(other.cached_log_scale_) {}
-
-StudentTDistribution &StudentTDistribution::operator=(StudentTDistribution &&other) noexcept {
-    if (this != &other) {
-        DistributionBase::operator=(std::move(other));
-        degrees_of_freedom_ = other.degrees_of_freedom_;
-        location_ = other.location_;
-        scale_ = other.scale_;
-        cached_log_gamma_half_nu_plus_one_ = other.cached_log_gamma_half_nu_plus_one_;
-        cached_log_gamma_half_nu_ = other.cached_log_gamma_half_nu_;
-        cached_log_normalization_ = other.cached_log_normalization_;
-        cached_normalization_factor_ = other.cached_normalization_factor_;
-        cached_half_nu_plus_one_ = other.cached_half_nu_plus_one_;
-        cached_half_nu_ = other.cached_half_nu_;
-        cached_inv_scale_ = other.cached_inv_scale_;
-        cached_log_scale_ = other.cached_log_scale_;
-    }
-    return *this;
-}
-
 double StudentTDistribution::getProbability(double value) const {
     if (!isCacheValid())
         updateCache();
@@ -293,40 +235,6 @@ std::string StudentTDistribution::toString() const {
     oss << "  mu (location) = " << std::fixed << std::setprecision(6) << location_ << "\n";
     oss << "  sigma (scale) = " << std::fixed << std::setprecision(6) << scale_;
     return oss.str();
-}
-
-StudentTDistribution StudentTDistribution::fromString(const std::string &str) {
-    // Expected format: "StudentT(ν=value)" or "StudentT(nu=value)" or "StudentT(df=value)"
-    std::string::size_type start = str.find('(');
-    std::string::size_type end = str.find(')', start);
-
-    if (start == std::string::npos || end == std::string::npos) {
-        throw std::invalid_argument("Invalid StudentT distribution string format");
-    }
-
-    std::string params = str.substr(start + 1, end - start - 1);
-
-    // Look for parameter patterns
-    std::string::size_type eq_pos = params.find('=');
-    if (eq_pos == std::string::npos) {
-        throw std::invalid_argument("Invalid StudentT parameter format");
-    }
-
-    std::string param_name = params.substr(0, eq_pos);
-    std::string param_value = params.substr(eq_pos + 1);
-
-    // Remove whitespace
-    param_name.erase(std::remove_if(param_name.begin(), param_name.end(), ::isspace),
-                     param_name.end());
-    param_value.erase(std::remove_if(param_value.begin(), param_value.end(), ::isspace),
-                      param_value.end());
-
-    if (param_name == "ν" || param_name == "nu" || param_name == "df") {
-        double df = std::stod(param_value);
-        return StudentTDistribution(df);
-    } else {
-        throw std::invalid_argument("Unknown StudentT parameter: " + param_name);
-    }
 }
 
 bool StudentTDistribution::operator==(const StudentTDistribution &other) const {

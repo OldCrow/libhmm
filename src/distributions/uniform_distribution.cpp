@@ -1,4 +1,5 @@
 #include "libhmm/distributions/uniform_distribution.h"
+#include "libhmm/math/weighted_stats.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -114,33 +115,18 @@ void UniformDistribution::fit(std::span<const double> data, std::span<const doub
     // Method-of-moments weighted fit.
     // For Uniform(a,b): mean = (a+b)/2, var = (b-a)²/12.
     // Solve: half_range = √(3*var), a = mean - half_range, b = mean + half_range.
-    double sumW = 0.0;
-    for (const double w : weights)
-        sumW += w;
-    if (sumW < precision::ZERO || std::isnan(sumW)) {
+    const auto stats = detail::compute_weighted_stats(data, weights);
+    if (!stats) {
         reset();
         return;
     }
-
-    // Weighted mean
-    double mean = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i)
-        mean += weights[i] * data[i];
-    mean /= sumW;
-
-    // Weighted variance
-    double var = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i)
-        var += weights[i] * (data[i] - mean) * (data[i] - mean);
-    var /= sumW;
-
-    const double halfRange = std::sqrt(3.0 * var);
+    const double halfRange = std::sqrt(3.0 * stats->variance);
     if (halfRange < thresholds::MIN_DISTRIBUTION_PARAMETER || !std::isfinite(halfRange)) {
         reset();
         return;
     }
-    a_ = mean - halfRange;
-    b_ = mean + halfRange;
+    a_ = stats->mean - halfRange;
+    b_ = stats->mean + halfRange;
     invalidateCache();
 }
 

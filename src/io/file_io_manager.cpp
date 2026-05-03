@@ -2,8 +2,36 @@
 #include <sstream>
 #include <iostream>
 #include <chrono>
+#include <functional>
 #include <iomanip>
 #include <algorithm>
+
+namespace {
+
+/// Opens filepath for writing with the given mode, calls writeOp(file), then
+/// validates and closes the stream. Throws std::runtime_error on any failure.
+void do_write(const std::filesystem::path &filepath, std::ios::openmode mode,
+              const std::function<void(std::ofstream &)> &writeOp) {
+    try {
+        std::ofstream file(filepath, mode);
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open file for writing: " + filepath.string());
+        }
+        writeOp(file);
+        if (file.bad()) {
+            throw std::runtime_error("Error occurred while writing to file: " + filepath.string());
+        }
+        file.close();
+        if (file.fail()) {
+            throw std::runtime_error("Failed to properly close file: " + filepath.string());
+        }
+    } catch (const std::ios_base::failure &e) {
+        throw std::runtime_error("I/O error while writing file " + filepath.string() + ": " +
+                                 e.what());
+    }
+}
+
+} // namespace
 
 namespace libhmm {
 
@@ -34,34 +62,12 @@ std::string FileIOManager::readTextFile(const std::filesystem::path &filepath) {
 
 void FileIOManager::writeTextFile(const std::filesystem::path &filepath, const std::string &content,
                                   bool append) {
-    try {
-        // Ensure directory exists
-        if (filepath.has_parent_path()) {
-            ensureDirectoryExists(filepath.parent_path());
-        }
-
-        auto mode = append ? (std::ios::out | std::ios::app) : (std::ios::out | std::ios::trunc);
-        std::ofstream file(filepath, mode);
-
-        if (!file.is_open()) {
-            throw std::runtime_error("Failed to open file for writing: " + filepath.string());
-        }
-
+    if (filepath.has_parent_path())
+        ensureDirectoryExists(filepath.parent_path());
+    const auto mode = append ? (std::ios::out | std::ios::app) : (std::ios::out | std::ios::trunc);
+    do_write(filepath, mode, [&content](std::ofstream &file) {
         file << content;
-
-        if (file.bad()) {
-            throw std::runtime_error("Error occurred while writing to file: " + filepath.string());
-        }
-
-        file.close();
-        if (file.fail()) {
-            throw std::runtime_error("Failed to properly close file: " + filepath.string());
-        }
-
-    } catch (const std::ios_base::failure &e) {
-        throw std::runtime_error("I/O error while writing file " + filepath.string() + ": " +
-                                 e.what());
-    }
+    });
 }
 
 std::vector<std::string> FileIOManager::readLines(const std::filesystem::path &filepath) {
@@ -94,36 +100,13 @@ std::vector<std::string> FileIOManager::readLines(const std::filesystem::path &f
 
 void FileIOManager::writeLines(const std::filesystem::path &filepath,
                                const std::vector<std::string> &lines, bool append) {
-    try {
-        // Ensure directory exists
-        if (filepath.has_parent_path()) {
-            ensureDirectoryExists(filepath.parent_path());
-        }
-
-        auto mode = append ? (std::ios::out | std::ios::app) : (std::ios::out | std::ios::trunc);
-        std::ofstream file(filepath, mode);
-
-        if (!file.is_open()) {
-            throw std::runtime_error("Failed to open file for writing: " + filepath.string());
-        }
-
-        for (const auto &line : lines) {
+    if (filepath.has_parent_path())
+        ensureDirectoryExists(filepath.parent_path());
+    const auto mode = append ? (std::ios::out | std::ios::app) : (std::ios::out | std::ios::trunc);
+    do_write(filepath, mode, [&lines](std::ofstream &file) {
+        for (const auto &line : lines)
             file << line << '\n';
-        }
-
-        if (file.bad()) {
-            throw std::runtime_error("Error occurred while writing to file: " + filepath.string());
-        }
-
-        file.close();
-        if (file.fail()) {
-            throw std::runtime_error("Failed to properly close file: " + filepath.string());
-        }
-
-    } catch (const std::ios_base::failure &e) {
-        throw std::runtime_error("I/O error while writing file " + filepath.string() + ": " +
-                                 e.what());
-    }
+    });
 }
 
 void FileIOManager::copyFile(const std::filesystem::path &source,
