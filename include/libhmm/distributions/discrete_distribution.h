@@ -127,52 +127,10 @@ public:
         reset();
     }
 
-    DiscreteDistribution(const DiscreteDistribution &other)
-        : DistributionBase{other}, numSymbols_{other.numSymbols_}, pdf_{other.pdf_},
-          cachedSum_{other.cachedSum_}, cachedEntropy_{other.cachedEntropy_},
-          cachedLogProbs_{other.cachedLogProbs_}, cachedCDF_{other.cachedCDF_},
-          cachedMode_{other.cachedMode_}, cachedMaxProb_{other.cachedMaxProb_},
-          nonZeroIndices_{other.nonZeroIndices_} {}
-
-    DiscreteDistribution &operator=(const DiscreteDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            numSymbols_ = other.numSymbols_;
-            pdf_ = other.pdf_;
-            cachedSum_ = other.cachedSum_;
-            cachedEntropy_ = other.cachedEntropy_;
-            cachedLogProbs_ = other.cachedLogProbs_;
-            cachedCDF_ = other.cachedCDF_;
-            cachedMode_ = other.cachedMode_;
-            cachedMaxProb_ = other.cachedMaxProb_;
-            nonZeroIndices_ = other.nonZeroIndices_;
-        }
-        return *this;
-    }
-
-    DiscreteDistribution(DiscreteDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, numSymbols_{other.numSymbols_},
-          pdf_{std::move(other.pdf_)}, cachedSum_{other.cachedSum_},
-          cachedEntropy_{other.cachedEntropy_}, cachedLogProbs_{std::move(other.cachedLogProbs_)},
-          cachedCDF_{std::move(other.cachedCDF_)}, cachedMode_{other.cachedMode_},
-          cachedMaxProb_{other.cachedMaxProb_}, nonZeroIndices_{std::move(other.nonZeroIndices_)} {}
-
-    DiscreteDistribution &operator=(DiscreteDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            numSymbols_ = other.numSymbols_;
-            pdf_ = std::move(other.pdf_);
-            cachedSum_ = other.cachedSum_;
-            cachedEntropy_ = other.cachedEntropy_;
-            cachedLogProbs_ = std::move(other.cachedLogProbs_);
-            cachedCDF_ = std::move(other.cachedCDF_);
-            cachedMode_ = other.cachedMode_;
-            cachedMaxProb_ = other.cachedMaxProb_;
-            nonZeroIndices_ = std::move(other.nonZeroIndices_);
-        }
-        return *this;
-    }
-
+    DiscreteDistribution(const DiscreteDistribution &other) = default;
+    DiscreteDistribution &operator=(const DiscreteDistribution &other) = default;
+    DiscreteDistribution(DiscreteDistribution &&other) noexcept = default;
+    DiscreteDistribution &operator=(DiscreteDistribution &&other) noexcept = default;
     ~DiscreteDistribution() override = default;
 
     /**
