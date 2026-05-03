@@ -35,7 +35,7 @@
 #include <vector>
 
 using namespace libhmm;
-using Clock  = std::chrono::high_resolution_clock;
+using Clock = std::chrono::high_resolution_clock;
 using Millis = std::chrono::duration<double, std::milli>;
 
 namespace {
@@ -53,7 +53,8 @@ double elapsed_ms(const Clock::time_point start) {
 
 template <typename T>
 double median(std::vector<T> v) {
-    if (v.empty()) return 0.0;
+    if (v.empty())
+        return 0.0;
     std::sort(v.begin(), v.end());
     return static_cast<double>(v[v.size() / 2]);
 }
@@ -69,12 +70,14 @@ std::unique_ptr<Hmm> make_hmm(int n) {
             trans(i, j) = 0.1 + 0.8 * (0.5 + 0.5 * std::sin(i * 0.7 + j * 1.3));
             sum += trans(i, j);
         }
-        for (int j = 0; j < n; ++j) trans(i, j) /= sum;
+        for (int j = 0; j < n; ++j)
+            trans(i, j) /= sum;
     }
     hmm->setTrans(trans);
 
     Vector pi(n);
-    for (int i = 0; i < n; ++i) pi(i) = 1.0 / static_cast<double>(n);
+    for (int i = 0; i < n; ++i)
+        pi(i) = 1.0 / static_cast<double>(n);
     hmm->setPi(pi);
 
     for (int i = 0; i < n; ++i)
@@ -94,15 +97,14 @@ ObservationSet make_obs(int t, int n) {
 // ---------------------------------------------------------------------------
 
 struct BwBreakdown {
-    double fb_ms      = 0.0;  // ForwardBackwardCalculator (construct + compute)
-    double gamma_ms   = 0.0;  // gamma accumulation: N*T   exp() calls
-    double xi_ms      = 0.0;  // xi accumulation:    N^2*(T-1) exp() calls
+    double fb_ms = 0.0;    // ForwardBackwardCalculator (construct + compute)
+    double gamma_ms = 0.0; // gamma accumulation: N*T   exp() calls
+    double xi_ms = 0.0;    // xi accumulation:    N^2*(T-1) exp() calls
     std::uint64_t gamma_exp_calls = 0;
-    std::uint64_t xi_exp_calls    = 0;
+    std::uint64_t xi_exp_calls = 0;
 };
 
-BwBreakdown profile_bw(const Hmm& hmm, const ObservationSet& obs,
-                       int warmup, int runs) {
+BwBreakdown profile_bw(const Hmm &hmm, const ObservationSet &obs, int warmup, int runs) {
     const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
     const std::size_t T = obs.size();
 
@@ -110,7 +112,7 @@ BwBreakdown profile_bw(const Hmm& hmm, const ObservationSet& obs,
     std::vector<double> logTrans(N * N);
     bool hasZeroTransitions = false;
     {
-        const Matrix& t = hmm.getTrans();
+        const Matrix &t = hmm.getTrans();
         for (std::size_t i = 0; i < N; ++i)
             for (std::size_t j = 0; j < N; ++j) {
                 const double a = t(i, j);
@@ -154,10 +156,11 @@ BwBreakdown profile_bw(const Hmm& hmm, const ObservationSet& obs,
         const double logP = fbc.getLogProbability();
         const double fb_time = elapsed_ms(t0);
 
-        if (!std::isfinite(logP)) continue;
+        if (!std::isfinite(logP))
+            continue;
 
-        const Matrix& logAlpha = fbc.getLogForwardVariables();
-        const Matrix& logBeta  = fbc.getLogBackwardVariables();
+        const Matrix &logAlpha = fbc.getLogForwardVariables();
+        const Matrix &logBeta = fbc.getLogBackwardVariables();
 
         // Phase 2: gamma accumulation (N*T exp() calls)
         std::fill(piNum.begin(), piNum.end(), 0.0);
@@ -168,8 +171,10 @@ BwBreakdown profile_bw(const Hmm& hmm, const ObservationSet& obs,
             for (std::size_t i = 0; i < N; ++i) {
                 const double g = std::exp(logAlpha(t2, i) + logBeta(t2, i) - logP);
                 emisWts[t2 * N + i] = g;
-                if (t2 == 0) piNum[i] += g;
-                if (t2 < T - 1) transDen[i] += g;
+                if (t2 == 0)
+                    piNum[i] += g;
+                if (t2 < T - 1)
+                    transDen[i] += g;
             }
         }
         const double gamma_time = elapsed_ms(t0);
@@ -180,36 +185,34 @@ BwBreakdown profile_bw(const Hmm& hmm, const ObservationSet& obs,
         t0 = Clock::now();
         if (hasZeroTransitions) {
             for (std::size_t t2 = 0; t2 + 1 < T; ++t2) {
-                const double* emitNext = logEmitByTime.data() + (t2 + 1) * N;
+                const double *emitNext = logEmitByTime.data() + (t2 + 1) * N;
                 for (std::size_t i = 0; i < N; ++i) {
                     const double logAlphaI = logAlpha(t2, i);
-                    const double* logTransRow = logTrans.data() + i * N;
+                    const double *logTransRow = logTrans.data() + i * N;
                     for (std::size_t j = 0; j < N; ++j) {
                         if (logTransRow[j] == LOG_ZERO) {
                             continue;
                         }
-                        const double logXi = logAlphaI + logTransRow[j]
-                                           + emitNext[j] + logBeta(t2 + 1, j)
-                                           - logP;
+                        const double logXi =
+                            logAlphaI + logTransRow[j] + emitNext[j] + logBeta(t2 + 1, j) - logP;
                         transNum[i * N + j] += std::exp(logXi);
                     }
                 }
             }
         } else {
             for (std::size_t t2 = 0; t2 + 1 < T; ++t2) {
-                const double* emitNext = logEmitByTime.data() + (t2 + 1) * N;
+                const double *emitNext = logEmitByTime.data() + (t2 + 1) * N;
                 for (std::size_t i = 0; i < N; ++i) {
                     const double logAlphaI = logAlpha(t2, i);
-                    const double* logTransRow = logTrans.data() + i * N;
+                    const double *logTransRow = logTrans.data() + i * N;
                     const double bias = -logP;
                     // The hotspot tool keeps the same dense-xi shape as the trainer:
                     // exp(alpha[i] + trans[i,j] + (emitNext[j] + betaNext[j] - logP)).
                     // Since this tool stores row-major transNum, keep the scalar loop
                     // here rather than inventing a second helper shape prematurely.
                     for (std::size_t j = 0; j < N; ++j) {
-                        const double logXi = logAlphaI + logTransRow[j]
-                                           + emitNext[j] + logBeta(t2 + 1, j)
-                                           + bias;
+                        const double logXi =
+                            logAlphaI + logTransRow[j] + emitNext[j] + logBeta(t2 + 1, j) + bias;
                         transNum[i * N + j] += std::exp(logXi);
                     }
                 }
@@ -228,18 +231,19 @@ BwBreakdown profile_bw(const Hmm& hmm, const ObservationSet& obs,
     }
 
     BwBreakdown r;
-    r.fb_ms    = median(fb_ms_v);
+    r.fb_ms = median(fb_ms_v);
     r.gamma_ms = median(gamma_ms_v);
-    r.xi_ms    = median(xi_ms_v);
+    r.xi_ms = median(xi_ms_v);
     r.gamma_exp_calls = static_cast<std::uint64_t>(N) * T;
-    r.xi_exp_calls    = static_cast<std::uint64_t>(N) * N * (T > 0 ? T - 1 : 0);
+    r.xi_exp_calls = static_cast<std::uint64_t>(N) * N * (T > 0 ? T - 1 : 0);
     return r;
 }
 
-int parse_pos(const char* v, const char* name) {
+int parse_pos(const char *v, const char *name) {
     try {
         const int x = std::stoi(v);
-        if (x <= 0) throw std::invalid_argument("non-positive");
+        if (x <= 0)
+            throw std::invalid_argument("non-positive");
         return x;
     } catch (...) {
         throw std::invalid_argument(std::string("Invalid ") + name + ": " + v);
@@ -248,26 +252,31 @@ int parse_pos(const char* v, const char* name) {
 
 } // namespace
 
-int main(int argc, char* argv[]) {
-    struct Config { int n; int t; };
-    std::vector<Config> configs = {{4,500},{8,1000},{16,500},{32,2000}};
+int main(int argc, char *argv[]) {
+    struct Config {
+        int n;
+        int t;
+    };
+    std::vector<Config> configs = {{4, 500}, {8, 1000}, {16, 500}, {32, 2000}};
     int warmup = 2, runs = 8;
 
     if (argc == 3 || argc == 4 || argc == 5) {
-        configs = {{parse_pos(argv[1],"N"), parse_pos(argv[2],"T")}};
-        if (argc >= 4) runs   = parse_pos(argv[3], "runs");
-        if (argc == 5) warmup = parse_pos(argv[4], "warmup");
+        configs = {{parse_pos(argv[1], "N"), parse_pos(argv[2], "T")}};
+        if (argc >= 4)
+            runs = parse_pos(argv[3], "runs");
+        if (argc == 5)
+            warmup = parse_pos(argv[4], "warmup");
     } else if (argc != 1) {
         std::cerr << "Usage: bw_hotspot [N T [runs [warmup]]]\n";
         return 1;
     }
 
-    std::cout << "libhmm BW Hotspot Breakdown  (median of " << runs
-              << " runs, " << warmup << " warmup)\n";
+    std::cout << "libhmm BW Hotspot Breakdown  (median of " << runs << " runs, " << warmup
+              << " warmup)\n";
     std::cout << std::string(66, '=') << "\n\n";
     std::cout << std::fixed << std::setprecision(3);
 
-    for (const auto& cfg : configs) {
+    for (const auto &cfg : configs) {
         auto hmm = make_hmm(cfg.n);
         auto obs = make_obs(cfg.t, cfg.n);
         const auto bw = profile_bw(*hmm, obs, warmup, runs);
@@ -278,17 +287,18 @@ int main(int argc, char* argv[]) {
         };
 
         std::cout << "N=" << cfg.n << "  T=" << cfg.t << "\n";
-        std::cout << "  exp() call volume:  gamma="
-                  << static_cast<double>(bw.gamma_exp_calls) / 1e3 << "K"
+        std::cout << "  exp() call volume:  gamma=" << static_cast<double>(bw.gamma_exp_calls) / 1e3
+                  << "K"
                   << "  xi=" << static_cast<double>(bw.xi_exp_calls) / 1e6 << "M"
-                  << "  ratio xi/gamma=" << (bw.gamma_exp_calls > 0
-                       ? static_cast<double>(bw.xi_exp_calls) / static_cast<double>(bw.gamma_exp_calls)
-                       : 0.0)
+                  << "  ratio xi/gamma="
+                  << (bw.gamma_exp_calls > 0 ? static_cast<double>(bw.xi_exp_calls) /
+                                                   static_cast<double>(bw.gamma_exp_calls)
+                                             : 0.0)
                   << "x\n";
 
-        auto row = [&](const char* label, double ms, std::uint64_t calls) {
-            std::cout << "  " << std::left << std::setw(24) << label
-                      << std::right << std::setw(8) << ms << " ms"
+        auto row = [&](const char *label, double ms, std::uint64_t calls) {
+            std::cout << "  " << std::left << std::setw(24) << label << std::right << std::setw(8)
+                      << ms << " ms"
                       << "  " << std::setw(6) << std::setprecision(1) << pct(ms) << "%";
             if (calls > 0) {
                 const double ns_per = (ms * 1e6) / static_cast<double>(calls);
@@ -298,14 +308,15 @@ int main(int argc, char* argv[]) {
             std::cout << std::setprecision(3);
         };
 
-        row("FB (fwd+bwd)",        bw.fb_ms,    0);
-        row("Gamma accum",         bw.gamma_ms, bw.gamma_exp_calls);
-        row("Xi accum",            bw.xi_ms,    bw.xi_exp_calls);
-        std::cout << "  " << std::left << std::setw(24) << "TOTAL (1 BW iter)"
-                  << std::right << std::setw(8) << total << " ms\n";
+        row("FB (fwd+bwd)", bw.fb_ms, 0);
+        row("Gamma accum", bw.gamma_ms, bw.gamma_exp_calls);
+        row("Xi accum", bw.xi_ms, bw.xi_exp_calls);
+        std::cout << "  " << std::left << std::setw(24) << "TOTAL (1 BW iter)" << std::right
+                  << std::setw(8) << total << " ms\n";
         std::cout << "\n";
     }
 
-    if (g_sink == 1.23456789) std::cout << "sink=" << g_sink << "\n";
+    if (g_sink == 1.23456789)
+        std::cout << "sink=" << g_sink << "\n";
     return 0;
 }

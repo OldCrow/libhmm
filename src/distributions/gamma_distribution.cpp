@@ -8,7 +8,7 @@ namespace libhmm {
 /**
  * Computes the probability density function for the Gamma distribution.
  * PDF: f(x) = (1/(Γ(k)θ^k)) * x^(k-1) * exp(-x/θ) for x ≥ 0
- * 
+ *
  * @param x The value at which to evaluate the probability
  * @return Probability density
  */
@@ -32,7 +32,7 @@ double GammaDistribution::getProbability(double x) const {
 /**
  * Evaluates the logarithm of the probability density function for numerical stability.
  * Formula: log PDF(x) = (k-1)*ln(x) - x/θ - k*ln(θ) - ln(Γ(k))
- * 
+ *
  * @param x The value at which to evaluate the log PDF
  * @return Log probability density
  */
@@ -60,7 +60,7 @@ double GammaDistribution::getLogProbability(double x) const noexcept {
  * Evaluates the CDF at x using the incomplete gamma function
  * Formula: CDF(x) = P(k, x/θ) = γ(k, x/θ) / Γ(k)
  * where P is the regularized incomplete gamma function
- * 
+ *
  * @param x The value at which to evaluate the CDF
  * @return Cumulative probability P(X ≤ x)
  */
@@ -88,15 +88,15 @@ double GammaDistribution::ligamma(double a, double x) noexcept {
 
 /**
  * Fits the distribution parameters to the given data using method of moments estimation.
- * 
+ *
  * Method of moments uses:
  * sample_mean = k*θ
  * sample_variance = k*θ²
- * 
+ *
  * Solving: θ = sample_variance/sample_mean, k = sample_mean²/sample_variance
- * 
+ *
  * This is more numerically stable than MLE approximations for the Gamma distribution.
- * 
+ *
  * @param values Vector of observed data points
  */
 void GammaDistribution::fit(std::span<const double> data) {

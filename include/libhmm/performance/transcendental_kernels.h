@@ -40,19 +40,16 @@ public:
     /// Sum of exp(a[i]+b[i] - maxVal) for finite terms, over [0, size).
     /// Returns 0 when maxVal is not finite.
     [[nodiscard]] static double sum_exp_sum2_minus_max(const double *a, const double *b,
-                                                       std::size_t size,
-                                                       double maxVal) noexcept;
+                                                       std::size_t size, double maxVal) noexcept;
 
     /// Element-wise max of (a[i]+b[i]+c[i]) over [0, size).  No exp calls.
-    [[nodiscard]] static double reduce_max_sum3(const double *a, const double *b,
-                                                const double *c,
+    [[nodiscard]] static double reduce_max_sum3(const double *a, const double *b, const double *c,
                                                 std::size_t size) noexcept;
 
     /// Sum of exp(a[i]+b[i]+c[i] - maxVal) for finite terms, over [0, size).
     /// Returns 0 when maxVal is not finite.
     [[nodiscard]] static double sum_exp_sum3_minus_max(const double *a, const double *b,
-                                                       const double *c,
-                                                       std::size_t size,
+                                                       const double *c, std::size_t size,
                                                        double maxVal) noexcept;
 
     /// dst[i] += exp(a[i] + b[i] + bias) for i in [0, size).

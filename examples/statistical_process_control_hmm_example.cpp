@@ -20,17 +20,17 @@ using libhmm::ViterbiTrainer;
 
 /**
  * Example: Statistical Process Control with Chi-squared Distribution HMM
- * 
+ *
  * This example demonstrates quality control monitoring using:
  * - Chi-squared distribution for test statistics and variance measures
  * - Gaussian distribution for measurement errors
  * - Exponential distribution for time-between-failures
- * 
+ *
  * Hidden States:
  * - State 0: "In Control" (process operating normally)
  * - State 1: "Warning" (process showing signs of deviation)
  * - State 2: "Out of Control" (process requires intervention)
- * 
+ *
  * Key applications of Chi-squared in quality control:
  * - Goodness-of-fit testing for process capability
  * - Variance monitoring and control charts

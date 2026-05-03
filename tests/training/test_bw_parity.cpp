@@ -40,8 +40,7 @@ void expectMatricesEqual(const Matrix &a, const Matrix &b, double absTol) {
     for (std::size_t i = 0; i < a.size1(); ++i) {
         for (std::size_t j = 0; j < a.size2(); ++j) {
             if (absTol == kBitExactTol) {
-                EXPECT_EQ(a(i, j), b(i, j))
-                    << "mismatch at (" << i << "," << j << ")";
+                EXPECT_EQ(a(i, j), b(i, j)) << "mismatch at (" << i << "," << j << ")";
             } else {
                 expectClose(a(i, j), b(i, j), absTol);
             }

@@ -109,8 +109,8 @@ std::unique_ptr<Hmm> makeContinuousGaussianHmm(std::size_t numStates) {
     for (std::size_t i = 0; i < numStates; ++i) {
         double rowSum = 0.0;
         for (std::size_t j = 0; j < numStates; ++j) {
-            const double w = 0.1 + 0.4 * std::sin(0.7 * static_cast<double>(i) +
-                                                  1.3 * static_cast<double>(j));
+            const double w =
+                0.1 + 0.4 * std::sin(0.7 * static_cast<double>(i) + 1.3 * static_cast<double>(j));
             const double clamped = std::max(w, 0.05);
             trans(i, j) = clamped;
             rowSum += clamped;
@@ -138,8 +138,7 @@ std::unique_ptr<Hmm> makeContinuousGaussianHmm(std::size_t numStates) {
 ObservationSet makeContinuousObs(std::size_t length, std::size_t numStates) {
     ObservationSet obs(length);
     for (std::size_t t = 0; t < length; ++t) {
-        obs(t) =
-            std::sin(0.1 * static_cast<double>(t)) * static_cast<double>(numStates);
+        obs(t) = std::sin(0.1 * static_cast<double>(t)) * static_cast<double>(numStates);
     }
     return obs;
 }

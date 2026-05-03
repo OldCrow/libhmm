@@ -8,18 +8,18 @@ namespace libhmm {
 
 /**
  * Modern C++20 Negative Binomial distribution for modeling discrete count data.
- * 
- * The Negative Binomial distribution models the number of failures before 
- * the r-th success in a sequence of independent Bernoulli trials, each with 
+ *
+ * The Negative Binomial distribution models the number of failures before
+ * the r-th success in a sequence of independent Bernoulli trials, each with
  * success probability p.
- * 
+ *
  * PMF: P(X = k) = C(k+r-1, k) * p^r * (1-p)^k
  * where C(k+r-1, k) is the binomial coefficient
- * 
+ *
  * Alternative parameterization (often used in practice):
  * - r: number of successes (positive real number)
  * - p: success probability (in [0,1])
- * 
+ *
  * Properties:
  * - Mean: r * (1-p) / p
  * - Variance: r * (1-p) / p²
@@ -99,7 +99,7 @@ private:
 public:
     /**
      * Constructs a Negative Binomial distribution with given parameters.
-     * 
+     *
      * @param r Number of successes (must be positive)
      * @param p Success probability (must be in (0,1])
      * @throws std::invalid_argument if parameters are invalid
@@ -169,7 +169,7 @@ public:
 
     /**
      * Computes the probability mass function for the Negative Binomial distribution.
-     * 
+     *
      * @param value The value at which to evaluate the PMF (will be rounded to nearest integer)
      * @return Probability mass
      */
@@ -189,21 +189,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Gets the number of successes parameter r.
-     * 
+     *
      * @return Current number of successes
      */
     double getR() const noexcept { return r_; }
 
     /**
      * Sets the number of successes parameter r.
-     * 
+     *
      * @param r New number of successes (must be positive)
      * @throws std::invalid_argument if r <= 0
      */
@@ -215,14 +215,14 @@ public:
 
     /**
      * Gets the success probability parameter p.
-     * 
+     *
      * @return Current success probability
      */
     double getP() const noexcept { return p_; }
 
     /**
      * Sets the success probability parameter p.
-     * 
+     *
      * @param p New success probability (must be in (0,1])
      * @throws std::invalid_argument if p not in (0,1]
      */
@@ -235,7 +235,7 @@ public:
     /**
      * Gets the mean of the distribution.
      * For Negative Binomial distribution, mean = r * (1-p) / p
-     * 
+     *
      * @return Mean value
      */
     double getMean() const noexcept { return r_ * (1.0 - p_) / p_; }
@@ -243,21 +243,21 @@ public:
     /**
      * Gets the variance of the distribution.
      * For Negative Binomial distribution, variance = r * (1-p) / p²
-     * 
+     *
      * @return Variance value
      */
     double getVariance() const noexcept { return r_ * (1.0 - p_) / (p_ * p_); }
 
     /**
      * Gets the standard deviation of the distribution.
-     * 
+     *
      * @return Standard deviation value
      */
     double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
 
     /**
      * Sets both parameters simultaneously.
-     * 
+     *
      * @param r New number of successes
      * @param p New success probability
      * @throws std::invalid_argument if parameters are invalid
@@ -272,7 +272,7 @@ public:
     /**
      * Evaluates the logarithm of the probability mass function
      * More numerically stable for small probabilities
-     * 
+     *
      * @param value The value at which to evaluate the log PMF
      * @return Log probability mass
      */
@@ -286,7 +286,7 @@ public:
     /**
      * Evaluates the CDF at k using cumulative sum approach
      * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
-     * 
+     *
      * @param value The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ value)
      */
@@ -295,7 +295,7 @@ public:
     /**
      * Gets the mode of the distribution.
      * For Negative Binomial distribution, mode = floor((r-1)*(1-p)/p) if r > 1, else 0
-     * 
+     *
      * @return Mode value
      */
     int getMode() const noexcept {
@@ -308,7 +308,7 @@ public:
     /**
      * Gets the skewness of the distribution.
      * For Negative Binomial distribution, skewness = (2-p)/sqrt(r*(1-p))
-     * 
+     *
      * @return Skewness value
      */
     double getSkewness() const noexcept { return (2.0 - p_) / std::sqrt(r_ * (1.0 - p_)); }
@@ -316,7 +316,7 @@ public:
     /**
      * Gets the kurtosis of the distribution.
      * For Negative Binomial distribution, kurtosis = 3 + (6/r) + (p²/(r*(1-p)))
-     * 
+     *
      * @return Kurtosis value
      */
     double getKurtosis() const noexcept { return 3.0 + (6.0 / r_) + (p_ * p_) / (r_ * (1.0 - p_)); }

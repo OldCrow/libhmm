@@ -8,21 +8,21 @@ namespace libhmm {
 
 /**
  * Weibull distribution for reliability analysis and survival modeling.
- * 
- * The Weibull distribution is a continuous probability distribution defined 
+ *
+ * The Weibull distribution is a continuous probability distribution defined
  * on the interval [0,∞) and parameterized by two positive parameters:
  * k (shape parameter) and λ (scale parameter).
- * 
+ *
  * PDF: f(x; k, λ) = (k/λ) * (x/λ)^(k-1) * exp(-(x/λ)^k)  for x ≥ 0
  * CDF: F(x; k, λ) = 1 - exp(-(x/λ)^k)  for x ≥ 0
- * 
+ *
  * Special cases:
  * - k = 1: Exponential distribution with rate λ
- * - k = 2: Rayleigh distribution  
+ * - k = 2: Rayleigh distribution
  * - k < 1: Decreasing failure rate (infant mortality)
  * - k = 1: Constant failure rate (random failures)
  * - k > 1: Increasing failure rate (wear-out failures)
- * 
+ *
  * Applications:
  * - Reliability engineering and failure analysis
  * - Survival analysis and lifetime modeling
@@ -38,7 +38,7 @@ private:
     double k_{1.0};
 
     /**
-     * Scale parameter λ (lambda) - must be positive  
+     * Scale parameter λ (lambda) - must be positive
      * Controls the scale/spread of the distribution
      */
     double lambda_{1.0};
@@ -97,7 +97,7 @@ private:
 public:
     /**
      * Constructs a Weibull distribution with given parameters.
-     * 
+     *
      * @param k Shape parameter (must be positive)
      * @param lambda Scale parameter (must be positive)
      * @throws std::invalid_argument if parameters are not positive finite numbers
@@ -161,7 +161,7 @@ public:
 
     /**
      * Computes the probability density function for the Weibull distribution.
-     * 
+     *
      * @param value The value at which to evaluate the PDF (should be ≥ 0)
      * @return Probability density, or 0.0 if value is negative
      */
@@ -189,14 +189,14 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Computes the cumulative distribution function (CDF) for the Weibull distribution.
-     * 
+     *
      * @param x The value at which to evaluate the CDF (should be ≥ 0)
      * @return Cumulative probability P(X ≤ x), or 0.0 if x is negative
      */
@@ -204,7 +204,7 @@ public:
 
     /**
      * Equality comparison operator with tolerance for floating-point comparison.
-     * 
+     *
      * @param other Distribution to compare with
      * @return true if distributions have the same parameters within tolerance
      */
@@ -212,14 +212,14 @@ public:
 
     /**
      * Gets the shape parameter k.
-     * 
+     *
      * @return Current k value
      */
     double getK() const noexcept { return k_; }
 
     /**
      * Sets the shape parameter k.
-     * 
+     *
      * @param k New shape parameter (must be positive)
      * @throws std::invalid_argument if k <= 0 or is not finite
      */
@@ -231,14 +231,14 @@ public:
 
     /**
      * Gets the scale parameter λ (lambda).
-     * 
+     *
      * @return Current lambda value
      */
     double getLambda() const noexcept { return lambda_; }
 
     /**
      * Sets the scale parameter λ (lambda).
-     * 
+     *
      * @param lambda New scale parameter (must be positive)
      * @throws std::invalid_argument if lambda <= 0 or is not finite
      */
@@ -251,7 +251,7 @@ public:
     /**
      * Gets the mean of the distribution.
      * For Weibull(k, λ), mean = λ * Γ(1 + 1/k)
-     * 
+     *
      * @return Mean value
      */
     double getMean() const noexcept { return lambda_ * std::exp(std::lgamma(1.0 + 1.0 / k_)); }
@@ -259,7 +259,7 @@ public:
     /**
      * Gets the variance of the distribution.
      * For Weibull(k, λ), variance = λ² * [Γ(1 + 2/k) - (Γ(1 + 1/k))²]
-     * 
+     *
      * @return Variance value
      */
     double getVariance() const noexcept {
@@ -270,7 +270,7 @@ public:
 
     /**
      * Gets the standard deviation of the distribution.
-     * 
+     *
      * @return Standard deviation
      */
     double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
@@ -278,7 +278,7 @@ public:
     /**
      * Gets the scale parameter (alternative name for lambda).
      * This is sometimes called the "characteristic life" in reliability contexts.
-     * 
+     *
      * @return Scale parameter value
      */
     double getScale() const noexcept { return lambda_; }
@@ -286,7 +286,7 @@ public:
     /**
      * Gets the shape parameter (alternative name for k).
      * This is sometimes called the "Weibull modulus" in reliability contexts.
-     * 
+     *
      * @return Shape parameter value
      */
     double getShape() const noexcept { return k_; }

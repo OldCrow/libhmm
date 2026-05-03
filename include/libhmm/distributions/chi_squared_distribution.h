@@ -8,11 +8,11 @@ namespace libhmm {
 
 /**
  * Chi-squared distribution for modeling sums of squared standard normal variables.
- * 
+ *
  * The Chi-squared distribution is a continuous probability distribution with support
  * on non-negative real numbers. It is a special case of the Gamma distribution and
  * arises frequently in statistical inference, particularly in hypothesis testing.
- * 
+ *
  * Mathematical properties:
  * - PDF: f(x; k) = (1/(2^(k/2) * Γ(k/2))) * x^(k/2-1) * e^(-x/2)
  * - Support: x ∈ [0, ∞)
@@ -20,7 +20,7 @@ namespace libhmm {
  * - Mean: k
  * - Variance: 2k
  * - Relation to Gamma: χ²(k) = Gamma(k/2, 2)
- * 
+ *
  * Applications:
  * - Goodness-of-fit tests
  * - Tests of independence in contingency tables
@@ -68,7 +68,7 @@ private:
 public:
     /**
      * Constructs a Chi-squared distribution with given degrees of freedom.
-     * 
+     *
      * @param degrees_of_freedom Degrees of freedom k (must be positive)
      * @throws std::invalid_argument if degrees_of_freedom <= 0
      */
@@ -116,7 +116,7 @@ public:
 
     /**
      * Computes the probability density function for the Chi-squared distribution.
-     * 
+     *
      * @param value The value at which to evaluate the PDF (should be non-negative)
      * @return Probability density f(value|k), or 0.0 if value < 0
      */
@@ -141,21 +141,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Gets the degrees of freedom parameter.
-     * 
+     *
      * @return Current degrees of freedom value
      */
     double getDegreesOfFreedom() const noexcept { return degrees_of_freedom_; }
 
     /**
      * Sets the degrees of freedom parameter.
-     * 
+     *
      * @param degrees_of_freedom New degrees of freedom parameter (must be positive)
      * @throws std::invalid_argument if degrees_of_freedom <= 0 or is not finite
      */
@@ -167,28 +167,28 @@ public:
 
     /**
      * Gets the mean of the distribution.
-     * 
+     *
      * @return Mean (k)
      */
     double getMean() const noexcept { return degrees_of_freedom_; }
 
     /**
      * Gets the variance of the distribution.
-     * 
+     *
      * @return Variance (2k)
      */
     double getVariance() const noexcept { return 2.0 * degrees_of_freedom_; }
 
     /**
      * Gets the standard deviation of the distribution.
-     * 
+     *
      * @return Standard deviation (√(2k))
      */
     double getStandardDeviation() const noexcept { return std::sqrt(2.0 * degrees_of_freedom_); }
 
     /**
      * Gets the mode of the distribution.
-     * 
+     *
      * @return Mode (max(0, k-2))
      */
     double getMode() const noexcept { return std::max(0.0, degrees_of_freedom_ - 2.0); }

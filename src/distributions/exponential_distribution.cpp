@@ -10,13 +10,13 @@ namespace libhmm {
 
 /**
  * Computes the probability density function for the Exponential distribution.
- * 
+ *
  * For continuous distributions in discrete sampling contexts, we approximate
  * the probability as P(x - ε <= X <= x) = F(x) - F(x - ε) where ε is a small tolerance.
- * 
+ *
  * This provides a numerically stable approximation of the PDF scaled by the tolerance,
  * which is appropriate for discrete sampling of continuous distributions.
- * 
+ *
  * @param x The value at which to evaluate the probability
  * @return Approximated probability for discrete sampling
  */
@@ -40,9 +40,9 @@ double ExponentialDistribution::getProbability(double value) const {
 
 /**
  * Computes the logarithm of the probability density function for numerical stability.
- * 
+ *
  * For exponential distribution: log(f(x)) = log(λ) - λx for x ≥ 0
- * 
+ *
  * @param x The value at which to evaluate the log-PDF
  * @return Natural logarithm of the probability density, or -∞ for invalid values
  */
@@ -59,9 +59,9 @@ double ExponentialDistribution::getLogProbability(double value) const noexcept {
 
 /**
  * Evaluates the CDF for the Exponential distribution at x.
- * 
+ *
  * Formula: F(x) = 1 - exp(-λx) for x ≥ 0
- * 
+ *
  * @param x The value at which to evaluate the CDF
  * @return Cumulative probability P(X ≤ x)
  */
@@ -73,7 +73,7 @@ double ExponentialDistribution::getCumulativeProbability(double x) const noexcep
 
 /**
  * Fits the distribution parameters to the given data using maximum likelihood estimation.
- * 
+ *
  * For the Exponential distribution, the MLE of the rate parameter is:
  * λ = 1 / sample_mean
  *

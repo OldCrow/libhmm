@@ -19,17 +19,17 @@ using libhmm::ViterbiTrainer;
 
 /**
  * Example: Queuing Theory and Service Systems with HMM
- * 
+ *
  * This example demonstrates modeling service systems using HMMs to represent:
  * - Customer arrival patterns (Poisson arrivals)
  * - Service time distributions (Exponential, Gamma)
  * - System state transitions (load levels, server availability)
- * 
+ *
  * Service System States:
  * - State 0: "Low Load" (few customers, fast service)
  * - State 1: "Medium Load" (moderate queue, normal service)
  * - State 2: "High Load" (long queue, slow service)
- * 
+ *
  * Models Demonstrated:
  * 1. M/M/1 Queue (Poisson arrivals, Exponential service)
  * 2. M/G/1 Queue (Poisson arrivals, Gamma service times)

@@ -25,9 +25,9 @@ namespace {
 
 using TK = libhmm::performance::detail::TranscendentalKernels;
 
-constexpr double LOG_ZERO  = -std::numeric_limits<double>::infinity();
-constexpr double REL_TOL   = 1e-12;
-constexpr double ABS_TOL   = 1e-15;
+constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
+constexpr double REL_TOL = 1e-12;
+constexpr double ABS_TOL = 1e-15;
 
 // Sizes chosen to cover: scalar-only (1), below SSE2 width (1,3), single
 // SSE2 block (2), single AVX block (4), non-multiple-of-4 (7,15,31),
@@ -58,14 +58,15 @@ static std::vector<double> make_mixed(std::size_t n, double offset = 0.0) {
 
 // Comparison helpers.
 static void check_scalar(double got, double ref, const char *label) {
-    if (std::isinf(ref) && std::isinf(got)) return; // both -inf is fine
+    if (std::isinf(ref) && std::isinf(got))
+        return; // both -inf is fine
     const double diff = std::abs(got - ref);
     if (ref != 0.0) {
         EXPECT_LE(diff / std::abs(ref), REL_TOL)
             << label << ": relative error too large  got=" << got << " ref=" << ref;
     } else {
-        EXPECT_LE(diff, ABS_TOL)
-            << label << ": absolute error too large  got=" << got << " ref=" << ref;
+        EXPECT_LE(diff, ABS_TOL) << label << ": absolute error too large  got=" << got
+                                 << " ref=" << ref;
     }
 }
 
@@ -81,12 +82,12 @@ static void check_array(const std::vector<double> &got, const std::vector<double
 // 1. reduce_max_sum2
 // =========================================================================
 
-static double ref_reduce_max_sum2(const std::vector<double> &a,
-                                  const std::vector<double> &b) {
+static double ref_reduce_max_sum2(const std::vector<double> &a, const std::vector<double> &b) {
     double m = -std::numeric_limits<double>::infinity();
     for (std::size_t i = 0; i < a.size(); ++i) {
         double t = a[i] + b[i];
-        if (t > m) m = t;
+        if (t > m)
+            m = t;
     }
     return m;
 }
@@ -120,14 +121,15 @@ TEST(TranscendentalKernels, ReduceMaxSum2_WithLogZero) {
 // 2. sum_exp_sum2_minus_max
 // =========================================================================
 
-static double ref_sum_exp_sum2_minus_max(const std::vector<double> &a,
-                                         const std::vector<double> &b,
+static double ref_sum_exp_sum2_minus_max(const std::vector<double> &a, const std::vector<double> &b,
                                          double maxVal) {
-    if (!std::isfinite(maxVal)) return 0.0;
+    if (!std::isfinite(maxVal))
+        return 0.0;
     double s = 0.0;
     for (std::size_t i = 0; i < a.size(); ++i) {
         double t = a[i] + b[i];
-        if (std::isfinite(t)) s += std::exp(t - maxVal);
+        if (std::isfinite(t))
+            s += std::exp(t - maxVal);
     }
     return s;
 }
@@ -159,7 +161,7 @@ TEST(TranscendentalKernels, SumExpSum2MinusMax_InfiniteMax) {
         auto a = make_log_probs(n);
         auto b = make_log_probs(n);
         double got = TK::sum_exp_sum2_minus_max(a.data(), b.data(), n,
-                                                 -std::numeric_limits<double>::infinity());
+                                                -std::numeric_limits<double>::infinity());
         EXPECT_EQ(got, 0.0) << "should return 0 when maxVal is -inf";
     }
 }
@@ -168,13 +170,13 @@ TEST(TranscendentalKernels, SumExpSum2MinusMax_InfiniteMax) {
 // 3. reduce_max_sum3
 // =========================================================================
 
-static double ref_reduce_max_sum3(const std::vector<double> &a,
-                                  const std::vector<double> &b,
+static double ref_reduce_max_sum3(const std::vector<double> &a, const std::vector<double> &b,
                                   const std::vector<double> &c) {
     double m = -std::numeric_limits<double>::infinity();
     for (std::size_t i = 0; i < a.size(); ++i) {
         double t = a[i] + b[i] + c[i];
-        if (t > m) m = t;
+        if (t > m)
+            m = t;
     }
     return m;
 }
@@ -209,15 +211,15 @@ TEST(TranscendentalKernels, ReduceMaxSum3_WithLogZero) {
 // 4. sum_exp_sum3_minus_max
 // =========================================================================
 
-static double ref_sum_exp_sum3_minus_max(const std::vector<double> &a,
-                                         const std::vector<double> &b,
-                                         const std::vector<double> &c,
-                                         double maxVal) {
-    if (!std::isfinite(maxVal)) return 0.0;
+static double ref_sum_exp_sum3_minus_max(const std::vector<double> &a, const std::vector<double> &b,
+                                         const std::vector<double> &c, double maxVal) {
+    if (!std::isfinite(maxVal))
+        return 0.0;
     double s = 0.0;
     for (std::size_t i = 0; i < a.size(); ++i) {
         double t = a[i] + b[i] + c[i];
-        if (std::isfinite(t)) s += std::exp(t - maxVal);
+        if (std::isfinite(t))
+            s += std::exp(t - maxVal);
     }
     return s;
 }
@@ -252,7 +254,7 @@ TEST(TranscendentalKernels, SumExpSum3MinusMax_InfiniteMax) {
         auto b = make_log_probs(n);
         auto c = make_log_probs(n);
         double got = TK::sum_exp_sum3_minus_max(a.data(), b.data(), c.data(), n,
-                                                 -std::numeric_limits<double>::infinity());
+                                                -std::numeric_limits<double>::infinity());
         EXPECT_EQ(got, 0.0) << "should return 0 when maxVal is -inf";
     }
 }
@@ -261,10 +263,8 @@ TEST(TranscendentalKernels, SumExpSum3MinusMax_InfiniteMax) {
 // 5. accumulate_exp_sum2_bias
 // =========================================================================
 
-static void ref_accumulate_exp_sum2_bias(std::vector<double> &dst,
-                                         const std::vector<double> &a,
-                                         const std::vector<double> &b,
-                                         double bias) {
+static void ref_accumulate_exp_sum2_bias(std::vector<double> &dst, const std::vector<double> &a,
+                                         const std::vector<double> &b, double bias) {
     for (std::size_t i = 0; i < dst.size(); ++i) {
         dst[i] += std::exp(a[i] + b[i] + bias);
     }
@@ -342,7 +342,8 @@ TEST(TranscendentalKernels, RoundTrip_LogSumExp2) {
     // For finite inputs: log(sum_exp(a+b - max)) + max == log_sum_exp(a, b).
     // Just check the intermediate values are consistent with each other.
     for (std::size_t n : TEST_SIZES) {
-        if (n == 0) continue;
+        if (n == 0)
+            continue;
         auto a = make_log_probs(n, 0.0);
         auto b = make_log_probs(n, -2.0);
 
@@ -351,8 +352,7 @@ TEST(TranscendentalKernels, RoundTrip_LogSumExp2) {
 
         EXPECT_TRUE(std::isfinite(maxVal))
             << "reduce_max_sum2 should return finite max for normal inputs (n=" << n << ")";
-        EXPECT_GT(scaledSum, 0.0)
-            << "scaled sum should be positive (n=" << n << ")";
+        EXPECT_GT(scaledSum, 0.0) << "scaled sum should be positive (n=" << n << ")";
 
         double logSumExp = maxVal + std::log(scaledSum);
         EXPECT_TRUE(std::isfinite(logSumExp))

@@ -8,17 +8,17 @@ namespace libhmm {
 
 /**
  * @brief Uniform Distribution
- * 
+ *
  * The uniform distribution is a continuous probability distribution where all values
  * within a specified interval [a, b] have equal probability density.
- * 
+ *
  * Probability Density Function:
  * f(x) = 1/(b-a) for a ≤ x ≤ b, 0 otherwise
- * 
+ *
  * Parameters:
  * - a: Lower bound (minimum value)
  * - b: Upper bound (maximum value)
- * 
+ *
  * Properties:
  * - Mean: μ = (a + b) / 2
  * - Variance: σ² = (b - a)² / 12

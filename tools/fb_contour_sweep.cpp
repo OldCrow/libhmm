@@ -269,7 +269,8 @@ Timings run_once(const Hmm &hmm, const ObservationSet &obs) {
     return out;
 }
 
-Timings profile_config(const Hmm &hmm, const ObservationSet &obs, const int runs, const int warmup) {
+Timings profile_config(const Hmm &hmm, const ObservationSet &obs, const int runs,
+                       const int warmup) {
     std::vector<double> transition_ms;
     std::vector<double> obs_copy_ms;
     std::vector<double> emission_ms;
@@ -303,14 +304,8 @@ Timings profile_config(const Hmm &hmm, const ObservationSet &obs, const int runs
     }
 
     return {
-        median(transition_ms),
-        median(obs_copy_ms),
-        median(emission_ms),
-        median(alloc_ms),
-        median(forward_ms),
-        median(backward_ms),
-        median(reduction_ms),
-        median(total_ms),
+        median(transition_ms), median(obs_copy_ms), median(emission_ms),  median(alloc_ms),
+        median(forward_ms),    median(backward_ms), median(reduction_ms), median(total_ms),
     };
 }
 
@@ -342,8 +337,8 @@ int main(int argc, char *argv[]) {
     int runs = 5;
     int warmup = 1;
 
-    fs::path output_path = fs::path("benchmark-analysis") /
-                           ("fb_contour_sweep_" + mode_name() + ".csv");
+    fs::path output_path =
+        fs::path("benchmark-analysis") / ("fb_contour_sweep_" + mode_name() + ".csv");
 
     if (argc >= 2) {
         output_path = argv[1];
@@ -361,10 +356,10 @@ int main(int argc, char *argv[]) {
     }
 
     const std::vector<Config> configs = {
-        {2, 1000},    {2, 10000},   {2, 100000},  {2, 1000000}, {4, 1000},   {4, 10000},
-        {4, 100000},  {8, 1000},    {8, 5000},    {8, 10000},   {16, 1000},  {16, 2000},
-        {16, 5000},   {32, 500},    {32, 1000},   {32, 2000},   {64, 200},   {64, 500},
-        {64, 1000},   {128, 100},   {128, 250},   {128, 500},
+        {2, 1000},   {2, 10000}, {2, 100000}, {2, 1000000}, {4, 1000},  {4, 10000},
+        {4, 100000}, {8, 1000},  {8, 5000},   {8, 10000},   {16, 1000}, {16, 2000},
+        {16, 5000},  {32, 500},  {32, 1000},  {32, 2000},   {64, 200},  {64, 500},
+        {64, 1000},  {128, 100}, {128, 250},  {128, 500},
     };
 
     const fs::path output_dir = output_path.parent_path();
@@ -403,8 +398,9 @@ int main(int argc, char *argv[]) {
             << timed.total_ms << "\n";
 
         const double recurrence_pct =
-            (timed.total_ms > 0.0) ? ((timed.forward_ms + timed.backward_ms) * 100.0 / timed.total_ms)
-                                   : 0.0;
+            (timed.total_ms > 0.0)
+                ? ((timed.forward_ms + timed.backward_ms) * 100.0 / timed.total_ms)
+                : 0.0;
         std::cout << "N=" << std::setw(3) << cfg.n << " T=" << std::setw(8) << cfg.t
                   << " total=" << std::setw(9) << timed.total_ms << " ms"
                   << " recur=" << std::setw(6) << recurrence_pct << "%\n";

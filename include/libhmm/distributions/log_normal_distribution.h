@@ -8,20 +8,20 @@ namespace libhmm {
 
 /**
  * Modern C++20 Log-Normal distribution for modeling positive continuous data.
- * 
+ *
  * The Log-Normal distribution is a continuous probability distribution of a
  * random variable whose logarithm is normally distributed. It's commonly used
  * to model sizes, lengths, and other positive quantities that arise from
  * multiplicative processes.
- * 
+ *
  * Important note about parameterization:
  * This implementation uses the "log-scale" parameterization where:
  * - μ (mean_) is the mean of the underlying normal distribution ln(X)
  * - σ (standardDeviation_) is the standard deviation of ln(X)
- * 
+ *
  * PDF: f(x) = (1/(x·σ·√(2π))) * exp(-½((ln(x)-μ)/σ)²) for x > 0
  * where μ is the mean of ln(X) and σ is the std dev of ln(X)
- * 
+ *
  * Properties:
  * - Mean: exp(μ + σ²/2)
  * - Variance: (exp(σ²) - 1) * exp(2μ + σ²)
@@ -79,7 +79,7 @@ private:
 public:
     /**
      * Constructs a Log-Normal distribution with given parameters.
-     * 
+     *
      * @param mean Mean of the underlying normal distribution (μ, any finite value)
      * @param standardDeviation Standard deviation of the underlying normal distribution (σ, must be positive)
      * @throws std::invalid_argument if parameters are invalid
@@ -139,7 +139,7 @@ public:
 
     /**
      * Computes the probability density function for the Log-Normal distribution.
-     * 
+     *
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
@@ -168,21 +168,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Gets the mean parameter μ of the underlying normal distribution.
-     * 
+     *
      * @return Current mean parameter value
      */
     double getMean() const noexcept { return mean_; }
 
     /**
      * Sets the mean parameter μ of the underlying normal distribution.
-     * 
+     *
      * @param mean New mean parameter (any finite value)
      * @throws std::invalid_argument if mean is not finite
      */
@@ -194,14 +194,14 @@ public:
 
     /**
      * Gets the standard deviation parameter σ of the underlying normal distribution.
-     * 
+     *
      * @return Current standard deviation parameter value
      */
     double getStandardDeviation() const noexcept { return standardDeviation_; }
 
     /**
      * Sets the standard deviation parameter σ of the underlying normal distribution.
-     * 
+     *
      * @param stdDev New standard deviation parameter (must be positive)
      * @throws std::invalid_argument if stdDev <= 0 or is not finite
      */
@@ -213,7 +213,7 @@ public:
 
     /**
      * Sets both parameters simultaneously.
-     * 
+     *
      * @param mean New mean parameter
      * @param stdDev New standard deviation parameter
      * @throws std::invalid_argument if parameters are invalid
@@ -228,7 +228,7 @@ public:
     /**
      * Gets the mean of the Log-Normal distribution (not the underlying normal).
      * For Log-Normal distribution, mean = exp(μ + σ²/2)
-     * 
+     *
      * @return Mean of the Log-Normal distribution
      */
     double getDistributionMean() const noexcept {
@@ -239,7 +239,7 @@ public:
     /**
      * Gets the variance of the Log-Normal distribution.
      * For Log-Normal distribution, variance = (exp(σ²) - 1) * exp(2μ + σ²)
-     * 
+     *
      * @return Variance of the Log-Normal distribution
      */
     double getVariance() const noexcept {
@@ -249,7 +249,7 @@ public:
 
     /**
      * Gets the standard deviation of the Log-Normal distribution.
-     * 
+     *
      * @return Standard deviation of the Log-Normal distribution
      */
     double getDistributionStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
@@ -257,7 +257,7 @@ public:
     /**
      * Gets the mode of the Log-Normal distribution.
      * For Log-Normal distribution, mode = exp(μ - σ²)
-     * 
+     *
      * @return Mode of the Log-Normal distribution
      */
     double getMode() const noexcept {
@@ -268,7 +268,7 @@ public:
     /**
      * Gets the median of the Log-Normal distribution.
      * For Log-Normal distribution, median = exp(μ)
-     * 
+     *
      * @return Median of the Log-Normal distribution
      */
     double getMedian() const noexcept { return std::exp(mean_); }

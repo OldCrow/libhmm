@@ -21,15 +21,15 @@
 #include <vector>
 
 using namespace libhmm;
-using Clock   = std::chrono::high_resolution_clock;
-using Millis  = std::chrono::duration<double, std::milli>;
+using Clock = std::chrono::high_resolution_clock;
+using Millis = std::chrono::duration<double, std::milli>;
 
 namespace {
 
 constexpr int WARMUP_RUNS = 2;
-constexpr int TIMED_RUNS  = 8;
+constexpr int TIMED_RUNS = 8;
 // T large enough that measurement is stable; small enough to finish quickly.
-constexpr int T_DEFAULT   = 1000;
+constexpr int T_DEFAULT = 1000;
 
 std::unique_ptr<Hmm> make_hmm(int n) {
     auto hmm = std::make_unique<Hmm>(n);
@@ -40,11 +40,13 @@ std::unique_ptr<Hmm> make_hmm(int n) {
             trans(i, j) = 0.1 + 0.8 * (0.5 + 0.5 * std::sin(i * 0.7 + j * 1.3));
             s += trans(i, j);
         }
-        for (int j = 0; j < n; ++j) trans(i, j) /= s;
+        for (int j = 0; j < n; ++j)
+            trans(i, j) /= s;
     }
     hmm->setTrans(trans);
     Vector pi(n);
-    for (int i = 0; i < n; ++i) pi(i) = 1.0 / n;
+    for (int i = 0; i < n; ++i)
+        pi(i) = 1.0 / n;
     hmm->setPi(pi);
     for (int i = 0; i < n; ++i)
         hmm->setDistribution(i, std::make_unique<GaussianDistribution>(i * 2.0, 1.0));
@@ -85,15 +87,12 @@ int main() {
     const std::vector<int> N_VALUES = {2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 24, 32, 48, 64};
     const int T = T_DEFAULT;
 
-    std::cout << "FB mode crossover sweep  (T=" << T
-              << ", median of " << TIMED_RUNS << " runs, " << WARMUP_RUNS << " warmup)\n";
+    std::cout << "FB mode crossover sweep  (T=" << T << ", median of " << TIMED_RUNS << " runs, "
+              << WARMUP_RUNS << " warmup)\n";
     std::cout << "Active ISA: " << libhmm::performance::simd::feature_string() << "\n\n";
 
-    std::cout << std::setw(6)  << "N"
-              << std::setw(14) << "Pairwise(ms)"
-              << std::setw(14) << "MaxReduce(ms)"
-              << std::setw(10) << "MR/PW"
-              << std::setw(12) << "Winner"
+    std::cout << std::setw(6) << "N" << std::setw(14) << "Pairwise(ms)" << std::setw(14)
+              << "MaxReduce(ms)" << std::setw(10) << "MR/PW" << std::setw(12) << "Winner"
               << "\n";
     std::cout << std::string(56, '-') << "\n";
 
@@ -108,11 +107,9 @@ int main() {
         const char *current =
             (selectFbRecurrenceMode(n, T) == FbRecurrenceMode::MaxReduce) ? " [current]" : "";
 
-        std::cout << std::setw(6)  << n
-                  << std::setw(14) << std::fixed << std::setprecision(3) << pw
-                  << std::setw(14) << std::fixed << std::setprecision(3) << mr
-                  << std::setw(10) << std::fixed << std::setprecision(3) << ratio
-                  << "  " << winner << current
+        std::cout << std::setw(6) << n << std::setw(14) << std::fixed << std::setprecision(3) << pw
+                  << std::setw(14) << std::fixed << std::setprecision(3) << mr << std::setw(10)
+                  << std::fixed << std::setprecision(3) << ratio << "  " << winner << current
                   << "\n";
     }
 

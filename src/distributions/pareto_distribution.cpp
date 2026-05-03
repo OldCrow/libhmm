@@ -205,20 +205,20 @@ std::istream &operator>>(std::istream &is, libhmm::ParetoDistribution &distribut
 // =============================================================================
 namespace detail {
 
-void pareto_logpdf_batch(const double *obs, double *out, std::size_t n,
-                         double xm, double logK_plus_kLogXm, double kPlus1) noexcept {
+void pareto_logpdf_batch(const double *obs, double *out, std::size_t n, double xm,
+                         double logK_plus_kLogXm, double kPlus1) noexcept {
     using namespace performance::detail::kernels;
     std::size_t i = 0;
     const double neg_inf = -std::numeric_limits<double>::infinity();
 
 #if defined(LIBHMM_HAS_AVX512)
     {
-        const __m512d vxm   = _mm512_set1_pd(xm);
+        const __m512d vxm = _mm512_set1_pd(xm);
         const __m512d vconst = _mm512_set1_pd(logK_plus_kLogXm);
-        const __m512d vkp1  = _mm512_set1_pd(kPlus1);
+        const __m512d vkp1 = _mm512_set1_pd(kPlus1);
         const __m512d vneg_inf = _mm512_set1_pd(neg_inf);
         for (; i + 8 <= n; i += 8) {
-            __m512d x  = _mm512_loadu_pd(obs + i);
+            __m512d x = _mm512_loadu_pd(obs + i);
             // x < xm: -inf
             __mmask8 invalid = _mm512_cmp_pd_mask(x, vxm, _CMP_LT_OS);
             __m512d lx = k_log_pd_avx512(x);
@@ -231,14 +231,14 @@ void pareto_logpdf_batch(const double *obs, double *out, std::size_t n,
 
 #if defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
     {
-        const __m256d vxm    = _mm256_set1_pd(xm);
+        const __m256d vxm = _mm256_set1_pd(xm);
         const __m256d vconst = _mm256_set1_pd(logK_plus_kLogXm);
-        const __m256d vkp1   = _mm256_set1_pd(kPlus1);
+        const __m256d vkp1 = _mm256_set1_pd(kPlus1);
         const __m256d vneg_inf = _mm256_set1_pd(neg_inf);
         for (; i + 4 <= n; i += 4) {
-            __m256d x   = _mm256_loadu_pd(obs + i);
+            __m256d x = _mm256_loadu_pd(obs + i);
             __m256d inv = _mm256_cmp_pd(x, vxm, _CMP_LT_OS); // all-1s where x < xm
-            __m256d lx  = k_log_pd_avx(x);
+            __m256d lx = k_log_pd_avx(x);
             __m256d res = _mm256_sub_pd(vconst, _mm256_mul_pd(vkp1, lx));
             res = _mm256_blendv_pd(res, vneg_inf, inv);
             _mm256_storeu_pd(out + i, res);
@@ -248,14 +248,14 @@ void pareto_logpdf_batch(const double *obs, double *out, std::size_t n,
 
 #if defined(LIBHMM_HAS_SSE2)
     {
-        const __m128d vxm    = _mm_set1_pd(xm);
+        const __m128d vxm = _mm_set1_pd(xm);
         const __m128d vconst = _mm_set1_pd(logK_plus_kLogXm);
-        const __m128d vkp1   = _mm_set1_pd(kPlus1);
+        const __m128d vkp1 = _mm_set1_pd(kPlus1);
         const __m128d vneg_inf = _mm_set1_pd(neg_inf);
         for (; i + 2 <= n; i += 2) {
-            __m128d x   = _mm_loadu_pd(obs + i);
+            __m128d x = _mm_loadu_pd(obs + i);
             __m128d inv = _mm_cmplt_pd(x, vxm);
-            __m128d lx  = k_log_pd_sse2(x);
+            __m128d lx = k_log_pd_sse2(x);
             __m128d res = _mm_sub_pd(vconst, _mm_mul_pd(vkp1, lx));
             res = _mm_or_pd(_mm_andnot_pd(inv, res), _mm_and_pd(inv, vneg_inf));
             _mm_storeu_pd(out + i, res);
@@ -265,14 +265,14 @@ void pareto_logpdf_batch(const double *obs, double *out, std::size_t n,
 
 #if defined(LIBHMM_HAS_NEON)
     {
-        const float64x2_t vxm    = vdupq_n_f64(xm);
+        const float64x2_t vxm = vdupq_n_f64(xm);
         const float64x2_t vconst = vdupq_n_f64(logK_plus_kLogXm);
-        const float64x2_t vkp1   = vdupq_n_f64(kPlus1);
+        const float64x2_t vkp1 = vdupq_n_f64(kPlus1);
         const float64x2_t vneg_inf = vdupq_n_f64(neg_inf);
         for (; i + 2 <= n; i += 2) {
-            float64x2_t x   = vld1q_f64(obs + i);
-            uint64x2_t  inv = vcltq_f64(x, vxm); // x < xm
-            float64x2_t lx  = k_log_pd_neon(x);
+            float64x2_t x = vld1q_f64(obs + i);
+            uint64x2_t inv = vcltq_f64(x, vxm); // x < xm
+            float64x2_t lx = k_log_pd_neon(x);
             float64x2_t res = vsubq_f64(vconst, vmulq_f64(vkp1, lx));
             res = vbslq_f64(inv, vneg_inf, res);
             vst1q_f64(out + i, res);
@@ -297,9 +297,8 @@ void ParetoDistribution::getBatchLogProbabilities(std::span<const double> observ
     if (!isCacheValid())
         updateCache();
     // logK_ + kLogXm_ is a single scalar constant — compute once.
-    detail::pareto_logpdf_batch(
-        observations.data(), out.data(), observations.size(),
-        xm_, logK_ + kLogXm_, kPlus1_);
+    detail::pareto_logpdf_batch(observations.data(), out.data(), observations.size(), xm_,
+                                logK_ + kLogXm_, kPlus1_);
 }
 
 } // namespace libhmm

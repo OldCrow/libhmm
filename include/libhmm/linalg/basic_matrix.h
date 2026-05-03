@@ -14,10 +14,10 @@ namespace libhmm {
 /**
  * Lightweight Matrix class designed to replace boost::numeric::ublas::matrix
  * with better performance and SIMD-friendly memory layout.
- * 
+ *
  * Features:
  * - Contiguous memory storage for optimal cache performance
- * - Row-major ordering for better CPU cache utilization  
+ * - Row-major ordering for better CPU cache utilization
  * - SIMD-aligned memory allocation
  * - Compatible API with existing uBLAS usage patterns
  * - Zero external dependencies (pure C++17)

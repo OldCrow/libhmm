@@ -6,9 +6,9 @@ namespace libhmm {
 
 /**
  * Computes the probability density function for the Rayleigh distribution.
- * 
+ *
  * PDF: f(x) = (x/σ²) * exp(-x²/(2σ²)) for x ≥ 0
- * 
+ *
  * @param value The value at which to evaluate the PDF
  * @return Probability density
  */
@@ -24,9 +24,9 @@ double RayleighDistribution::getProbability(double value) const {
 
 /**
  * Computes the logarithm of the probability density function for numerical stability.
- * 
+ *
  * For Rayleigh distribution: log(f(x)) = log(x) - 2*log(σ) - x²/(2σ²) for x > 0
- * 
+ *
  * @param value The value at which to evaluate the log-PDF
  * @return Natural logarithm of the probability density, or -∞ for invalid values
  */
@@ -54,7 +54,7 @@ double RayleighDistribution::getCumulativeProbability(double value) const noexce
  * Fits the distribution parameters to the given data using maximum likelihood estimation.
  * This method is efficient as it requires only a single pass through the data
  * to compute the sum of squares.
- * 
+ *
  * @param values Vector of observed data
  */
 void RayleighDistribution::fit(std::span<const double> data) {

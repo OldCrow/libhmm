@@ -50,13 +50,13 @@ static inline double hadd_pd_sse2(__m128d v) noexcept {
 static inline double hmax_pd_avx(__m256d v) noexcept {
     __m128d lo = _mm256_castpd256_pd128(v);
     __m128d hi = _mm256_extractf128_pd(v, 1);
-    __m128d m  = _mm_max_pd(lo, hi);
+    __m128d m = _mm_max_pd(lo, hi);
     return hmax_pd_sse2(m);
 }
 static inline double hadd_pd_avx(__m256d v) noexcept {
     __m128d lo = _mm256_castpd256_pd128(v);
     __m128d hi = _mm256_extractf128_pd(v, 1);
-    __m128d s  = _mm_add_pd(lo, hi);
+    __m128d s = _mm_add_pd(lo, hi);
     return hadd_pd_sse2(s);
 }
 #endif
@@ -86,9 +86,7 @@ double TranscendentalKernels::reduce_max_sum2(const double *a, const double *b,
             __m512d vb = _mm512_loadu_pd(b + i);
             vmax = _mm512_max_pd(vmax, _mm512_add_pd(va, vb));
         }
-        // cppcheck-suppress redundantInitialization -- intentional cascade seed;
-        // non-AVX512 paths require maxVal=neg_inf as their starting value.
-        maxVal = _mm512_reduce_max_pd(vmax);
+        maxVal = _mm512_reduce_max_pd(vmax); // cppcheck-suppress redundantInitialization
     }
 #endif
 
@@ -131,7 +129,8 @@ double TranscendentalKernels::reduce_max_sum2(const double *a, const double *b,
     // Scalar tail.
     for (; i < size; ++i) {
         const double t = a[i] + b[i];
-        if (t > maxVal) maxVal = t;
+        if (t > maxVal)
+            maxVal = t;
     }
     return maxVal;
 }
@@ -141,7 +140,8 @@ double TranscendentalKernels::reduce_max_sum2(const double *a, const double *b,
 // -----------------------------------------------------------------------------
 double TranscendentalKernels::sum_exp_sum2_minus_max(const double *a, const double *b,
                                                      std::size_t size, double maxVal) noexcept {
-    if (!std::isfinite(maxVal)) return 0.0;
+    if (!std::isfinite(maxVal))
+        return 0.0;
     std::size_t i = 0;
     double sum = 0.0;
 
@@ -204,7 +204,8 @@ double TranscendentalKernels::sum_exp_sum2_minus_max(const double *a, const doub
     // Scalar tail.
     for (; i < size; ++i) {
         const double t = a[i] + b[i];
-        if (std::isfinite(t)) sum += std::exp(t - maxVal);
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
     }
     return sum;
 }
@@ -227,9 +228,7 @@ double TranscendentalKernels::reduce_max_sum3(const double *a, const double *b, 
             __m512d vc = _mm512_loadu_pd(c + i);
             vmax = _mm512_max_pd(vmax, _mm512_add_pd(_mm512_add_pd(va, vb), vc));
         }
-        // cppcheck-suppress redundantInitialization -- intentional cascade seed;
-        // non-AVX512 paths require maxVal=neg_inf as their starting value.
-        maxVal = _mm512_reduce_max_pd(vmax);
+        maxVal = _mm512_reduce_max_pd(vmax); // cppcheck-suppress redundantInitialization
     }
 #endif
 
@@ -275,7 +274,8 @@ double TranscendentalKernels::reduce_max_sum3(const double *a, const double *b, 
     // Scalar tail.
     for (; i < size; ++i) {
         const double t = a[i] + b[i] + c[i];
-        if (t > maxVal) maxVal = t;
+        if (t > maxVal)
+            maxVal = t;
     }
     return maxVal;
 }
@@ -286,7 +286,8 @@ double TranscendentalKernels::reduce_max_sum3(const double *a, const double *b, 
 double TranscendentalKernels::sum_exp_sum3_minus_max(const double *a, const double *b,
                                                      const double *c, std::size_t size,
                                                      double maxVal) noexcept {
-    if (!std::isfinite(maxVal)) return 0.0;
+    if (!std::isfinite(maxVal))
+        return 0.0;
     std::size_t i = 0;
     double sum = 0.0;
 
@@ -353,7 +354,8 @@ double TranscendentalKernels::sum_exp_sum3_minus_max(const double *a, const doub
     // Scalar tail.
     for (; i < size; ++i) {
         const double t = a[i] + b[i] + c[i];
-        if (std::isfinite(t)) sum += std::exp(t - maxVal);
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
     }
     return sum;
 }
@@ -369,9 +371,9 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
     {
         const __m512d vbias = _mm512_set1_pd(bias);
         for (; i + 8 <= size; i += 8) {
-            __m512d vd  = _mm512_loadu_pd(dst + i);
-            __m512d va  = _mm512_loadu_pd(a + i);
-            __m512d vb  = _mm512_loadu_pd(b + i);
+            __m512d vd = _mm512_loadu_pd(dst + i);
+            __m512d va = _mm512_loadu_pd(a + i);
+            __m512d vb = _mm512_loadu_pd(b + i);
             __m512d arg = _mm512_add_pd(_mm512_add_pd(va, vb), vbias);
             vd = _mm512_add_pd(vd, kernels::k_exp_pd_avx512(arg));
             _mm512_storeu_pd(dst + i, vd);
@@ -383,9 +385,9 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
     {
         const __m256d vbias = _mm256_set1_pd(bias);
         for (; i + 4 <= size; i += 4) {
-            __m256d vd  = _mm256_loadu_pd(dst + i);
-            __m256d va  = _mm256_loadu_pd(a + i);
-            __m256d vb  = _mm256_loadu_pd(b + i);
+            __m256d vd = _mm256_loadu_pd(dst + i);
+            __m256d va = _mm256_loadu_pd(a + i);
+            __m256d vb = _mm256_loadu_pd(b + i);
             __m256d arg = _mm256_add_pd(_mm256_add_pd(va, vb), vbias);
             vd = _mm256_add_pd(vd, kernels::k_exp_pd_avx(arg));
             _mm256_storeu_pd(dst + i, vd);
@@ -397,9 +399,9 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
     {
         const __m128d vbias = _mm_set1_pd(bias);
         for (; i + 2 <= size; i += 2) {
-            __m128d vd  = _mm_loadu_pd(dst + i);
-            __m128d va  = _mm_loadu_pd(a + i);
-            __m128d vb  = _mm_loadu_pd(b + i);
+            __m128d vd = _mm_loadu_pd(dst + i);
+            __m128d va = _mm_loadu_pd(a + i);
+            __m128d vb = _mm_loadu_pd(b + i);
             __m128d arg = _mm_add_pd(_mm_add_pd(va, vb), vbias);
             vd = _mm_add_pd(vd, kernels::k_exp_pd_sse2(arg));
             _mm_storeu_pd(dst + i, vd);
@@ -411,9 +413,9 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
     {
         const float64x2_t vbias = vdupq_n_f64(bias);
         for (; i + 2 <= size; i += 2) {
-            float64x2_t vd  = vld1q_f64(dst + i);
-            float64x2_t va  = vld1q_f64(a + i);
-            float64x2_t vb  = vld1q_f64(b + i);
+            float64x2_t vd = vld1q_f64(dst + i);
+            float64x2_t va = vld1q_f64(a + i);
+            float64x2_t vb = vld1q_f64(b + i);
             float64x2_t arg = vaddq_f64(vaddq_f64(va, vb), vbias);
             vd = vaddq_f64(vd, kernels::k_exp_pd_neon(arg));
             vst1q_f64(dst + i, vd);

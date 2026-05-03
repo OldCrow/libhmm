@@ -9,10 +9,10 @@ namespace libhmm {
 
 /**
  * Computes the probability mass function for the Negative Binomial distribution.
- * 
+ *
  * For discrete distributions, this returns the exact probability mass
  * P(X = k) = C(k+r-1, k) * p^r * (1-p)^k
- * 
+ *
  * @param value The value at which to evaluate the PMF (rounded to nearest integer)
  * @return Probability mass for the given value
  */
@@ -45,14 +45,14 @@ double NegativeBinomialDistribution::getProbability(double value) const {
 
 /**
  * Fits the distribution parameters to the given data using method of moments.
- * 
+ *
  * For Negative Binomial distribution, the method of moments estimators are:
  * p̂ = mean / variance (if variance > mean)
  * r̂ = mean² / (variance - mean) (if variance > mean)
- * 
- * If variance ≤ mean, the negative binomial model is not appropriate 
+ *
+ * If variance ≤ mean, the negative binomial model is not appropriate
  * (indicates under-dispersion), so we fall back to default parameters.
- * 
+ *
  * @param values Vector of observed data points
  */
 void NegativeBinomialDistribution::fit(std::span<const double> data) {
@@ -139,7 +139,7 @@ void NegativeBinomialDistribution::reset() noexcept {
 
 /**
  * Returns a string representation of the distribution following the standardized format.
- * 
+ *
  * @return String describing the distribution parameters and statistics
  */
 std::string NegativeBinomialDistribution::toString() const {

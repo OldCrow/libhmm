@@ -8,24 +8,24 @@ namespace libhmm {
 
 /**
  * Modern C++20 Rayleigh distribution for modeling magnitudes and speeds.
- * 
+ *
  * The Rayleigh distribution is a continuous probability distribution that arises
  * when modeling the magnitude of a 2D random vector whose components are independent,
  * identically distributed, zero-mean Gaussian random variables.
- * 
+ *
  * This is a special case of the Weibull distribution with shape parameter k = 2,
  * but implemented as a standalone class for maximum efficiency.
- * 
+ *
  * PDF: f(x) = (x/σ²) * exp(-x²/(2σ²)) for x ≥ 0, 0 otherwise
  * CDF: F(x) = 1 - exp(-x²/(2σ²)) for x ≥ 0, 0 otherwise
  * where σ is the scale parameter (σ > 0)
- * 
+ *
  * Properties:
  * - Mean: σ * √(π/2) ≈ 1.253 * σ
  * - Variance: σ² * (4-π)/2 ≈ 0.429 * σ²
  * - Mode: σ
  * - Support: x ∈ [0, ∞)
- * 
+ *
  * Applications:
  * - Wind speed modeling
  * - Wave height analysis
@@ -74,7 +74,7 @@ private:
     mutable double mean_{constants::math::SQRT_PI_OVER_TWO};
 
     /**
-     * Cached value of σ² * (4-π)/2 for variance calculation  
+     * Cached value of σ² * (4-π)/2 for variance calculation
      * Variance = σ² * (4-π)/2 ≈ 0.4292036732 * σ²
      */
     mutable double variance_{constants::math::FOUR_MINUS_PI_OVER_TWO};
@@ -106,7 +106,7 @@ private:
 public:
     /**
      * Constructs a Rayleigh distribution with given scale parameter.
-     * 
+     *
      * @param sigma Scale parameter σ (must be positive)
      * @throws std::invalid_argument if sigma is invalid
      */
@@ -196,21 +196,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Gets the scale parameter σ.
-     * 
+     *
      * @return Current scale parameter value
      */
     double getSigma() const noexcept { return sigma_; }
 
     /**
      * Sets the scale parameter σ.
-     * 
+     *
      * @param sigma New scale parameter (must be positive)
      * @throws std::invalid_argument if sigma is invalid
      */
@@ -223,7 +223,7 @@ public:
     /**
      * Gets the mean of the distribution.
      * Mean = σ * √(π/2)
-     * 
+     *
      * @return Mean value
      */
     double getMean() const noexcept {
@@ -239,7 +239,7 @@ public:
 
     /**
      * Gets the standard deviation of the distribution.
-     * 
+     *
      * @return Standard deviation (square root of variance)
      */
     double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
@@ -247,7 +247,7 @@ public:
     /**
      * Gets the mode of the distribution.
      * Mode = σ
-     * 
+     *
      * @return Mode value
      */
     double getMode() const noexcept { return sigma_; }
@@ -255,7 +255,7 @@ public:
     /**
      * Gets the median of the distribution.
      * Median = σ * √(2 * ln(2)) ≈ 1.177 * σ
-     * 
+     *
      * @return Median value
      */
     double getMedian() const noexcept { return sigma_ * constants::math::SQRT_TWO_LN_TWO; }

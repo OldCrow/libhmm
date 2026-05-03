@@ -177,9 +177,8 @@ void BaumWelchTrainer::train() {
         Matrix newTrans(N, N);
         for (std::size_t i = 0; i < N; ++i) {
             for (std::size_t j = 0; j < N; ++j) {
-                newTrans(i, j) =
-                    (transDen[i] > 0.0) ? transNumT[j * N + i] / transDen[i]
-                                        : 1.0 / static_cast<double>(N);
+                newTrans(i, j) = (transDen[i] > 0.0) ? transNumT[j * N + i] / transDen[i]
+                                                     : 1.0 / static_cast<double>(N);
             }
         }
         hmm.setTrans(newTrans);

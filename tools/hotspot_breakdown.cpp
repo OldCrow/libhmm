@@ -126,8 +126,8 @@ ObservationSet make_obs(const int t, const int n) {
     return obs;
 }
 
-ForwardBreakdown profile_forward_backward(const Hmm &hmm, const ObservationSet &obs, const int warmup,
-                                          const int runs) {
+ForwardBreakdown profile_forward_backward(const Hmm &hmm, const ObservationSet &obs,
+                                          const int warmup, const int runs) {
     const std::size_t n = static_cast<std::size_t>(hmm.getNumStates());
     const std::size_t t = obs.size();
 
@@ -239,7 +239,8 @@ ForwardBreakdown profile_forward_backward(const Hmm &hmm, const ObservationSet &
                         if (std::isfinite(max_term)) {
                             double scaled_sum = 0.0;
                             for (std::size_t j = 0; j < n; ++j) {
-                                const double term = log_trans(i, j) + log_emit_buf[j * t + (ti + 1)] +
+                                const double term = log_trans(i, j) +
+                                                    log_emit_buf[j * t + (ti + 1)] +
                                                     log_beta(ti + 1, j);
                                 if (std::isfinite(term)) {
                                     scaled_sum += std::exp(term - max_term);
@@ -285,7 +286,7 @@ ForwardBreakdown profile_forward_backward(const Hmm &hmm, const ObservationSet &
     }
 
     return {
-        median(transition_ms), median(obs_copy_ms), median(emission_ms),   median(buffer_alloc_ms),
+        median(transition_ms), median(obs_copy_ms), median(emission_ms),  median(buffer_alloc_ms),
         median(forward_ms),    median(backward_ms), median(reduction_ms),
     };
 }
@@ -416,8 +417,8 @@ ViterbiBreakdown profile_viterbi(const Hmm &hmm, const ObservationSet &obs, cons
     }
 
     return {
-        median(transition_ms),      median(emission_ms), median(emission_relayout_ms),
-        median(buffer_alloc_ms),    median(recursion_ms), median(backtrack_ms),
+        median(transition_ms),   median(emission_ms),  median(emission_relayout_ms),
+        median(buffer_alloc_ms), median(recursion_ms), median(backtrack_ms),
     };
 }
 
