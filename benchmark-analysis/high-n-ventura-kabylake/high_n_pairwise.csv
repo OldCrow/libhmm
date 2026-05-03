@@ -1,0 +1,13 @@
+mode,n,t,runs,warmup,fb_total_ms
+pairwise,16,1000,5,2,25.675
+pairwise,16,2000,5,2,51.435
+pairwise,16,5000,5,2,126.996
+pairwise,32,500,5,2,43.501
+pairwise,32,1000,5,2,86.664
+pairwise,32,2000,5,2,173.84
+pairwise,64,200,5,2,56.837
+pairwise,64,500,5,2,145.821
+pairwise,64,1000,5,2,283.18
+pairwise,128,100,5,2,102.735
+pairwise,128,250,5,2,250.751
+pairwise,128,500,5,2,505.429
