@@ -10,6 +10,20 @@ namespace libhmm {
 
 namespace {
 constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
+
+/// Initialises log-α at t=0 from log-π and the first row of log-emissions.
+void init_log_forward(double *alphaData, const Vector &pi,
+                      const double *emitRow0, std::size_t N) noexcept {
+    for (std::size_t i = 0; i < N; ++i)
+        alphaData[i] = (pi(i) > 0.0) ? std::log(pi(i)) + emitRow0[i] : LOG_ZERO;
+}
+
+/// Sets log-β at t=T-1 to 0 (backward terminal condition: log(1) = 0).
+void init_log_backward(double *betaData, std::size_t T, std::size_t N) noexcept {
+    double *finalRow = betaData + (T - 1) * N;
+    for (std::size_t i = 0; i < N; ++i)
+        finalRow[i] = 0.0;
+}
 } // namespace
 
 FbRecurrenceMode
@@ -108,18 +122,7 @@ void ForwardBackwardCalculator::compute() {
 // ---------------------------------------------------------------------------
 
 void ForwardBackwardCalculator::precomputeLogTransitions() {
-    const Hmm &hmm = getHmmRef();
-    const Matrix &trans = hmm.getTrans();
-    logTrans_.resize(numStates_, numStates_);
-    logTransT_.resize(numStates_, numStates_);
-    for (std::size_t i = 0; i < numStates_; ++i) {
-        for (std::size_t j = 0; j < numStates_; ++j) {
-            const double a = trans(i, j);
-            const double logA = (a > 0.0) ? std::log(a) : LOG_ZERO;
-            logTrans_(i, j) = logA;
-            logTransT_(j, i) = logA;
-        }
-    }
+    precompute_log_transitions(getHmmRef(), numStates_, logTrans_, logTransT_);
 }
 
 void ForwardBackwardCalculator::computeLogForward() {
@@ -139,12 +142,7 @@ void ForwardBackwardCalculator::computeLogForwardPairwise() {
     const double *emitByTimeData = logEmitByTime_.data();
     double *alphaData = logAlpha_.data();
 
-    // t = 0.
-    const double *emitRow0 = emitByTimeData;
-    for (std::size_t i = 0; i < N; ++i) {
-        const double logPi = (pi(i) > 0.0) ? std::log(pi(i)) : LOG_ZERO;
-        alphaData[i] = logPi + emitRow0[i];
-    }
+    init_log_forward(alphaData, pi, emitByTimeData, N);
 
     // t > 0.
     for (std::size_t t = 1; t < T; ++t) {
@@ -171,12 +169,7 @@ void ForwardBackwardCalculator::computeLogForwardMaxReduce() {
     const double *emitByTimeData = logEmitByTime_.data();
     double *alphaData = logAlpha_.data();
 
-    // t = 0.
-    const double *emitRow0 = emitByTimeData;
-    for (std::size_t i = 0; i < N; ++i) {
-        const double logPi = (pi(i) > 0.0) ? std::log(pi(i)) : LOG_ZERO;
-        alphaData[i] = logPi + emitRow0[i];
-    }
+    init_log_forward(alphaData, pi, emitByTimeData, N);
 
     // t > 0.
     for (std::size_t t = 1; t < T; ++t) {
@@ -217,11 +210,7 @@ void ForwardBackwardCalculator::computeLogBackwardPairwise() {
     const double *emitByTimeData = logEmitByTime_.data();
     double *betaData = logBeta_.data();
 
-    // t = T - 1.
-    double *finalBetaRow = betaData + (T - 1) * N;
-    for (std::size_t i = 0; i < N; ++i) {
-        finalBetaRow[i] = 0.0;
-    }
+    init_log_backward(betaData, T, N);
 
     // t < T - 1.
     if (T > 1) {
@@ -251,11 +240,7 @@ void ForwardBackwardCalculator::computeLogBackwardMaxReduce() {
     const double *emitByTimeData = logEmitByTime_.data();
     double *betaData = logBeta_.data();
 
-    // t = T - 1.
-    double *finalBetaRow = betaData + (T - 1) * N;
-    for (std::size_t i = 0; i < N; ++i) {
-        finalBetaRow[i] = 0.0;
-    }
+    init_log_backward(betaData, T, N);
 
     // t < T - 1.
     if (T > 1) {

@@ -21,6 +21,94 @@ BaumWelchTrainer::BaumWelchTrainer(Hmm *hmm, const ObservationLists &obsLists)
     : Trainer(hmm, obsLists) {}
 
 // ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+
+void BaumWelchTrainer::accumulate_gamma(
+        const Matrix &logAlpha, const Matrix &logBeta,
+        const ObservationSet &obs, double logP, std::size_t N,
+        std::vector<std::vector<double>> &emisData,
+        std::vector<std::vector<double>> &emisWts,
+        std::vector<double> &piNum,
+        std::vector<double> &transDen) const noexcept {
+    const std::size_t T = obs.size();
+    const double *logAlphaData = logAlpha.data();
+    const double *logBetaData  = logBeta.data();
+    for (std::size_t t = 0; t < T; ++t) {
+        const double *alphaRow = logAlphaData + t * N;
+        const double *betaRow  = logBetaData  + t * N;
+        const double obsVal = obs(t);
+        for (std::size_t i = 0; i < N; ++i) {
+            const double g = std::exp(alphaRow[i] + betaRow[i] - logP);
+            emisData[i].push_back(obsVal);
+            emisWts[i].push_back(g);
+            if (t == 0)     piNum[i]   += g;
+            if (t < T - 1)  transDen[i] += g;
+        }
+    }
+}
+
+void BaumWelchTrainer::accumulate_xi(
+        const double *logAlphaData, const double *logBetaData,
+        const std::vector<double> &logEmitByTime,
+        const std::vector<double> &logTransT,
+        double logP, std::size_t T, std::size_t N,
+        bool hasZeroTransitions,
+        std::vector<double> &transNumT) const noexcept {
+    if (hasZeroTransitions) {
+        for (std::size_t t = 0; t + 1 < T; ++t) {
+            const double *alphaRow   = logAlphaData + t * N;
+            const double *betaNextRow  = logBetaData + (t + 1) * N;
+            const double *emitNextRow  = logEmitByTime.data() + (t + 1) * N;
+            for (std::size_t j = 0; j < N; ++j) {
+                const double emitBetaNext = emitNextRow[j] + betaNextRow[j] - logP;
+                const double *transCol = logTransT.data() + j * N;
+                double *transNumCol = transNumT.data() + j * N;
+                for (std::size_t i = 0; i < N; ++i) {
+                    if (transCol[i] == LOG_ZERO) continue;
+                    transNumCol[i] += std::exp(alphaRow[i] + transCol[i] + emitBetaNext);
+                }
+            }
+        }
+    } else {
+        for (std::size_t t = 0; t + 1 < T; ++t) {
+            const double *alphaRow   = logAlphaData + t * N;
+            const double *betaNextRow  = logBetaData + (t + 1) * N;
+            const double *emitNextRow  = logEmitByTime.data() + (t + 1) * N;
+            for (std::size_t j = 0; j < N; ++j) {
+                const double emitBetaNext = emitNextRow[j] + betaNextRow[j] - logP;
+                const double *transCol = logTransT.data() + j * N;
+                double *transNumCol = transNumT.data() + j * N;
+                performance::detail::TranscendentalKernels::accumulate_exp_sum2_bias(
+                    transNumCol, alphaRow, transCol, N, emitBetaNext);
+            }
+        }
+    }
+}
+
+void BaumWelchTrainer::m_step_pi(Hmm &hmm, std::size_t N,
+                                   const std::vector<double> &piNum) {
+    double piSum = 0.0;
+    for (std::size_t i = 0; i < N; ++i) piSum += piNum[i];
+    Vector pi(N);
+    for (std::size_t i = 0; i < N; ++i)
+        pi(i) = (piSum > 0.0) ? piNum[i] / piSum : 1.0 / static_cast<double>(N);
+    hmm.setPi(pi);
+}
+
+void BaumWelchTrainer::m_step_transitions(Hmm &hmm, std::size_t N,
+                                            const std::vector<double> &transNumT,
+                                            const std::vector<double> &transDen) {
+    Matrix newTrans(N, N);
+    for (std::size_t i = 0; i < N; ++i)
+        for (std::size_t j = 0; j < N; ++j)
+            newTrans(i, j) = (transDen[i] > 0.0)
+                ? transNumT[j * N + i] / transDen[i]
+                : 1.0 / static_cast<double>(N);
+    hmm.setTrans(newTrans);
+}
+
+// ---------------------------------------------------------------------------
 // train() — one full EM pass over all sequences
 // ---------------------------------------------------------------------------
 
@@ -98,59 +186,13 @@ void BaumWelchTrainer::train() {
             }
         }
 
-        // Accumulate gamma (per timestep per state) and pi/trans denominators
-        for (std::size_t t = 0; t < T; ++t) {
-            const double *alphaRow = logAlphaData + t * N;
-            const double *betaRow = logBetaData + t * N;
-            const double obsVal = obs(t);
-            for (std::size_t i = 0; i < N; ++i) {
-                const double g = std::exp(alphaRow[i] + betaRow[i] - logP);
-                emisData[i].push_back(obsVal);
-                emisWts[i].push_back(g);
-                if (t == 0)
-                    piNum[i] += g;
-                if (t < T - 1)
-                    transDen[i] += g;
-            }
-        }
+        accumulate_gamma(logAlpha, logBeta, obs, logP, N,
+                          emisData, emisWts, piNum, transDen);
 
         // Accumulate xi (transition counts). Dense models take a branch-free
-        // path; sparse models keep the zero-transition skip.
-        // Sparse path is intentionally scalar: masking non-zero transitions in
-        // a SIMD loop costs more than it saves for the typically small fraction
-        // of non-zero entries in a sparse model.
-        if (hasZeroTransitions) {
-            for (std::size_t t = 0; t + 1 < T; ++t) {
-                const double *alphaRow = logAlphaData + t * N;
-                const double *betaNextRow = logBetaData + (t + 1) * N;
-                const double *emitNextRow = logEmitByTime.data() + (t + 1) * N;
-                for (std::size_t j = 0; j < N; ++j) {
-                    const double emitBetaNext = emitNextRow[j] + betaNextRow[j] - logP;
-                    const double *transCol = logTransT.data() + j * N;
-                    double *transNumCol = transNumT.data() + j * N;
-                    for (std::size_t i = 0; i < N; ++i) {
-                        if (transCol[i] == LOG_ZERO) {
-                            continue;
-                        }
-                        const double logXi = alphaRow[i] + transCol[i] + emitBetaNext;
-                        transNumCol[i] += std::exp(logXi);
-                    }
-                }
-            }
-        } else {
-            for (std::size_t t = 0; t + 1 < T; ++t) {
-                const double *alphaRow = logAlphaData + t * N;
-                const double *betaNextRow = logBetaData + (t + 1) * N;
-                const double *emitNextRow = logEmitByTime.data() + (t + 1) * N;
-                for (std::size_t j = 0; j < N; ++j) {
-                    const double emitBetaNext = emitNextRow[j] + betaNextRow[j] - logP;
-                    const double *transCol = logTransT.data() + j * N;
-                    double *transNumCol = transNumT.data() + j * N;
-                    performance::detail::TranscendentalKernels::accumulate_exp_sum2_bias(
-                        transNumCol, alphaRow, transCol, N, emitBetaNext);
-                }
-            }
-        }
+        // SIMD path; sparse models keep the zero-transition skip.
+        accumulate_xi(logAlphaData, logBetaData, logEmitByTime,
+                       logTransT, logP, T, N, hasZeroTransitions, transNumT);
 
         ++validSeqs;
     }
@@ -160,31 +202,8 @@ void BaumWelchTrainer::train() {
                                  "(all had zero probability under the current model)");
     }
 
-    // ---- M-step: pi ----
-    {
-        double piSum = 0.0;
-        for (std::size_t i = 0; i < N; ++i)
-            piSum += piNum[i];
-        Vector pi(N);
-        for (std::size_t i = 0; i < N; ++i) {
-            pi(i) = (piSum > 0.0) ? piNum[i] / piSum : 1.0 / static_cast<double>(N);
-        }
-        hmm.setPi(pi);
-    }
-
-    // ---- M-step: transition matrix ----
-    {
-        Matrix newTrans(N, N);
-        for (std::size_t i = 0; i < N; ++i) {
-            for (std::size_t j = 0; j < N; ++j) {
-                newTrans(i, j) = (transDen[i] > 0.0) ? transNumT[j * N + i] / transDen[i]
-                                                     : 1.0 / static_cast<double>(N);
-            }
-        }
-        hmm.setTrans(newTrans);
-    }
-
-    // ---- M-step: emission distributions ----
+    m_step_pi(hmm, N, piNum);
+    m_step_transitions(hmm, N, transNumT, transDen);
     apply_emission_fits(hmm, N, emisData, emisWts);
 }
 

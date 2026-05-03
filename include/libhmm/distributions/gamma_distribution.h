@@ -104,38 +104,10 @@ public:
         updateCache();
     }
 
-    GammaDistribution(const GammaDistribution &other)
-        : DistributionBase{other}, k_{other.k_}, theta_{other.theta_}, logGammaK_{other.logGammaK_},
-          kLogTheta_{other.kLogTheta_}, kMinus1_{other.kMinus1_} {}
-
-    GammaDistribution &operator=(const GammaDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            k_ = other.k_;
-            theta_ = other.theta_;
-            logGammaK_ = other.logGammaK_;
-            kLogTheta_ = other.kLogTheta_;
-            kMinus1_ = other.kMinus1_;
-        }
-        return *this;
-    }
-
-    GammaDistribution(GammaDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, k_{other.k_}, theta_{other.theta_},
-          logGammaK_{other.logGammaK_}, kLogTheta_{other.kLogTheta_}, kMinus1_{other.kMinus1_} {}
-
-    GammaDistribution &operator=(GammaDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            k_ = other.k_;
-            theta_ = other.theta_;
-            logGammaK_ = other.logGammaK_;
-            kLogTheta_ = other.kLogTheta_;
-            kMinus1_ = other.kMinus1_;
-        }
-        return *this;
-    }
-
+    GammaDistribution(const GammaDistribution &other) = default;
+    GammaDistribution &operator=(const GammaDistribution &other) = default;
+    GammaDistribution(GammaDistribution &&other) noexcept = default;
+    GammaDistribution &operator=(GammaDistribution &&other) noexcept = default;
     ~GammaDistribution() override = default;
 
     /**
@@ -174,6 +146,13 @@ public:
     void fit(std::span<const double> data) override;
     /** Weighted MOM: θ = weighted_var / weighted_mean, k = weighted_mean² / weighted_var. */
     void fit(std::span<const double> data, std::span<const double> weights) override;
+
+private:
+    /// Validates mean/var and applies the MOM estimates. Calls reset() on any
+    /// failure; otherwise assigns theta_, k_ and invalidates the cache.
+    void apply_fit_params(double mean, double var);
+
+public:
     /** Returns false — Gamma is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
