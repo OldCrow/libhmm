@@ -4,3 +4,6 @@
 
 # style: bulk reformat all source files with clang-format (2026-04-23)
 7221753
+
+# style: apply clang-format 19.1.7 to all source files (2026-05-03)
+662c172
