@@ -6,8 +6,8 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 
 ## Current Status
 
-**Version**: v3.2.1 — latest tag and published release on `main`.
-**Tests**: 33/33 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
+**Version**: v3.3.0 — latest tag and published release on `main`.
+**Tests**: 37/37 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
 **Active phase**: Complete. All phases through Post-Phase 5 (CI/tooling, benchmarks) are done.
 
 ---
@@ -36,7 +36,7 @@ include/libhmm/
 │   └── segmental_kmeans_trainer.h     # Discrete-state initialisation
 └── io/             # XML I/O
 src/                # Implementation (mirrors include/)
-tests/              # GTest suite — levels 0–7 (see tests/CMakeLists.txt)
+tests/              # GTest suite — semantic groups (see tests/CMakeLists.txt)
 examples/           # 13 usage demonstrations (all canonical API)
 tools/              # Standalone diagnostic/benchmarking executables
 benchmarks/         # Comparative benchmarks
@@ -70,7 +70,7 @@ Both are always produced regardless of `BUILD_SHARED_LIBS`. Tests link against
 
 2. **Two canonical calculators** — `ForwardBackwardCalculator` (log-space, precomputed log-trans) and `ViterbiCalculator`. Both call `getBatchLogProbabilities()` per state per time step.
 
-3. **Compile-time SIMD dispatch** — source-distributed; each machine builds for its own CPU. GCC/Clang: `-march=native`. MSVC: `check_cxx_source_runs`-verified `/arch:AVX512`/`AVX2`/`AVX`. All 15 distribution TUs in `LIBHMM_SIMD_SOURCES`. Tier 2 explicit intrinsics: Gaussian + Exponential via `detail::` free functions (extractable to separate TU for future runtime dispatch).
+3. **Compile-time SIMD dispatch** — source-distributed; each machine builds for its own CPU. GCC/Clang: `-march=native`. MSVC: `check_cxx_source_runs`-verified `/arch:AVX512`/`AVX2`/`AVX`. All 15 distribution TUs plus transcendental kernels, FB calculator, and BW trainer in `LIBHMM_SIMD_SOURCES`. Tier 2 explicit intrinsics: Gaussian, Exponential, LogNormal, Pareto via `detail::` free functions; recurrence kernels (FB max-reduce, BW xi) via `TranscendentalKernels` in `src/performance/`. Shared vector exp/log helpers in `include/libhmm/performance/simd_kernels_internal.h`.
 
 4. **Thread-safe cache** — `std::atomic<bool> cacheValid_` in `DistributionBase`. Avoids mutex; safe for concurrent const reads if the library is invoked from multiple threads (calculators and trainers themselves run single-threaded — see `performance/PERFORMANCE_ARCHITECTURE.md`).
 
@@ -210,6 +210,7 @@ CRLF: `.gitattributes` enforces LF. CRLF warnings on `git add` are normal.
 
 - Always run `./scripts/configure_catalina.sh build` for the first configure.
 - The script sanitizes toolchain-related environment variables, pins AppleClang via `xcrun`, and sets `CMAKE_OSX_DEPLOYMENT_TARGET=10.15`.
+- **Build type:** the script defaults to `Release` (`-O3`). This is required for correctness: at `-O0`, AppleClang inserts `VZEROUPPER` in the prologue of large-frame AVX functions before saving the `__m256d` argument, silently zeroing `x[2]` and `x[3]`. For debuggable builds use `RelWithDebInfo` (`-O2 -g`) — SIMD helpers inline at `-O2` so the issue cannot occur: `./scripts/configure_catalina.sh build -DCMAKE_BUILD_TYPE=RelWithDebInfo`. Pure `Debug` (`-O0`) is unsafe for any code path that passes `__m256d` through a real call boundary.
 - Do not point Catalina builds at Homebrew LLVM/libc++ (`/usr/local/opt/llvm`, `Cellar/llvm*`, libc++ include paths). The root `CMakeLists.txt` guard fails configure when those hints are detected.
 - Use `-DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON` only for explicit troubleshooting; runtime stability is not guaranteed.
 
@@ -217,17 +218,18 @@ CRLF: `.gitattributes` enforces LF. CRLF warnings on `git add` are normal.
 
 ## Test Suite Structure
 
-Tests in `tests/CMakeLists.txt` use `add_hmm_test()` helper organized into 8 levels:
+Tests in `tests/CMakeLists.txt` use `add_hmm_test()` helper organized into semantic groups:
 
-| Level | Content |
+| Group | Content |
 |---|---|
-| 1 | Math & Numerics |
-| 2 | Linear Algebra |
-| 3 | Distributions (all 15 + traits/header/type_safety) |
-| 4 | Core HMM |
-| 5 | Calculators (canonical + continuous + edge cases) |
-| 6 | Trainers (canonical + training + edge cases + BW convergence) |
-| 7 | IO + Integration (stream IO + end-to-end casino) |
+| Platform Capabilities | No tests yet (placeholder) |
+| Math & Numerics | constants, numerical stability, common types |
+| Performance Primitives | transcendental kernels (SIMD parity vs `std::exp`) |
+| Distributions | all 15 + traits/header/type_safety |
+| Core HMM | HMM construction and state management |
+| Calculators | canonical + continuous + edge cases + FB mode parity |
+| Trainers | canonical + training + edge cases + BW convergence + BW parity |
+| IO & Integration | stream IO + end-to-end casino |
 
 Custom targets: `check` (correctness, parallel), `check_timing` (serial).
 Note: named `check` not `run_tests` to avoid cmake's built-in `RUN_TESTS` on Windows.

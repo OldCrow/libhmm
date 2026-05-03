@@ -17,11 +17,11 @@ using libhmm::ViterbiTrainer;
 
 /**
  * Example: Financial Market Volatility Modeling with Beta and Log-Normal HMM
- * 
+ *
  * This example demonstrates modeling financial market states using:
  * - Beta distribution for volatility measures (bounded between 0 and 1)
  * - Log-Normal distribution for asset returns (always positive)
- * 
+ *
  * Hidden States:
  * - State 0: "Low Volatility" (stable market conditions)
  * - State 1: "High Volatility" (turbulent market conditions)

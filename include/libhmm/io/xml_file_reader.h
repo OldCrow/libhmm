@@ -30,7 +30,7 @@ public:
 
     /**
      * Reads an HMM from an XML file with comprehensive error handling.
-     * 
+     *
      * @param filename Path to the input XML file
      * @return Loaded HMM object
      * @throws std::invalid_argument if filename is empty
@@ -40,7 +40,7 @@ public:
 
     /**
      * Reads an HMM from an XML file with filesystem path.
-     * 
+     *
      * @param filepath Path to the input XML file
      * @return Loaded HMM object
      * @throws std::invalid_argument if filepath is empty
@@ -50,7 +50,7 @@ public:
 
     /**
      * Validates that a file can be read from the given path.
-     * 
+     *
      * @param filepath Path to validate
      * @return true if the file can be read, false otherwise
      */
@@ -58,7 +58,7 @@ public:
 
     /**
      * Checks if a file exists and appears to be a valid XML file.
-     * 
+     *
      * @param filepath Path to check
      * @return true if file exists and has XML content, false otherwise
      */
@@ -67,7 +67,7 @@ public:
 private:
     /**
      * Internal implementation for reading HMM from stream.
-     * 
+     *
      * @param stream Input stream
      * @return Loaded HMM object
      * @throws std::runtime_error if deserialization fails

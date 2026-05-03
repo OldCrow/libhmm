@@ -1,23 +1,23 @@
 /**
  * @file swarm_coordination_example.cpp
  * @brief Discrete State Swarm Coordination Example using libhmm
- * 
+ *
  * This example demonstrates how to use Hidden Markov Models for coordinating
  * a drone swarm through different formation states and mission phases.
- * 
+ *
  * Key Features:
  * - Discrete state space modeling (formation types, mission phases)
  * - Multi-dimensional discrete observations (altitude, speed, threats)
  * - Automatic calculator selection with SIMD optimization
  * - Real-time state prediction and formation coordination
  * - Fault detection and recovery mechanisms
- * 
+ *
  * Applications:
  * - Autonomous drone swarm coordination
  * - Multi-robot formation control
  * - Mission state management
  * - System health monitoring
- * 
+ *
  * @author libhmm development team
  * @version 2.5.0
  */

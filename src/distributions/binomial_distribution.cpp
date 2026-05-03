@@ -9,10 +9,10 @@ namespace libhmm {
 
 /**
  * Computes the probability mass function for the Binomial distribution.
- * 
+ *
  * For discrete distributions, this returns the exact probability mass
  * P(X = k) = C(n,k) * p^k * (1-p)^(n-k)
- * 
+ *
  * @param value The value at which to evaluate the PMF (rounded to nearest integer)
  * @return Probability mass for the given value
  */
@@ -50,13 +50,13 @@ double BinomialDistribution::getProbability(double value) const {
 
 /**
  * Fits the distribution parameters to the given data using maximum likelihood estimation.
- * 
+ *
  * For Binomial distribution with known n, the MLE of p is:
  * p̂ = sample_mean / n
- * 
+ *
  * If n is unknown, we estimate it as the maximum observed value, then fit p.
  * This is a common approach when the number of trials is not known a priori.
- * 
+ *
  * @param values Vector of observed data points
  */
 void BinomialDistribution::fit(std::span<const double> data) {
@@ -131,7 +131,7 @@ void BinomialDistribution::reset() noexcept {
 
 /**
  * Returns a string representation of the distribution following the standardized format.
- * 
+ *
  * @return String describing the distribution parameters and statistics
  */
 std::string BinomialDistribution::toString() const {

@@ -58,7 +58,7 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-    VERSION 3.2.1
+    VERSION 3.3.0
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -479,6 +479,15 @@ set(LIBHMM_SIMD_SOURCES
     src/distributions/weibull_distribution.cpp
 )
 
+# Additional TUs that include simd_kernels_internal.h or transcendental_kernels.h
+# and therefore need LIBHMM_BEST_SIMD_FLAGS to activate the #if LIBHMM_HAS_* cascade.
+# (log_normal and pareto are already in LIBHMM_SIMD_SOURCES above.)
+list(APPEND LIBHMM_SIMD_SOURCES
+    src/performance/transcendental_kernels.cpp
+    src/calculators/forward_backward_calculator.cpp
+    src/training/baum_welch_trainer.cpp
+)
+
 if(LIBHMM_BEST_SIMD_FLAGS)
     foreach(simd_src ${LIBHMM_SIMD_SOURCES})
         set_source_files_properties(
@@ -499,6 +508,7 @@ set(LIBHMM_SOURCES
     src/common/common.cpp
     src/common/string_tokenizer.cpp
     src/common/numerical_stability.cpp
+    src/performance/transcendental_kernels.cpp
     src/distributions/distribution_base.cpp
     src/distributions/discrete_distribution.cpp
     src/distributions/gaussian_distribution.cpp

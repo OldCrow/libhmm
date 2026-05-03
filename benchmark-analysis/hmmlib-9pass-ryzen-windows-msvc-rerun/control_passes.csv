@@ -1,0 +1,10 @@
+label,pass,libhmm_avg_obs_ms,hmmlib_avg_obs_ms,ratio_hmmlib_over_libhmm
+msvc_control,1,8899.9,29202.0,3.28
+msvc_control,2,8708.8,29335.0,3.37
+msvc_control,3,8586.8,29263.8,3.41
+msvc_control,4,8847.9,28780.8,3.25
+msvc_control,5,9660.4,30483.4,3.16
+msvc_control,6,9397.2,29902.9,3.18
+msvc_control,7,9433.7,29669.7,3.15
+msvc_control,8,9497.0,30340.8,3.19
+msvc_control,9,9033.0,27398.8,3.03

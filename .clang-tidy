@@ -211,7 +211,7 @@ CheckOptions:
     value: ''
   - key: readability-identifier-naming.NamespaceSuffix
     value: ''
-  
+
   # Performance and modernization options
   - key: modernize-use-auto.MinTypeNameLength
     value: '5'
@@ -223,13 +223,13 @@ CheckOptions:
     value: 'true'
   - key: performance-unnecessary-value-param.IncludeStyle
     value: 'llvm'
-    
+
   # Certificate and security options
   - key: cert-dcl16-c.NewSuffixes
     value: 'L;LL;LU;LLU'
   - key: cert-oop54-cpp.WarnOnlyIfThisHasSuspiciousField
     value: 'false'
-    
+
   # Core guidelines options
   - key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
     value: 'true'

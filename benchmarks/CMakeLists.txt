@@ -65,14 +65,14 @@ if(EXISTS "${LAMP_DIR}/hmmFind")
     set(LAMP_READY ON)
 endif()
 
+# HMMLib is a header-only library (SSE2/NEON intrinsics, no Boost runtime
+# dependency). The Boost check previously here was spurious — HMMLib headers
+# contain no Boost includes. Detect by checking for the canonical header.
 set(HMMLIB_READY OFF)
-if(EXISTS "${HMMLIB_DIR}")
-    find_package(Boost QUIET)
-    if(Boost_FOUND)
-        set(HMMLIB_READY ON)
-    else()
-        message(WARNING "HMMLib directory found at ${HMMLIB_DIR}, but Boost was not found. HMMLib-dependent benchmarks will be skipped.")
-    endif()
+if(EXISTS "${HMMLIB_DIR}/HMMlib/hmm.hpp")
+    set(HMMLIB_READY ON)
+elseif(EXISTS "${HMMLIB_DIR}")
+    message(WARNING "HMMLib directory found at ${HMMLIB_DIR} but hmm.hpp not found. HMMLib-dependent benchmarks will be skipped.")
 else()
     message(WARNING "HMMLib directory not found at ${HMMLIB_DIR}. HMMLib-dependent benchmarks will be skipped.")
 endif()
@@ -159,11 +159,7 @@ function(enable_hmmlib target_name)
     target_include_directories(${target_name}
         SYSTEM PRIVATE
             ${HMMLIB_DIR}
-            ${Boost_INCLUDE_DIRS}
     )
-    if(Boost_LIBRARIES)
-        target_link_libraries(${target_name} PRIVATE ${Boost_LIBRARIES})
-    endif()
 endfunction()
 
 function(enable_stochhmm target_name)

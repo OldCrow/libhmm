@@ -1,0 +1,13 @@
+mode,n,t,runs,warmup,fb_total_ms
+max_reduce,16,1000,5,2,25.934
+max_reduce,16,2000,5,2,50.027
+max_reduce,16,5000,5,2,123.155
+max_reduce,32,500,5,2,44.255
+max_reduce,32,1000,5,2,88.512
+max_reduce,32,2000,5,2,177.733
+max_reduce,64,200,5,2,64.2
+max_reduce,64,500,5,2,161.063
+max_reduce,64,1000,5,2,325.204
+max_reduce,128,100,5,2,121.246
+max_reduce,128,250,5,2,302.313
+max_reduce,128,500,5,2,612.757

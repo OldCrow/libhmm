@@ -7,7 +7,7 @@ namespace libhmm {
 
 /**
  * Gets the probability mass function value for a discrete observation.
- * 
+ *
  * @param x The discrete value (will be cast to integer index)
  * @return Probability mass for the given value, 0.0 if out of range
  */
@@ -25,7 +25,7 @@ double DiscreteDistribution::getProbability(double x) const {
 /**
  * Fits the distribution to observed data using maximum likelihood estimation.
  * Computes empirical probabilities: P(X = k) = count(k) / total_count
- * 
+ *
  * @param values Vector of observed discrete values
  */
 void DiscreteDistribution::fit(std::span<const double> data) {
@@ -90,7 +90,7 @@ void DiscreteDistribution::reset() noexcept {
 
 /**
  * Returns a string representation of the distribution.
- * 
+ *
  * @return String showing all symbol probabilities
  */
 std::string DiscreteDistribution::toString() const {

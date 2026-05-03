@@ -1,0 +1,10 @@
+label,pass,libhmm_avg_obs_ms,hmmlib_avg_obs_ms,ratio_hmmlib_over_libhmm
+clangcl_adaptive_o2,1,9979.5,30481.2,3.05
+clangcl_adaptive_o2,2,9192.6,27960.2,3.04
+clangcl_adaptive_o2,3,10620.8,30674.7,2.89
+clangcl_adaptive_o2,4,10261.2,30457.3,2.97
+clangcl_adaptive_o2,5,10377.6,30265.0,2.92
+clangcl_adaptive_o2,6,10339.4,30766.2,2.98
+clangcl_adaptive_o2,7,10430.0,30559.7,2.93
+clangcl_adaptive_o2,8,7184.8,25793.7,3.59
+clangcl_adaptive_o2,9,9890.9,30525.4,3.09

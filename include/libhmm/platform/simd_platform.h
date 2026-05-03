@@ -26,11 +26,10 @@
  * - SINGLE RESPONSIBILITY: This header only handles SIMD platform concerns
  * - EXTENSIBILITY: Easy to add new SIMD instruction sets or platforms
  *
- * FILES THAT INCLUDE THIS HEADER:
- * - src/distributions/gaussian_distribution.cpp (tier-2 SIMD intrinsics)
- * - src/distributions/exponential_distribution.cpp (tier-2 SIMD intrinsics)
- * - tools/simd_inspection.cpp (ISA capability report + smoke tests)
- * - include/libhmm/performance/transcendental_kernels.h (perf branch)
+ * Included by Tier-2 distribution TUs, performance kernel TUs
+ * (transcendental_kernels.cpp, forward_backward_calculator.cpp,
+ * baum_welch_trainer.cpp), and diagnostic tools (simd_inspection.cpp).
+ * Also included transitively via simd_kernels_internal.h.
  *
  * Features:
  * - Cross-platform SIMD intrinsics inclusion
