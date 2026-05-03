@@ -417,6 +417,7 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
     }
 #endif
 
+    // Scalar tail.
     for (; i < size; ++i) {
         dst[i] += std::exp(a[i] + b[i] + bias);
     }

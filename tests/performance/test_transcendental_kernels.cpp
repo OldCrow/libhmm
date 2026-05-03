@@ -9,7 +9,7 @@
 // independent of any internal refactor.
 //
 // The test binary is compiled with LIBHMM_BEST_SIMD_FLAGS (see CMakeLists.txt
-// Level 8 section), so the active SIMD path matches the production library.
+// Performance Primitives section), so the active SIMD path matches the production library.
 
 #include "libhmm/performance/transcendental_kernels.h"
 #include "libhmm/math/constants.h"
