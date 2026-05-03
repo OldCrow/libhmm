@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-05-03
+
+SIMD performance phase: explicit vector kernels for transcendental
+operations and two additional Tier-2 distributions. 37/37 tests pass.
+
+### Added
+
+- **SIMD transcendental kernels** (`src/performance/transcendental_kernels.cpp`):
+  five inner-loop kernels used by `ForwardBackwardCalculator` (FB max-reduce
+  recurrence) and `BaumWelchTrainer` (dense-xi accumulation) now have
+  AVX-512 / AVX / SSE2 / NEON backends. The vector `exp` helper uses a
+  13-term Horner polynomial with Cephes `ln2` range reduction and branch-free
+  underflow masking at `MIN_LOG_PROBABILITY`. AVX path stays AVX-1 compatible
+  for Ivy Bridge / Catalina. Benchmarks on Zen 4 / AVX-512 (T=1000):
+  FB max-reduce 5.7× faster at N=32; BW xi accumulation 1.03–1.15×.
+- **LogNormal and Pareto promoted to Tier 2** (`src/distributions/`): explicit
+  SIMD `getBatchLogProbabilities` via a vector `log` helper (IEEE-754 exponent
+  extraction, 7-term Horner, split-LN2 reconstruction, ≤5 ULP).
+- **`simd_kernels_internal.h`**: single source of truth for vector exp/log
+  primitives shared by all Tier-2 distribution TUs and the transcendental
+  kernels TU.
+- **FB recurrence crossover retuned** (`fb_recurrence_policy.h`): threshold
+  moved from N≥5 to N≥4 on x86 after profiling post-SIMD (MaxReduce is 1.7×
+  faster at N=4).
+- **New tests** (37 total, up from 33):
+  - `test_simd_platform`: compile-time ISA hierarchy invariants (`#error`) and
+    runtime contracts on `simd_platform.h` utility functions.
+  - `test_transcendental_kernels`: SIMD vs `std::exp` parity for all five
+    kernels across 11 sizes; 1e-12 rel / 1e-15 abs tolerance.
+  - `test_fb_mode_parity`: Pairwise vs MaxReduce FB log-likelihood agreement.
+  - `test_bw_parity`: BW determinism (bit-exact) and EM monotonicity.
+- **New tools**: `bw_hotspot` (BW E-step phase breakdown), `hotspot_breakdown`
+  (FB phase-level timings), `fb_crossover_sweep` (Pairwise vs MaxReduce
+  timing across N), `fb_contour_sweep` (2-D N×T timing heatmap data).
+
+### Changed
+
+- `fb_recurrence_policy.h` moved from `include/libhmm/calculators/` to
+  `include/libhmm/performance/` (cross-cutting primitive, not calculator-specific).
+- Test group labels in `tests/CMakeLists.txt` changed from numeric Level N
+  notation to semantic names; Performance Primitives group reordered before
+  Distributions to reflect dependency order.
+- `performance/PERFORMANCE_ARCHITECTURE.md` updated: Tier-2 coverage,
+  delivered recurrence-kernel SIMD, corrected `LIBHMM_SIMD_SOURCES` list.
+- `*.ps1` line-ending rule in `.gitattributes` changed from `eol=crlf` to
+  `eol=lf` (PowerShell handles LF on all platforms; avoids CI pre-commit
+  mixed-line-ending failures).
+
 ## [3.2.1] - 2026-05-02
 
 CI hygiene fix; no functional changes.
