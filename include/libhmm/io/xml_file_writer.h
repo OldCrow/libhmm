@@ -30,7 +30,7 @@ public:
 
     /**
      * Writes an HMM to an XML file with comprehensive error handling.
-     * 
+     *
      * @param hmm The HMM to serialize
      * @param filename Path to the output XML file
      * @throws std::invalid_argument if filename is empty
@@ -40,7 +40,7 @@ public:
 
     /**
      * Writes an HMM to an XML file with filesystem path.
-     * 
+     *
      * @param hmm The HMM to serialize
      * @param filepath Path to the output XML file
      * @throws std::invalid_argument if filepath is empty
@@ -50,7 +50,7 @@ public:
 
     /**
      * Validates that a file can be written to the given path.
-     * 
+     *
      * @param filepath Path to validate
      * @return true if the file can be written, false otherwise
      */
@@ -59,7 +59,7 @@ public:
 private:
     /**
      * Internal implementation for writing HMM to stream.
-     * 
+     *
      * @param hmm The HMM to serialize
      * @param stream Output stream
      * @throws std::runtime_error if serialization fails

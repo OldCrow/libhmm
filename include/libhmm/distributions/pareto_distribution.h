@@ -8,16 +8,16 @@ namespace libhmm {
 
 /**
  * Modern C++20 Pareto distribution for modeling power-law phenomena.
- * 
+ *
  * The Pareto distribution is a continuous probability distribution commonly
  * used to model income distribution, city population sizes, stock price
  * fluctuations, and other phenomena that follow the "80-20 rule" or
  * Pareto principle.
- * 
+ *
  * PDF: f(x) = (k * x_m^k) / x^(k+1) for x ≥ x_m, 0 otherwise
  * CDF: F(x) = 1 - (x_m/x)^k for x ≥ x_m, 0 otherwise
  * where k is the shape parameter (k > 0) and x_m is the scale parameter (x_m > 0)
- * 
+ *
  * Properties:
  * - Mean: k*x_m/(k-1) for k > 1, undefined for k ≤ 1
  * - Variance: (k*x_m²)/((k-1)²*(k-2)) for k > 2, undefined for k ≤ 2
@@ -107,7 +107,7 @@ private:
 public:
     /**
      * Constructs a Pareto distribution with given parameters.
-     * 
+     *
      * @param k Shape parameter k (must be positive)
      * @param xm Scale parameter x_m (must be positive)
      * @throws std::invalid_argument if parameters are invalid
@@ -173,7 +173,7 @@ public:
 
     /**
      * Computes the probability density function for the Pareto distribution.
-     * 
+     *
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
@@ -202,21 +202,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Gets the shape parameter k.
-     * 
+     *
      * @return Current shape parameter value
      */
     double getK() const noexcept { return k_; }
 
     /**
      * Sets the shape parameter k.
-     * 
+     *
      * @param k New shape parameter (must be positive)
      * @throws std::invalid_argument if k <= 0 or is not finite
      */
@@ -228,14 +228,14 @@ public:
 
     /**
      * Gets the scale parameter x_m.
-     * 
+     *
      * @return Current scale parameter value
      */
     double getXm() const noexcept { return xm_; }
 
     /**
      * Sets the scale parameter x_m.
-     * 
+     *
      * @param xm New scale parameter (must be positive)
      * @throws std::invalid_argument if xm <= 0 or is not finite
      */
@@ -247,7 +247,7 @@ public:
 
     /**
      * Sets both parameters simultaneously.
-     * 
+     *
      * @param k New shape parameter
      * @param xm New scale parameter
      * @throws std::invalid_argument if parameters are invalid
@@ -262,7 +262,7 @@ public:
     /**
      * Gets the mean of the Pareto distribution.
      * For Pareto distribution, mean = k*x_m/(k-1) if k > 1, undefined otherwise
-     * 
+     *
      * @return Mean value if k > 1, otherwise returns infinity
      */
     double getMean() const noexcept {
@@ -272,7 +272,7 @@ public:
     /**
      * Gets the variance of the Pareto distribution.
      * For Pareto distribution, variance = (k*x_m²)/((k-1)²*(k-2)) if k > 2, undefined otherwise
-     * 
+     *
      * @return Variance value if k > 2, otherwise returns infinity
      */
     double getVariance() const noexcept {
@@ -285,7 +285,7 @@ public:
 
     /**
      * Gets the standard deviation of the Pareto distribution.
-     * 
+     *
      * @return Standard deviation if k > 2, otherwise returns infinity
      */
     double getStandardDeviation() const noexcept {
@@ -296,7 +296,7 @@ public:
     /**
      * Gets the mode of the Pareto distribution.
      * For Pareto distribution, mode = x_m (always at the scale parameter)
-     * 
+     *
      * @return Mode value (equals x_m)
      */
     double getMode() const noexcept { return xm_; }
@@ -304,7 +304,7 @@ public:
     /**
      * Gets the median of the Pareto distribution.
      * For Pareto distribution, median = x_m * 2^(1/k)
-     * 
+     *
      * @return Median value
      */
     double getMedian() const noexcept {

@@ -15,7 +15,7 @@ namespace libhmm {
 /**
  * Lightweight Vector class designed to replace boost::numeric::ublas::vector
  * with better performance and SIMD-friendly operations.
- * 
+ *
  * Features:
  * - Based on std::vector for optimal standard library integration
  * - SIMD-friendly contiguous memory layout

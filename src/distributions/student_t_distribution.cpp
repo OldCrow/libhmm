@@ -121,7 +121,7 @@ double StudentTDistribution::getLogProbability(double value) const noexcept {
 
 /**
  * Computes the cumulative distribution function for the Student's t-distribution.
- * 
+ *
  * Uses the relationship with the incomplete beta function for numerical accuracy.
  */
 double StudentTDistribution::getCumulativeProbability(double value) const noexcept {

@@ -44,28 +44,28 @@ All distributions must implement the `EmissionDistribution` abstract interface. 
   - `getBatchLogProbabilities(span, span)` — concrete non-virtual batch loop (tier 1 minimum)
   - `reset()` — reset to default parameters
   - `toString()` — human-readable string representation
-  
+
 - ✅ **Rule of Five:**
   - Copy Constructor
-  - Move Constructor  
+  - Move Constructor
   - Copy Assignment Operator
   - Move Assignment Operator
   - Destructor (virtual, defaulted)
-  
+
 - ✅ **Caching System:**
   - Comprehensive caching of expensive calculations
   - Cache validation flags
   - Automatic cache invalidation on parameter changes
-  
+
 - ✅ **Input Validation:**
   - Robust parameter validation with appropriate exceptions
   - NaN/infinity handling
   - Data validation in fitting methods
-  
+
 - ✅ **Constants Usage:**
   - All numeric literals replaced with constants from `libhmm::constants`
   - No hardcoded magic numbers
-  
+
 - ✅ **I/O  Operators:**
   - `operator==` - Equality comparison with tolerance
   - `operator<<` - Stream output
@@ -74,13 +74,13 @@ All distributions must implement the `EmissionDistribution` abstract interface. 
 ### Test Requirements
 - ✅ **Core Tests:**
   - Basic Functionality
-  - Probability Calculations  
+  - Probability Calculations
   - Parameter Fitting
   - Parameter Validation
   - Copy/Move Semantics
   - Invalid Input Handling
   - Reset Functionality
-  
+
 - ✅ **Advanced Tests:**
   - Log Probability calculations
   - String Representation
@@ -88,7 +88,7 @@ All distributions must implement the `EmissionDistribution` abstract interface. 
   - Performance characteristics (recommended)
   - Mathematical Correctness (recommended)
   - Numerical Stability (recommended)
-  
+
 - ✅ **Gold Standard Tests:**
   - CDF calculations (where applicable)
   - Equality/I-O operators
@@ -154,7 +154,7 @@ All distributions must implement the `EmissionDistribution` abstract interface. 
 
 ## Legend
 - ✅ **Complete**: Fully implemented and tested
-- ❌ **Missing**: Needs to be implemented/added  
+- ❌ **Missing**: Needs to be implemented/added
 - ❓ **Unknown**: Needs assessment
 - 🔄 **In Progress**: Currently being worked on
 
@@ -170,7 +170,7 @@ complete for all 15. No outstanding action items.
 
 ## Planned Update Order
 1. ✅ **Gaussian** - Reference implementation (constants applied, comprehensive tests verified)
-2. ✅ **Exponential** - Reference implementation (constants applied, comprehensive tests verified)  
+2. ✅ **Exponential** - Reference implementation (constants applied, comprehensive tests verified)
 3. ✅ **Gamma** - Updated (constants applied, comprehensive tests verified)
 4. ✅ **Uniform** - Updated (constants applied, comprehensive tests verified, performance tests added)
 5. ✅ **Chi-squared** - Updated to Gold standard (constants applied, comprehensive tests verified)

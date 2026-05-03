@@ -1,4 +1,5 @@
 #include "libhmm/distributions/log_normal_distribution.h"
+#include "libhmm/performance/simd_kernels_internal.h"
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <numeric>   // For std::accumulate (not in common.h)
 #include <algorithm> // For std::for_each (exists in common.h, included for clarity)
@@ -9,13 +10,13 @@ namespace libhmm {
 
 /**
  * Computes the probability density function for the Log-Normal distribution.
- * 
+ *
  * For continuous distributions in discrete sampling contexts, we approximate
  * the probability as P(x - ε <= X <= x) = F(x) - F(x - ε) where ε is a small tolerance.
- * 
+ *
  * This provides a numerically stable approximation of the PDF scaled by the tolerance,
  * which is appropriate for discrete sampling of continuous distributions.
- * 
+ *
  * @param x The value at which to evaluate the probability
  * @return Approximated probability for discrete sampling
  */
@@ -78,13 +79,13 @@ double LogNormalDistribution::getCumulativeProbability(double value) const noexc
 
 /**
  * Fits the distribution parameters to the given data using maximum likelihood estimation.
- * 
+ *
  * For Log-Normal distribution, the MLE estimators are:
  * μ = mean(ln(x_i)) for positive x_i
  * σ = std_dev(ln(x_i)) for positive x_i
- * 
+ *
  * Only positive values are used since Log-Normal distribution has support (0, ∞).
- * 
+ *
  * @param values Vector of observed data points
  */
 void LogNormalDistribution::fit(std::span<const double> data) {
@@ -210,20 +211,111 @@ std::istream &operator>>(std::istream &is, libhmm::LogNormalDistribution &distri
     return is;
 }
 
+// =============================================================================
+// Batch log-PDF — explicit SIMD intrinsics (tier 2)
+//
+// Formula: log f(x) = -log(x) - logNormConst + negHalfInvSigma2*(log(x)-mu)^2
+// Per element: log_x = log(x); then result = -log_x - C + S*(log_x - mu)^2
+// where C = logNormalizationConstant_, S = negHalfSigmaSquaredInv_.
+//
+// x <= 0 lanes: log(x) is -inf; guard produces -inf output.
+// Pattern mirrors gaussian_logpdf_batch (gaussian_distribution.cpp).
+// =============================================================================
+namespace detail {
+
+void lognormal_logpdf_batch(const double *obs, double *out, std::size_t n, double mu, double S,
+                            double C) noexcept {
+    using namespace performance::detail::kernels;
+    std::size_t i = 0;
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+
+#if defined(LIBHMM_HAS_AVX512)
+    {
+        const __m512d vmu = _mm512_set1_pd(mu);
+        const __m512d vS = _mm512_set1_pd(S);
+        const __m512d vC = _mm512_set1_pd(C);
+        for (; i + 8 <= n; i += 8) {
+            __m512d x = _mm512_loadu_pd(obs + i);
+            __m512d lx = k_log_pd_avx512(x);    // -inf where x<=0
+            __m512d d = _mm512_sub_pd(lx, vmu); // log(x) - mu
+            __m512d res = _mm512_fmadd_pd(
+                d, _mm512_mul_pd(d, vS),
+                _mm512_sub_pd(_mm512_setzero_pd(), _mm512_add_pd(lx, vC))); // -lx - C + S*d^2
+            _mm512_storeu_pd(out + i, res);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
+    {
+        const __m256d vmu = _mm256_set1_pd(mu);
+        const __m256d vS = _mm256_set1_pd(S);
+        const __m256d vC = _mm256_set1_pd(C);
+        for (; i + 4 <= n; i += 4) {
+            __m256d x = _mm256_loadu_pd(obs + i);
+            __m256d lx = k_log_pd_avx(x);
+            __m256d d = _mm256_sub_pd(lx, vmu);
+            __m256d res = _mm256_add_pd(_mm256_mul_pd(_mm256_mul_pd(d, d), vS),
+                                        _mm256_sub_pd(_mm256_setzero_pd(), _mm256_add_pd(lx, vC)));
+            _mm256_storeu_pd(out + i, res);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_SSE2)
+    {
+        const __m128d vmu = _mm_set1_pd(mu);
+        const __m128d vS = _mm_set1_pd(S);
+        const __m128d vC = _mm_set1_pd(C);
+        for (; i + 2 <= n; i += 2) {
+            __m128d x = _mm_loadu_pd(obs + i);
+            __m128d lx = k_log_pd_sse2(x);
+            __m128d d = _mm_sub_pd(lx, vmu);
+            __m128d res = _mm_add_pd(_mm_mul_pd(_mm_mul_pd(d, d), vS),
+                                     _mm_sub_pd(_mm_setzero_pd(), _mm_add_pd(lx, vC)));
+            _mm_storeu_pd(out + i, res);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_NEON)
+    {
+        const float64x2_t vmu = vdupq_n_f64(mu);
+        const float64x2_t vS = vdupq_n_f64(S);
+        const float64x2_t vC = vdupq_n_f64(C);
+        for (; i + 2 <= n; i += 2) {
+            float64x2_t x = vld1q_f64(obs + i);
+            float64x2_t lx = k_log_pd_neon(x);
+            float64x2_t d = vsubq_f64(lx, vmu);
+            // res = S*d^2 + (-lx - C) = S*d^2 - lx - C
+            float64x2_t res = vfmaq_f64(vsubq_f64(vnegq_f64(lx), vC), vmulq_f64(d, d), vS);
+            vst1q_f64(out + i, res);
+        }
+    }
+#endif
+
+    // Scalar tail.
+    for (; i < n; ++i) {
+        const double x = obs[i];
+        if (x <= 0.0 || std::isnan(x) || std::isinf(x)) {
+            out[i] = neg_inf;
+        } else {
+            const double lx = std::log(x);
+            const double d = lx - mu;
+            out[i] = -lx - C + S * d * d;
+        }
+    }
+}
+
+} // namespace detail
+
 void LogNormalDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                      std::span<double> out) const {
-    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native / /arch:AVX512.
-    // Tier 2 upgrade requires vectorised log(x): the inner loop is essentially
-    // Gaussian on log(x), so once a vectorised log is available the pattern is
-    // identical to GaussianDistribution tier 2 but with an extra log-transform
-    // step. Available via Intel SVML, GNU libmvec, or Apple Accelerate vvlog,
-    // but not portably without a math-library dependency.
+    // Tier 2 — explicit SIMD via simd_kernels_internal.h
     if (!isCacheValid())
         updateCache();
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        out[i] = LogNormalDistribution::getLogProbability(observations[i]);
-    }
+    detail::lognormal_logpdf_batch(observations.data(), out.data(), observations.size(), mean_,
+                                   negHalfSigmaSquaredInv_, logNormalizationConstant_);
 }
 
 } // namespace libhmm

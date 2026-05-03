@@ -9,11 +9,11 @@ namespace libhmm {
 
 /**
  * Modern C++20 Poisson distribution for modeling count data and rare events.
- * 
- * The Poisson distribution models the number of events occurring in a fixed 
- * interval of time or space, given that these events occur with a known 
+ *
+ * The Poisson distribution models the number of events occurring in a fixed
+ * interval of time or space, given that these events occur with a known
  * constant mean rate and independently of the time since the last event.
- * 
+ *
  * PMF: P(X = k) = (λ^k * e^(-λ)) / k!  for k = 0, 1, 2, ...
  * where λ (lambda) is the rate parameter (mean number of events per interval)
  */
@@ -56,7 +56,7 @@ private:
     /**
      * Computes log(k!) using Stirling's approximation for large k,
      * exact computation for small k.
-     * 
+     *
      * @param k Non-negative integer
      * @return log(k!)
      */
@@ -69,7 +69,7 @@ private:
 
     /**
      * Validates that k is a valid count (non-negative integer)
-     * 
+     *
      * @param k Value to validate
      * @return true if k is a valid count, false otherwise
      */
@@ -82,7 +82,7 @@ private:
 public:
     /**
      * Constructs a Poisson distribution with given rate parameter.
-     * 
+     *
      * @param lambda Rate parameter (must be positive)
      * @throws std::invalid_argument if lambda <= 0 or is not finite
      */
@@ -138,7 +138,7 @@ public:
 
     /**
      * Computes the probability mass function P(X = k) for the Poisson distribution.
-     * 
+     *
      * @param value The count value k (must be non-negative integer)
      * @return Probability P(X = k), or 0.0 if value is invalid
      */
@@ -160,21 +160,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Gets the rate parameter λ.
-     * 
+     *
      * @return Current lambda value
      */
     double getLambda() const noexcept { return lambda_; }
 
     /**
      * Sets the rate parameter λ.
-     * 
+     *
      * @param lambda New rate parameter (must be positive)
      * @throws std::invalid_argument if lambda <= 0 or is not finite
      */
@@ -186,14 +186,14 @@ public:
 
     /**
      * Gets the mean of the distribution (equal to λ).
-     * 
+     *
      * @return Mean value
      */
     double getMean() const noexcept { return lambda_; }
 
     /**
      * Gets the variance of the distribution (equal to λ).
-     * 
+     *
      * @return Variance value
      */
     double getVariance() const noexcept { return lambda_; }
@@ -201,7 +201,7 @@ public:
     /**
      * Gets the standard deviation of the distribution (sqrt(λ)).
      * Uses cached value for efficiency.
-     * 
+     *
      * @return Standard deviation
      */
     double getStandardDeviation() const noexcept {
@@ -213,7 +213,7 @@ public:
     /**
      * Evaluates the logarithm of the probability mass function
      * More numerically stable for small probabilities
-     * 
+     *
      * @param value The count value k at which to evaluate the log PMF
      * @return Log probability mass
      */
@@ -227,7 +227,7 @@ public:
     /**
      * Evaluates the CDF at k using cumulative sum approach
      * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
-     * 
+     *
      * @param k The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ k)
      */
