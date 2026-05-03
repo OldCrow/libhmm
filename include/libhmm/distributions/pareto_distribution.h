@@ -117,58 +117,10 @@ public:
         updateCache();
     }
 
-    /**
-     * Copy constructor
-     */
-    ParetoDistribution(const ParetoDistribution &other)
-        : DistributionBase{other}, k_{other.k_}, xm_{other.xm_}, logK_{other.logK_},
-          kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_}, kXmPowK_{other.kXmPowK_},
-          negK_{other.negK_}, logXm_{other.logXm_} {}
-
-    /**
-     * Copy assignment operator
-     */
-    ParetoDistribution &operator=(const ParetoDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            k_ = other.k_;
-            xm_ = other.xm_;
-            logK_ = other.logK_;
-            kLogXm_ = other.kLogXm_;
-            kPlus1_ = other.kPlus1_;
-            kXmPowK_ = other.kXmPowK_;
-            negK_ = other.negK_;
-            logXm_ = other.logXm_;
-        }
-        return *this;
-    }
-
-    /**
-     * Move constructor
-     */
-    ParetoDistribution(ParetoDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, k_{other.k_}, xm_{other.xm_}, logK_{other.logK_},
-          kLogXm_{other.kLogXm_}, kPlus1_{other.kPlus1_}, kXmPowK_{other.kXmPowK_},
-          negK_{other.negK_}, logXm_{other.logXm_} {}
-
-    /**
-     * Move assignment operator
-     */
-    ParetoDistribution &operator=(ParetoDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            k_ = other.k_;
-            xm_ = other.xm_;
-            logK_ = other.logK_;
-            kLogXm_ = other.kLogXm_;
-            kPlus1_ = other.kPlus1_;
-            kXmPowK_ = other.kXmPowK_;
-            negK_ = other.negK_;
-            logXm_ = other.logXm_;
-        }
-        return *this;
-    }
-
+    ParetoDistribution(const ParetoDistribution &other) = default;
+    ParetoDistribution &operator=(const ParetoDistribution &other) = default;
+    ParetoDistribution(ParetoDistribution &&other) noexcept = default;
+    ParetoDistribution &operator=(ParetoDistribution &&other) noexcept = default;
     ~ParetoDistribution() override = default;
 
     /**

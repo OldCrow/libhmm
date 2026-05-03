@@ -67,40 +67,10 @@ public:
         updateCache();
     }
 
-    BinomialDistribution(const BinomialDistribution &other)
-        : DistributionBase{other}, n_{other.n_}, p_{other.p_},
-          logFactorialCache_{other.logFactorialCache_}, logP_{other.logP_},
-          log1MinusP_{other.log1MinusP_} {}
-
-    BinomialDistribution &operator=(const BinomialDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            n_ = other.n_;
-            p_ = other.p_;
-            logFactorialCache_ = other.logFactorialCache_;
-            logP_ = other.logP_;
-            log1MinusP_ = other.log1MinusP_;
-        }
-        return *this;
-    }
-
-    BinomialDistribution(BinomialDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, n_{other.n_}, p_{other.p_},
-          logFactorialCache_{std::move(other.logFactorialCache_)}, logP_{other.logP_},
-          log1MinusP_{other.log1MinusP_} {}
-
-    BinomialDistribution &operator=(BinomialDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            n_ = other.n_;
-            p_ = other.p_;
-            logFactorialCache_ = std::move(other.logFactorialCache_);
-            logP_ = other.logP_;
-            log1MinusP_ = other.log1MinusP_;
-        }
-        return *this;
-    }
-
+    BinomialDistribution(const BinomialDistribution &other) = default;
+    BinomialDistribution &operator=(const BinomialDistribution &other) = default;
+    BinomialDistribution(BinomialDistribution &&other) noexcept = default;
+    BinomialDistribution &operator=(BinomialDistribution &&other) noexcept = default;
     ~BinomialDistribution() override = default;
 
     [[nodiscard]] double getProbability(double value) const override;
