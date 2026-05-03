@@ -74,10 +74,9 @@ double TranscendentalKernels::reduce_max_sum2(const double *a, const double *b,
                                               std::size_t size) noexcept {
     std::size_t i = 0;
     const double neg_inf = -std::numeric_limits<double>::infinity();
-    // maxVal accumulates across ISA blocks; each block seeds its vector
-    // accumulator from it so the cascade is correct for any size.
-    double maxVal = neg_inf;
-
+    // maxVal accumulates across ISA blocks; each lower-tier block seeds its
+    // vector accumulator from the value set by the highest active tier.
+    double maxVal;
 #if defined(LIBHMM_HAS_AVX512)
     {
         __m512d vmax = _mm512_set1_pd(neg_inf);
@@ -86,8 +85,10 @@ double TranscendentalKernels::reduce_max_sum2(const double *a, const double *b,
             __m512d vb = _mm512_loadu_pd(b + i);
             vmax = _mm512_max_pd(vmax, _mm512_add_pd(va, vb));
         }
-        maxVal = _mm512_reduce_max_pd(vmax); // cppcheck-suppress redundantInitialization
+        maxVal = _mm512_reduce_max_pd(vmax);
     }
+#else
+    maxVal = neg_inf;
 #endif
 
 #if defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
@@ -217,8 +218,7 @@ double TranscendentalKernels::reduce_max_sum3(const double *a, const double *b, 
                                               std::size_t size) noexcept {
     std::size_t i = 0;
     const double neg_inf = -std::numeric_limits<double>::infinity();
-    double maxVal = neg_inf;
-
+    double maxVal;
 #if defined(LIBHMM_HAS_AVX512)
     {
         __m512d vmax = _mm512_set1_pd(neg_inf);
@@ -228,8 +228,10 @@ double TranscendentalKernels::reduce_max_sum3(const double *a, const double *b, 
             __m512d vc = _mm512_loadu_pd(c + i);
             vmax = _mm512_max_pd(vmax, _mm512_add_pd(_mm512_add_pd(va, vb), vc));
         }
-        maxVal = _mm512_reduce_max_pd(vmax); // cppcheck-suppress redundantInitialization
+        maxVal = _mm512_reduce_max_pd(vmax);
     }
+#else
+    maxVal = neg_inf;
 #endif
 
 #if defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)

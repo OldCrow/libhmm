@@ -30,10 +30,10 @@ CMakeLists.txt text eol=lf
 # Scripts — always LF so they run correctly in bash/sh
 *.sh text eol=lf
 
-# Windows-only scripts stay CRLF
+# Windows batch/cmd scripts stay CRLF; PowerShell handles LF on all platforms
 *.bat text eol=crlf
 *.cmd text eol=crlf
-*.ps1 text eol=crlf
+*.ps1 text eol=lf
 
 # XML (HMM model files)
 *.xml text eol=lf
