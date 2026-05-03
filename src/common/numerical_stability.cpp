@@ -477,120 +477,128 @@ ErrorRecovery::RecoveryStrategy ErrorRecovery::getRecommendedStrategy(std::size_
     return RecoveryStrategy::ADAPTIVE; // Default to adaptive
 }
 
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+namespace {
+
+/// Classifies a single scalar value into the diagnostic report, updating
+/// hasNaN, hasInfinity, hasUnderflow, hasOverflow, minValue, and maxValue.
+void classify_value(double val, NumericalDiagnostics::DiagnosticReport &report) noexcept {
+    if (std::isnan(val)) {
+        report.hasNaN = true;
+    } else if (std::isinf(val)) {
+        report.hasInfinity = true;
+    } else if (std::isfinite(val)) {
+        report.minValue = std::min(report.minValue, val);
+        report.maxValue = std::max(report.maxValue, val);
+        if (val < NumericalConstants::MIN_PROBABILITY && val > 0.0)
+            report.hasUnderflow = true;
+        if (val > 1e100)
+            report.hasOverflow = true;
+    }
+}
+
+/// Appends the four standard numerical-issue recommendations (NaN, infinity,
+/// underflow, overflow) to oss if the corresponding flags are set.
+void append_base_recommendations(const NumericalDiagnostics::DiagnosticReport &report,
+                                 const std::string &name, std::ostringstream &oss) {
+    if (report.hasNaN)
+        oss << "NaN values detected in " << name << ". ";
+    if (report.hasInfinity)
+        oss << "Infinite values detected in " << name << ". ";
+    if (report.hasUnderflow)
+        oss << "Underflow detected in " << name << ". Consider using scaled arithmetic. ";
+    if (report.hasOverflow)
+        oss << "Overflow detected in " << name << ". Consider using log-space arithmetic. ";
+}
+
+/// Returns true if a report contains any numerical issue worth surfacing.
+bool report_has_issues(const NumericalDiagnostics::DiagnosticReport &r) noexcept {
+    return r.hasNaN || r.hasInfinity || r.hasUnderflow || r.hasOverflow || r.conditionNumber > 1e12;
+}
+
+} // namespace
+
+// ---------------------------------------------------------------------------
 // NumericalDiagnostics implementation
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Analyzes a vector for numerical health issues.
+ *
+ * Classifies each element and sets the corresponding flags in the returned
+ * report. Generates human-readable recommendations when issues are found.
+ *
+ * @param vector The vector to examine.
+ * @param name   Human-readable label used in recommendation strings.
+ * @return DiagnosticReport with health flags and recommendations populated.
+ */
 NumericalDiagnostics::DiagnosticReport
 NumericalDiagnostics::analyzeVector(const Vector &vector, const std::string &name) {
     DiagnosticReport report;
     report.problemSize = vector.size();
 
-    for (std::size_t i = 0; i < vector.size(); ++i) {
-        double val = vector(i);
+    for (std::size_t i = 0; i < vector.size(); ++i)
+        classify_value(vector(i), report);
 
-        if (std::isnan(val)) {
-            report.hasNaN = true;
-        } else if (std::isinf(val)) {
-            report.hasInfinity = true;
-        } else if (std::isfinite(val)) {
-            report.minValue = std::min(report.minValue, val);
-            report.maxValue = std::max(report.maxValue, val);
-
-            if (val < NumericalConstants::MIN_PROBABILITY && val > 0.0) {
-                report.hasUnderflow = true;
-            }
-            if (val > 1e100) {
-                report.hasOverflow = true;
-            }
-        }
-    }
-
-    // Generate recommendations
     std::ostringstream oss;
-    if (report.hasNaN) {
-        oss << "NaN values detected in " << name << ". ";
-    }
-    if (report.hasInfinity) {
-        oss << "Infinite values detected in " << name << ". ";
-    }
-    if (report.hasUnderflow) {
-        oss << "Underflow detected in " << name << ". Consider using scaled arithmetic. ";
-    }
-    if (report.hasOverflow) {
-        oss << "Overflow detected in " << name << ". Consider using log-space arithmetic. ";
-    }
-
+    append_base_recommendations(report, name, oss);
     report.recommendations = oss.str();
 
     return report;
 }
 
+/**
+ * @brief Analyzes a matrix for numerical health issues.
+ *
+ * Classifies each element and also estimates the condition number. Generates
+ * human-readable recommendations when issues are found.
+ *
+ * @param matrix The matrix to examine.
+ * @param name   Human-readable label used in recommendation strings.
+ * @return DiagnosticReport with health flags, condition number, and
+ *         recommendations populated.
+ */
 NumericalDiagnostics::DiagnosticReport
 NumericalDiagnostics::analyzeMatrix(const Matrix &matrix, const std::string &name) {
     DiagnosticReport report;
     report.problemSize = matrix.size1() * matrix.size2();
 
-    for (std::size_t i = 0; i < matrix.size1(); ++i) {
-        for (std::size_t j = 0; j < matrix.size2(); ++j) {
-            double val = matrix(i, j);
+    for (std::size_t i = 0; i < matrix.size1(); ++i)
+        for (std::size_t j = 0; j < matrix.size2(); ++j)
+            classify_value(matrix(i, j), report);
 
-            if (std::isnan(val)) {
-                report.hasNaN = true;
-            } else if (std::isinf(val)) {
-                report.hasInfinity = true;
-            } else if (std::isfinite(val)) {
-                report.minValue = std::min(report.minValue, val);
-                report.maxValue = std::max(report.maxValue, val);
-
-                if (val < NumericalConstants::MIN_PROBABILITY && val > 0.0) {
-                    report.hasUnderflow = true;
-                }
-                if (val > 1e100) {
-                    report.hasOverflow = true;
-                }
-            }
-        }
-    }
-
-    // Estimate condition number (simplified)
+    // Condition number estimate (ratio of max to min diagonal element).
     report.conditionNumber = estimateConditionNumber(matrix);
 
-    // Generate recommendations
     std::ostringstream oss;
-    if (report.hasNaN) {
-        oss << "NaN values detected in " << name << ". ";
-    }
-    if (report.hasInfinity) {
-        oss << "Infinite values detected in " << name << ". ";
-    }
-    if (report.hasUnderflow) {
-        oss << "Underflow detected in " << name << ". Consider using scaled arithmetic. ";
-    }
-    if (report.hasOverflow) {
-        oss << "Overflow detected in " << name << ". Consider using log-space arithmetic. ";
-    }
-    if (report.conditionNumber > 1e12) {
+    append_base_recommendations(report, name, oss);
+    if (report.conditionNumber > 1e12)
         oss << "High condition number (" << report.conditionNumber << ") in " << name
             << ". Matrix may be ill-conditioned. ";
-    }
-
     report.recommendations = oss.str();
 
     return report;
 }
 
+/**
+ * @brief Generates a consolidated health report from a set of diagnostic reports.
+ *
+ * Summarises issue flags, recommendations, average condition number, and
+ * total problem size across all supplied reports.
+ *
+ * @param reports Collection of per-component DiagnosticReport values.
+ * @return Formatted multi-line health report string.
+ */
 std::string
 NumericalDiagnostics::generateHealthReport(const std::vector<DiagnosticReport> &reports) {
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(3);
     oss << "=== Numerical Health Report ===\n\n";
 
-    bool hasIssues = false;
-    for (const auto &report : reports) {
-        if (report.hasNaN || report.hasInfinity || report.hasUnderflow || report.hasOverflow ||
-            report.conditionNumber > 1e12) {
-            hasIssues = true;
-            break;
-        }
-    }
+    const bool hasIssues = std::any_of(reports.begin(), reports.end(), report_has_issues);
 
     if (!hasIssues) {
         oss << "✅ All systems healthy - no numerical issues detected.\n";

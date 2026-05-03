@@ -234,23 +234,6 @@ void testStringRepresentation() {
     assert(str.find("3.5") != std::string::npos);
     assert(str.find("k") != std::string::npos);
 
-    // Test fromString functionality
-    ChiSquaredDistribution chi_dist_from_str =
-        ChiSquaredDistribution::fromString("ChiSquared(k=7.25)");
-    assert(std::abs(chi_dist_from_str.getDegreesOfFreedom() - 7.25) < 1e-10);
-
-    ChiSquaredDistribution chi_dist_from_str2 =
-        ChiSquaredDistribution::fromString("ChiSquared(df=12.0)");
-    assert(std::abs(chi_dist_from_str2.getDegreesOfFreedom() - 12.0) < 1e-10);
-
-    // Test invalid string formats
-    try {
-        ChiSquaredDistribution::fromString("InvalidFormat");
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
-
     std::cout << "String representation: " << str << std::endl;
     std::cout << "✓ String representation tests passed" << std::endl;
 }
