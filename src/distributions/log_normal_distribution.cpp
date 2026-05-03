@@ -10,13 +10,13 @@ namespace libhmm {
 
 /**
  * Computes the probability density function for the Log-Normal distribution.
- * 
+ *
  * For continuous distributions in discrete sampling contexts, we approximate
  * the probability as P(x - ε <= X <= x) = F(x) - F(x - ε) where ε is a small tolerance.
- * 
+ *
  * This provides a numerically stable approximation of the PDF scaled by the tolerance,
  * which is appropriate for discrete sampling of continuous distributions.
- * 
+ *
  * @param x The value at which to evaluate the probability
  * @return Approximated probability for discrete sampling
  */
@@ -79,13 +79,13 @@ double LogNormalDistribution::getCumulativeProbability(double value) const noexc
 
 /**
  * Fits the distribution parameters to the given data using maximum likelihood estimation.
- * 
+ *
  * For Log-Normal distribution, the MLE estimators are:
  * μ = mean(ln(x_i)) for positive x_i
  * σ = std_dev(ln(x_i)) for positive x_i
- * 
+ *
  * Only positive values are used since Log-Normal distribution has support (0, ∞).
- * 
+ *
  * @param values Vector of observed data points
  */
 void LogNormalDistribution::fit(std::span<const double> data) {

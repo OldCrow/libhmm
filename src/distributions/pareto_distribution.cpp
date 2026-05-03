@@ -11,11 +11,11 @@ namespace libhmm {
 
 /**
  * Computes the probability density function for the Pareto distribution.
- * 
+ *
  * For Pareto distribution: f(x) = (k * x_m^k) / x^(k+1) for x ≥ x_m
- * 
+ *
  * Uses direct PDF calculation for optimal performance, avoiding expensive CDF differences.
- * 
+ *
  * @param x The value at which to evaluate the probability density
  * @return Probability density for the given value
  */
@@ -39,9 +39,9 @@ double ParetoDistribution::getProbability(double x) const {
 
 /**
  * Computes the logarithm of the probability density function for numerical stability.
- * 
+ *
  * For Pareto distribution: log(f(x)) = log(k) + k*log(x_m) - (k+1)*log(x) for x ≥ x_m
- * 
+ *
  * @param value The value at which to evaluate the log-PDF
  * @return Natural logarithm of the probability density, or -∞ for invalid values
  */
@@ -66,9 +66,9 @@ double ParetoDistribution::getCumulativeProbability(double value) const noexcept
 
 /**
  * Evaluates the CDF for the Pareto distribution at x.
- * 
+ *
  * Formula: F(x) = 1 - (x_m/x)^k for x ≥ x_m
- * 
+ *
  * @param x The value at which to evaluate the CDF
  * @return Cumulative probability P(X ≤ x)
  */
@@ -78,11 +78,11 @@ double ParetoDistribution::CDF(double x) const noexcept {
 
 /**
  * Fits the distribution parameters to the given data using maximum likelihood estimation.
- * 
+ *
  * For Pareto distribution, the MLE estimators are:
  * x_m = min(x_i) for all i
  * k = n / Σ(ln(x_i) - ln(x_m)) for i = 1 to n
- * 
+ *
  * @param values Vector of observed data
  */
 void ParetoDistribution::fit(std::span<const double> data) {
