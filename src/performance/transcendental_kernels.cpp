@@ -86,6 +86,8 @@ double TranscendentalKernels::reduce_max_sum2(const double *a, const double *b,
             __m512d vb = _mm512_loadu_pd(b + i);
             vmax = _mm512_max_pd(vmax, _mm512_add_pd(va, vb));
         }
+        // cppcheck-suppress redundantInitialization -- intentional cascade seed;
+        // non-AVX512 paths require maxVal=neg_inf as their starting value.
         maxVal = _mm512_reduce_max_pd(vmax);
     }
 #endif
@@ -135,7 +137,7 @@ double TranscendentalKernels::reduce_max_sum2(const double *a, const double *b,
 }
 
 // -----------------------------------------------------------------------------
-// sum_exp_sum2_minus_max: sum of exp(a[i]+b[i] - maxVal)
+// sum_exp_sum2_minus_max
 // -----------------------------------------------------------------------------
 double TranscendentalKernels::sum_exp_sum2_minus_max(const double *a, const double *b,
                                                      std::size_t size, double maxVal) noexcept {
@@ -225,6 +227,8 @@ double TranscendentalKernels::reduce_max_sum3(const double *a, const double *b, 
             __m512d vc = _mm512_loadu_pd(c + i);
             vmax = _mm512_max_pd(vmax, _mm512_add_pd(_mm512_add_pd(va, vb), vc));
         }
+        // cppcheck-suppress redundantInitialization -- intentional cascade seed;
+        // non-AVX512 paths require maxVal=neg_inf as their starting value.
         maxVal = _mm512_reduce_max_pd(vmax);
     }
 #endif
