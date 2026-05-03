@@ -223,8 +223,8 @@ std::istream &operator>>(std::istream &is, libhmm::LogNormalDistribution &distri
 // =============================================================================
 namespace detail {
 
-void lognormal_logpdf_batch(const double *obs, double *out, std::size_t n,
-                            double mu, double S, double C) noexcept {
+void lognormal_logpdf_batch(const double *obs, double *out, std::size_t n, double mu, double S,
+                            double C) noexcept {
     using namespace performance::detail::kernels;
     std::size_t i = 0;
     const double neg_inf = -std::numeric_limits<double>::infinity();
@@ -232,15 +232,15 @@ void lognormal_logpdf_batch(const double *obs, double *out, std::size_t n,
 #if defined(LIBHMM_HAS_AVX512)
     {
         const __m512d vmu = _mm512_set1_pd(mu);
-        const __m512d vS  = _mm512_set1_pd(S);
-        const __m512d vC  = _mm512_set1_pd(C);
+        const __m512d vS = _mm512_set1_pd(S);
+        const __m512d vC = _mm512_set1_pd(C);
         for (; i + 8 <= n; i += 8) {
-            __m512d x    = _mm512_loadu_pd(obs + i);
-            __m512d lx   = k_log_pd_avx512(x);          // -inf where x<=0
-            __m512d d    = _mm512_sub_pd(lx, vmu);       // log(x) - mu
-            __m512d res  = _mm512_fmadd_pd(d, _mm512_mul_pd(d, vS),
-                               _mm512_sub_pd(_mm512_setzero_pd(),
-                                  _mm512_add_pd(lx, vC)));  // -lx - C + S*d^2
+            __m512d x = _mm512_loadu_pd(obs + i);
+            __m512d lx = k_log_pd_avx512(x);    // -inf where x<=0
+            __m512d d = _mm512_sub_pd(lx, vmu); // log(x) - mu
+            __m512d res = _mm512_fmadd_pd(
+                d, _mm512_mul_pd(d, vS),
+                _mm512_sub_pd(_mm512_setzero_pd(), _mm512_add_pd(lx, vC))); // -lx - C + S*d^2
             _mm512_storeu_pd(out + i, res);
         }
     }
@@ -249,15 +249,14 @@ void lognormal_logpdf_batch(const double *obs, double *out, std::size_t n,
 #if defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
     {
         const __m256d vmu = _mm256_set1_pd(mu);
-        const __m256d vS  = _mm256_set1_pd(S);
-        const __m256d vC  = _mm256_set1_pd(C);
+        const __m256d vS = _mm256_set1_pd(S);
+        const __m256d vC = _mm256_set1_pd(C);
         for (; i + 4 <= n; i += 4) {
-            __m256d x   = _mm256_loadu_pd(obs + i);
-            __m256d lx  = k_log_pd_avx(x);
-            __m256d d   = _mm256_sub_pd(lx, vmu);
-            __m256d res = _mm256_add_pd(
-                _mm256_mul_pd(_mm256_mul_pd(d, d), vS),
-                _mm256_sub_pd(_mm256_setzero_pd(), _mm256_add_pd(lx, vC)));
+            __m256d x = _mm256_loadu_pd(obs + i);
+            __m256d lx = k_log_pd_avx(x);
+            __m256d d = _mm256_sub_pd(lx, vmu);
+            __m256d res = _mm256_add_pd(_mm256_mul_pd(_mm256_mul_pd(d, d), vS),
+                                        _mm256_sub_pd(_mm256_setzero_pd(), _mm256_add_pd(lx, vC)));
             _mm256_storeu_pd(out + i, res);
         }
     }
@@ -266,15 +265,14 @@ void lognormal_logpdf_batch(const double *obs, double *out, std::size_t n,
 #if defined(LIBHMM_HAS_SSE2)
     {
         const __m128d vmu = _mm_set1_pd(mu);
-        const __m128d vS  = _mm_set1_pd(S);
-        const __m128d vC  = _mm_set1_pd(C);
+        const __m128d vS = _mm_set1_pd(S);
+        const __m128d vC = _mm_set1_pd(C);
         for (; i + 2 <= n; i += 2) {
-            __m128d x   = _mm_loadu_pd(obs + i);
-            __m128d lx  = k_log_pd_sse2(x);
-            __m128d d   = _mm_sub_pd(lx, vmu);
-            __m128d res = _mm_add_pd(
-                _mm_mul_pd(_mm_mul_pd(d, d), vS),
-                _mm_sub_pd(_mm_setzero_pd(), _mm_add_pd(lx, vC)));
+            __m128d x = _mm_loadu_pd(obs + i);
+            __m128d lx = k_log_pd_sse2(x);
+            __m128d d = _mm_sub_pd(lx, vmu);
+            __m128d res = _mm_add_pd(_mm_mul_pd(_mm_mul_pd(d, d), vS),
+                                     _mm_sub_pd(_mm_setzero_pd(), _mm_add_pd(lx, vC)));
             _mm_storeu_pd(out + i, res);
         }
     }
@@ -283,16 +281,14 @@ void lognormal_logpdf_batch(const double *obs, double *out, std::size_t n,
 #if defined(LIBHMM_HAS_NEON)
     {
         const float64x2_t vmu = vdupq_n_f64(mu);
-        const float64x2_t vS  = vdupq_n_f64(S);
-        const float64x2_t vC  = vdupq_n_f64(C);
+        const float64x2_t vS = vdupq_n_f64(S);
+        const float64x2_t vC = vdupq_n_f64(C);
         for (; i + 2 <= n; i += 2) {
-            float64x2_t x   = vld1q_f64(obs + i);
-            float64x2_t lx  = k_log_pd_neon(x);
-            float64x2_t d   = vsubq_f64(lx, vmu);
+            float64x2_t x = vld1q_f64(obs + i);
+            float64x2_t lx = k_log_pd_neon(x);
+            float64x2_t d = vsubq_f64(lx, vmu);
             // res = S*d^2 + (-lx - C) = S*d^2 - lx - C
-            float64x2_t res = vfmaq_f64(
-                vsubq_f64(vnegq_f64(lx), vC),
-                vmulq_f64(d, d), vS);
+            float64x2_t res = vfmaq_f64(vsubq_f64(vnegq_f64(lx), vC), vmulq_f64(d, d), vS);
             vst1q_f64(out + i, res);
         }
     }
@@ -305,7 +301,7 @@ void lognormal_logpdf_batch(const double *obs, double *out, std::size_t n,
             out[i] = neg_inf;
         } else {
             const double lx = std::log(x);
-            const double d  = lx - mu;
+            const double d = lx - mu;
             out[i] = -lx - C + S * d * d;
         }
     }
@@ -318,9 +314,8 @@ void LogNormalDistribution::getBatchLogProbabilities(std::span<const double> obs
     // Tier 2 — explicit SIMD via simd_kernels_internal.h
     if (!isCacheValid())
         updateCache();
-    detail::lognormal_logpdf_batch(
-        observations.data(), out.data(), observations.size(),
-        mean_, negHalfSigmaSquaredInv_, logNormalizationConstant_);
+    detail::lognormal_logpdf_batch(observations.data(), out.data(), observations.size(), mean_,
+                                   negHalfSigmaSquaredInv_, logNormalizationConstant_);
 }
 
 } // namespace libhmm

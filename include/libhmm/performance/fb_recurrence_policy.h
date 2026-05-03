@@ -33,7 +33,6 @@ enum class FbRecurrenceMode {
     MaxReduce,
 };
 
-
 /**
  * @brief Static recurrence-mode selection from ISA-family evidence.
  *
@@ -47,20 +46,18 @@ constexpr FbRecurrenceMode selectFbRecurrenceMode(std::size_t numStates,
     if (numStates < 2) {
         return FbRecurrenceMode::Pairwise;
     }
-    return (numStates >= 4) ? FbRecurrenceMode::MaxReduce
-                            : FbRecurrenceMode::Pairwise;
+    return (numStates >= 4) ? FbRecurrenceMode::MaxReduce : FbRecurrenceMode::Pairwise;
 }
 
 /// Human-readable name for a recurrence mode.
 constexpr const char *toString(FbRecurrenceMode mode) noexcept {
     switch (mode) {
-    case FbRecurrenceMode::Pairwise:
-        return "pairwise";
-    case FbRecurrenceMode::MaxReduce:
-        return "max-reduce";
+        case FbRecurrenceMode::Pairwise:
+            return "pairwise";
+        case FbRecurrenceMode::MaxReduce:
+            return "max-reduce";
     }
     return "unknown";
 }
-
 
 } // namespace libhmm

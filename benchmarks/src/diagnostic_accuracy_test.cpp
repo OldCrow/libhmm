@@ -16,7 +16,7 @@ using namespace std;
 
 /**
  * DIAGNOSTIC TEST FOR NUMERICAL ACCURACY DISCREPANCIES
- * 
+ *
  * This test isolates potential issues in:
  * 1. Distribution implementations (PDF/log-PDF calculations)
  * 2. HMM setup (parameter setting)

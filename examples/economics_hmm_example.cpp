@@ -17,15 +17,15 @@ using libhmm::ViterbiTrainer;
 
 /**
  * Example: Economic and Social Science Modeling with Negative Binomial and Pareto HMM
- * 
+ *
  * This example demonstrates modeling economic phenomena using:
  * - Negative Binomial distribution for overdispersed count data (customer purchases, accidents)
  * - Pareto distribution for power-law phenomena (income, wealth, city sizes)
- * 
+ *
  * Hidden States for Customer Behavior:
  * - State 0: "Low Activity" (few purchases, occasional high-value items)
  * - State 1: "High Activity" (many purchases, frequent transactions)
- * 
+ *
  * Hidden States for Economic Regimes:
  * - State 0: "Normal Economy" (typical income distribution)
  * - State 1: "Crisis Economy" (more extreme inequality)

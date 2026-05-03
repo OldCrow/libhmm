@@ -7,7 +7,7 @@ namespace libhmm {
 
 /**
  * Computes the probability density function for the Beta distribution.
- * 
+ *
  * @param value The value at which to evaluate the PDF (should be in [0,1])
  * @return Probability density, or 0.0 if value is outside [0,1]
  */
@@ -82,9 +82,9 @@ double BetaDistribution::getProbability(double value) const {
 
 /**
  * Computes the logarithm of the probability density function for numerical stability.
- * 
+ *
  * For Beta distribution: log(f(x)) = (α-1)log(x) + (β-1)log(1-x) - log(B(α,β))
- * 
+ *
  * @param value The value at which to evaluate the log-PDF (should be in [0,1])
  * @return Natural logarithm of the probability density, or -∞ for invalid values
  */

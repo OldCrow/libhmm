@@ -113,13 +113,13 @@ private:
     double mean_{0.0};                    // Private member
     double standardDeviation_{1.0};      // Private member
     mutable std::atomic<bool> cacheValid_{false};     // Private member
-    
+
     static constexpr double DEFAULT_MEAN = 0.0;  // Constant
-    
+
 public:
     void setMean(double mean);           // Public method
     double getMean() const noexcept;    // Public method
-    
+
 private:
     void validateParameters(double mean, double stdDev) const;  // Private method
     void updateCache() const noexcept;                          // Private method
@@ -169,14 +169,14 @@ for (const auto& item : container) {
 double getMean() const noexcept;
 
 // Long signatures (multi-line with parameters aligned)
-void setParameters(double mean, 
-                  double standardDeviation, 
+void setParameters(double mean,
+                  double standardDeviation,
                   bool validateInputs = true);
 
 // Constructor initialization lists
 ExponentialDistribution(double lambda = 1.0)
-    : lambda_{lambda}, 
-      logLambda_{0.0}, 
+    : lambda_{lambda},
+      logLambda_{0.0},
       cacheValid_{false} {
     validateParameters(lambda);
     updateCache();
@@ -237,7 +237,7 @@ class GaussianDistribution {
 public:
     // Explicit single-argument constructor
     explicit GaussianDistribution(double mean = 0.0, double stdDev = 1.0);
-    
+
     // Default special members when possible
     ~GaussianDistribution() = default;
     GaussianDistribution(const GaussianDistribution&) = default;
@@ -286,7 +286,7 @@ private:
     /**
      * Validates parameters for the distribution
      * @param param1 First parameter with constraints
-     * @param param2 Second parameter with constraints  
+     * @param param2 Second parameter with constraints
      * @throws std::invalid_argument if parameters are invalid
      */
     void validateParameters(double param1, double param2) const {
@@ -294,16 +294,16 @@ private:
             throw std::invalid_argument("param1 must be positive and finite");
         }
         if (std::isnan(param2) || std::isinf(param2) || param2 <= 0.0) {
-            throw std::invalid_argument("param2 must be positive and finite");  
+            throw std::invalid_argument("param2 must be positive and finite");
         }
     }
 
 public:
-    ExampleDistribution(double param1, double param2) 
+    ExampleDistribution(double param1, double param2)
         : param1_{param1}, param2_{param2} {
         validateParameters(param1, param2);  // Validate in constructor
     }
-    
+
     void setParam1(double param1) {
         validateParameters(param1, param2_);  // Validate in setter
         param1_ = param1;
@@ -332,17 +332,17 @@ Use **Doxygen-style comments** for all public interfaces:
 ```cpp
 /**
  * Computes the probability density function for the Gaussian distribution.
- * 
+ *
  * The PDF is computed using the formula:
  * f(x) = (1/σ√(2π)) * exp(-0.5*((x-μ)/σ)²)
- * 
+ *
  * @param value The value at which to evaluate the PDF
  * @return Probability density at the given value
  * @throws std::invalid_argument if value is NaN or infinite
- * 
+ *
  * @note This method is thread-safe and uses cached normalization constants
  * @complexity O(1) - constant time computation
- * 
+ *
  * @example
  * @code
  * GaussianDistribution dist(0.0, 1.0);  // Standard normal
@@ -356,23 +356,23 @@ double getProbability(double value) override;
 ```cpp
 /**
  * Modern C++20 Gaussian distribution for modeling continuous symmetric data.
- * 
+ *
  * The Gaussian (Normal) distribution is a continuous probability distribution
  * characterized by its bell-shaped curve. It's fundamental in statistics and
  * is used extensively in machine learning and data analysis.
- * 
+ *
  * PDF: f(x) = (1/σ√(2π)) * exp(-0.5*((x-μ)/σ)²)
  * where μ is the mean and σ is the standard deviation (σ > 0)
- * 
+ *
  * Properties:
- * - Mean: μ  
+ * - Mean: μ
  * - Variance: σ²
  * - Support: x ∈ (-∞, ∞)
  * - Symmetry: Symmetric around μ
- * 
+ *
  * @note Thread-safe for read operations, not thread-safe for modifications
  * @note Uses efficient caching for repeated probability calculations
- * 
+ *
  * @example Basic usage:
  * @code
  * GaussianDistribution normal(0.0, 1.0);  // Standard normal distribution
@@ -415,7 +415,7 @@ if (!cacheValid_) {
  */
 void testParameterValidation() {
     std::cout << "Testing parameter validation..." << std::endl;
-    
+
     // Test invalid constructor parameters
     try {
         GaussianDistribution dist(0.0, 0.0);  // Invalid stddev
@@ -423,16 +423,16 @@ void testParameterValidation() {
     } catch (const std::invalid_argument&) {
         // Expected behavior
     }
-    
+
     // Test NaN and infinity
     double nan_val = std::numeric_limits<double>::quiet_NaN();
     try {
         GaussianDistribution dist(nan_val, 1.0);
-        assert(false);  // Should not reach here  
+        assert(false);  // Should not reach here
     } catch (const std::invalid_argument&) {
         // Expected behavior
     }
-    
+
     std::cout << "✓ Parameter validation tests passed" << std::endl;
 }
 ```
@@ -449,7 +449,7 @@ void testParameterValidation() {
 ### 1. Required Tools
 - **clang-tidy**: Static analysis and code quality
 - **cppcheck**: Additional static analysis
-- **Address Sanitizer**: Memory error detection  
+- **Address Sanitizer**: Memory error detection
 - **Undefined Behavior Sanitizer**: UB detection
 
 ### 2. Enabled Checks
@@ -484,12 +484,12 @@ class GaussianDistribution {
 private:
     mutable double normalizationConstant_{0.0};
     mutable std::atomic<bool> cacheValid_{false};
-    
+
     void updateCache() const noexcept {
         normalizationConstant_ = 1.0 / (standardDeviation_ * std::sqrt(2.0 * M_PI));
         cacheValid_ = true;
     }
-    
+
 public:
     double getProbability(double value) override {
         if (!cacheValid_) {
@@ -521,15 +521,15 @@ private:
         }
         // Additional validations...
     }
-    
+
 public:
     // Constructor MUST call validateParameters
-    DistributionName(ParamType1 param1, ParamType2 param2) 
+    DistributionName(ParamType1 param1, ParamType2 param2)
         : param1_{param1}, param2_{param2} {
         validateParameters(param1, param2);
     }
-    
-    // Setters MUST call validateParameters  
+
+    // Setters MUST call validateParameters
     void setParam1(ParamType1 param1) {
         validateParameters(param1, param2_);
         param1_ = param1;

@@ -16,11 +16,11 @@ using libhmm::WeibullDistribution;
 
 /**
  * Example: Reliability Engineering with Weibull and Exponential HMM
- * 
+ *
  * This example demonstrates modeling system reliability using:
  * - Weibull distribution for component lifetimes (flexible hazard rates)
  * - Exponential distribution for memoryless failure times
- * 
+ *
  * Hidden States:
  * - State 0: "Normal Operation" (low failure rate)
  * - State 1: "Degraded State" (higher failure rate)

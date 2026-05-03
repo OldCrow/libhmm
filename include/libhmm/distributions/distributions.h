@@ -3,21 +3,21 @@
 /**
  * @file distributions.h
  * @brief Convenience header that includes all libhmm probability distributions
- * 
+ *
  * This header provides a single include point for all probability distributions
  * available in libhmm. It follows the standard library convention of providing
  * umbrella headers for related functionality.
- * 
+ *
  * Usage:
  * @code
  * #include "libhmm/distributions/distributions.h"
- * 
+ *
  * // All distributions are now available:
  * GaussianDistribution gauss(0.0, 1.0);
  * PoissonDistribution poisson(2.5);
  * DiscreteDistribution discrete(6);
  * @endcode
- * 
+ *
  * @note For better compilation times, consider including only the specific
  *       distribution headers you need in performance-critical applications.
  */
@@ -51,15 +51,15 @@
 /**
  * @namespace libhmm
  * @brief All distributions are available in the libhmm namespace
- * 
+ *
  * After including this header, all distribution classes are available:
- * 
+ *
  * **Discrete Distributions:**
  * - DiscreteDistribution: General discrete distribution
  * - BinomialDistribution: Binomial distribution B(n,p)
  * - NegativeBinomialDistribution: Negative binomial distribution
  * - PoissonDistribution: Poisson distribution P(λ)
- * 
+ *
  * **Continuous Distributions:**
  * - GaussianDistribution: Normal distribution N(μ,σ²)
  * - ExponentialDistribution: Exponential distribution Exp(λ)

@@ -9,7 +9,7 @@ This document summarizes benchmark results comparing libhmm against major HMM li
 ### Libraries Tested
 
 1. **libhmm** - Modern C++20 implementation with zero external dependencies
-2. **HMMLib** - High-performance C++ library with Boost dependencies  
+2. **HMMLib** - High-performance C++ library with Boost dependencies
 3. **StochHMM** - Bioinformatics-focused C++ library
 4. **GHMM** - General Hidden Markov Model Library (C)
 5. **HTK** - Hidden Markov Model Toolkit (command-line based)
@@ -39,7 +39,7 @@ Two classic HMM benchmark problems were used across all libraries:
 - **Transitions**: Fair→Fair (0.95), Fair→Loaded (0.05), Loaded→Fair (0.10), Loaded→Loaded (0.90)
 - **Emissions**: Fair die (uniform 1/6), Loaded die (symbol 5 favored at 0.50)
 
-#### 2. Weather Model Problem  
+#### 2. Weather Model Problem
 - **States**: 2 (Sunny, Rainy)
 - **Observations**: 2 symbols (Hot, Cold)
 - **Transitions**: Sunny→Sunny (0.7), Sunny→Rainy (0.3), Rainy→Sunny (0.4), Rainy→Rainy (0.6)
@@ -61,7 +61,7 @@ To ensure fair comparison and detect numerical issues:
 ### Performance Metrics
 
 - **Forward-Backward algorithm timing**: Primary performance metric
-- **Viterbi algorithm timing**: Secondary performance metric  
+- **Viterbi algorithm timing**: Secondary performance metric
 - **Throughput**: Observations processed per millisecond
 - **Scaling behavior**: Performance across different sequence lengths
 
@@ -101,7 +101,7 @@ libhmm shows machine-precision agreement with key reference libraries:
 
 **Example numerical comparison** (Casino Problem, 1000 observations):
 - libhmm: -1.815e+03
-- HMMLib: -1.815e+03  
+- HMMLib: -1.815e+03
 - StochHMM: -1.815e+03
 - GHMM: -1.815e+03
 - HTK: -2.000e+03 ← **Deliberately rounded for computational efficiency**
@@ -162,7 +162,7 @@ Historical snapshot from earlier benchmark runs; use the April 2026 consolidated
 
 **Medium Sequences (1,000-10,000 observations):**
 - GHMM: 20-25x faster than libhmm
-- HMMLib: 15-20x faster than libhmm  
+- HMMLib: 15-20x faster than libhmm
 - StochHMM: 2x faster than libhmm
 - HTK: Approaching libhmm performance
 
@@ -245,7 +245,7 @@ All libraries successfully processed sequences up to 1,000,000 observations with
 - Numerical precision is important
 - You can handle complex C API
 
-#### Choose **HMMLib** when:  
+#### Choose **HMMLib** when:
 - High performance is needed
 - C++ integration is required
 - Boost dependencies are acceptable
@@ -253,7 +253,7 @@ All libraries successfully processed sequences up to 1,000,000 observations with
 
 #### Choose **libhmm** when:
 - Modern C++20 features are desired
-- Zero external dependencies are required  
+- Zero external dependencies are required
 - Code maintainability is important
 - Moderate performance is sufficient
 - Cross-platform compatibility is needed
@@ -278,7 +278,7 @@ libhmm's performance should be evaluated in context:
 - For most practical applications, this performance is more than adequate
 - The ~20x speed difference with top performers matters primarily for:
   - High-frequency real-time applications
-  - Massive batch processing workflows  
+  - Massive batch processing workflows
   - Training on extremely large datasets
 
 ### Future Development
@@ -303,7 +303,7 @@ All benchmark code and configurations are available in the `benchmarks/` directo
 **Note on External Libraries**: The original source code for HMMLib, StochHMM, GHMM, and HTK is not included in this repository. To reproduce these benchmarks, these libraries must be obtained from their respective developers/maintainers and built according to their official documentation:
 
 - **HMMLib**: Available from original authors/research institutions
-- **StochHMM**: https://github.com/KorfLab/StochHMM  
+- **StochHMM**: https://github.com/KorfLab/StochHMM
 - **GHMM**: http://ghmm.org
 - **HTK**: http://htk.eng.cam.ac.uk (requires registration)
 
@@ -312,7 +312,7 @@ The benchmark implementations in this repository provide the integration code ne
 ### Validation Methodology
 The numerical accuracy validation included:
 - Direct log-likelihood comparison to machine precision
-- Step-by-step forward algorithm verification  
+- Step-by-step forward algorithm verification
 - Cross-validation between multiple reference implementations
 - Deep numerical analysis of scaling factors and intermediate values
 
@@ -432,7 +432,7 @@ This section adds an updated snapshot without removing any prior content. Earlie
 | `libhmm_vs_jahmm_benchmark`** | JAHMM | 7161.5 | 3803.6 | 0.53x | `build-benchmarks-release/benchmark-logs/libhmm_vs_jahmm_benchmark_after_pathfix.log` |
 | `libhmm_vs_lamp_benchmark` | LAMP | 6016.7 | 48.2 | 0.01x | Windows x86_64 run, April 2026 (post-warmup) |
 
-\* Uses post-PI-correction StochHMM continuous results (`after_pi_fix`).  
+\* Uses post-PI-correction StochHMM continuous results (`after_pi_fix`).
 \** JAHMM benchmark log does not emit an average throughput summary line; values above are computed from per-run forward timings in the same log.
 
 ### Updated Code Quality and Maintainability Snapshot (All Evaluated Libraries)
@@ -463,17 +463,17 @@ To capture correctness signal separately from throughput, three updated diagnost
 
 Key outcomes:
 
-- **Canonical numerical parity with HMMLib** (`deep_numerical_analysis_modernized.log`):  
+- **Canonical numerical parity with HMMLib** (`deep_numerical_analysis_modernized.log`):
   Across sequence lengths 10, 50, 100, 200, 500, 1000, and 2000, libhmm and HMMLib log-likelihoods match to near machine precision. Maximum absolute difference observed: `5.093170e-11` (length 2000), with no length-dependent drift pattern.
 
-- **Step-level forward-pass agreement** (`deep_numerical_analysis_modernized.log`):  
+- **Step-level forward-pass agreement** (`deep_numerical_analysis_modernized.log`):
   Normalized per-step forward-variable differences are in floating-point noise range (`~1e-16`, max shown `4.163e-16`), and final log-probability difference is `0.000000e+00`.
 
-- **Distribution-layer Gaussian agreement across libraries** (`gaussian_distribution_comparison_modernized.log`):  
+- **Distribution-layer Gaussian agreement across libraries** (`gaussian_distribution_comparison_modernized.log`):
   libhmm, GHMM, and StochHMM report `MATCH` across all tested Gaussian cases (standard, shifted mean, negative mean, high variance), indicating aligned PDF/log-PDF behavior at the distribution layer.
 
-- **Constructor semantics validated for reproducibility** (`diagnostic_accuracy_test_modernized.log`):  
+- **Constructor semantics validated for reproducibility** (`diagnostic_accuracy_test_modernized.log`):
   `GaussianDistribution(mean, second_parameter)` uses **standard deviation** semantics (not variance). This check avoids silent benchmark misconfiguration when mapping model parameters.
 
-- **Canonical calculator self-consistency checks pass** (`diagnostic_accuracy_test_modernized.log`):  
+- **Canonical calculator self-consistency checks pass** (`diagnostic_accuracy_test_modernized.log`):
   ForwardBackward pointer/reference constructors and `getLogProbability()` vs `log(probability())` are numerically identical on the test model; a manual forward calculation also matches libhmm (`probability diff 6.939e-18`, `log diff 0.000e+00`).

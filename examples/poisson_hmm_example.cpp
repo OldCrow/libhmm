@@ -14,7 +14,7 @@ using libhmm::ViterbiTrainer;
 
 /**
  * Example: Modeling Website Traffic with Poisson HMM
- * 
+ *
  * This example demonstrates using Poisson distributions in an HMM to model
  * website traffic patterns. We'll model two hidden states:
  * - State 0: "Normal Traffic" (λ = 10 requests/minute)

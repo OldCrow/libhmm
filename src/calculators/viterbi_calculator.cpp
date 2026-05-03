@@ -48,8 +48,7 @@ StateSequence ViterbiCalculator::decode() {
 
     for (std::size_t i = 0; i < numStates_; ++i) {
         hmm.getDistribution(i).getBatchLogProbabilities(
-            obsSpan,
-            std::span<double>(logEmitBuf_.data() + i * T, T));
+            obsSpan, std::span<double>(logEmitBuf_.data() + i * T, T));
     }
     // Build time-major emission buffer once for locality in dynamic programming.
     logEmitByTime_.resize(T * numStates_);

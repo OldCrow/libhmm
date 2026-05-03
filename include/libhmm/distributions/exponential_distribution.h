@@ -8,15 +8,15 @@ namespace libhmm {
 
 /**
  * Modern C++20 Exponential distribution for modeling waiting times and decay processes.
- * 
+ *
  * The Exponential distribution is a continuous probability distribution that describes
  * the time between events in a Poisson point process. It's commonly used to model
  * lifetimes, waiting times, and decay processes.
- * 
+ *
  * PDF: f(x) = λ * exp(-λx) for x ≥ 0, 0 otherwise
  * CDF: F(x) = 1 - exp(-λx) for x ≥ 0, 0 otherwise
  * where λ is the rate parameter (λ > 0)
- * 
+ *
  * Properties:
  * - Mean: 1/λ
  * - Variance: 1/λ²
@@ -79,7 +79,7 @@ private:
 public:
     /**
      * Constructs an Exponential distribution with given rate parameter.
-     * 
+     *
      * @param lambda Rate parameter λ (must be positive)
      * @throws std::invalid_argument if lambda is invalid
      */
@@ -129,7 +129,7 @@ public:
 
     /**
      * Computes the probability density function for the Exponential distribution.
-     * 
+     *
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
@@ -163,21 +163,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Gets the rate parameter λ.
-     * 
+     *
      * @return Current rate parameter value
      */
     double getLambda() const noexcept { return lambda_; }
 
     /**
      * Sets the rate parameter λ.
-     * 
+     *
      * @param lambda New rate parameter (must be positive)
      * @throws std::invalid_argument if lambda <= 0 or is not finite
      */
@@ -191,7 +191,7 @@ public:
      * Gets the mean of the distribution.
      * For Exponential distribution, mean = 1/λ
      * Uses cached value to eliminate division.
-     * 
+     *
      * @return Mean value
      */
     double getMean() const noexcept {
@@ -218,7 +218,7 @@ public:
     /**
      * Evaluates the CDF at x using the standard exponential CDF formula
      * For exponential distribution: F(x) = 1 - exp(-λx) for x ≥ 0, 0 otherwise
-     * 
+     *
      * @param x The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ x)
      */

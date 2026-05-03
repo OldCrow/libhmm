@@ -8,14 +8,14 @@ namespace libhmm {
 
 /**
  * Beta distribution for modeling probabilities and proportions.
- * 
- * The Beta distribution is a continuous probability distribution defined 
+ *
+ * The Beta distribution is a continuous probability distribution defined
  * on the interval [0,1] and parameterized by two positive shape parameters
  * α (alpha) and β (beta).
- * 
+ *
  * PDF: f(x; α, β) = (x^(α-1) * (1-x)^(β-1)) / B(α, β)
  * where B(α, β) is the Beta function: B(α, β) = Γ(α)Γ(β)/Γ(α+β)
- * 
+ *
  * Special cases:
  * - α = β = 1: Uniform distribution on [0,1]
  * - α = β: Symmetric around 0.5
@@ -30,7 +30,7 @@ private:
     double alpha_{1.0};
 
     /**
-     * Shape parameter β (beta) - must be positive  
+     * Shape parameter β (beta) - must be positive
      */
     double beta_{1.0};
 
@@ -89,7 +89,7 @@ private:
 public:
     /**
      * Constructs a Beta distribution with given shape parameters.
-     * 
+     *
      * @param alpha Shape parameter α (must be positive)
      * @param beta Shape parameter β (must be positive)
      * @throws std::invalid_argument if parameters are not positive finite numbers
@@ -139,7 +139,7 @@ public:
 
     /**
      * Computes the probability density function for the Beta distribution.
-     * 
+     *
      * @param value The value at which to evaluate the PDF (should be in [0,1])
      * @return Probability density, or 0.0 if value is outside [0,1]
      */
@@ -154,9 +154,9 @@ public:
 
     /**
      * Computes the cumulative distribution function for the Beta distribution.
-     * 
+     *
      * Uses the regularized incomplete beta function I_x(α,β)
-     * 
+     *
      * @param value The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ value)
      */
@@ -170,7 +170,7 @@ public:
     /**
      * Vectorized batch computation of PDF for multiple values.
      * Optimized for processing many values efficiently with cache reuse.
-     * 
+     *
      * @param values Vector of input values
      * @param results Output vector for results (will be resized if needed)
      */
@@ -179,7 +179,7 @@ public:
     /**
      * Vectorized batch computation of log PDF for multiple values.
      * Optimized for processing many values efficiently with cache reuse.
-     * 
+     *
      * @param values Vector of input values
      * @param results Output vector for results (will be resized if needed)
      */
@@ -194,21 +194,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Gets the alpha (α) shape parameter.
-     * 
+     *
      * @return Current alpha value
      */
     double getAlpha() const noexcept { return alpha_; }
 
     /**
      * Sets the alpha (α) shape parameter.
-     * 
+     *
      * @param alpha New alpha parameter (must be positive)
      * @throws std::invalid_argument if alpha <= 0 or is not finite
      */
@@ -220,14 +220,14 @@ public:
 
     /**
      * Gets the beta (β) shape parameter.
-     * 
+     *
      * @return Current beta value
      */
     double getBeta() const noexcept { return beta_; }
 
     /**
      * Sets the beta (β) shape parameter.
-     * 
+     *
      * @param beta New beta parameter (must be positive)
      * @throws std::invalid_argument if beta <= 0 or is not finite
      */
@@ -240,7 +240,7 @@ public:
     /**
      * Gets the mean of the distribution.
      * For Beta(α, β), mean = α/(α+β)
-     * 
+     *
      * @return Mean value
      */
     double getMean() const noexcept { return alpha_ / (alpha_ + beta_); }
@@ -248,7 +248,7 @@ public:
     /**
      * Gets the variance of the distribution.
      * For Beta(α, β), variance = αβ/((α+β)²(α+β+1))
-     * 
+     *
      * @return Variance value
      */
     double getVariance() const noexcept {
@@ -258,7 +258,7 @@ public:
 
     /**
      * Gets the standard deviation of the distribution.
-     * 
+     *
      * @return Standard deviation
      */
     double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }

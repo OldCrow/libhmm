@@ -27,7 +27,7 @@ public:
 
     /**
      * Reads entire file content as a string.
-     * 
+     *
      * @param filepath Path to the file
      * @return File content as string
      * @throws std::runtime_error if file cannot be read
@@ -36,7 +36,7 @@ public:
 
     /**
      * Writes string content to a file.
-     * 
+     *
      * @param filepath Path to the file
      * @param content Content to write
      * @param append If true, append to file; if false, overwrite
@@ -47,7 +47,7 @@ public:
 
     /**
      * Reads file content as lines.
-     * 
+     *
      * @param filepath Path to the file
      * @return Vector of lines
      * @throws std::runtime_error if file cannot be read
@@ -56,7 +56,7 @@ public:
 
     /**
      * Writes lines to a file.
-     * 
+     *
      * @param filepath Path to the file
      * @param lines Lines to write
      * @param append If true, append to file; if false, overwrite
@@ -67,7 +67,7 @@ public:
 
     /**
      * Safely copies a file with error handling.
-     * 
+     *
      * @param source Source file path
      * @param destination Destination file path
      * @param overwrite If true, overwrite existing file
@@ -78,7 +78,7 @@ public:
 
     /**
      * Creates a backup of a file with timestamp.
-     * 
+     *
      * @param filepath Path to the file to backup
      * @return Path to the backup file
      * @throws std::runtime_error if backup fails
@@ -87,7 +87,7 @@ public:
 
     /**
      * Validates file path and permissions.
-     * 
+     *
      * @param filepath Path to validate
      * @param checkRead Check read permissions
      * @param checkWrite Check write permissions
@@ -98,7 +98,7 @@ public:
 
     /**
      * Gets file size safely.
-     * 
+     *
      * @param filepath Path to the file
      * @return File size in bytes, or nullopt if file doesn't exist
      */
@@ -107,7 +107,7 @@ public:
 
     /**
      * Checks if file has expected extension.
-     * 
+     *
      * @param filepath Path to check
      * @param expectedExtension Expected file extension (with or without dot)
      * @return true if file has the expected extension
@@ -117,7 +117,7 @@ public:
 
     /**
      * Creates directory structure if it doesn't exist.
-     * 
+     *
      * @param dirpath Directory path to create
      * @throws std::runtime_error if directory creation fails
      */
@@ -125,7 +125,7 @@ public:
 
     /**
      * Gets file modification time.
-     * 
+     *
      * @param filepath Path to the file
      * @return File modification time, or nullopt if file doesn't exist
      */

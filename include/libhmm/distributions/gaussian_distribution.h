@@ -143,7 +143,7 @@ public:
     /**
      * Computes the probability density function for the Gaussian distribution.
      * Formula: PDF(x) = (1/(σ√(2π))) * exp(-½((x-μ)/σ)²)
-     * 
+     *
      * @param x The value at which to evaluate the PDF
      * @return Probability density
      */
@@ -153,7 +153,7 @@ public:
      * Evaluates the logarithm of the probability density function
      * Formula: log PDF(x) = -½log(2π) - log(σ) - ½((x-μ)/σ)²
      * More numerically stable for small probabilities
-     * 
+     *
      * @param x The value at which to evaluate the log PDF
      * @return Log probability density
      */
@@ -169,7 +169,7 @@ public:
     /**
      * Evaluates the CDF at x using the error function
      * Formula: CDF(x) = (1/2) * (1 + erf((x-μ)/(σ√2)))
-     * 
+     *
      * @param x The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ x)
      */
@@ -194,21 +194,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
 
     /**
      * Gets the mean parameter μ.
-     * 
+     *
      * @return Current mean value
      */
     double getMean() const noexcept { return mean_; }
 
     /**
      * Sets the mean parameter μ.
-     * 
+     *
      * @param mean New mean parameter (any finite value)
      * @throws std::invalid_argument if mean is not finite
      */
@@ -220,14 +220,14 @@ public:
 
     /**
      * Gets the standard deviation parameter σ.
-     * 
+     *
      * @return Current standard deviation value
      */
     double getStandardDeviation() const noexcept { return standardDeviation_; }
 
     /**
      * Sets the standard deviation parameter σ.
-     * 
+     *
      * @param stdDev New standard deviation parameter (must be positive)
      * @throws std::invalid_argument if stdDev <= 0 or is not finite
      */
@@ -240,14 +240,14 @@ public:
     /**
      * Gets the variance of the distribution.
      * For Gaussian distribution, variance = σ²
-     * 
+     *
      * @return Variance value
      */
     double getVariance() const noexcept { return standardDeviation_ * standardDeviation_; }
 
     /**
      * Sets both parameters simultaneously.
-     * 
+     *
      * @param mean New mean parameter
      * @param stdDev New standard deviation parameter
      * @throws std::invalid_argument if parameters are invalid

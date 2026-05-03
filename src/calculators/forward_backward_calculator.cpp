@@ -12,8 +12,9 @@ namespace {
 constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
 } // namespace
 
-FbRecurrenceMode ForwardBackwardCalculator::resolveRecurrenceMode(
-    const std::size_t numStates, const std::size_t sequenceLength) const noexcept {
+FbRecurrenceMode
+ForwardBackwardCalculator::resolveRecurrenceMode(const std::size_t numStates,
+                                                 const std::size_t sequenceLength) const noexcept {
 #if defined(LIBHMM_EXPERIMENT_FB_MAX_REDUCE)
     // Compile-time forcer: highest priority. Preserves benchmark-build contract.
     (void)numStates;
@@ -22,9 +23,7 @@ FbRecurrenceMode ForwardBackwardCalculator::resolveRecurrenceMode(
 #elif defined(LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR)
     // Legacy adaptive forcer: simple N>2 cutoff. Preserves benchmark-build contract.
     (void)sequenceLength;
-    return (numStates > 2)
-               ? FbRecurrenceMode::MaxReduce
-               : FbRecurrenceMode::Pairwise;
+    return (numStates > 2) ? FbRecurrenceMode::MaxReduce : FbRecurrenceMode::Pairwise;
 #else
     if (modeOverride_.has_value()) {
         return *modeOverride_;
@@ -186,9 +185,8 @@ void ForwardBackwardCalculator::computeLogForwardMaxReduce() {
         const double *emitRow = emitByTimeData + t * N;
         for (std::size_t j = 0; j < N; ++j) {
             const double *transCol = logTransTData + j * N;
-            const double maxTerm =
-                performance::detail::TranscendentalKernels::reduce_max_sum2(
-                    prevAlphaRow, transCol, N);
+            const double maxTerm = performance::detail::TranscendentalKernels::reduce_max_sum2(
+                prevAlphaRow, transCol, N);
 
             double logSum = LOG_ZERO;
             if (std::isfinite(maxTerm)) {
@@ -267,9 +265,8 @@ void ForwardBackwardCalculator::computeLogBackwardMaxReduce() {
             const double *emitNextRow = emitByTimeData + (t + 1) * N;
             for (std::size_t i = 0; i < N; ++i) {
                 const double *transRow = logTransData + i * N;
-                const double maxTerm =
-                    performance::detail::TranscendentalKernels::reduce_max_sum3(
-                        transRow, emitNextRow, nextBetaRow, N);
+                const double maxTerm = performance::detail::TranscendentalKernels::reduce_max_sum3(
+                    transRow, emitNextRow, nextBetaRow, N);
 
                 double logSum = LOG_ZERO;
                 if (std::isfinite(maxTerm)) {

@@ -8,19 +8,19 @@ namespace libhmm {
 
 /**
  * Modern C++20 Gamma distribution for modeling continuous non-negative data.
- * 
+ *
  * The Gamma distribution is a versatile continuous probability distribution
  * commonly used to model waiting times, failure rates, and size distributions.
  * It generalizes the exponential distribution and is the conjugate prior for
  * the precision of a normal distribution.
- * 
+ *
  * PDF: f(x) = (1/(Γ(k)θ^k)) * x^(k-1) * exp(-x/θ) for x ≥ 0
  * where k is the shape parameter (k > 0) and θ is the scale parameter (θ > 0)
  * Γ(k) is the gamma function
- * 
+ *
  * Alternative parameterization uses rate parameter β = 1/θ:
  * PDF: f(x) = (β^k/Γ(k)) * x^(k-1) * exp(-βx)
- * 
+ *
  * Properties:
  * - Mean: k*θ (or k/β)
  * - Variance: k*θ² (or k/β²)
@@ -94,7 +94,7 @@ private:
 public:
     /**
      * Constructs a Gamma distribution with given parameters.
-     * 
+     *
      * @param k Shape parameter k (must be positive)
      * @param theta Scale parameter θ (must be positive)
      * @throws std::invalid_argument if parameters are invalid
@@ -140,7 +140,7 @@ public:
 
     /**
      * Computes the probability density function for the Gamma distribution.
-     * 
+     *
      * @param value The value at which to evaluate the PDF
      * @return Probability density (or approximated probability for discrete sampling)
      */
@@ -150,7 +150,7 @@ public:
      * Evaluates the logarithm of the probability density function
      * Formula: log PDF(x) = (k-1)*ln(x) - x/θ - k*ln(θ) - ln(Γ(k))
      * More numerically stable for small probabilities
-     * 
+     *
      * @param x The value at which to evaluate the log PDF
      * @return Log probability density
      */
@@ -165,7 +165,7 @@ public:
      * Evaluates the CDF at x using the incomplete gamma function
      * Formula: CDF(x) = P(k, x/θ) = γ(k, x/θ) / Γ(k)
      * where P is the regularized incomplete gamma function
-     * 
+     *
      * @param x The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ x)
      */
@@ -185,28 +185,28 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     [[nodiscard]] std::string toString() const override;
 
     /**
      * Gets the shape parameter k.
-     * 
+     *
      * @return Current shape parameter value
      */
     [[nodiscard]] double getK() const noexcept { return k_; }
 
     /**
      * Gets the scale parameter θ.
-     * 
+     *
      * @return Current scale parameter value
      */
     [[nodiscard]] double getTheta() const noexcept { return theta_; }
 
     /**
      * Sets the shape parameter k.
-     * 
+     *
      * @param k New shape parameter (must be positive)
      * @throws std::invalid_argument if k <= 0 or is not finite
      */
@@ -230,7 +230,7 @@ public:
     /**
      * Gets the mean of the distribution.
      * For Gamma distribution, mean = k*θ
-     * 
+     *
      * @return Mean value
      */
     [[nodiscard]] double getMean() const noexcept { return k_ * theta_; }
@@ -238,7 +238,7 @@ public:
     /**
      * Gets the variance of the distribution.
      * For Gamma distribution, variance = k*θ²
-     * 
+     *
      * @return Variance value
      */
     [[nodiscard]] double getVariance() const noexcept { return k_ * theta_ * theta_; }
@@ -246,7 +246,7 @@ public:
     /**
      * Gets the standard deviation of the distribution.
      * For Gamma distribution, std_dev = θ*√k
-     * 
+     *
      * @return Standard deviation value
      */
     [[nodiscard]] double getStandardDeviation() const noexcept { return theta_ * std::sqrt(k_); }
@@ -255,14 +255,14 @@ public:
      * Gets the mode of the distribution.
      * For Gamma distribution with k > 1, mode = (k-1)*θ
      * For k ≤ 1, the mode is at x = 0 (but PDF may be infinite there)
-     * 
+     *
      * @return Mode value
      */
     [[nodiscard]] double getMode() const noexcept { return (k_ > 1.0) ? (k_ - 1.0) * theta_ : 0.0; }
 
     /**
      * Gets the rate parameter β = 1/θ (alternative parameterization).
-     * 
+     *
      * @return Rate parameter (1/θ)
      */
     [[nodiscard]] double getRate() const noexcept { return 1.0 / theta_; }

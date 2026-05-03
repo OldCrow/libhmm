@@ -16,11 +16,11 @@ using libhmm::ViterbiTrainer;
 
 /**
  * Example: Quality Control Process Monitoring with Binomial and Uniform HMM
- * 
+ *
  * This example demonstrates modeling quality control processes using:
  * - Binomial distribution for defect counts in batches
  * - Uniform distribution for measurement tolerances
- * 
+ *
  * Hidden States:
  * - State 0: "In Control" (low defect rate, tight tolerances)
  * - State 1: "Out of Control" (high defect rate, loose tolerances)

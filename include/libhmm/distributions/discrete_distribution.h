@@ -9,21 +9,21 @@ namespace libhmm {
 
 /**
  * Modern C++20 Discrete distribution for modeling categorical data.
- * 
+ *
  * The Discrete distribution (also known as Categorical distribution) is a
  * discrete probability distribution that generalizes the Bernoulli distribution.
  * It describes the possible results of a random variable that can take on
  * one of K possible categories, with the probability of each category separately specified.
- * 
+ *
  * PMF: P(X = k) = p_k for k ∈ {0, 1, 2, ..., K-1}
  * where p_k is the probability of category k and ∑p_k = 1
- * 
+ *
  * Properties:
  * - Support: {0, 1, 2, ..., numSymbols-1}
  * - Probability mass function defined for each discrete symbol
  * - All probabilities must sum to 1.0
  * - Each probability must be in [0, 1]
- * 
+ *
  * Applications:
  * - Hidden Markov Models with discrete observations
  * - Classification problems
@@ -177,7 +177,7 @@ public:
 
     /**
      * Gets the probability mass function value for a discrete observation.
-     * 
+     *
      * @param value The discrete value (will be cast to integer index)
      * @return Probability mass for the given value, 0.0 if out of range
      */
@@ -203,7 +203,7 @@ public:
 
     /**
      * Sets the probability for a specific discrete observation.
-     * 
+     *
      * @param o The discrete observation (symbol index)
      * @param value The probability value (must be in [0,1])
      * @throws std::invalid_argument if value is not a valid probability
@@ -227,21 +227,21 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String showing all symbol probabilities
      */
     std::string toString() const override;
 
     /**
      * Gets the number of discrete symbols in the distribution.
-     * 
+     *
      * @return Number of symbols/categories
      */
     std::size_t getNumSymbols() const noexcept { return numSymbols_; }
 
     /**
      * Gets the probability for a specific symbol.
-     * 
+     *
      * @param index Symbol index (must be < numSymbols)
      * @return Probability for the symbol
      * @throws std::out_of_range if index is out of range
@@ -255,7 +255,7 @@ public:
 
     /**
      * Gets the sum of all probabilities (should be approximately 1.0).
-     * 
+     *
      * @return Sum of all probabilities
      */
     double getProbabilitySum() const {
@@ -277,7 +277,7 @@ public:
     /**
      * Gets the mean of the distribution.
      * For discrete distribution, mean = ∑(i * p_i) for i = 0 to numSymbols-1
-     * 
+     *
      * @return Mean value
      */
     double getMean() const noexcept {
@@ -291,7 +291,7 @@ public:
     /**
      * Gets the variance of the distribution.
      * For discrete distribution, variance = ∑(i² * p_i) - mean²
-     * 
+     *
      * @return Variance value
      */
     double getVariance() const noexcept {
@@ -306,7 +306,7 @@ public:
 
     /**
      * Gets the standard deviation of the distribution.
-     * 
+     *
      * @return Standard deviation value
      */
     double getStandardDeviation() const noexcept { return std::sqrt(getVariance()); }
@@ -328,7 +328,7 @@ public:
     /**
      * Evaluates the logarithm of the probability mass function
      * More numerically stable for small probabilities
-     * 
+     *
      * @param value The discrete value (will be cast to integer index)
      * @return Log probability mass, -infinity if out of range or probability is 0
      */
@@ -342,7 +342,7 @@ public:
     /**
      * Evaluates the CDF at k using cumulative sum approach
      * Formula: CDF(k) = ∑(i=0 to k) P(X = i)
-     * 
+     *
      * @param value The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ value)
      */

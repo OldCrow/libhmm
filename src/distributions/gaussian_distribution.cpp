@@ -10,7 +10,7 @@ using namespace libhmm::constants;
 namespace libhmm {
 /**
  * Returns the probability density function value for the Gaussian distribution.
- * 
+ *
  * Formula: PDF(x) = (1/σ√(2π)) * exp(-½((x-μ)/σ)²)
  */
 double GaussianDistribution::getProbability(double x) const {
@@ -83,7 +83,7 @@ double GaussianDistribution::getCumulativeProbability(double x) const noexcept {
 
 /*
  * Fits the distribution parameters using maximum likelihood estimation with optimized algorithm.
- * 
+ *
  * Uses single-pass Welford's algorithm for numerically stable variance calculation:
  * - Better cache locality than two-pass algorithm
  * - Numerically stable for extreme values

@@ -8,18 +8,18 @@ namespace libhmm {
 
 /**
  * @brief Student's t-distribution implementation
- * 
+ *
  * The Student's t-distribution is a probability distribution used in statistics,
  * particularly for small sample sizes or when the population variance is unknown.
  * It approaches the normal distribution as degrees of freedom increase.
- * 
+ *
  * Mathematical properties:
  * - PDF: f(x|ν) = Γ((ν+1)/2) / (√(νπ) * Γ(ν/2)) * (1 + x²/ν)^(-(ν+1)/2)
  * - Support: x ∈ (-∞, +∞)
  * - Parameters: ν > 0 (degrees of freedom)
  * - Mean: 0 (for ν > 1), undefined otherwise
  * - Variance: ν/(ν-2) (for ν > 2), infinite for 1 < ν ≤ 2, undefined for ν ≤ 1
- * 
+ *
  * Applications:
  * - Statistical hypothesis testing (t-tests)
  * - Confidence intervals for unknown variance
@@ -118,7 +118,7 @@ public:
 
     /**
      * Computes the probability density function for the Student's t-distribution.
-     * 
+     *
      * @param value The value at which to evaluate the PDF
      * @return Probability density f(value|ν)
      */
@@ -212,7 +212,7 @@ public:
 
     /**
      * Returns a string representation of the distribution.
-     * 
+     *
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
