@@ -343,6 +343,17 @@ include_directories(include)
 # Platform-specific compiler flags
 # NOTE: MSVC flags are applied per-target (see after add_library below) so that
 # FetchContent dependencies like GTest are not compiled with /W4.
+#
+# /utf-8 is the exception: it specifies source and execution character sets as
+# UTF-8 globally. This suppresses C4566 warnings that occur when source files
+# contain non-ASCII Unicode characters (Greek letters, math symbols, etc.) on
+# Windows systems with a non-UTF-8 ANSI code page (e.g. CP1252). It is safe
+# to apply to all targets including GTest because it only affects how MSVC
+# interprets source encoding — it has no effect on ASCII-only code.
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith")
     # Note: -Wno-deprecated-declarations and -Wno-defaulted-function-deleted removed
