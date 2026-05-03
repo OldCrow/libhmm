@@ -79,11 +79,21 @@ static void weibull_mom_fit(double mean, double var, double &k_out, double &lamb
     lambda_out = mean / gamma_term;
 }
 
-void WeibullDistribution::fit(std::span<const double> data) {
-    if (data.size() < 2) {
+void WeibullDistribution::apply_fit_params(double mean, double var) {
+    if (var <= precision::ZERO || mean <= precision::ZERO) { reset(); return; }
+    double k_est, lambda_est;
+    weibull_mom_fit(mean, var, k_est, lambda_est);
+    if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
+        k_ = k_est;
+        lambda_ = lambda_est;
+        invalidateCache();
+    } else {
         reset();
-        return;
     }
+}
+
+void WeibullDistribution::fit(std::span<const double> data) {
+    if (data.size() < 2) { reset(); return; }
     for (const double val : data)
         if (val < math::ZERO_DOUBLE || std::isnan(val) || std::isinf(val))
             throw std::invalid_argument("Weibull fitting requires non-negative values");
@@ -96,30 +106,14 @@ void WeibullDistribution::fit(std::span<const double> data) {
         mean += delta / static_cast<double>(count);
         m2 += delta * (val - mean);
     }
-    const double var = m2 / (n - math::ONE);
-    if (var <= precision::ZERO || mean <= precision::ZERO) {
-        reset();
-        return;
-    }
-    double k_est, lambda_est;
-    weibull_mom_fit(mean, var, k_est, lambda_est);
-    if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
-        k_ = k_est;
-        lambda_ = lambda_est;
-        invalidateCache();
-    } else {
-        reset();
-    }
+    apply_fit_params(mean, m2 / (n - math::ONE));
 }
 
 void WeibullDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     double sumW = 0.0;
     for (const double w : weights)
         sumW += w;
-    if (sumW < precision::ZERO || std::isnan(sumW)) {
-        reset();
-        return;
-    }
+    if (sumW < precision::ZERO || std::isnan(sumW)) { reset(); return; }
     double mean = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i)
         if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
@@ -128,20 +122,7 @@ void WeibullDistribution::fit(std::span<const double> data, std::span<const doub
     for (std::size_t i = 0; i < data.size(); ++i)
         if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
             var += weights[i] * (data[i] - mean) * (data[i] - mean);
-    var /= sumW;
-    if (var <= precision::ZERO || mean <= precision::ZERO) {
-        reset();
-        return;
-    }
-    double k_est, lambda_est;
-    weibull_mom_fit(mean, var, k_est, lambda_est);
-    if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
-        k_ = k_est;
-        lambda_ = lambda_est;
-        invalidateCache();
-    } else {
-        reset();
-    }
+    apply_fit_params(mean, var / sumW);
 }
 
 void WeibullDistribution::reset() noexcept {

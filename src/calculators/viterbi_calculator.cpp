@@ -69,18 +69,7 @@ StateSequence ViterbiCalculator::decode() {
 // ---------------------------------------------------------------------------
 
 void ViterbiCalculator::precomputeLogTransitions() {
-    const Hmm &hmm = getHmmRef();
-    const Matrix &trans = hmm.getTrans();
-    logTrans_.resize(numStates_, numStates_);
-    logTransT_.resize(numStates_, numStates_);
-    for (std::size_t i = 0; i < numStates_; ++i) {
-        for (std::size_t j = 0; j < numStates_; ++j) {
-            const double a = trans(i, j);
-            const double logA = (a > 0.0) ? std::log(a) : LOG_ZERO;
-            logTrans_(i, j) = logA;
-            logTransT_(j, i) = logA;
-        }
-    }
+    precompute_log_transitions(getHmmRef(), numStates_, logTrans_, logTransT_);
 }
 
 void ViterbiCalculator::runViterbi() {

@@ -110,53 +110,10 @@ public:
     /**
      * Copy constructor
      */
-    WeibullDistribution(const WeibullDistribution &other)
-        : DistributionBase{other}, k_{other.k_}, lambda_{other.lambda_}, logK_{other.logK_},
-          logLambda_{other.logLambda_}, kMinus1_{other.kMinus1_}, invLambda_{other.invLambda_},
-          kOverLambda_{other.kOverLambda_} {}
-
-    /**
-     * Copy assignment operator
-     */
-    WeibullDistribution &operator=(const WeibullDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            k_ = other.k_;
-            lambda_ = other.lambda_;
-            logK_ = other.logK_;
-            logLambda_ = other.logLambda_;
-            kMinus1_ = other.kMinus1_;
-            invLambda_ = other.invLambda_;
-            kOverLambda_ = other.kOverLambda_;
-        }
-        return *this;
-    }
-
-    /**
-     * Move constructor
-     */
-    WeibullDistribution(WeibullDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, k_{other.k_}, lambda_{other.lambda_},
-          logK_{other.logK_}, logLambda_{other.logLambda_}, kMinus1_{other.kMinus1_},
-          invLambda_{other.invLambda_}, kOverLambda_{other.kOverLambda_} {}
-
-    /**
-     * Move assignment operator
-     */
-    WeibullDistribution &operator=(WeibullDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            k_ = other.k_;
-            lambda_ = other.lambda_;
-            logK_ = other.logK_;
-            logLambda_ = other.logLambda_;
-            kMinus1_ = other.kMinus1_;
-            invLambda_ = other.invLambda_;
-            kOverLambda_ = other.kOverLambda_;
-        }
-        return *this;
-    }
-
+    WeibullDistribution(const WeibullDistribution &other) = default;
+    WeibullDistribution &operator=(const WeibullDistribution &other) = default;
+    WeibullDistribution(WeibullDistribution &&other) noexcept = default;
+    WeibullDistribution &operator=(WeibullDistribution &&other) noexcept = default;
     ~WeibullDistribution() override = default;
 
     /**
@@ -177,6 +134,13 @@ public:
     void fit(std::span<const double> data) override;
     /** Weighted MOM: same approach using weighted mean and variance. */
     void fit(std::span<const double> data, std::span<const double> weights) override;
+
+private:
+    /// Validates mean/var and applies MOM estimates via weibull_mom_fit.
+    /// Calls reset() on any failure; otherwise sets k_, lambda_ and invalidates cache.
+    void apply_fit_params(double mean, double var);
+
+public:
 
     /** Returns false — Weibull is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
