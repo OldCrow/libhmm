@@ -1,4 +1,4 @@
-#include "libhmm/common/common.h"
+#include "libhmm/linalg/linalg_types.h"
 
 namespace libhmm {
 

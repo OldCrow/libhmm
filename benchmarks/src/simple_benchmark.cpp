@@ -174,7 +174,7 @@ void benchmarkDistributions() {
                 if (x > 20)
                     x = 20; // Limit for discrete distributions
             }
-            distributions[i]->getProbability(x);
+            static_cast<void>(distributions[i]->getProbability(x));
         }
 
         double time_ms = timer.stop();

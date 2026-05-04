@@ -1,6 +1,6 @@
 #pragma once
 
-#include "libhmm/common/common.h"
+#include "libhmm/linalg/linalg_types.h"
 #include "libhmm/hmm.h"
 #include <functional>
 #include <stdexcept>
