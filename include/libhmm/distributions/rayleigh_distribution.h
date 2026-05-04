@@ -115,60 +115,10 @@ public:
         updateCache();
     }
 
-    /**
-     * Copy constructor
-     */
-    RayleighDistribution(const RayleighDistribution &other)
-        : DistributionBase{other}, sigma_{other.sigma_}, logSigma_{other.logSigma_},
-          invSigma_{other.invSigma_}, invSigmaSquared_{other.invSigmaSquared_},
-          negHalfInvSigmaSquared_{other.negHalfInvSigmaSquared_},
-          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_}, variance_{other.variance_} {}
-
-    /**
-     * Copy assignment operator
-     */
-    RayleighDistribution &operator=(const RayleighDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            sigma_ = other.sigma_;
-            logSigma_ = other.logSigma_;
-            invSigma_ = other.invSigma_;
-            invSigmaSquared_ = other.invSigmaSquared_;
-            negHalfInvSigmaSquared_ = other.negHalfInvSigmaSquared_;
-            sigmaSquared_ = other.sigmaSquared_;
-            mean_ = other.mean_;
-            variance_ = other.variance_;
-        }
-        return *this;
-    }
-
-    /**
-     * Move constructor
-     */
-    RayleighDistribution(RayleighDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, sigma_{other.sigma_}, logSigma_{other.logSigma_},
-          invSigma_{other.invSigma_}, invSigmaSquared_{other.invSigmaSquared_},
-          negHalfInvSigmaSquared_{other.negHalfInvSigmaSquared_},
-          sigmaSquared_{other.sigmaSquared_}, mean_{other.mean_}, variance_{other.variance_} {}
-
-    /**
-     * Move assignment operator
-     */
-    RayleighDistribution &operator=(RayleighDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            sigma_ = other.sigma_;
-            logSigma_ = other.logSigma_;
-            invSigma_ = other.invSigma_;
-            invSigmaSquared_ = other.invSigmaSquared_;
-            negHalfInvSigmaSquared_ = other.negHalfInvSigmaSquared_;
-            sigmaSquared_ = other.sigmaSquared_;
-            mean_ = other.mean_;
-            variance_ = other.variance_;
-        }
-        return *this;
-    }
-
+    RayleighDistribution(const RayleighDistribution &other) = default;
+    RayleighDistribution &operator=(const RayleighDistribution &other) = default;
+    RayleighDistribution(RayleighDistribution &&other) noexcept = default;
+    RayleighDistribution &operator=(RayleighDistribution &&other) noexcept = default;
     ~RayleighDistribution() override = default;
 
     [[nodiscard]] double getProbability(double value) const override;

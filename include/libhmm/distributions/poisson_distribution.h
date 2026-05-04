@@ -91,49 +91,10 @@ public:
         updateCache();
     }
 
-    /**
-     * Copy constructor
-     */
-    PoissonDistribution(const PoissonDistribution &other)
-        : DistributionBase{other}, lambda_{other.lambda_}, logLambda_{other.logLambda_},
-          expNegLambda_{other.expNegLambda_}, sqrtLambda_{other.sqrtLambda_},
-          invSqrtLambda_{other.invSqrtLambda_}, sqrtTwoPiLambda_{other.sqrtTwoPiLambda_},
-          smallFactorials_{other.smallFactorials_} {}
-
-    PoissonDistribution &operator=(const PoissonDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            lambda_ = other.lambda_;
-            logLambda_ = other.logLambda_;
-            expNegLambda_ = other.expNegLambda_;
-            sqrtLambda_ = other.sqrtLambda_;
-            invSqrtLambda_ = other.invSqrtLambda_;
-            sqrtTwoPiLambda_ = other.sqrtTwoPiLambda_;
-            smallFactorials_ = other.smallFactorials_;
-        }
-        return *this;
-    }
-
-    PoissonDistribution(PoissonDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, lambda_{other.lambda_}, logLambda_{other.logLambda_},
-          expNegLambda_{other.expNegLambda_}, sqrtLambda_{other.sqrtLambda_},
-          invSqrtLambda_{other.invSqrtLambda_}, sqrtTwoPiLambda_{other.sqrtTwoPiLambda_},
-          smallFactorials_{std::move(other.smallFactorials_)} {}
-
-    PoissonDistribution &operator=(PoissonDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            lambda_ = other.lambda_;
-            logLambda_ = other.logLambda_;
-            expNegLambda_ = other.expNegLambda_;
-            sqrtLambda_ = other.sqrtLambda_;
-            invSqrtLambda_ = other.invSqrtLambda_;
-            sqrtTwoPiLambda_ = other.sqrtTwoPiLambda_;
-            smallFactorials_ = std::move(other.smallFactorials_);
-        }
-        return *this;
-    }
-
+    PoissonDistribution(const PoissonDistribution &other) = default;
+    PoissonDistribution &operator=(const PoissonDistribution &other) = default;
+    PoissonDistribution(PoissonDistribution &&other) noexcept = default;
+    PoissonDistribution &operator=(PoissonDistribution &&other) noexcept = default;
     ~PoissonDistribution() override = default;
 
     /**

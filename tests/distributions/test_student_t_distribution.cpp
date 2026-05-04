@@ -218,21 +218,6 @@ void testStringRepresentation() {
     assert(str.find("3.5") != std::string::npos);
     assert(str.find("nu") != std::string::npos);
 
-    // Test fromString functionality
-    StudentTDistribution t_dist_from_str = StudentTDistribution::fromString("StudentT(ν=7.25)");
-    assert(std::abs(t_dist_from_str.getDegreesOfFreedom() - 7.25) < 1e-10);
-
-    StudentTDistribution t_dist_from_str2 = StudentTDistribution::fromString("StudentT(df=12.0)");
-    assert(std::abs(t_dist_from_str2.getDegreesOfFreedom() - 12.0) < 1e-10);
-
-    // Test invalid string formats
-    try {
-        StudentTDistribution::fromString("InvalidFormat");
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
-
     std::cout << "String representation: " << str << std::endl;
     std::cout << "✓ String representation tests passed" << std::endl;
 }

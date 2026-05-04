@@ -99,42 +99,10 @@ public:
         updateCache();
     }
 
-    BetaDistribution(const BetaDistribution &other)
-        : DistributionBase{other}, alpha_{other.alpha_}, beta_{other.beta_},
-          logBeta_{other.logBeta_}, alphaMinus1_{other.alphaMinus1_},
-          betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_} {}
-
-    BetaDistribution &operator=(const BetaDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            alpha_ = other.alpha_;
-            beta_ = other.beta_;
-            logBeta_ = other.logBeta_;
-            alphaMinus1_ = other.alphaMinus1_;
-            betaMinus1_ = other.betaMinus1_;
-            invBeta_ = other.invBeta_;
-        }
-        return *this;
-    }
-
-    BetaDistribution(BetaDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, alpha_{other.alpha_}, beta_{other.beta_},
-          logBeta_{other.logBeta_}, alphaMinus1_{other.alphaMinus1_},
-          betaMinus1_{other.betaMinus1_}, invBeta_{other.invBeta_} {}
-
-    BetaDistribution &operator=(BetaDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            alpha_ = other.alpha_;
-            beta_ = other.beta_;
-            logBeta_ = other.logBeta_;
-            alphaMinus1_ = other.alphaMinus1_;
-            betaMinus1_ = other.betaMinus1_;
-            invBeta_ = other.invBeta_;
-        }
-        return *this;
-    }
-
+    BetaDistribution(const BetaDistribution &other) = default;
+    BetaDistribution &operator=(const BetaDistribution &other) = default;
+    BetaDistribution(BetaDistribution &&other) noexcept = default;
+    BetaDistribution &operator=(BetaDistribution &&other) noexcept = default;
     ~BetaDistribution() override = default;
 
     /**

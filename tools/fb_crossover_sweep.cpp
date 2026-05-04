@@ -8,7 +8,7 @@
 
 #include "libhmm/performance/fb_recurrence_policy.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
-#include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/distributions/distributions.h"
 #include "libhmm/hmm.h"
 #include "libhmm/platform/simd_platform.h"
 

@@ -79,6 +79,62 @@ void ViterbiTrainer::train() {
 }
 
 // ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+
+double ViterbiTrainer::accum_sequence(const Hmm &hmm, const ObservationSet &obs, Vector &pi,
+                                      Matrix &trans,
+                                      std::vector<std::vector<double>> &emisData) noexcept {
+    try {
+        ViterbiCalculator vc(hmm, obs);
+        const double lp = vc.getLogProbability();
+        if (!std::isfinite(lp))
+            return lp;
+        const StateSequence &seq = vc.getStateSequence();
+        const std::size_t T = obs.size();
+        pi(static_cast<std::size_t>(seq(0))) += 1.0;
+        for (std::size_t t = 0; t < T; ++t) {
+            const std::size_t s = static_cast<std::size_t>(seq(t));
+            emisData[s].push_back(obs(t));
+            if (t + 1 < T)
+                trans(s, static_cast<std::size_t>(seq(t + 1))) += 1.0;
+        }
+        return lp;
+    } catch (...) {
+        return -std::numeric_limits<double>::infinity();
+    }
+}
+
+void ViterbiTrainer::normalize_and_commit(Hmm &hmm, std::size_t N, Vector &pi, Matrix &trans) {
+    // Normalize pi.
+    double piSum = 0.0;
+    for (std::size_t i = 0; i < N; ++i)
+        piSum += pi(i);
+    if (piSum > 0.0) {
+        for (std::size_t i = 0; i < N; ++i)
+            pi(i) /= piSum;
+    } else {
+        for (std::size_t i = 0; i < N; ++i)
+            pi(i) = 1.0 / static_cast<double>(N);
+    }
+    hmm.setPi(pi);
+    // Normalize each transition row.
+    for (std::size_t i = 0; i < N; ++i) {
+        double rowSum = 0.0;
+        for (std::size_t j = 0; j < N; ++j)
+            rowSum += trans(i, j);
+        if (rowSum > 0.0) {
+            for (std::size_t j = 0; j < N; ++j)
+                trans(i, j) /= rowSum;
+        } else {
+            for (std::size_t j = 0; j < N; ++j)
+                trans(i, j) = 1.0 / static_cast<double>(N);
+        }
+    }
+    hmm.setTrans(trans);
+}
+
+// ---------------------------------------------------------------------------
 // runIteration() — one Viterbi pass
 // ---------------------------------------------------------------------------
 
@@ -98,75 +154,18 @@ double ViterbiTrainer::runIteration() {
     for (const auto &obs : obsLists_) {
         if (obs.size() == 0)
             continue;
-        try {
-            ViterbiCalculator vc(hmm, obs);
-            const double lp = vc.getLogProbability();
-            if (!std::isfinite(lp))
-                continue;
-
-            totalLogProb += lp;
-            const StateSequence &seq = vc.getStateSequence();
-            const std::size_t T = obs.size();
-
-            pi(static_cast<std::size_t>(seq(0))) += 1.0;
-
-            for (std::size_t t = 0; t < T; ++t) {
-                const std::size_t s = static_cast<std::size_t>(seq(t));
-                emisData[s].push_back(obs(t));
-                if (t + 1 < T) {
-                    const std::size_t sNext = static_cast<std::size_t>(seq(t + 1));
-                    trans(s, sNext) += 1.0;
-                }
-            }
-            ++validSeqs;
-        } catch (...) {
+        const double lp = accum_sequence(hmm, obs, pi, trans, emisData);
+        if (!std::isfinite(lp))
             continue;
-        }
+        totalLogProb += lp;
+        ++validSeqs;
     }
 
     if (validSeqs == 0)
         return lastLogProb_;
 
-    // Normalise pi
-    {
-        double piSum = 0.0;
-        for (std::size_t i = 0; i < N; ++i)
-            piSum += pi(i);
-        if (piSum > 0.0) {
-            for (std::size_t i = 0; i < N; ++i)
-                pi(i) /= piSum;
-        } else {
-            for (std::size_t i = 0; i < N; ++i)
-                pi(i) = 1.0 / static_cast<double>(N);
-        }
-        hmm.setPi(pi);
-    }
-
-    // Normalise transition rows
-    for (std::size_t i = 0; i < N; ++i) {
-        double rowSum = 0.0;
-        for (std::size_t j = 0; j < N; ++j)
-            rowSum += trans(i, j);
-        if (rowSum > 0.0) {
-            for (std::size_t j = 0; j < N; ++j)
-                trans(i, j) /= rowSum;
-        } else {
-            for (std::size_t j = 0; j < N; ++j)
-                trans(i, j) = 1.0 / static_cast<double>(N);
-        }
-    }
-    hmm.setTrans(trans);
-
-    // Refit emission distributions (unweighted — Viterbi hard assignment)
-    for (std::size_t i = 0; i < N; ++i) {
-        const std::size_t M = emisData[i].size();
-        if (M == 0) {
-            hmm.getDistribution(i).reset();
-            continue;
-        }
-        hmm.getDistribution(i).fit(std::span<const double>(emisData[i].data(), M));
-    }
-
+    normalize_and_commit(hmm, N, pi, trans);
+    apply_emission_fits(hmm, N, emisData);
     return totalLogProb;
 }
 

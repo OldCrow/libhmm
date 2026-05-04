@@ -67,6 +67,15 @@ private:
     bool maxItersReached_{false};
     double lastLogProb_{-std::numeric_limits<double>::infinity()};
 
+    /// Runs ViterbiCalculator on one sequence, accumulates pi/trans/emission stats.
+    /// Returns the log-probability contribution, or -∞ if the sequence is skipped
+    /// (non-finite log-prob or any exception).
+    static double accum_sequence(const Hmm &hmm, const ObservationSet &obs, Vector &pi,
+                                 Matrix &trans,
+                                 std::vector<std::vector<double>> &emisData) noexcept;
+
+    /// Normalizes pi and every transition row, then commits both to the HMM.
+    static void normalize_and_commit(Hmm &hmm, std::size_t N, Vector &pi, Matrix &trans);
     /// Run one Viterbi iteration; returns total log-probability over all sequences.
     double runIteration();
 }; // class ViterbiTrainer

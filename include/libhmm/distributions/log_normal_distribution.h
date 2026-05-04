@@ -90,51 +90,10 @@ public:
         updateCache();
     }
 
-    /**
-     * Copy constructor
-     */
-    LogNormalDistribution(const LogNormalDistribution &other)
-        : DistributionBase{other}, mean_{other.mean_}, standardDeviation_{other.standardDeviation_},
-          logNormalizationConstant_{other.logNormalizationConstant_},
-          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_} {}
-
-    /**
-     * Copy assignment operator
-     */
-    LogNormalDistribution &operator=(const LogNormalDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            mean_ = other.mean_;
-            standardDeviation_ = other.standardDeviation_;
-            logNormalizationConstant_ = other.logNormalizationConstant_;
-            negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
-        }
-        return *this;
-    }
-
-    /**
-     * Move constructor
-     */
-    LogNormalDistribution(LogNormalDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, mean_{other.mean_},
-          standardDeviation_{other.standardDeviation_},
-          logNormalizationConstant_{other.logNormalizationConstant_},
-          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_} {}
-
-    /**
-     * Move assignment operator
-     */
-    LogNormalDistribution &operator=(LogNormalDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            mean_ = other.mean_;
-            standardDeviation_ = other.standardDeviation_;
-            logNormalizationConstant_ = other.logNormalizationConstant_;
-            negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
-        }
-        return *this;
-    }
-
+    LogNormalDistribution(const LogNormalDistribution &other) = default;
+    LogNormalDistribution &operator=(const LogNormalDistribution &other) = default;
+    LogNormalDistribution(LogNormalDistribution &&other) noexcept = default;
+    LogNormalDistribution &operator=(LogNormalDistribution &&other) noexcept = default;
     ~LogNormalDistribution() override = default;
 
     /**

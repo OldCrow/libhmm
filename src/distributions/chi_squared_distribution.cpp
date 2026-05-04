@@ -1,4 +1,5 @@
 #include "libhmm/distributions/chi_squared_distribution.h"
+#include "libhmm/math/weighted_stats.h"
 #include <algorithm>
 #include <span>
 
@@ -103,16 +104,12 @@ void ChiSquaredDistribution::fit(std::span<const double> data) {
 }
 
 void ChiSquaredDistribution::fit(std::span<const double> data, std::span<const double> weights) {
-    double sumW = 0.0, sumWX = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i) {
-        sumW += weights[i];
-        sumWX += weights[i] * data[i];
-    }
-    if (sumW < precision::ZERO || std::isnan(sumW)) {
+    const auto mean = detail::compute_weighted_mean(data, weights);
+    if (!mean) {
         reset();
         return;
     }
-    double est = std::max(MIN_DEGREES_OF_FREEDOM, std::min(MAX_DEGREES_OF_FREEDOM, sumWX / sumW));
+    double est = std::max(MIN_DEGREES_OF_FREEDOM, std::min(MAX_DEGREES_OF_FREEDOM, *mean));
     setDegreesOfFreedom(est);
 }
 
@@ -127,40 +124,6 @@ std::string ChiSquaredDistribution::toString() const {
     oss << "  k (degrees of freedom) = " << std::fixed << std::setprecision(6)
         << degrees_of_freedom_;
     return oss.str();
-}
-
-ChiSquaredDistribution ChiSquaredDistribution::fromString(const std::string &str) {
-    // Expected format: "ChiSquared(k=value)" or "ChiSquared(df=value)"
-    std::string::size_type start = str.find('(');
-    std::string::size_type end = str.find(')', start);
-
-    if (start == std::string::npos || end == std::string::npos) {
-        throw std::invalid_argument("Invalid ChiSquared distribution string format");
-    }
-
-    std::string params = str.substr(start + 1, end - start - 1);
-
-    // Look for parameter patterns
-    std::string::size_type eq_pos = params.find('=');
-    if (eq_pos == std::string::npos) {
-        throw std::invalid_argument("Invalid ChiSquared parameter format");
-    }
-
-    std::string param_name = params.substr(0, eq_pos);
-    std::string param_value = params.substr(eq_pos + 1);
-
-    // Remove whitespace
-    param_name.erase(std::remove_if(param_name.begin(), param_name.end(), ::isspace),
-                     param_name.end());
-    param_value.erase(std::remove_if(param_value.begin(), param_value.end(), ::isspace),
-                      param_value.end());
-
-    if (param_name == "k" || param_name == "df") {
-        double df = std::stod(param_value);
-        return ChiSquaredDistribution(df);
-    } else {
-        throw std::invalid_argument("Unknown ChiSquared parameter: " + param_name);
-    }
 }
 
 bool ChiSquaredDistribution::operator==(const ChiSquaredDistribution &other) const {

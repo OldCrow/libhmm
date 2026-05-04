@@ -79,6 +79,22 @@ static void weibull_mom_fit(double mean, double var, double &k_out, double &lamb
     lambda_out = mean / gamma_term;
 }
 
+void WeibullDistribution::apply_fit_params(double mean, double var) {
+    if (var <= precision::ZERO || mean <= precision::ZERO) {
+        reset();
+        return;
+    }
+    double k_est, lambda_est;
+    weibull_mom_fit(mean, var, k_est, lambda_est);
+    if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
+        k_ = k_est;
+        lambda_ = lambda_est;
+        invalidateCache();
+    } else {
+        reset();
+    }
+}
+
 void WeibullDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();
@@ -96,20 +112,7 @@ void WeibullDistribution::fit(std::span<const double> data) {
         mean += delta / static_cast<double>(count);
         m2 += delta * (val - mean);
     }
-    const double var = m2 / (n - math::ONE);
-    if (var <= precision::ZERO || mean <= precision::ZERO) {
-        reset();
-        return;
-    }
-    double k_est, lambda_est;
-    weibull_mom_fit(mean, var, k_est, lambda_est);
-    if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
-        k_ = k_est;
-        lambda_ = lambda_est;
-        invalidateCache();
-    } else {
-        reset();
-    }
+    apply_fit_params(mean, m2 / (n - math::ONE));
 }
 
 void WeibullDistribution::fit(std::span<const double> data, std::span<const double> weights) {
@@ -128,20 +131,7 @@ void WeibullDistribution::fit(std::span<const double> data, std::span<const doub
     for (std::size_t i = 0; i < data.size(); ++i)
         if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
             var += weights[i] * (data[i] - mean) * (data[i] - mean);
-    var /= sumW;
-    if (var <= precision::ZERO || mean <= precision::ZERO) {
-        reset();
-        return;
-    }
-    double k_est, lambda_est;
-    weibull_mom_fit(mean, var, k_est, lambda_est);
-    if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
-        k_ = k_est;
-        lambda_ = lambda_est;
-        invalidateCache();
-    } else {
-        reset();
-    }
+    apply_fit_params(mean, var / sumW);
 }
 
 void WeibullDistribution::reset() noexcept {

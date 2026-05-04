@@ -18,7 +18,7 @@
 #include "libhmm/calculators/forward_backward_calculator.h"
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/discrete_distribution.h"
-#include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/distributions/distributions.h"
 #include "libhmm/performance/transcendental_kernels.h"
 
 #include <algorithm>

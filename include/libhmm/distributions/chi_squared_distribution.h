@@ -78,40 +78,10 @@ public:
         updateCache();
     }
 
-    ChiSquaredDistribution(const ChiSquaredDistribution &other)
-        : DistributionBase{other}, degrees_of_freedom_{other.degrees_of_freedom_},
-          cached_log_gamma_half_k_{other.cached_log_gamma_half_k_},
-          cached_log_normalization_{other.cached_log_normalization_},
-          cached_half_k_minus_one_{other.cached_half_k_minus_one_} {}
-
-    ChiSquaredDistribution &operator=(const ChiSquaredDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            degrees_of_freedom_ = other.degrees_of_freedom_;
-            cached_log_gamma_half_k_ = other.cached_log_gamma_half_k_;
-            cached_log_normalization_ = other.cached_log_normalization_;
-            cached_half_k_minus_one_ = other.cached_half_k_minus_one_;
-        }
-        return *this;
-    }
-
-    ChiSquaredDistribution(ChiSquaredDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, degrees_of_freedom_{other.degrees_of_freedom_},
-          cached_log_gamma_half_k_{other.cached_log_gamma_half_k_},
-          cached_log_normalization_{other.cached_log_normalization_},
-          cached_half_k_minus_one_{other.cached_half_k_minus_one_} {}
-
-    ChiSquaredDistribution &operator=(ChiSquaredDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            degrees_of_freedom_ = other.degrees_of_freedom_;
-            cached_log_gamma_half_k_ = other.cached_log_gamma_half_k_;
-            cached_log_normalization_ = other.cached_log_normalization_;
-            cached_half_k_minus_one_ = other.cached_half_k_minus_one_;
-        }
-        return *this;
-    }
-
+    ChiSquaredDistribution(const ChiSquaredDistribution &other) = default;
+    ChiSquaredDistribution &operator=(const ChiSquaredDistribution &other) = default;
+    ChiSquaredDistribution(ChiSquaredDistribution &&other) noexcept = default;
+    ChiSquaredDistribution &operator=(ChiSquaredDistribution &&other) noexcept = default;
     ~ChiSquaredDistribution() override = default;
 
     /**
@@ -192,14 +162,6 @@ public:
      * @return Mode (max(0, k-2))
      */
     double getMode() const noexcept { return std::max(0.0, degrees_of_freedom_ - 2.0); }
-
-    /**
-     * Create distribution from string representation
-     * @param str String representation
-     * @return ChiSquaredDistribution object
-     * @throws std::invalid_argument if string format is invalid
-     */
-    static ChiSquaredDistribution fromString(const std::string &str);
 
     /**
      * Equality comparison operator

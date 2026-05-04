@@ -110,10 +110,10 @@ public:
      */
     StudentTDistribution(double degrees_of_freedom, double location, double scale);
 
-    StudentTDistribution(const StudentTDistribution &other);
-    StudentTDistribution &operator=(const StudentTDistribution &other);
-    StudentTDistribution(StudentTDistribution &&other) noexcept;
-    StudentTDistribution &operator=(StudentTDistribution &&other) noexcept;
+    StudentTDistribution(const StudentTDistribution &other) = default;
+    StudentTDistribution &operator=(const StudentTDistribution &other) = default;
+    StudentTDistribution(StudentTDistribution &&other) noexcept = default;
+    StudentTDistribution &operator=(StudentTDistribution &&other) noexcept = default;
     ~StudentTDistribution() override = default;
 
     /**
@@ -216,14 +216,6 @@ public:
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
-
-    /**
-     * @brief Create distribution from string representation
-     * @param str String representation
-     * @return StudentTDistribution object
-     * @throws std::invalid_argument if string format is invalid
-     */
-    static StudentTDistribution fromString(const std::string &str);
 
     /**
      * @brief Equality comparison operator

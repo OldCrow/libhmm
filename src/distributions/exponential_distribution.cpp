@@ -1,5 +1,6 @@
 #include "libhmm/distributions/exponential_distribution.h"
-#include "libhmm/platform/simd_platform.h" // compile-time SIMD macros + intrinsics
+#include "libhmm/math/weighted_stats.h"
+#include "libhmm/platform/simd_platform.h"
 #include <limits>
 #include <numeric>
 #include <span>
@@ -114,21 +115,12 @@ void ExponentialDistribution::fit(std::span<const double> data) {
 
 void ExponentialDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     // Weighted MLE: λ = 1 / weighted_mean
-    double sumW = 0.0, sumWX = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i) {
-        sumW += weights[i];
-        sumWX += weights[i] * data[i];
-    }
-    if (sumW < precision::ZERO || std::isnan(sumW) || sumWX <= 0.0) {
+    const auto mean = detail::compute_weighted_mean(data, weights);
+    if (!mean || *mean <= 0.0 || !std::isfinite(*mean)) {
         reset();
         return;
     }
-    const double weightedMean = sumWX / sumW;
-    if (weightedMean <= 0.0 || !std::isfinite(weightedMean)) {
-        reset();
-        return;
-    }
-    const double lam = 1.0 / weightedMean;
+    const double lam = 1.0 / *mean;
     if (!std::isfinite(lam) || lam <= 0.0) {
         reset();
         return;
