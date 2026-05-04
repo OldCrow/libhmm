@@ -75,8 +75,7 @@ private:
                                  std::vector<std::vector<double>> &emisData) noexcept;
 
     /// Normalizes pi and every transition row, then commits both to the HMM.
-    static void normalize_and_commit(Hmm &hmm, std::size_t N, Vector &pi, Matrix &trans) noexcept;
-
+    static void normalize_and_commit(Hmm &hmm, std::size_t N, Vector &pi, Matrix &trans);
     /// Run one Viterbi iteration; returns total log-probability over all sequences.
     double runIteration();
 }; // class ViterbiTrainer
