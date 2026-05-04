@@ -28,7 +28,7 @@
  * For large projects or when compilation time is critical, consider including
  * only the specific headers you need instead of this master header.
  *
- * @version 2.8.0
+ * @version 3.3.0
  * @author libhmm development team
  */
 
@@ -36,7 +36,9 @@
 // CORE FOUNDATION
 //==============================================================================
 
-/// Core types, constants, and mathematical utilities
+/// Core types, constants, and mathematical utilities.
+/// linalg types (Matrix, Vector, ObservationSet, etc.) are provided
+/// transitively through hmm.h → linalg/linalg_types.h.
 #include "libhmm/common/common.h"
 
 /// Main HMM class and state machine implementation
