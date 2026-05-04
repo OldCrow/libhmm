@@ -141,7 +141,6 @@ private:
     void apply_fit_params(double mean, double var);
 
 public:
-
     /** Returns false — Weibull is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 

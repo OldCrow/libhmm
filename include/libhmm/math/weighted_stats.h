@@ -16,13 +16,11 @@ struct WeightedStats {
 /// No data filter is applied — all elements contribute.
 /// Returns nullopt if the total weight is non-positive or NaN.
 [[nodiscard]] std::optional<WeightedStats>
-compute_weighted_stats(std::span<const double> data,
-                       std::span<const double> weights) noexcept;
+compute_weighted_stats(std::span<const double> data, std::span<const double> weights) noexcept;
 
 /// Computes the weighted mean only (single pass: sumWX / sumW).
 /// Returns nullopt if the total weight is non-positive or NaN.
-[[nodiscard]] std::optional<double>
-compute_weighted_mean(std::span<const double> data,
-                      std::span<const double> weights) noexcept;
+[[nodiscard]] std::optional<double> compute_weighted_mean(std::span<const double> data,
+                                                          std::span<const double> weights) noexcept;
 
 } // namespace libhmm::detail

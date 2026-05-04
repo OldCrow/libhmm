@@ -51,10 +51,9 @@ protected:
     /// States with no observations are reset to defaults.
     /// If weights is non-empty the weighted fit overload is used (Baum-Welch);
     /// otherwise the unweighted overload is used (Viterbi hard assignment).
-    static void apply_emission_fits(
-            Hmm &hmm, std::size_t numStates,
-            const std::vector<std::vector<double>> &data,
-            const std::vector<std::vector<double>> &weights = {}) {
+    static void apply_emission_fits(Hmm &hmm, std::size_t numStates,
+                                    const std::vector<std::vector<double>> &data,
+                                    const std::vector<std::vector<double>> &weights = {}) {
         for (std::size_t i = 0; i < numStates; ++i) {
             const std::size_t M = data[i].size();
             if (M == 0) {
@@ -64,9 +63,8 @@ protected:
             if (weights.empty()) {
                 hmm.getDistribution(i).fit(std::span<const double>(data[i].data(), M));
             } else {
-                hmm.getDistribution(i).fit(
-                    std::span<const double>(data[i].data(), M),
-                    std::span<const double>(weights[i].data(), M));
+                hmm.getDistribution(i).fit(std::span<const double>(data[i].data(), M),
+                                           std::span<const double>(weights[i].data(), M));
             }
         }
     }

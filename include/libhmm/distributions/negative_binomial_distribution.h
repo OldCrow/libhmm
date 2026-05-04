@@ -117,7 +117,8 @@ public:
     NegativeBinomialDistribution(const NegativeBinomialDistribution &other) = default;
     NegativeBinomialDistribution &operator=(const NegativeBinomialDistribution &other) = default;
     NegativeBinomialDistribution(NegativeBinomialDistribution &&other) noexcept = default;
-    NegativeBinomialDistribution &operator=(NegativeBinomialDistribution &&other) noexcept = default;
+    NegativeBinomialDistribution &
+    operator=(NegativeBinomialDistribution &&other) noexcept = default;
     ~NegativeBinomialDistribution() override = default;
 
     /**
