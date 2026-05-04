@@ -241,7 +241,7 @@ public:
             // Benchmark Viterbi
             vector<unsigned int> hidden_sequence(obs_sequence.size());
             start = high_resolution_clock::now();
-            double viterbi_likelihood = hmm.viterbi(obs_sequence, hidden_sequence);
+            (void)hmm.viterbi(obs_sequence, hidden_sequence);
             end = high_resolution_clock::now();
             results.viterbi_time = duration_cast<microseconds>(end - start).count() / 1000.0;
 

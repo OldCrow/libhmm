@@ -4,7 +4,7 @@
 #include <vector>
 #include <memory>
 #include <stdexcept>
-#include "libhmm/common/common.h"
+#include "libhmm/linalg/linalg_types.h"
 #include "libhmm/training/trainer.h"
 
 namespace libhmm {

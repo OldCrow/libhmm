@@ -8,7 +8,6 @@
 #include <memory>
 // Removed boost include - using custom C++17 XML serialization
 
-#include "libhmm/common/common.h"
 #include "libhmm/hmm.h"
 
 namespace libhmm {

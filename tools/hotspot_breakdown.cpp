@@ -21,7 +21,7 @@ using Millis = std::chrono::duration<double, std::milli>;
 namespace {
 
 constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
-constexpr std::size_t FB_MAX_REDUCE_FORCE_PAIRWISE_MAX_STATES = 2;
+[[maybe_unused]] constexpr std::size_t FB_MAX_REDUCE_FORCE_PAIRWISE_MAX_STATES = 2;
 volatile double g_sink_double = 0.0;
 volatile int g_sink_int = 0;
 
