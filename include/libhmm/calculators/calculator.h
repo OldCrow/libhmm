@@ -75,16 +75,16 @@ protected:
 
     /// Fills logTrans (row-major) and logTransT (column-major/transposed) from the
     /// HMM transition matrix. Resizes both matrices to numStates×numStates.
-    static void precompute_log_transitions(const Hmm &hmm, std::size_t numStates,
-                                            Matrix &logTrans, Matrix &logTransT) noexcept {
+    static void precompute_log_transitions(const Hmm &hmm, std::size_t numStates, Matrix &logTrans,
+                                           Matrix &logTransT) noexcept {
         const Matrix &trans = hmm.getTrans();
         logTrans.resize(numStates, numStates);
         logTransT.resize(numStates, numStates);
         for (std::size_t i = 0; i < numStates; ++i) {
             for (std::size_t j = 0; j < numStates; ++j) {
                 const double a = trans(i, j);
-                const double logA = (a > 0.0) ? std::log(a)
-                                              : -std::numeric_limits<double>::infinity();
+                const double logA =
+                    (a > 0.0) ? std::log(a) : -std::numeric_limits<double>::infinity();
                 logTrans(i, j) = logA;
                 logTransT(j, i) = logA;
             }

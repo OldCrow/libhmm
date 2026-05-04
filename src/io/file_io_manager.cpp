@@ -65,9 +65,7 @@ void FileIOManager::writeTextFile(const std::filesystem::path &filepath, const s
     if (filepath.has_parent_path())
         ensureDirectoryExists(filepath.parent_path());
     const auto mode = append ? (std::ios::out | std::ios::app) : (std::ios::out | std::ios::trunc);
-    do_write(filepath, mode, [&content](std::ofstream &file) {
-        file << content;
-    });
+    do_write(filepath, mode, [&content](std::ofstream &file) { file << content; });
 }
 
 std::vector<std::string> FileIOManager::readLines(const std::filesystem::path &filepath) {

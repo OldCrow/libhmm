@@ -5,9 +5,8 @@ using namespace libhmm::constants;
 
 namespace libhmm::detail {
 
-std::optional<WeightedStats>
-compute_weighted_stats(std::span<const double> data,
-                       std::span<const double> weights) noexcept {
+std::optional<WeightedStats> compute_weighted_stats(std::span<const double> data,
+                                                    std::span<const double> weights) noexcept {
     double sumW = 0.0;
     for (const double w : weights)
         sumW += w;
@@ -31,12 +30,11 @@ compute_weighted_stats(std::span<const double> data,
     return WeightedStats{mean, var};
 }
 
-std::optional<double>
-compute_weighted_mean(std::span<const double> data,
-                      std::span<const double> weights) noexcept {
+std::optional<double> compute_weighted_mean(std::span<const double> data,
+                                            std::span<const double> weights) noexcept {
     double sumW = 0.0, sumWX = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
-        sumW  += weights[i];
+        sumW += weights[i];
         sumWX += weights[i] * data[i];
     }
     if (sumW < precision::ZERO || std::isnan(sumW))

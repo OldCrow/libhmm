@@ -16,11 +16,10 @@ parse_named_param(const std::string &param, const std::string &context) {
     const auto eq = param.find('=');
     if (eq == std::string::npos)
         throw std::invalid_argument("Invalid " + context + " parameter format");
-    std::string name  = param.substr(0, eq);
+    std::string name = param.substr(0, eq);
     std::string value = param.substr(eq + 1);
     const auto trim = [](std::string &s) {
-        s.erase(std::remove_if(s.begin(), s.end(),
-                               [](unsigned char c) { return std::isspace(c); }),
+        s.erase(std::remove_if(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c); }),
                 s.end());
     };
     trim(name);

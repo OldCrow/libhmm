@@ -217,7 +217,7 @@ void BetaDistribution::fit(std::span<const double> data, std::span<const double>
         return;
     }
     const double mean = stats->mean;
-    const double var  = stats->variance;
+    const double var = stats->variance;
     if (var <= precision::ZERO || mean <= precision::ZERO || mean >= math::ONE) {
         reset();
         return;

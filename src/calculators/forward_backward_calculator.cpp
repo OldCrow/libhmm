@@ -12,8 +12,8 @@ namespace {
 constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
 
 /// Initialises log-α at t=0 from log-π and the first row of log-emissions.
-void init_log_forward(double *alphaData, const Vector &pi,
-                      const double *emitRow0, std::size_t N) noexcept {
+void init_log_forward(double *alphaData, const Vector &pi, const double *emitRow0,
+                      std::size_t N) noexcept {
     for (std::size_t i = 0; i < N; ++i)
         alphaData[i] = (pi(i) > 0.0) ? std::log(pi(i)) + emitRow0[i] : LOG_ZERO;
 }
