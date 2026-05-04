@@ -88,43 +88,10 @@ public:
         updateCache();
     }
 
-    /**
-     * Copy constructor
-     */
-    ExponentialDistribution(const ExponentialDistribution &other)
-        : DistributionBase{other}, lambda_{other.lambda_}, logLambda_{other.logLambda_},
-          invLambda_{other.invLambda_}, negLambda_{other.negLambda_},
-          invLambdaSquared_{other.invLambdaSquared_} {}
-
-    ExponentialDistribution &operator=(const ExponentialDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            lambda_ = other.lambda_;
-            logLambda_ = other.logLambda_;
-            invLambda_ = other.invLambda_;
-            negLambda_ = other.negLambda_;
-            invLambdaSquared_ = other.invLambdaSquared_;
-        }
-        return *this;
-    }
-
-    ExponentialDistribution(ExponentialDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, lambda_{other.lambda_}, logLambda_{other.logLambda_},
-          invLambda_{other.invLambda_}, negLambda_{other.negLambda_},
-          invLambdaSquared_{other.invLambdaSquared_} {}
-
-    ExponentialDistribution &operator=(ExponentialDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            lambda_ = other.lambda_;
-            logLambda_ = other.logLambda_;
-            invLambda_ = other.invLambda_;
-            negLambda_ = other.negLambda_;
-            invLambdaSquared_ = other.invLambdaSquared_;
-        }
-        return *this;
-    }
-
+    ExponentialDistribution(const ExponentialDistribution &other) = default;
+    ExponentialDistribution &operator=(const ExponentialDistribution &other) = default;
+    ExponentialDistribution(ExponentialDistribution &&other) noexcept = default;
+    ExponentialDistribution &operator=(ExponentialDistribution &&other) noexcept = default;
     ~ExponentialDistribution() override = default;
 
     /**

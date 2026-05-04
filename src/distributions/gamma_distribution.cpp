@@ -99,6 +99,21 @@ double GammaDistribution::ligamma(double a, double x) noexcept {
  *
  * @param values Vector of observed data points
  */
+void GammaDistribution::apply_fit_params(double mean, double var) {
+    if (mean <= precision::ZERO || var <= precision::ZERO) {
+        reset();
+        return;
+    }
+    const double newTheta = var / mean, newK = (mean * mean) / var;
+    if (!std::isfinite(newK) || !std::isfinite(newTheta) || newK <= 0.0 || newTheta <= 0.0) {
+        reset();
+        return;
+    }
+    theta_ = newTheta;
+    k_ = newK;
+    invalidateCache();
+}
+
 void GammaDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();
@@ -118,19 +133,7 @@ void GammaDistribution::fit(std::span<const double> data) {
         reset();
         return;
     }
-    const double var = m2 / (static_cast<double>(count) - 1.0);
-    if (mean <= precision::ZERO || var <= precision::ZERO) {
-        reset();
-        return;
-    }
-    const double newTheta = var / mean, newK = (mean * mean) / var;
-    if (!std::isfinite(newK) || !std::isfinite(newTheta) || newK <= 0.0 || newTheta <= 0.0) {
-        reset();
-        return;
-    }
-    theta_ = newTheta;
-    k_ = newK;
-    invalidateCache();
+    apply_fit_params(mean, m2 / (static_cast<double>(count) - 1.0));
 }
 
 void GammaDistribution::fit(std::span<const double> data, std::span<const double> weights) {
@@ -154,19 +157,7 @@ void GammaDistribution::fit(std::span<const double> data, std::span<const double
         reset();
         return;
     }
-    const double var = m2 / cumW;
-    if (mean <= precision::ZERO || var <= precision::ZERO) {
-        reset();
-        return;
-    }
-    const double newTheta = var / mean, newK = (mean * mean) / var;
-    if (!std::isfinite(newK) || !std::isfinite(newTheta) || newK <= 0.0 || newTheta <= 0.0) {
-        reset();
-        return;
-    }
-    theta_ = newTheta;
-    k_ = newK;
-    invalidateCache();
+    apply_fit_params(mean, m2 / cumW);
 }
 
 /**

@@ -1,4 +1,5 @@
 #include "libhmm/distributions/poisson_distribution.h"
+#include "libhmm/math/weighted_stats.h"
 #include <algorithm>
 #include <limits>
 #include <numeric>
@@ -81,16 +82,12 @@ void PoissonDistribution::fit(std::span<const double> data) {
 
 void PoissonDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     // Weighted MLE: λ = weighted mean
-    double sumW = 0.0, sumWX = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i) {
-        sumW += weights[i];
-        sumWX += weights[i] * data[i];
-    }
-    if (sumW < precision::ZERO || std::isnan(sumW)) {
+    const auto mean = detail::compute_weighted_mean(data, weights);
+    if (!mean) {
         reset();
         return;
     }
-    lambda_ = std::max(sumWX / sumW, precision::ZERO);
+    lambda_ = std::max(*mean, precision::ZERO);
     invalidateCache();
 }
 

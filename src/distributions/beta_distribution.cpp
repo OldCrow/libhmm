@@ -1,4 +1,5 @@
 #include "libhmm/distributions/beta_distribution.h"
+#include "libhmm/math/weighted_stats.h"
 #include <span>
 
 using namespace libhmm::constants;
@@ -210,21 +211,13 @@ void BetaDistribution::fit(std::span<const double> data) {
 }
 
 void BetaDistribution::fit(std::span<const double> data, std::span<const double> weights) {
-    double sumW = 0.0;
-    for (const double w : weights)
-        sumW += w;
-    if (sumW < precision::ZERO || std::isnan(sumW)) {
+    const auto stats = detail::compute_weighted_stats(data, weights);
+    if (!stats) {
         reset();
         return;
     }
-    double mean = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i)
-        mean += weights[i] * data[i];
-    mean /= sumW;
-    double var = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i)
-        var += weights[i] * (data[i] - mean) * (data[i] - mean);
-    var /= sumW;
+    const double mean = stats->mean;
+    const double var = stats->variance;
     if (var <= precision::ZERO || mean <= precision::ZERO || mean >= math::ONE) {
         reset();
         return;

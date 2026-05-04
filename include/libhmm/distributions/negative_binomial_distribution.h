@@ -114,57 +114,11 @@ public:
         updateCache();
     }
 
-    /**
-     * Copy constructor
-     */
-    NegativeBinomialDistribution(const NegativeBinomialDistribution &other)
-        : DistributionBase{other}, r_{other.r_}, p_{other.p_}, logP_{other.logP_},
-          log1MinusP_{other.log1MinusP_}, logGammaR_{other.logGammaR_},
-          logFactorialCache_{other.logFactorialCache_} {}
-
-    /**
-     * Copy assignment operator
-     */
-    NegativeBinomialDistribution &operator=(const NegativeBinomialDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            r_ = other.r_;
-            p_ = other.p_;
-            logP_ = other.logP_;
-            log1MinusP_ = other.log1MinusP_;
-            logGammaR_ = other.logGammaR_;
-            logFactorialCache_ = other.logFactorialCache_;
-        }
-        return *this;
-    }
-
-    /**
-     * Move constructor
-     */
-    NegativeBinomialDistribution(NegativeBinomialDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, r_{other.r_}, p_{other.p_}, logP_{other.logP_},
-          log1MinusP_{other.log1MinusP_}, logGammaR_{other.logGammaR_},
-          logFactorialCache_{std::move(other.logFactorialCache_)} {}
-
-    /**
-     * Move assignment operator
-     */
-    NegativeBinomialDistribution &operator=(NegativeBinomialDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            r_ = other.r_;
-            p_ = other.p_;
-            logP_ = other.logP_;
-            log1MinusP_ = other.log1MinusP_;
-            logGammaR_ = other.logGammaR_;
-            logFactorialCache_ = std::move(other.logFactorialCache_);
-        }
-        return *this;
-    }
-
-    /**
-     * Destructor - explicitly defaulted to satisfy Rule of Five
-     */
+    NegativeBinomialDistribution(const NegativeBinomialDistribution &other) = default;
+    NegativeBinomialDistribution &operator=(const NegativeBinomialDistribution &other) = default;
+    NegativeBinomialDistribution(NegativeBinomialDistribution &&other) noexcept = default;
+    NegativeBinomialDistribution &
+    operator=(NegativeBinomialDistribution &&other) noexcept = default;
     ~NegativeBinomialDistribution() override = default;
 
     /**

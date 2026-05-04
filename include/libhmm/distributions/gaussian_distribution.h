@@ -93,51 +93,10 @@ public:
         updateCache();
     }
 
-    // Rule of Five: atomic<bool> in base requires explicit copy/move.
-    // Parameter data is trivially copyable; base handles the atomic.
-    GaussianDistribution(const GaussianDistribution &other)
-        : DistributionBase{other}, mean_{other.mean_}, standardDeviation_{other.standardDeviation_},
-          normalizationConstant_{other.normalizationConstant_},
-          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_},
-          logStandardDeviation_{other.logStandardDeviation_}, sigmaSqrt2_{other.sigmaSqrt2_},
-          invStandardDeviation_{other.invStandardDeviation_} {}
-
-    GaussianDistribution &operator=(const GaussianDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            mean_ = other.mean_;
-            standardDeviation_ = other.standardDeviation_;
-            normalizationConstant_ = other.normalizationConstant_;
-            negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
-            logStandardDeviation_ = other.logStandardDeviation_;
-            sigmaSqrt2_ = other.sigmaSqrt2_;
-            invStandardDeviation_ = other.invStandardDeviation_;
-        }
-        return *this;
-    }
-
-    GaussianDistribution(GaussianDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, mean_{other.mean_},
-          standardDeviation_{other.standardDeviation_},
-          normalizationConstant_{other.normalizationConstant_},
-          negHalfSigmaSquaredInv_{other.negHalfSigmaSquaredInv_},
-          logStandardDeviation_{other.logStandardDeviation_}, sigmaSqrt2_{other.sigmaSqrt2_},
-          invStandardDeviation_{other.invStandardDeviation_} {}
-
-    GaussianDistribution &operator=(GaussianDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            mean_ = other.mean_;
-            standardDeviation_ = other.standardDeviation_;
-            normalizationConstant_ = other.normalizationConstant_;
-            negHalfSigmaSquaredInv_ = other.negHalfSigmaSquaredInv_;
-            logStandardDeviation_ = other.logStandardDeviation_;
-            sigmaSqrt2_ = other.sigmaSqrt2_;
-            invStandardDeviation_ = other.invStandardDeviation_;
-        }
-        return *this;
-    }
-
+    GaussianDistribution(const GaussianDistribution &other) = default;
+    GaussianDistribution &operator=(const GaussianDistribution &other) = default;
+    GaussianDistribution(GaussianDistribution &&other) noexcept = default;
+    GaussianDistribution &operator=(GaussianDistribution &&other) noexcept = default;
     ~GaussianDistribution() override = default;
 
     /**

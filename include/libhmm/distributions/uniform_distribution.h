@@ -55,51 +55,10 @@ public:
      */
     UniformDistribution(double a, double b);
 
-    UniformDistribution(const UniformDistribution &other)
-        : DistributionBase{other}, a_{other.a_}, b_{other.b_}, cached_pdf_{other.cached_pdf_},
-          cached_log_pdf_{other.cached_log_pdf_}, cached_range_{other.cached_range_},
-          cached_inv_range_{other.cached_inv_range_}, cached_mean_{other.cached_mean_},
-          cached_variance_{other.cached_variance_}, cached_std_dev_{other.cached_std_dev_} {}
-
-    UniformDistribution &operator=(const UniformDistribution &other) {
-        if (this != &other) {
-            DistributionBase::operator=(other);
-            a_ = other.a_;
-            b_ = other.b_;
-            cached_pdf_ = other.cached_pdf_;
-            cached_log_pdf_ = other.cached_log_pdf_;
-            cached_range_ = other.cached_range_;
-            cached_inv_range_ = other.cached_inv_range_;
-            cached_mean_ = other.cached_mean_;
-            cached_variance_ = other.cached_variance_;
-            cached_std_dev_ = other.cached_std_dev_;
-        }
-        return *this;
-    }
-
-    UniformDistribution(UniformDistribution &&other) noexcept
-        : DistributionBase{std::move(other)}, a_{other.a_}, b_{other.b_},
-          cached_pdf_{other.cached_pdf_}, cached_log_pdf_{other.cached_log_pdf_},
-          cached_range_{other.cached_range_}, cached_inv_range_{other.cached_inv_range_},
-          cached_mean_{other.cached_mean_}, cached_variance_{other.cached_variance_},
-          cached_std_dev_{other.cached_std_dev_} {}
-
-    UniformDistribution &operator=(UniformDistribution &&other) noexcept {
-        if (this != &other) {
-            DistributionBase::operator=(std::move(other));
-            a_ = other.a_;
-            b_ = other.b_;
-            cached_pdf_ = other.cached_pdf_;
-            cached_log_pdf_ = other.cached_log_pdf_;
-            cached_range_ = other.cached_range_;
-            cached_inv_range_ = other.cached_inv_range_;
-            cached_mean_ = other.cached_mean_;
-            cached_variance_ = other.cached_variance_;
-            cached_std_dev_ = other.cached_std_dev_;
-        }
-        return *this;
-    }
-
+    UniformDistribution(const UniformDistribution &other) = default;
+    UniformDistribution &operator=(const UniformDistribution &other) = default;
+    UniformDistribution(UniformDistribution &&other) noexcept = default;
+    UniformDistribution &operator=(UniformDistribution &&other) noexcept = default;
     ~UniformDistribution() override = default;
 
     [[nodiscard]] double getProbability(double val) const override;
