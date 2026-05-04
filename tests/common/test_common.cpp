@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "libhmm/common/common.h"
+#include "libhmm/linalg/linalg_types.h"
 #include "libhmm/common/string_tokenizer.h"
 #include <string>
 #include <cmath>

@@ -5,7 +5,7 @@
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
-#include "libhmm/common/common.h"
+#include "libhmm/linalg/linalg_types.h"
 #include "libhmm/distributions/distributions.h"
 #include "libhmm/common/string_tokenizer.h"
 

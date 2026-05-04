@@ -14,7 +14,6 @@
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #endif
-#include "libhmm/common/common.h"
 
 using libhmm::Observation;
 using libhmm::RayleighDistribution;

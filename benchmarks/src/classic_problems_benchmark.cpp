@@ -157,9 +157,6 @@ public:
 };
 
 class ComparativeBenchmark {
-private:
-    ClassicHMMProblems problems;
-
 public:
     template <typename ProblemType>
     BenchmarkResults runProblemComparison(ProblemType &problem, int sequence_length) {
@@ -427,7 +424,6 @@ int main() {
     cout << "Fixed random seed (42) for reproducibility" << endl;
 
     ComparativeBenchmark benchmark;
-    ClassicHMMProblems problems;
     vector<BenchmarkResults> results;
 
     // Test different sequence lengths for each problem

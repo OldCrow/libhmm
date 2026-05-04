@@ -95,6 +95,11 @@ inline constexpr std::size_t SIMD_ALIGNMENT = 32;
 
 /// Mathematical constants
 namespace math {
+// Provide M_PI for code that tests for it (non-standard but widely expected).
+// Defined before PI so both are available in the same translation unit.
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 inline constexpr double PI = 3.141592653589793238462643383279502884;
 inline constexpr double LN2 = 0.6931471805599453094172321214581766;
 inline constexpr double LN_10 = 2.302585092994046;
