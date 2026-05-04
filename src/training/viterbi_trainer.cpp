@@ -105,8 +105,7 @@ double ViterbiTrainer::accum_sequence(const Hmm &hmm, const ObservationSet &obs,
     }
 }
 
-void ViterbiTrainer::normalize_and_commit(Hmm &hmm, std::size_t N, Vector &pi,
-                                          Matrix &trans) noexcept {
+void ViterbiTrainer::normalize_and_commit(Hmm &hmm, std::size_t N, Vector &pi, Matrix &trans) {
     // Normalize pi.
     double piSum = 0.0;
     for (std::size_t i = 0; i < N; ++i)
