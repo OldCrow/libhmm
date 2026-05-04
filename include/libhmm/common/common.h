@@ -12,6 +12,9 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <iomanip> // std::setprecision, std::fixed, std::put_time — used in toString()
+                   // and file I/O throughout the library. Must be explicit: MSVC and
+                   // libstdc++ do not include <iomanip> transitively through <iostream>.
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
