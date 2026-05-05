@@ -13,8 +13,13 @@
 namespace libhmm {
 
 /**
- * Modern XML file reader for HMM deserialization with C++17 features.
- * Provides safe XML deserialization with proper error handling and validation.
+ * XML file reader for HMM deserialization.
+ *
+ * Reads the CDATA-wrapped text format written by XMLFileWriter:
+ *   <?xml ...?><libhmm_model><![CDATA[ <HMM text> ]]></libhmm_model>
+ *
+ * @deprecated Prefer load_json() / save_json() from hmm_json.h for new code.
+ *             XMLFileReader is retained for reading legacy .xml files only.
  */
 class XMLFileReader {
 public:
@@ -56,12 +61,12 @@ public:
     static bool canReadFromPath(const std::filesystem::path &filepath) noexcept;
 
     /**
-     * Checks if a file exists and appears to be a valid XML file.
+     * Checks if a file exists and looks like a libhmm XML file.
      *
      * @param filepath Path to check
-     * @return true if file exists and has XML content, false otherwise
+     * @return true if file is readable, non-empty, and starts with an XML declaration
      */
-    static bool isValidXMLFile(const std::filesystem::path &filepath) noexcept;
+    static bool canParseAsHmm(const std::filesystem::path &filepath) noexcept;
 
 private:
     /**

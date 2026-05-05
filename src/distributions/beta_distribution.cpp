@@ -1,4 +1,5 @@
 #include "libhmm/distributions/beta_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/math/weighted_stats.h"
 #include <span>
 
@@ -362,27 +363,27 @@ std::ostream &operator<<(std::ostream &os, const BetaDistribution &distribution)
     return os << distribution.toString();
 }
 
+// Parses the format produced by toString() / operator<<:
+//   Beta Distribution:
+//     \u03b1 (alpha) = VALUE
+//     \u03b2 (beta) = VALUE
+//     Mean = VALUE
+//     Variance = VALUE
 std::istream &operator>>(std::istream &is, BetaDistribution &distribution) {
     try {
-        std::string token;
-        double alpha = 1.0;
-        double beta = 1.0;
-        // Expected format: "Beta Distribution: α (alpha) = <value> β (beta) = <value>"
-        is >> token >> token;                   // "Beta" "Distribution:"
-        is >> token >> token >> token >> token; // "α" "(alpha)" "=" <alpha_str>
-        alpha = std::stod(token);
-        is >> token >> token >> token >> token; // "β" "(beta)" "=" <beta_str>
-        beta = std::stod(token);
-
-        if (is.good()) {
+        std::string s, t;
+        is >> s >> s;           // "Beta" "Distribution:"
+        is >> s >> s >> s >> t; // "\u03b1" "(alpha)" "=" VALUE
+        const double alpha = std::stod(t);
+        is >> s >> s >> s >> t; // "\u03b2" "(beta)" "=" VALUE
+        const double beta = std::stod(t);
+        is >> s >> s >> t;
+        is >> s >> s >> t; // skip Mean, Variance
+        if (is.good())
             distribution = BetaDistribution(alpha, beta);
-        }
-
     } catch (const std::exception &) {
-        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
@@ -398,6 +399,18 @@ void BetaDistribution::getBatchLogProbabilities(std::span<const double> observat
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = BetaDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string BetaDistribution::to_json() const {
+    return json::write_distribution("Beta", {{"alpha", alpha_}, {"beta", beta_}});
+}
+std::unique_ptr<EmissionDistribution> BetaDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double alpha = r.read_double();
+    r.read_key();
+    const double beta = r.read_double();
+    r.consume('}');
+    return std::make_unique<BetaDistribution>(alpha, beta);
 }
 
 } // namespace libhmm

@@ -1,4 +1,5 @@
 #include "libhmm/distributions/rayleigh_distribution.h"
+#include "libhmm/io/json_utils.h"
 // Header already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip> via common.h
 #include <limits> // For std::numeric_limits (not in common.h)
 
@@ -120,13 +121,26 @@ std::ostream &operator<<(std::ostream &os, const RayleighDistribution &distribut
     return os;
 }
 
+// Parses the format produced by toString() / operator<<:
+//   Rayleigh Distribution:
+//     \u03c3 (scale parameter) = VALUE
+//     Mean = VALUE
+//     Variance = VALUE
+//     Median = VALUE
+//     Mode = VALUE
 std::istream &operator>>(std::istream &is, RayleighDistribution &distribution) {
     try {
-        std::string token, sigma_str;
-        is >> token >> token >> token; // Read "σ", "(scale", "parameter)"
-        is >> sigma_str;
-        double sigma = std::stod(sigma_str);
-        distribution.setSigma(sigma);
+        std::string s, t;
+        is >> s >> s;                // "Rayleigh" "Distribution:"
+        is >> s >> s >> s >> s >> t; // "\u03c3" "(scale" "parameter)" "=" VALUE
+        const double sigma = std::stod(t);
+        // skip Mean, Variance, Median, Mode
+        is >> s >> s >> t;
+        is >> s >> s >> t;
+        is >> s >> s >> t;
+        is >> s >> s >> t;
+        if (is.good())
+            distribution.setSigma(sigma);
     } catch (const std::exception &) {
         is.setstate(std::ios::failbit);
     }
@@ -147,6 +161,16 @@ void RayleighDistribution::getBatchLogProbabilities(std::span<const double> obse
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = RayleighDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string RayleighDistribution::to_json() const {
+    return json::write_distribution("Rayleigh", {{"sigma", sigma_}});
+}
+std::unique_ptr<EmissionDistribution> RayleighDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double sigma = r.read_double();
+    r.consume('}');
+    return std::make_unique<RayleighDistribution>(sigma);
 }
 
 } // namespace libhmm

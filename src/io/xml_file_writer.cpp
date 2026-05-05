@@ -44,9 +44,6 @@ void XMLFileWriter::write(const Hmm &hmm, const std::filesystem::path &filepath)
             throw std::runtime_error("Failed to properly close file: " + filepath.string());
         }
 
-        // TODO: Uncomment when boost serialization is implemented
-        // } catch (const boost::archive::archive_exception& e) {
-        //     throw std::runtime_error("XML serialization failed: " + std::string(e.what()));
     } catch (const std::ios_base::failure &e) {
         throw std::runtime_error("I/O operation failed: " + std::string(e.what()));
     }
@@ -84,12 +81,10 @@ void XMLFileWriter::writeToStream(const Hmm &hmm, std::ofstream &stream) {
         throw std::runtime_error("Stream is not in a good state for writing");
     }
 
+    // Format: <?xml ...?><libhmm_model><![CDATA[ <HMM text via operator<<> ]]></libhmm_model>
+    // The HMM is serialized using operator<< inside a CDATA block so the text
+    // content does not need XML-escaping.  XMLFileReader::readFromStream inverts this.
     try {
-        // TODO: Implement boost serialization when Hmm class supports it
-        // boost::archive::xml_oarchive oa(stream);
-        // oa & BOOST_SERIALIZATION_NVP(hmm);
-
-        // For now, use the HMM's stream operator with XML wrapper
         stream << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << std::endl;
         stream << "<libhmm_model>" << std::endl;
         stream << "<![CDATA[" << std::endl;
@@ -105,10 +100,6 @@ void XMLFileWriter::writeToStream(const Hmm &hmm, std::ofstream &stream) {
     } catch (const std::ios_base::failure &e) {
         throw std::runtime_error("Stream I/O error: " + std::string(e.what()));
     }
-    // TODO: Uncomment when boost serialization is implemented
-    // catch (const boost::archive::archive_exception& e) {
-    //     throw std::runtime_error("XML archive error: " + std::string(e.what()));
-    // }
 }
 
 } // namespace libhmm

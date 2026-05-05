@@ -7,6 +7,12 @@
 
 namespace libhmm {
 
+// Forward declaration — concrete distributions declare from_json(json::Reader&)
+// as a static factory method; implementation is in src/io/hmm_json.cpp.
+namespace json {
+class Reader;
+} // namespace json
+
 /**
  * @brief Shared implementation base for all emission distributions.
  *

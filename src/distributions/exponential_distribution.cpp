@@ -1,4 +1,5 @@
 #include "libhmm/distributions/exponential_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/math/weighted_stats.h"
 #include "libhmm/platform/simd_platform.h"
 #include <limits>
@@ -148,30 +149,26 @@ std::string ExponentialDistribution::toString() const {
 }
 
 std::ostream &operator<<(std::ostream &os, const libhmm::ExponentialDistribution &distribution) {
-    os << "Exponential Distribution: " << std::endl;
-    os << "    Rate parameter = " << distribution.getLambda() << std::endl;
-    os << std::endl;
-
+    os << distribution.toString();
     return os;
 }
 
+// Parses the format produced by toString() / operator<<:
+//   Exponential Distribution:
+//     \u03bb (rate parameter) = VALUE
+//     Mean = VALUE
 std::istream &operator>>(std::istream &is, libhmm::ExponentialDistribution &distribution) {
     try {
-        std::string token, lambda_str;
-        is >> token; // "Rate"
-        is >> token; // "parameter"
-        is >> token; // "="
-        is >> lambda_str;
-        double lambda = std::stod(lambda_str);
-
-        // Use setLambda for validation
-        distribution.setLambda(lambda);
-
+        std::string s, t;
+        is >> s >> s;                // "Exponential" "Distribution:"
+        is >> s >> s >> s >> s >> t; // "\u03bb" "(rate" "parameter)" "=" VALUE
+        const double lambda = std::stod(t);
+        is >> s >> s >> t; // skip Mean
+        if (is.good())
+            distribution.setLambda(lambda);
     } catch (const std::exception &) {
-        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
@@ -280,6 +277,16 @@ void ExponentialDistribution::getBatchLogProbabilities(std::span<const double> o
         updateCache();
     detail::exponential_logpdf_batch(observations.data(), out.data(), observations.size(),
                                      logLambda_, negLambda_);
+}
+
+std::string ExponentialDistribution::to_json() const {
+    return json::write_distribution("Exponential", {{"lambda", lambda_}});
+}
+std::unique_ptr<EmissionDistribution> ExponentialDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double lambda = r.read_double();
+    r.consume('}');
+    return std::make_unique<ExponentialDistribution>(lambda);
 }
 
 } // namespace libhmm

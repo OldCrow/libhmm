@@ -338,17 +338,18 @@ TEST_F(IOTest, XMLFileReaderCanReadFromPath) {
     EXPECT_FALSE(XMLFileReader::canReadFromPath(nonExistentFile_));
 }
 
-TEST_F(IOTest, XMLFileReaderIsValidXMLFile) {
-    // Create a valid XML file
-    FileIOManager::writeTextFile(xmlFile_, "<?xml version=\"1.0\"?>\n<test>content</test>");
-    EXPECT_TRUE(XMLFileReader::isValidXMLFile(xmlFile_));
+TEST_F(IOTest, XMLFileReaderCanParseAsHmm) {
+    // Create a file that starts with an XML declaration
+    FileIOManager::writeTextFile(xmlFile_,
+                                 "<?xml version=\"1.0\"?>\n<libhmm_model></libhmm_model>");
+    EXPECT_TRUE(XMLFileReader::canParseAsHmm(xmlFile_));
 
-    // Create an invalid file
+    // Create a file that does not start with an XML declaration
     FileIOManager::writeTextFile(testFile_, "This is not XML");
-    EXPECT_FALSE(XMLFileReader::isValidXMLFile(testFile_));
+    EXPECT_FALSE(XMLFileReader::canParseAsHmm(testFile_));
 
     // Test non-existent file
-    EXPECT_FALSE(XMLFileReader::isValidXMLFile(nonExistentFile_));
+    EXPECT_FALSE(XMLFileReader::canParseAsHmm(nonExistentFile_));
 }
 
 // Integration Tests
