@@ -1,10 +1,10 @@
 #include "libhmm/io/json_utils.h"
 
-#include <charconv>
+#include <cerrno>
+#include <cstdlib>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
-#include <system_error>
 
 namespace libhmm {
 namespace json {
@@ -14,8 +14,10 @@ namespace json {
 // =============================================================================
 
 std::string write_double(double v) {
-    // Use max_digits10 to guarantee exact round-trip through stod/from_chars.
+    // Use max_digits10 and the classic "C" locale to guarantee an exact
+    // round-trip with '.' as the decimal separator on all platforms.
     std::ostringstream oss;
+    oss.imbue(std::locale::classic());
     oss.precision(std::numeric_limits<double>::max_digits10);
     oss << v;
     return oss.str();
@@ -137,13 +139,21 @@ std::string Reader::read_string() {
 
 double Reader::read_double() {
     skip_ws();
+    if (pos_ >= src_.size())
+        throw std::runtime_error("json::Reader: unexpected end of input");
+    // std::from_chars for floating-point is not available on AppleClang / libc++.
+    // std::strtod provides the same consumed-position semantics and is portable.
+    // write_double() imbues std::locale::classic() so the decimal separator is
+    // always '.' — strtod uses the same convention under the default C locale.
     const char *begin = src_.data() + pos_;
-    const char *end = src_.data() + src_.size();
-    double value{};
-    auto [ptr, ec] = std::from_chars(begin, end, value);
-    if (ec != std::errc{})
+    char *end_ptr = nullptr;
+    errno = 0;
+    const double value = std::strtod(begin, &end_ptr);
+    if (end_ptr == begin)
         throw std::runtime_error("json::Reader: failed to parse number");
-    pos_ = static_cast<std::size_t>(ptr - src_.data());
+    if (errno == ERANGE)
+        throw std::runtime_error("json::Reader: number out of range");
+    pos_ = static_cast<std::size_t>(end_ptr - src_.data());
     return value;
 }
 
