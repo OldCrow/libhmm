@@ -1,4 +1,5 @@
 #include "libhmm/distributions/weibull_distribution.h"
+#include "libhmm/io/json_utils.h"
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <algorithm> // For std::max, std::min (exists in common.h, included for clarity)
 #include <numeric>   // For std::accumulate (not in common.h)
@@ -219,6 +220,18 @@ void WeibullDistribution::getBatchLogProbabilities(std::span<const double> obser
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = WeibullDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string WeibullDistribution::to_json() const {
+    return json::write_distribution("Weibull", {{"k", k_}, {"lambda", lambda_}});
+}
+std::unique_ptr<EmissionDistribution> WeibullDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double k = r.read_double();
+    r.read_key();
+    const double lambda = r.read_double();
+    r.consume('}');
+    return std::make_unique<WeibullDistribution>(k, lambda);
 }
 
 } // namespace libhmm

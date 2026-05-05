@@ -1,4 +1,5 @@
 #include "libhmm/distributions/discrete_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include <span>
 
 using namespace libhmm::constants;
@@ -169,39 +170,31 @@ bool DiscreteDistribution::operator==(const DiscreteDistribution &other) const {
     return true;
 }
 
-/**
- * Stream input operator implementation
- * Expects format with number of symbols followed by probabilities
- */
+// Parses the format produced by toString() / operator<<:
+//   Discrete Distribution:
+//     Number of symbols = N
+//     P(0) = VALUE
+//     ...
+//     P(N-1) = VALUE
 std::istream &operator>>(std::istream &is, libhmm::DiscreteDistribution &distribution) {
-    std::size_t numSymbols = 0;
-
-    if (!(is >> numSymbols)) {
-        is.setstate(std::ios::failbit);
-        return is;
-    }
-
-    // Create new distribution with the specified number of symbols
     try {
-        DiscreteDistribution newDist(static_cast<int>(numSymbols));
-
-        // Read probabilities
-        for (std::size_t i = 0; i < numSymbols; ++i) {
-            double prob = 0.0;
-            if (!(is >> prob)) {
-                is.setstate(std::ios::failbit);
-                return is;
-            }
-            newDist.setProbability(static_cast<double>(i), prob);
+        std::string s, t;
+        is >> s >> s;                // "Discrete" "Distribution:"
+        is >> s >> s >> s >> s >> t; // "Number" "of" "symbols" "=" N
+        const auto n = std::stoull(t);
+        if (n == 0) {
+            is.setstate(std::ios::failbit);
+            return is;
         }
-
-        // If successful, update the distribution
+        DiscreteDistribution newDist(static_cast<int>(n));
+        for (std::size_t i = 0; i < n; ++i) {
+            is >> s >> s >> t; // "P(i)" "=" VALUE
+            newDist.setProbability(static_cast<double>(i), std::stod(t));
+        }
         distribution = std::move(newDist);
-
     } catch (const std::exception &) {
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
@@ -223,6 +216,36 @@ void DiscreteDistribution::getBatchLogProbabilities(std::span<const double> obse
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = DiscreteDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string DiscreteDistribution::to_json() const {
+    return json::write_distribution_with_array("Discrete",
+                                               {{"n", static_cast<double>(numSymbols_)}}, "probs",
+                                               std::span<const double>(pdf_.data(), numSymbols_));
+}
+std::unique_ptr<EmissionDistribution> DiscreteDistribution::from_json(json::Reader &r) {
+    // Maximum symbol count accepted during deserialization.
+    // 65536 symbols × 8 bytes = 512 KB per distribution — generous for any
+    // practical use. Values above this cap indicate corrupted or adversarial input.
+    // The guard also prevents static_cast<int> UB when n is non-finite or huge.
+    static constexpr int kMaxDiscreteSymbols = 65536;
+
+    r.read_key(); // "n"
+    const double n_raw = r.read_double();
+    if (!std::isfinite(n_raw) || n_raw < 1.0 || n_raw > static_cast<double>(kMaxDiscreteSymbols))
+        throw std::runtime_error("DiscreteDistribution JSON: n must be an integer in [1, " +
+                                 std::to_string(kMaxDiscreteSymbols) + "]");
+    const int n = static_cast<int>(n_raw);
+
+    r.read_key(); // "probs"
+    // Cap array read to n elements — a longer array is malformed and must not
+    // be allowed to grow the heap before the distribution constructor fires.
+    const auto probs = r.read_double_array(static_cast<std::size_t>(n));
+    r.consume('}');
+    auto dist = std::make_unique<DiscreteDistribution>(n);
+    for (std::size_t i = 0; i < probs.size(); ++i)
+        dist->setProbability(static_cast<double>(i), probs[i]);
+    return dist;
 }
 
 } // namespace libhmm

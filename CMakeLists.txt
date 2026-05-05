@@ -545,6 +545,8 @@ set(LIBHMM_SOURCES
     src/training/viterbi_trainer.cpp
     src/training/segmental_kmeans_trainer.cpp
     src/io/file_io_manager.cpp
+    src/io/json_utils.cpp
+    src/io/hmm_json.cpp
     src/io/xml_file_reader.cpp
     src/io/xml_file_writer.cpp
 )

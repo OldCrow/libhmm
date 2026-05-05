@@ -1,4 +1,5 @@
 #include "libhmm/distributions/chi_squared_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/math/weighted_stats.h"
 #include <algorithm>
 #include <span>
@@ -131,30 +132,23 @@ bool ChiSquaredDistribution::operator==(const ChiSquaredDistribution &other) con
 }
 
 std::ostream &operator<<(std::ostream &os, const ChiSquaredDistribution &dist) {
-    os << std::fixed << std::setprecision(6);
-    os << "ChiSquared Distribution: k = " << dist.getDegreesOfFreedom();
+    os << dist.toString();
     return os;
 }
 
+// Parses the format produced by toString() / operator<<:
+//   ChiSquared Distribution:
+//     k (degrees of freedom) = VALUE
 std::istream &operator>>(std::istream &is, ChiSquaredDistribution &dist) {
     try {
-        std::string token;
-        double k = 0.0;
-        // Expected format: "ChiSquared Distribution: k = <value>"
-        std::string k_str;
-        is >> token >> token >> token >> token >>
-            k_str; // "ChiSquared" "Distribution:" "k" "=" <k_str>
-        k = std::stod(k_str);
-
-        if (is.good()) {
-            dist.setDegreesOfFreedom(k);
-        }
-
+        std::string s, t;
+        is >> s >> s;                     // "ChiSquared" "Distribution:"
+        is >> s >> s >> s >> s >> s >> t; // "k" "(degrees" "of" "freedom)" "=" VALUE
+        if (is.good())
+            dist.setDegreesOfFreedom(std::stod(t));
     } catch (const std::exception &) {
-        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
@@ -171,6 +165,16 @@ void ChiSquaredDistribution::getBatchLogProbabilities(std::span<const double> ob
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = ChiSquaredDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string ChiSquaredDistribution::to_json() const {
+    return json::write_distribution("ChiSquared", {{"k", degrees_of_freedom_}});
+}
+std::unique_ptr<EmissionDistribution> ChiSquaredDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double k = r.read_double();
+    r.consume('}');
+    return std::make_unique<ChiSquaredDistribution>(k);
 }
 
 } // namespace libhmm

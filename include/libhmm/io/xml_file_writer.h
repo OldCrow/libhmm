@@ -13,8 +13,13 @@
 namespace libhmm {
 
 /**
- * Modern XML file writer for HMM serialization with C++17 features.
- * Provides safe XML serialization with proper error handling and validation.
+ * XML file writer for HMM serialization.
+ *
+ * Writes a CDATA-wrapped text format:
+ *   <?xml version="1.0" encoding="UTF-8"?><libhmm_model><![CDATA[ <HMM text> ]]></libhmm_model>
+ *
+ * @deprecated Prefer save_json() / load_json() from hmm_json.h for new code.
+ *             XMLFileWriter is retained for producing legacy .xml files only.
  */
 class XMLFileWriter {
 public:

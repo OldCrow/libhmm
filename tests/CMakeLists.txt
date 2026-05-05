@@ -216,6 +216,7 @@ if(GTest_FOUND OR TARGET gtest)
     # =========================================================================
     add_hmm_test(test_xml_file_io   io/test_xml_file_io.cpp)
     add_hmm_test(test_hmm_stream_io io/test_hmm_stream_io.cpp)
+    add_hmm_test(test_hmm_json      io/test_hmm_json.cpp)
     add_hmm_test(test_end_to_end    integration/test_end_to_end.cpp)
 
 else()

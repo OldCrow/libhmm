@@ -1,4 +1,5 @@
 #include "libhmm/distributions/binomial_distribution.h"
+#include "libhmm/io/json_utils.h"
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <numeric>   // For std::accumulate (not in common.h)
 #include <algorithm> // For std::for_each, std::max_element (exists in common.h, included for clarity)
@@ -202,39 +203,33 @@ bool BinomialDistribution::operator==(const BinomialDistribution &other) const {
     return (n_ == other.n_) && (std::abs(p_ - other.p_) < tolerance);
 }
 
-std::istream &operator>>(std::istream &is, libhmm::BinomialDistribution &distribution) {
-    std::string token;
-    // Expected format: "Binomial(n,p)" or "n p"
-    if (is >> token) {
-        int n = 0;
-        double p = 0.0;
-        if (token.find("Binomial") != std::string::npos) {
-            // Skip to parameters
-            char ch = '\0';
-            is >> ch >> n >> ch >> p >> ch; // Read (n,p)
-        } else {
-            // Assume first token is n
-            n = std::stoi(token);
-            is >> p;
-        }
-
-        try {
-            distribution.setParameters(n, p);
-        } catch (const std::exception &) {
-            is.setstate(std::ios::failbit);
-        }
-    }
-
-    return is;
+std::ostream &operator<<(std::ostream &os, const libhmm::BinomialDistribution &distribution) {
+    os << distribution.toString();
+    return os;
 }
 
-std::ostream &operator<<(std::ostream &os, const libhmm::BinomialDistribution &distribution) {
-    os << "Binomial Distribution:" << std::endl;
-    os << "    n = " << distribution.getN() << std::endl;
-    os << "    p = " << distribution.getP() << std::endl;
-    os << std::endl;
-
-    return os;
+// Parses the format produced by toString() / operator<<:
+//   Binomial Distribution:
+//     n (trials) = VALUE
+//     p (success probability) = VALUE
+//     Mean = VALUE
+//     Variance = VALUE
+std::istream &operator>>(std::istream &is, libhmm::BinomialDistribution &distribution) {
+    try {
+        std::string s, t;
+        is >> s >> s;           // "Binomial" "Distribution:"
+        is >> s >> s >> s >> t; // "n" "(trials)" "=" VALUE
+        const int n = static_cast<int>(std::stod(t));
+        is >> s >> s >> s >> s >> t; // "p" "(success" "probability)" "=" VALUE
+        const double p = std::stod(t);
+        is >> s >> s >> t;
+        is >> s >> s >> t; // skip Mean, Variance
+        if (is.good())
+            distribution.setParameters(n, p);
+    } catch (const std::exception &) {
+        is.setstate(std::ios::failbit);
+    }
+    return is;
 }
 
 void BinomialDistribution::getBatchLogProbabilities(std::span<const double> observations,
@@ -249,6 +244,18 @@ void BinomialDistribution::getBatchLogProbabilities(std::span<const double> obse
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = BinomialDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string BinomialDistribution::to_json() const {
+    return json::write_distribution("Binomial", {{"n", static_cast<double>(n_)}, {"p", p_}});
+}
+std::unique_ptr<EmissionDistribution> BinomialDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const int n = static_cast<int>(r.read_double());
+    r.read_key();
+    const double p = r.read_double();
+    r.consume('}');
+    return std::make_unique<BinomialDistribution>(n, p);
 }
 
 } // namespace libhmm

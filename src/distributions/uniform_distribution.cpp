@@ -1,4 +1,5 @@
 #include "libhmm/distributions/uniform_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/math/weighted_stats.h"
 #include <algorithm>
 #include <cmath>
@@ -192,31 +193,26 @@ bool UniformDistribution::operator==(const UniformDistribution &other) const {
 }
 
 std::ostream &operator<<(std::ostream &os, const UniformDistribution &dist) {
-    os << std::fixed << std::setprecision(6);
-    os << "Uniform Distribution: a = " << dist.getA() << ", b = " << dist.getB();
+    os << dist.toString();
     return os;
 }
 
+// Parses the format produced by toString() / operator<<:
+//   Uniform Distribution:
+//     a (lower bound) = VALUE
+//     b (upper bound) = VALUE
 std::istream &operator>>(std::istream &is, UniformDistribution &dist) {
     try {
-        std::string token;
-        double a = 0.0, b = 0.0;
-        // Expected format: "Uniform Distribution: a = <value>, b = <value>"
-        std::string a_str, b_str;
-        is >> token >> token >> token >> token >> a_str >> token >> token >> token >>
-            b_str; // "Uniform" "Distribution:" "a" "=" <a_str> "," "b" "=" <b_str>
-        a = std::stod(a_str);
-        b = std::stod(b_str);
-
-        if (is.good()) {
-            dist.setParameters(a, b);
-        }
-
+        std::string s, t;
+        is >> s >> s;                // "Uniform" "Distribution:"
+        is >> s >> s >> s >> s >> t; // "a" "(lower" "bound)" "=" VALUE
+        const double a = std::stod(t);
+        is >> s >> s >> s >> s >> t; // "b" "(upper" "bound)" "=" VALUE
+        if (is.good())
+            dist.setParameters(a, std::stod(t));
     } catch (const std::exception &) {
-        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
@@ -232,6 +228,18 @@ void UniformDistribution::getBatchLogProbabilities(std::span<const double> obser
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = UniformDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string UniformDistribution::to_json() const {
+    return json::write_distribution("Uniform", {{"a", a_}, {"b", b_}});
+}
+std::unique_ptr<EmissionDistribution> UniformDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double a = r.read_double();
+    r.read_key();
+    const double b = r.read_double();
+    r.consume('}');
+    return std::make_unique<UniformDistribution>(a, b);
 }
 
 } // namespace libhmm

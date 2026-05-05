@@ -92,6 +92,9 @@ public:
 
     void reset() noexcept override;
     std::string toString() const override;
+    [[nodiscard]] std::string to_json() const override;
+    /// @internal JSON factory — called by the distribution registry in src/io/hmm_json.cpp.
+    static std::unique_ptr<EmissionDistribution> from_json(json::Reader &r);
 
     [[nodiscard]] int getN() const noexcept { return n_; }
     [[nodiscard]] double getP() const noexcept { return p_; }

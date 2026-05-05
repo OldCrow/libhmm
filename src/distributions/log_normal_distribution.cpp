@@ -1,4 +1,5 @@
 #include "libhmm/distributions/log_normal_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/performance/simd_kernels_internal.h"
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <numeric>   // For std::accumulate (not in common.h)
@@ -175,42 +176,35 @@ std::string LogNormalDistribution::toString() const {
 }
 
 std::ostream &operator<<(std::ostream &os, const libhmm::LogNormalDistribution &distribution) {
-
-    os << "LogNormal Distribution:" << std::endl;
-    os << "    Mean = " << distribution.getMean() << std::endl;
-    os << "    Standard Deviation = " << distribution.getStandardDeviation();
-    os << std::endl;
-
+    os << distribution.toString();
     return os;
 }
 
+// Parses the format produced by toString() / operator<<:
+//   LogNormal Distribution:
+//     \u03bc (log mean) = VALUE
+//     \u03c3 (log std. deviation) = VALUE
+//     Mean = VALUE
+//     Variance = VALUE
 std::istream &operator>>(std::istream &is, libhmm::LogNormalDistribution &distribution) {
     try {
-        std::string token, mean_str, stddev_str;
-        is >> token; //" Mean"
-        is >> token; // "="
-        is >> mean_str;
-        double mean = std::stod(mean_str);
-
-        is >> token; // "Standard"
-        is >> token; // "Deviation"
-        is >> token; // " = "
-        is >> stddev_str;
-        double stdDev = std::stod(stddev_str);
-
+        std::string s, t;
+        is >> s >> s;                // "LogNormal" "Distribution:"
+        is >> s >> s >> s >> s >> t; // "\u03bc" "(log" "mean)" "=" VALUE
+        const double mean = std::stod(t);
+        is >> s >> s >> s >> s >> s >> t; // "\u03c3" "(log" "std." "deviation)" "=" VALUE
+        const double sd = std::stod(t);
+        is >> s >> s >> t;
+        is >> s >> s >> t; // skip Mean, Variance
         if (is.good()) {
             distribution.setMean(mean);
-            distribution.setStandardDeviation(stdDev);
+            distribution.setStandardDeviation(sd);
         }
-
     } catch (const std::exception &) {
-        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
-
 // =============================================================================
 // Batch log-PDF — explicit SIMD intrinsics (tier 2)
 //
@@ -316,6 +310,18 @@ void LogNormalDistribution::getBatchLogProbabilities(std::span<const double> obs
         updateCache();
     detail::lognormal_logpdf_batch(observations.data(), out.data(), observations.size(), mean_,
                                    negHalfSigmaSquaredInv_, logNormalizationConstant_);
+}
+
+std::string LogNormalDistribution::to_json() const {
+    return json::write_distribution("LogNormal", {{"mu", mean_}, {"sigma", standardDeviation_}});
+}
+std::unique_ptr<EmissionDistribution> LogNormalDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double mu = r.read_double();
+    r.read_key();
+    const double sigma = r.read_double();
+    r.consume('}');
+    return std::make_unique<LogNormalDistribution>(mu, sigma);
 }
 
 } // namespace libhmm

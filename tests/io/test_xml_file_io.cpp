@@ -280,39 +280,23 @@ TEST_F(IOTest, XMLFileWriterCanWriteToPath) {
 
 // XMLFileReader Tests
 TEST_F(IOTest, XMLFileReaderBasicFunctionality) {
-    // First write an HMM
     XMLFileWriter writer;
     writer.write(*hmm_, xmlFile_);
 
-    // Now read it back
     XMLFileReader reader;
-    Hmm readHmm(1); // Start with different size
-
-    try {
-        readHmm = reader.read(xmlFile_);
-
-        // Verify basic properties match if read was successful
-        EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
-    } catch (const std::exception &e) {
-        // XML parsing may have locale or format issues
-        GTEST_SKIP() << "XML parsing failed (possibly locale-related): " << e.what();
-    }
+    Hmm readHmm(1);
+    ASSERT_NO_THROW(readHmm = reader.read(xmlFile_));
+    EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
 }
 
 TEST_F(IOTest, XMLFileReaderStringPath) {
-    // Write and read using string paths
     XMLFileWriter writer;
     writer.write(*hmm_, xmlFile_.string());
 
     XMLFileReader reader;
     Hmm readHmm(1);
-
-    try {
-        readHmm = reader.read(xmlFile_.string());
-        SUCCEED();
-    } catch (const std::exception &e) {
-        GTEST_SKIP() << "XML parsing failed (possibly locale-related): " << e.what();
-    }
+    ASSERT_NO_THROW(readHmm = reader.read(xmlFile_.string()));
+    EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
 }
 
 TEST_F(IOTest, XMLFileReaderNonExistentFileThrows) {
@@ -338,17 +322,18 @@ TEST_F(IOTest, XMLFileReaderCanReadFromPath) {
     EXPECT_FALSE(XMLFileReader::canReadFromPath(nonExistentFile_));
 }
 
-TEST_F(IOTest, XMLFileReaderIsValidXMLFile) {
-    // Create a valid XML file
-    FileIOManager::writeTextFile(xmlFile_, "<?xml version=\"1.0\"?>\n<test>content</test>");
-    EXPECT_TRUE(XMLFileReader::isValidXMLFile(xmlFile_));
+TEST_F(IOTest, XMLFileReaderCanParseAsHmm) {
+    // Create a file that starts with an XML declaration
+    FileIOManager::writeTextFile(xmlFile_,
+                                 "<?xml version=\"1.0\"?>\n<libhmm_model></libhmm_model>");
+    EXPECT_TRUE(XMLFileReader::canParseAsHmm(xmlFile_));
 
-    // Create an invalid file
+    // Create a file that does not start with an XML declaration
     FileIOManager::writeTextFile(testFile_, "This is not XML");
-    EXPECT_FALSE(XMLFileReader::isValidXMLFile(testFile_));
+    EXPECT_FALSE(XMLFileReader::canParseAsHmm(testFile_));
 
     // Test non-existent file
-    EXPECT_FALSE(XMLFileReader::isValidXMLFile(nonExistentFile_));
+    EXPECT_FALSE(XMLFileReader::canParseAsHmm(nonExistentFile_));
 }
 
 // Integration Tests
@@ -356,50 +341,49 @@ TEST_F(IOTest, XMLRoundTripConsistency) {
     XMLFileWriter writer;
     XMLFileReader reader;
 
-    // Write original HMM
     writer.write(*hmm_, xmlFile_);
 
-    try {
-        // Read it back
-        Hmm readHmm = reader.read(xmlFile_);
+    Hmm readHmm = reader.read(xmlFile_); // throws on failure — no skip
+    EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
 
-        // Basic consistency checks
-        EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
-
-        // Write the read HMM to a second file
-        auto xmlFile2 = testDir_ / "test_hmm2.xml";
-        writer.write(readHmm, xmlFile2);
-
-        // Both files should exist and have content
-        EXPECT_TRUE(std::filesystem::exists(xmlFile_));
-        EXPECT_TRUE(std::filesystem::exists(xmlFile2));
-    } catch (const std::exception &e) {
-        GTEST_SKIP() << "XML parsing failed (possibly locale-related): " << e.what();
+    // Distributions should have the same type and approximate parameters
+    // (6-decimal-place format means ~1e-6 precision on probability values).
+    for (int i = 0; i < readHmm.getNumStates(); ++i) {
+        const auto *orig = dynamic_cast<const DiscreteDistribution *>(&hmm_->getDistribution(i));
+        const auto *rest = dynamic_cast<const DiscreteDistribution *>(&readHmm.getDistribution(i));
+        ASSERT_NE(orig, nullptr) << "state " << i;
+        ASSERT_NE(rest, nullptr) << "state " << i;
+        EXPECT_EQ(rest->getNumSymbols(), orig->getNumSymbols());
+        for (std::size_t k = 0; k < orig->getNumSymbols(); ++k)
+            EXPECT_NEAR(rest->getSymbolProbability(k), orig->getSymbolProbability(k), 1e-5)
+                << "state " << i << " symbol " << k;
     }
+
+    // Write the restored HMM to a second file and confirm it exists.
+    auto xmlFile2 = testDir_ / "test_hmm2.xml";
+    ASSERT_NO_THROW(writer.write(readHmm, xmlFile2));
+    EXPECT_TRUE(std::filesystem::exists(xmlFile_));
+    EXPECT_TRUE(std::filesystem::exists(xmlFile2));
 }
 
 TEST_F(IOTest, HMMStreamOperators) {
-    // Test the stream operators for HMM
     std::stringstream ss;
+    ASSERT_NO_THROW(ss << *hmm_);
 
-    // Write HMM to stream
-    EXPECT_NO_THROW(ss << *hmm_);
-
-    // Stream should have content
     EXPECT_FALSE(ss.str().empty());
-    EXPECT_TRUE(ss.str().find("Hidden Markov Model parameters") != std::string::npos);
+    EXPECT_NE(ss.str().find("Hidden Markov Model parameters"), std::string::npos);
+    EXPECT_NE(ss.str().find("Discrete Distribution:"), std::string::npos);
 
-    // Read HMM from stream
     Hmm readHmm(1);
+    ASSERT_NO_THROW(ss >> readHmm);
+    EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
 
-    try {
-        ss >> readHmm;
-
-        // Basic validation
-        EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
-    } catch (const std::exception &e) {
-        GTEST_SKIP() << "Stream parsing failed (possibly locale-related): " << e.what();
-    }
+    // Verify the discrete distribution round-trips correctly.
+    const auto *orig = dynamic_cast<const DiscreteDistribution *>(&hmm_->getDistribution(0));
+    const auto *rest = dynamic_cast<const DiscreteDistribution *>(&readHmm.getDistribution(0));
+    ASSERT_NE(orig, nullptr);
+    ASSERT_NE(rest, nullptr);
+    EXPECT_EQ(rest->getNumSymbols(), orig->getNumSymbols());
 }
 
 // Error Handling Tests
