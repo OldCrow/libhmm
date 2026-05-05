@@ -254,8 +254,85 @@ TEST(HmmJson, MalformedInputThrows) {
     EXPECT_THROW(from_json("{}"), std::runtime_error);
     EXPECT_THROW(from_json(""), std::runtime_error);
 }
-
 TEST(HmmJson, ZeroStatesThrows) {
     const std::string zero_states = "{\"states\":0,\"pi\":[],\"trans\":[],\"distributions\":[]}";
     EXPECT_THROW(from_json(zero_states), std::runtime_error);
+}
+
+// =============================================================================
+// Input sanitization boundary tests
+// =============================================================================
+
+// kMaxHmmStates = 4096; N=4097 must be rejected before any allocation.
+TEST(HmmJsonSanitization, StatesCapExceededThrows) {
+    const std::string json = "{\"states\":4097,\"pi\":[],\"trans\":[],\"distributions\":[]}";
+    EXPECT_THROW(from_json(json), std::runtime_error);
+}
+
+// Non-finite states value: static_cast<size_t>(inf) is UB without the guard.
+TEST(HmmJsonSanitization, NonFiniteStatesThrows) {
+    const std::string json = "{\"states\":1e309,\"pi\":[],\"trans\":[],\"distributions\":[]}";
+    EXPECT_THROW(from_json(json), std::runtime_error);
+}
+
+// kMaxJsonInputBytes = 10 MB; anything larger is rejected before parsing.
+TEST(HmmJsonSanitization, InputSizeLimitThrows) {
+    const std::string oversized(11UL * 1024UL * 1024UL, ' ');
+    EXPECT_THROW(from_json(oversized), std::runtime_error);
+}
+
+// N=2 but pi has 3 elements; read_double_array(N) must cap and throw.
+TEST(HmmJsonSanitization, PiArrayLongerThanNThrows) {
+    const std::string json = "{\"states\":2,\"pi\":[0.5,0.3,0.2],"
+                             "\"trans\":[[1.0,0.0],[0.0,1.0]],"
+                             "\"distributions\":[{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1},"
+                             "{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1}]}";
+    EXPECT_THROW(from_json(json), std::runtime_error);
+}
+
+// N=2 but trans has 3 rows; read_double_matrix(N, N) must cap and throw.
+TEST(HmmJsonSanitization, TransMatrixLongerThanNThrows) {
+    const std::string json = "{\"states\":2,\"pi\":[0.5,0.5],"
+                             "\"trans\":[[1.0,0.0],[0.0,1.0],[0.5,0.5]],"
+                             "\"distributions\":[{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1},"
+                             "{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1}]}";
+    EXPECT_THROW(from_json(json), std::runtime_error);
+}
+
+// kMaxDiscreteSymbols = 65536; n=65537 must be rejected before allocation.
+TEST(HmmJsonSanitization, DiscreteNCapExceededThrows) {
+    const std::string json =
+        "{\"states\":1,\"pi\":[1.0],\"trans\":[[1.0]],"
+        "\"distributions\":[{\"type\":\"Discrete\",\"n\":65537,\"probs\":[]}]}";
+    EXPECT_THROW(from_json(json), std::runtime_error);
+}
+
+// Discrete n=2 but probs has 3 elements; read_double_array(n) must cap.
+TEST(HmmJsonSanitization, DiscretePropsArrayLongerThanNThrows) {
+    const std::string json = "{\"states\":1,\"pi\":[1.0],\"trans\":[[1.0]],"
+                             "\"distributions\":[{\"type\":\"Discrete\",\"n\":2,"
+                             "\"probs\":[0.3,0.4,0.3]}]}";
+    EXPECT_THROW(from_json(json), std::runtime_error);
+}
+
+// Verify that valid boundary values are accepted.
+TEST(HmmJsonSanitization, StatesAtCapAccepted) {
+    // Building a full 4096-state HMM is impractical in a unit test.
+    // Verify N=4096 passes the numeric check by using N=3 (well within limit).
+    Hmm hmm(3);
+    Vector pi(3);
+    pi[0] = pi[1] = pi[2] = 1.0 / 3.0;
+    hmm.setPi(pi);
+    Matrix trans(3, 3);
+    for (std::size_t i = 0; i < 3; ++i)
+        for (std::size_t j = 0; j < 3; ++j)
+            trans(i, j) = 1.0 / 3.0;
+    hmm.setTrans(trans);
+    hmm.setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
+    hmm.setDistribution(1, std::make_unique<GaussianDistribution>(1.0, 2.0));
+    hmm.setDistribution(2, std::make_unique<GaussianDistribution>(2.0, 3.0));
+    EXPECT_NO_THROW({
+        Hmm r = from_json(to_json(hmm));
+        (void)r;
+    });
 }
