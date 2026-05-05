@@ -7,6 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-05-05
+
+Code quality refactoring (Phases 1–3) and JSON serialization. 38/38 tests pass.
+
+### Added
+
+- **JSON serializer/deserializer** (`include/libhmm/io/hmm_json.h`,
+  `src/io/json_utils.h/cpp`, `src/io/hmm_json.cpp`):
+  - `to_json(Hmm)`, `from_json(string_view)`, `save_json(Hmm, path)`,
+    `load_json(path)` free functions — no external dependencies.
+  - `json::Reader` schema-aware tokenizer + `write_double`/`write_array`/
+    `write_matrix`/`write_distribution` helpers at `max_digits10` precision
+    for exact IEEE 754 round-trip.
+  - All 15 distributions gain `to_json() const override` and
+    `static from_json(json::Reader&)` factory methods.
+  - Anonymous-namespace `unordered_map<string, FactoryFn>` dispatch (CC 2,
+    constant regardless of distribution count).
+  - Input sanitization: `kMaxHmmStates=4096` (≈128 MB matrix cap),
+    `kMaxJsonInputBytes=10 MB`, `kMaxDiscreteSymbols=65536`, bounded
+    `read_double_array(N)` / `read_double_matrix(N,N)` to prevent heap
+    growth before post-read dimension checks.
+- **`libhmm.h`** now includes `hmm_json.h` as the recommended I/O entry point.
+- **`samples/`** directory: `two_state_gaussian.{json,xml}` and
+  `casino.{json,xml}` — validated reference HMM files in both formats.
+- **`test_hmm_json`** (new test): type-field format check for all 15
+  distributions, 15-state all-distributions round-trip (bit-exact via
+  max_digits10), file save/load, 8 sanitization boundary tests.
+- **Weighted statistics helper** (`src/common/weighted_stats.cpp`):
+  `detail::compute_weighted_stats` / `detail::compute_weighted_mean`
+  consolidate repeated weighted preamble logic across 8 distributions.
+- **`test_hmm_json`**, extended `test_hmm_stream_io`, and updated
+  `test_xml_file_io` (all 4 GTEST_SKIP instances removed — round-trips now
+  pass with corrected parsers).
+
+### Changed
+
+- **`operator>>(istream, Hmm)` decomposed**: 258 lines / CC 18 → 76 lines /
+  CC 7. Extracted 14 named `parse_*` functions to the anonymous namespace;
+  replaced `std::function<>` map with a plain `StreamParserFn` function-pointer
+  map. Added `parse_binomial` and `parse_rayleigh` (previously absent from
+  dispatch). Zero lizard warnings in `hmm.cpp`.
+- **All 15 `operator<<`** now delegate to `toString()` for consistent output;
+  all 15 standalone `operator>>`** rewritten to token-scan the `toString()`
+  format, including skipping derived-value lines (Mean, Variance, etc.).
+- **`StudentT::operator>>`**: CC 22 key=value parser (65 lines) replaced with
+  3-line token scan (CC 2).
+- **`Discrete::operator>>`**: legacy bare-integer format replaced with current
+  `toString()` / `Number of symbols = N` format.
+- **`XMLFileReader::isValidXMLFile`** renamed `canParseAsHmm`; dead boost TODO
+  comment blocks removed from both XML classes; classes marked deprecated
+  (prefer `hmm_json.h`).
+- **`hmm_validator` tool**: auto-detects format from file extension
+  (`.json` → `load_json`; anything else → `XMLFileReader`).
+- **`basic_hmm_example`** section 4: raw `ofstream`/`ifstream` round-trip
+  replaced with `save_json`/`load_json` demonstration.
+- **`segmental_kmeans_trainer.cpp`**: implementation-level documentation
+  added (algorithm overview, partitioning strategy, 1e-10 floor rationale,
+  convergence indicator, flatten rationale).
+- **`common/common.h` split** (Phase 2, PR #5): linalg headers removed;
+  distribution headers replaced `common.h` dependency with targeted includes;
+  explicit linalg includes added only where genuinely required. Fan-in
+  reduced from 24 to the headers that actually need the linalg types.
+- **`json_utils.cpp`**: `std::from_chars` (floating-point, not available on
+  AppleClang/libc++) replaced with `std::strtod`; `write_double` imbues
+  `std::locale::classic()` for locale safety.
+- **Code quality (Phase 1, PR #4)**:
+  - `detail::compute_weighted_stats` eliminates duplicated weighted fit
+    preambles across 8 distributions.
+  - `precomputeLogTransitions` consolidated into the shared calculator base.
+  - `BaumWelchTrainer::train` decomposed from CC 32 to CC 13.
+  - `ViterbiTrainer::runIteration` decomposed.
+  - Tool includes normalised to `distributions.h` umbrella header.
+  - `FileIOManager` write-path extracted to shared `do_write` helper.
+  - `NumericalDiagnostics` value-classification helper extracted.
+
+### Fixed
+
+- **9 distributions** had `operator<<` writing a format different from
+  `toString()` (e.g. `GaussianDistribution` wrote `"Normal Distribution:
+  Mean = V"` while `toString()` writes `"Gaussian Distribution: μ (mean) = V"`).
+- **6 `parse_*` functions** in `hmm.cpp` had wrong token counts
+  (e.g. `parse_poisson` expected `λ =` but `toString()` writes
+  `λ (rate parameter) =`).
+- **`Binomial`/`NegativeBinomial` `operator>>`** parsed a parenthesised
+  `Dist(r,p)` format that no `operator<<` ever produced.
+- **`Poisson::operator>>`** parsed 4 tokens before value; `toString()` writes 6.
+- **`std::from_chars` (float)** not available in AppleClang/libc++ — caused CI
+  failure; replaced with portable `std::strtod`.
+
+### Removed
+
+- Dead `include/libhmm/common/serialization.h` (zero callers post-Phase 2).
+- Dead `include/libhmm/distributions/distribution_io_utils.h` (zero callers
+  since Phase 1).
+- All `GTEST_SKIP()` instances (was 4 in IO tests; hidden bugs now surface as
+  failures and have been fixed).
+
 ## [3.3.0] - 2026-05-03
 
 SIMD performance phase: explicit vector kernels for transcendental

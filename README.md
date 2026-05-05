@@ -3,8 +3,8 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-3.1.2-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-36%2F36_Passing-success.svg)](tests/)
+[![Version](https://img.shields.io/badge/Version-3.4.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-38%2F38_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
@@ -40,6 +40,18 @@ SIMD acceleration directly at the distribution layer.
 All distributions implement `getBatchLogProbabilities()` for SIMD-accelerated batch evaluation.
 `GaussianDistribution` and `ExponentialDistribution` have explicit AVX-512/AVX2/SSE2/NEON intrinsics (tier 2);
 the remaining 13 use concrete non-virtual loops that the compiler auto-vectorizes under `-march=native`.
+
+### I/O
+
+- **JSON serialization** (recommended): `save_json(hmm, path)` / `load_json(path)` — exact IEEE 754
+  round-trip, no external dependencies, locale-safe.
+  ```cpp
+  libhmm::save_json(hmm, "model.json");
+  auto hmm2 = libhmm::load_json("model.json");
+  ```
+- **Legacy XML** (`XMLFileReader` / `XMLFileWriter`): retained for reading existing `.xml` files;
+  deprecated in favour of JSON for new code.
+- See [`samples/`](samples/) for ready-to-use reference HMM files in both formats.
 
 ### Performance
 
@@ -133,11 +145,13 @@ libhmm/
 │   ├── distributions/ # Layer 3: 15 distributions + base
 │   ├── hmm.h          # Core HMM class
 │   ├── calculators/   # Layer 4: ForwardBackward, Viterbi
-│   └── training/      # Layer 4: BaumWelch, Viterbi, SegmentalKMeans
+│   ├── training/      # Layer 4: BaumWelch, Viterbi, SegmentalKMeans
+│   └── io/            # JSON (hmm_json.h) + legacy XML I/O
 ├── src/               # Implementation (mirrors include/)
-├── tests/             # 36-test GTest suite (7 architectural levels)
+├── tests/             # 38-test GTest suite
 ├── examples/          # 12 usage demonstrations
-├── tools/             # simd_inspection, batch_performance, hmm_validator
+├── tools/             # simd_inspection, batch_performance, hmm_validator (.json/.xml)
+├── samples/           # Reference HMM files (two_state_gaussian, casino) in JSON and XML
 ├── benchmarks/        # Comparative benchmarks (requires external libraries)
 ├── docs/              # Documentation and checklists
 └── CMakeLists.txt
@@ -149,7 +163,7 @@ See [examples/](examples/) for demonstrations:
 
 | Example | Distribution(s) | Trainer |
 |---|---|---|
-| `basic_hmm_example` | Discrete, Gaussian | Viterbi |
+| `basic_hmm_example` | Discrete, Gaussian, Poisson | Viterbi + JSON I/O |
 | `baum_welch_example` | Gaussian | BaumWelch (with EM convergence table) |
 | `viterbi_trainer_example` | Gaussian | Viterbi (preset comparison) |
 | `student_t_hmm_example` | StudentT | BaumWelch |
