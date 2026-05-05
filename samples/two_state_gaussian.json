@@ -1,0 +1,1 @@
+{"states":2,"pi":[0.75,0.25],"trans":[[0.875,0.125],[0.25,0.75]],"distributions":[{"type":"Gaussian","mu":0,"sigma":1},{"type":"Gaussian","mu":2.5,"sigma":0.5}]}
