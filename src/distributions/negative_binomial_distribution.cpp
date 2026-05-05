@@ -1,4 +1,5 @@
 #include "libhmm/distributions/negative_binomial_distribution.h"
+#include "libhmm/io/json_utils.h"
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <numeric>   // For std::accumulate (not in common.h)
 #include <algorithm> // For std::for_each (exists in common.h, included for clarity)
@@ -206,67 +207,33 @@ bool NegativeBinomialDistribution::operator==(const NegativeBinomialDistribution
     return (std::abs(r_ - other.r_) < tolerance) && (std::abs(p_ - other.p_) < tolerance);
 }
 
+// Parses the format produced by toString() / operator<<:
+//   Negative Binomial Distribution:
+//     r (successes) = VALUE
+//     p (success probability) = VALUE
+//     Mean = VALUE
+//     Variance = VALUE
 std::istream &operator>>(std::istream &is, libhmm::NegativeBinomialDistribution &distribution) {
-    std::string token;
-    // Expected format: "NegativeBinomial(r,p)" or "r p"
-    if (is >> token) {
-        double r = 0.0, p = 0.0;
-        if (token.find("NegativeBinomial") != std::string::npos) {
-            // Parse formatted input: NegativeBinomial(r,p)
-            std::string fullInput = token;
-            std::string remaining;
-            std::getline(is, remaining);
-            fullInput += remaining;
-
-            // Find the opening and closing parentheses
-            size_t openParen = fullInput.find('(');
-            size_t closeParen = fullInput.find(')');
-            size_t comma = fullInput.find(',');
-
-            if (openParen != std::string::npos && closeParen != std::string::npos &&
-                comma != std::string::npos) {
-                std::string rStr = fullInput.substr(openParen + 1, comma - openParen - 1);
-                std::string pStr = fullInput.substr(comma + 1, closeParen - comma - 1);
-
-                try {
-                    r = std::stod(rStr);
-                    p = std::stod(pStr);
-                } catch (const std::exception &) {
-                    is.setstate(std::ios::failbit);
-                    return is;
-                }
-            } else {
-                is.setstate(std::ios::failbit);
-                return is;
-            }
-        } else {
-            // Assume first token is r
-            try {
-                r = std::stod(token);
-                is >> p;
-            } catch (const std::exception &) {
-                is.setstate(std::ios::failbit);
-                return is;
-            }
-        }
-
-        try {
+    try {
+        std::string s, t;
+        is >> s >> s >> s;      // "Negative" "Binomial" "Distribution:"
+        is >> s >> s >> s >> t; // "r" "(successes)" "=" VALUE
+        const double r = std::stod(t);
+        is >> s >> s >> s >> s >> t; // "p" "(success" "probability)" "=" VALUE
+        const double p = std::stod(t);
+        is >> s >> s >> t;
+        is >> s >> s >> t; // skip Mean, Variance
+        if (is.good())
             distribution.setParameters(r, p);
-        } catch (const std::exception &) {
-            is.setstate(std::ios::failbit);
-        }
+    } catch (const std::exception &) {
+        is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
 std::ostream &operator<<(std::ostream &os,
                          const libhmm::NegativeBinomialDistribution &distribution) {
-    os << "Negative Binomial Distribution:" << std::endl;
-    os << "    r = " << distribution.getR() << std::endl;
-    os << "    p = " << distribution.getP() << std::endl;
-    os << std::endl;
-
+    os << distribution.toString();
     return os;
 }
 
@@ -282,6 +249,18 @@ void NegativeBinomialDistribution::getBatchLogProbabilities(std::span<const doub
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = NegativeBinomialDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string NegativeBinomialDistribution::to_json() const {
+    return json::write_distribution("NegativeBinomial", {{"r", r_}, {"p", p_}});
+}
+std::unique_ptr<EmissionDistribution> NegativeBinomialDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double rv = r.read_double();
+    r.read_key();
+    const double p = r.read_double();
+    r.consume('}');
+    return std::make_unique<NegativeBinomialDistribution>(rv, p);
 }
 
 } // namespace libhmm

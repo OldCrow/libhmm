@@ -1,4 +1,5 @@
 #include "libhmm/distributions/gamma_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include <span>
 
 using namespace libhmm::constants;
@@ -182,38 +183,31 @@ std::string GammaDistribution::toString() const {
 }
 
 std::ostream &operator<<(std::ostream &os, const libhmm::GammaDistribution &distribution) {
-    os << "Gamma Distribution: " << std::endl;
-    os << "    k (shape) = " << distribution.getK() << std::endl;
-    os << "    theta (scale) = " << distribution.getTheta() << std::endl;
-    os << "    Mean = " << distribution.getMean() << std::endl;
-    os << "    Variance = " << distribution.getVariance() << std::endl;
-
+    os << distribution.toString();
     return os;
 }
 
+// Parses the format produced by toString() / operator<<:
+//   Gamma Distribution:
+//     k (shape parameter) = VALUE
+//     \u03b8 (scale parameter) = VALUE
+//     Mean = VALUE
+//     Variance = VALUE
 std::istream &operator>>(std::istream &is, libhmm::GammaDistribution &distribution) {
     try {
-        std::string token, k_str, theta_str;
-        is >> token; // "k"
-        is >> token; // "(shape)"
-        is >> token; // "="
-        is >> k_str;
-        double k = std::stod(k_str);
-
-        is >> token; // "theta"
-        is >> token; // "(scale)"
-        is >> token; // "="
-        is >> theta_str;
-        double theta = std::stod(theta_str);
-
-        // Use setParameters for validation
-        distribution.setParameters(k, theta);
-
+        std::string s, t;
+        is >> s >> s;                // "Gamma" "Distribution:"
+        is >> s >> s >> s >> s >> t; // "k" "(shape" "parameter)" "=" VALUE
+        const double k = std::stod(t);
+        is >> s >> s >> s >> s >> t; // "\u03b8" "(scale" "parameter)" "=" VALUE
+        const double theta = std::stod(t);
+        is >> s >> s >> t;
+        is >> s >> s >> t; // skip Mean, Variance
+        if (is.good())
+            distribution.setParameters(k, theta);
     } catch (const std::exception &) {
-        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
@@ -236,6 +230,18 @@ void GammaDistribution::getBatchLogProbabilities(std::span<const double> observa
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = GammaDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string GammaDistribution::to_json() const {
+    return json::write_distribution("Gamma", {{"k", k_}, {"theta", theta_}});
+}
+std::unique_ptr<EmissionDistribution> GammaDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double k = r.read_double();
+    r.read_key();
+    const double theta = r.read_double();
+    r.consume('}');
+    return std::make_unique<GammaDistribution>(k, theta);
 }
 
 } // namespace libhmm

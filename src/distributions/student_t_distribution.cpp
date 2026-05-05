@@ -1,4 +1,5 @@
 #include "libhmm/distributions/student_t_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include <algorithm>
 #include <limits>
 #include <span>
@@ -247,85 +248,31 @@ bool StudentTDistribution::operator!=(const StudentTDistribution &other) const {
     return !(*this == other);
 }
 
-/**
- * Input stream operator for reading StudentT distribution from formatted text.
- * Expected format: "StudentT(nu=value, mu=value, sigma=value)" or similar variations.
- */
+// Parses the format produced by toString() / operator<<:
+//   StudentT Distribution:
+//     nu (degrees of freedom) = VALUE
+//     mu (location) = VALUE
+//     sigma (scale) = VALUE
 std::istream &operator>>(std::istream &is, StudentTDistribution &dist) {
-    std::string line;
-    if (!std::getline(is, line)) {
-        is.setstate(std::ios::failbit);
-        return is;
-    }
-
     try {
-        // Parse parameters from the line
-        double nu = 1.0, mu = 0.0, sigma = 1.0;
-        bool found_nu = false, found_mu = false, found_sigma = false;
-
-        // Look for parameter patterns
-        std::string::size_type start = line.find('(');
-        std::string::size_type end = line.rfind(')');
-
-        if (start != std::string::npos && end != std::string::npos && end > start) {
-            std::string params = line.substr(start + 1, end - start - 1);
-
-            // Split by commas and parse each parameter
-            std::istringstream param_stream(params);
-            std::string param;
-
-            while (std::getline(param_stream, param, ',')) {
-                std::string::size_type eq_pos = param.find('=');
-                if (eq_pos != std::string::npos) {
-                    std::string name = param.substr(0, eq_pos);
-                    std::string value = param.substr(eq_pos + 1);
-
-                    // Trim whitespace
-                    name.erase(std::remove_if(name.begin(), name.end(), ::isspace), name.end());
-                    value.erase(std::remove_if(value.begin(), value.end(), ::isspace), value.end());
-
-                    if (name == "nu" || name == "ν" || name == "df") {
-                        nu = std::stod(value);
-                        found_nu = true;
-                    } else if (name == "mu" || name == "μ" || name == "location") {
-                        mu = std::stod(value);
-                        found_mu = true;
-                    } else if (name == "sigma" || name == "σ" || name == "scale") {
-                        sigma = std::stod(value);
-                        found_sigma = true;
-                    }
-                }
-            }
-        }
-
-        // Create new distribution with parsed parameters
-        if (found_nu && found_mu && found_sigma) {
-            dist = StudentTDistribution(nu, mu, sigma);
-        } else if (found_nu) {
-            dist = StudentTDistribution(nu);
-        } else {
-            // Default case - just parse the first number if any
-            std::istringstream number_stream(line);
-            double value = 0.0;
-            if (number_stream >> value) {
-                dist = StudentTDistribution(value);
-            } else {
-                is.setstate(std::ios::failbit);
-            }
-        }
+        std::string s, t;
+        is >> s >> s;                     // "StudentT" "Distribution:"
+        is >> s >> s >> s >> s >> s >> t; // "nu" "(degrees" "of" "freedom)" "=" VALUE
+        const double nu = std::stod(t);
+        is >> s >> s >> s >> t; // "mu" "(location)" "=" VALUE
+        const double mu = std::stod(t);
+        is >> s >> s >> s >> t; // "sigma" "(scale)" "=" VALUE
+        if (is.good())
+            dist = StudentTDistribution(nu, mu, std::stod(t));
     } catch (const std::exception &) {
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
-/**
- * Output stream operator for writing StudentT distribution in readable format.
- */
+// Delegates to toString() — consistent with other distributions.
 std::ostream &operator<<(std::ostream &os, const StudentTDistribution &dist) {
-    os << "StudentT(nu=" << std::fixed << std::setprecision(6) << dist.getDegreesOfFreedom()
-       << ", mu=" << dist.getLocation() << ", sigma=" << dist.getScale() << ")";
+    os << dist.toString();
     return os;
 }
 
@@ -392,6 +339,21 @@ void StudentTDistribution::getBatchLogProbabilities(std::span<const double> obse
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = StudentTDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string StudentTDistribution::to_json() const {
+    return json::write_distribution(
+        "StudentT", {{"df", degrees_of_freedom_}, {"mu", location_}, {"sigma", scale_}});
+}
+std::unique_ptr<EmissionDistribution> StudentTDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double df = r.read_double();
+    r.read_key();
+    const double mu = r.read_double();
+    r.read_key();
+    const double sigma = r.read_double();
+    r.consume('}');
+    return std::make_unique<StudentTDistribution>(df, mu, sigma);
 }
 
 } // namespace libhmm
