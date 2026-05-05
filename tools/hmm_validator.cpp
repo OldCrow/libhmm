@@ -1,23 +1,27 @@
 /**
- * hmm_validator — load, validate and run inference on an XML HMM file.
+ * hmm_validator — load, validate and run inference on an HMM file.
  *
  * Usage:
- *   hmm_validator <hmm_xml_file> [T]
+ *   hmm_validator <hmm_file> [T]
  *
- *   hmm_xml_file  Path to an HMM written by libhmm (XMLFileWriter)
- *   T             Observation sequence length for inference (default: 100)
+ *   hmm_file  Path to an HMM file written by libhmm.
+ *             .json extension → JSON format (save_json / load_json).
+ *             Any other extension → legacy XML format (XMLFileWriter).
+ *   T         Observation sequence length for inference (default: 100)
  *
- * Loads the HMM from XML, validates its structure, generates T synthetic
- * zero-valued observations (always within support for any distribution),
- * runs ForwardBackward and Viterbi, and prints a diagnostics report.
+ * Loads the HMM, validates its structure, generates T synthetic zero-valued
+ * observations (always within support for any distribution), runs
+ * ForwardBackward and Viterbi, and prints a diagnostics report.
  *
  * Exit code: 0 = all checks passed, 1 = load/validate/inference failure.
  */
 #include "libhmm/hmm.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
 #include "libhmm/calculators/viterbi_calculator.h"
+#include "libhmm/io/hmm_json.h"
 #include "libhmm/io/xml_file_reader.h"
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -25,9 +29,9 @@
 using namespace libhmm;
 
 static void print_usage(const char *prog) {
-    std::cout << "Usage: " << prog << " <hmm_xml_file> [T]\n\n"
-              << "  hmm_xml_file  Path to an XML HMM file written by libhmm\n"
-              << "  T             Observation sequence length (default: 100)\n";
+    std::cout << "Usage: " << prog << " <hmm_file> [T]\n\n"
+              << "  hmm_file  Path to an HMM file (.json or legacy .xml)\n"
+              << "  T         Observation sequence length (default: 100)\n";
 }
 
 int main(int argc, char *argv[]) {
@@ -36,24 +40,29 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    const std::string xml_path = argv[1];
+    const std::filesystem::path hmm_path = argv[1];
     const int T = (argc >= 3) ? std::stoi(argv[2]) : 100;
 
     std::cout << "libhmm HMM Validator\n";
     std::cout << "====================\n";
-    std::cout << "File: " << xml_path << "\n";
+    std::cout << "File: " << hmm_path.string() << "\n";
     std::cout << "T:    " << T << "\n\n";
 
     int exit_code = 0;
 
     // -------------------------------------------------------------------------
-    // 1. Load
+    // 1. Load — detect format from file extension
     // -------------------------------------------------------------------------
     Hmm hmm(1); // placeholder overwritten by reader
     try {
-        XMLFileReader reader;
-        hmm = reader.read(xml_path);
-        std::cout << "[ OK ] Load from XML\n";
+        if (hmm_path.extension() == ".json") {
+            hmm = load_json(hmm_path);
+            std::cout << "[ OK ] Load from JSON\n";
+        } else {
+            XMLFileReader reader;
+            hmm = reader.read(hmm_path.string());
+            std::cout << "[ OK ] Load from XML (legacy format)\n";
+        }
     } catch (const std::exception &e) {
         std::cerr << "[FAIL] Load: " << e.what() << "\n";
         return 1;
