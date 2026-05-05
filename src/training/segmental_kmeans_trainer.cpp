@@ -4,8 +4,25 @@
 #include <algorithm>
 #include <iostream>
 
+// Segmental K-means (hard-assignment EM) for discrete HMMs.
+//
+// Algorithm outline per iteration:
+//   1. learnPi()   — estimate π from the first observation of each sequence
+//   2. learnTrans()— estimate A from consecutive cluster-transition counts
+//   3. learnEmis() — estimate B via MLE from hard cluster assignments
+//   4. optimizeCluster() — re-run Viterbi; move observations to the decoded
+//                          state; return true if any assignment changed
+// Convergence: optimizeCluster() returning false (no movement) terminates
+// train().
+//
+// Restriction: all HMM states must use DiscreteDistribution.
+// For continuous data, use BaumWelchTrainer instead.
+
 namespace libhmm {
 
+/// Partition observations into k clusters by index position.
+/// Observation i is assigned to cluster floor(i * k / N), giving an
+/// approximately uniform initial partition without requiring data statistics.
 Clusters::Clusters(std::size_t k, const ObservationSet &observations) {
     if (k == 0) {
         throw std::invalid_argument("Number of clusters must be greater than zero");
@@ -41,6 +58,9 @@ const std::vector<std::size_t> &Clusters::cluster(std::size_t clusterNb) const {
     return clusters_[clusterNb];
 }
 
+/// Remove an observation from its current cluster.
+/// The clustersHash_ entry is set to SIZE_MAX as a "no cluster" sentinel;
+/// the observation is re-assigned via put() before any further access.
 void Clusters::remove(std::size_t observation, std::size_t clusterNb) {
     if (clusterNb >= clusters_.size()) {
         throw std::out_of_range("Invalid cluster number");
@@ -95,6 +115,9 @@ void SegmentalKMeansTrainer::iterate() {
     terminated_ = !optimizeCluster();
 }
 
+/// Estimate π: each observation sequence contributes one vote to the cluster
+/// that its first observation belongs to. pi[j] = count(first obs in cluster j)
+/// / total sequences.
 void SegmentalKMeansTrainer::learnPi() {
     Hmm &hmm = hmm_ref_.get();
     const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
@@ -118,6 +141,9 @@ void SegmentalKMeansTrainer::learnPi() {
     hmm.setPi(pi);
 }
 
+/// Estimate A: count consecutive (from_cluster → to_cluster) transitions
+/// across all sequences, then row-normalise. Rows with zero counts are set
+/// to uniform to avoid a degenerate transition matrix.
 void SegmentalKMeansTrainer::learnTrans() {
     Hmm &hmm = hmm_ref_.get();
     const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
@@ -156,6 +182,10 @@ void SegmentalKMeansTrainer::learnTrans() {
     hmm.setTrans(trans);
 }
 
+/// Estimate B: for each cluster/state, count how often each symbol appears
+/// in its observations and divide by the cluster size (MLE). Empty clusters
+/// fall back to uniform. A 1e-10 floor prevents exact zeros, which would
+/// cause -inf log-probabilities during subsequent Viterbi decoding.
 void SegmentalKMeansTrainer::learnEmis() {
     Hmm &hmm = hmm_ref_.get();
     const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
@@ -190,6 +220,9 @@ void SegmentalKMeansTrainer::learnEmis() {
     }
 }
 
+/// Re-run Viterbi on every sequence and reassign observations to the decoded
+/// state. Returns true if at least one observation moved to a different
+/// cluster (i.e., training has not yet converged).
 bool SegmentalKMeansTrainer::optimizeCluster() {
     bool modified = false;
 
@@ -213,6 +246,10 @@ bool SegmentalKMeansTrainer::optimizeCluster() {
     return modified;
 }
 
+/// Flatten multiple observation sequences into one contiguous ObservationSet.
+/// Used to initialise Clusters, which requires a single ordered set so that
+/// the index-based partitioning assigns contiguous observations to the same
+/// initial cluster.
 ObservationSet
 SegmentalKMeansTrainer::flattenObservationLists(const ObservationLists &observationLists) {
     std::size_t totalObservations = 0;

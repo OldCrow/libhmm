@@ -5,10 +5,9 @@
  *    Demonstrates ForwardBackward probability evaluation.
  * 2. Distribution showcase — PDF evaluation and MLE fitting.
  * 3. Viterbi training on a 3-state Gaussian HMM.
- * 4. XML file round-trip.
+ * 4. JSON file round-trip (save_json / load_json).
  */
 #include <iostream>
-#include <fstream>
 #include <memory>
 #include <vector>
 #include <cmath>
@@ -181,7 +180,11 @@ int main() {
         std::cout << hmm << std::endl;
     }
     {
-        std::cout << "Testing File Read/Write" << std::endl;
+        // =====================================================================
+        // 4. JSON file round-trip
+        // =====================================================================
+        std::cout << "Testing JSON File Round-Trip" << std::endl;
+        std::cout << "---------------------------" << std::endl;
         Hmm hmm(2);
         Vector pi(2);
         Matrix trans(2, 2);
@@ -196,17 +199,18 @@ int main() {
         hmm.setTrans(trans);
         hmm.setDistribution(0, std::make_unique<GaussianDistribution>());
         hmm.setDistribution(1, std::make_unique<GaussianDistribution>(2.0, 2.0));
-        std::ofstream of("testrw", std::ios::out);
 
-        std::cout << hmm << std::endl;
-        of << hmm << std::endl;
-        of.close();
+        std::cout << "Original HMM:\n" << hmm << std::endl;
 
-        Hmm hmm1(2);
-        std::ifstream inf("testrw", std::ios::in);
-        inf >> hmm1;
-        //        inf.close( );
+        // Save to JSON — exact round-trip at max_digits10 precision.
+        const std::filesystem::path jsonPath = "basic_hmm.json";
+        libhmm::save_json(hmm, jsonPath);
+        std::cout << "Saved to: " << jsonPath << std::endl;
 
-        std::cout << hmm1 << std::endl;
+        // Load back.
+        Hmm loaded = libhmm::load_json(jsonPath);
+        std::cout << "Loaded HMM:\n" << loaded << std::endl;
+
+        std::filesystem::remove(jsonPath); // clean up
     }
 }
