@@ -1,4 +1,5 @@
 #include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/platform/simd_platform.h" // compile-time SIMD macros + intrinsics
 #include <algorithm>
 #include <limits>
@@ -176,36 +177,31 @@ std::string GaussianDistribution::toString() const {
 }
 
 std::ostream &operator<<(std::ostream &os, const libhmm::GaussianDistribution &distribution) {
-    os << "Normal Distribution: " << std::endl;
-    os << "    Mean = " << distribution.getMean() << std::endl;
-    os << "    Standard deviation = " << distribution.getStandardDeviation();
-    os << std::endl;
-
+    os << distribution.toString();
     return os;
 }
 
+// Parses the format produced by toString() / operator<<:
+//   Gaussian Distribution:
+//     \u03bc (mean) = VALUE
+//     \u03c3 (std. deviation) = VALUE
+//     Mean = VALUE
+//     Variance = VALUE
 std::istream &operator>>(std::istream &is, libhmm::GaussianDistribution &distribution) {
     try {
-        std::string token, mean_str, stddev_str;
-        is >> token; // "Mean"
-        is >> token; // "="
-        is >> mean_str;
-        double mean = std::stod(mean_str);
-
-        is >> token; // "Standard"
-        is >> token; // "Deviation"
-        is >> token; // "="
-        is >> stddev_str;
-        double stdDev = std::stod(stddev_str);
-
-        // Use setParameters for validation
-        distribution.setParameters(mean, stdDev);
-
+        std::string s, t;
+        is >> s >> s;           // "Gaussian" "Distribution:"
+        is >> s >> s >> s >> t; // "\u03bc" "(mean)" "=" VALUE
+        const double mean = std::stod(t);
+        is >> s >> s >> s >> s >> t; // "\u03c3" "(std." "deviation)" "=" VALUE
+        const double sd = std::stod(t);
+        is >> s >> s >> t;
+        is >> s >> s >> t; // skip Mean, Variance
+        if (is.good())
+            distribution.setParameters(mean, sd);
     } catch (const std::exception &) {
-        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
@@ -331,6 +327,18 @@ void GaussianDistribution::getBatchLogProbabilities(std::span<const double> obse
     const double log_norm = -0.5 * math::LN_2PI - logStandardDeviation_;
     detail::gaussian_logpdf_batch(observations.data(), out.data(), observations.size(), mean_,
                                   negHalfSigmaSquaredInv_, log_norm);
+}
+
+std::string GaussianDistribution::to_json() const {
+    return json::write_distribution("Gaussian", {{"mu", mean_}, {"sigma", standardDeviation_}});
+}
+std::unique_ptr<EmissionDistribution> GaussianDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double mu = r.read_double();
+    r.read_key();
+    const double sigma = r.read_double();
+    r.consume('}');
+    return std::make_unique<GaussianDistribution>(mu, sigma);
 }
 
 } // namespace libhmm

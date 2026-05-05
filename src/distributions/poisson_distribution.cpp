@@ -1,4 +1,5 @@
 #include "libhmm/distributions/poisson_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/math/weighted_stats.h"
 #include <algorithm>
 #include <limits>
@@ -193,24 +194,24 @@ bool PoissonDistribution::operator==(const PoissonDistribution &other) const {
  * Stream input operator implementation.
  * Expects format: "Poisson Distribution: λ = <value>"
  */
+// Parses the format produced by toString() / operator<<:
+//   Poisson Distribution:
+//     \u03bb (rate parameter) = VALUE
+//     Mean = VALUE
+//     Variance = VALUE
 std::istream &operator>>(std::istream &is, libhmm::PoissonDistribution &distribution) {
     try {
-        std::string token;
-        double lambda = 0.0;
-        // Skip "Poisson Distribution: λ ="
-        std::string lambda_str;
-        is >> token >> token >> token >> token >> lambda_str;
-        lambda = std::stod(lambda_str);
-
-        if (is.good()) {
+        std::string s, t;
+        is >> s >> s;                // "Poisson" "Distribution:"
+        is >> s >> s >> s >> s >> t; // "\u03bb" "(rate" "parameter)" "=" VALUE
+        const double lambda = std::stod(t);
+        is >> s >> s >> t;
+        is >> s >> s >> t; // skip Mean, Variance
+        if (is.good())
             distribution.setLambda(lambda);
-        }
-
     } catch (const std::exception &) {
-        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
@@ -227,6 +228,16 @@ void PoissonDistribution::getBatchLogProbabilities(std::span<const double> obser
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = PoissonDistribution::getLogProbability(observations[i]);
     }
+}
+
+std::string PoissonDistribution::to_json() const {
+    return json::write_distribution("Poisson", {{"lambda", lambda_}});
+}
+std::unique_ptr<EmissionDistribution> PoissonDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double lambda = r.read_double();
+    r.consume('}');
+    return std::make_unique<PoissonDistribution>(lambda);
 }
 
 } // namespace libhmm

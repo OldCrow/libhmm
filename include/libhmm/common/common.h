@@ -1,11 +1,8 @@
 #pragma once
 
 // Core C++ standard library headers used throughout the library.
-// Lean version: linalg types (Matrix, Vector, ObservationSet, etc.) and XML
-// serialization helpers now live in separate headers:
-//   libhmm/linalg/linalg_types.h  — type aliases and clear_* helpers
-//   libhmm/common/serialization.h — MatrixSerializer / VectorSerializer
-// Include those headers from files that need them.
+// Linalg types (Matrix, Vector, ObservationSet, etc.) live in
+// libhmm/linalg/linalg_types.h — include that from files that need them.
 
 #include <vector>
 #include <memory>

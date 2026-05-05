@@ -2,11 +2,8 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
-#include <unordered_map>
-#include <functional>
 #include <string>
-#include <algorithm>
-#include <limits>
+#include <unordered_map>
 
 namespace libhmm {
 
@@ -43,26 +40,250 @@ std::ostream &operator<<(std::ostream &os, const libhmm::Hmm &h) {
     return os;
 } //operator<<()
 
+// =============================================================================
+// operator>> stream-format parsers
+//
+// operator>>(istream, Hmm) reads the text produced by operator<<(ostream, Hmm).
+// It is retained for backward compatibility with the CDATA-wrapped XML format
+// written by XMLFileWriter. Both the XML classes and this operator are
+// deprecated; prefer hmm_json.h for new code.
+//
+// Each parse_* function is called with the stream positioned immediately after
+// the distribution type keyword (e.g. "Gaussian", "Poisson") has been read.
+// The branching complexity of each parser is now measured independently by
+// static analysis tools rather than being folded into operator>>'s CC.
+//
+// Known limitation: NegativeBinomial distributions written by operator<< cannot
+// be read back because toString() begins with "Negative Binomial" (two words),
+// so the type dispatch key is "Negative" rather than "NegativeBinomial".
+// =============================================================================
+
+namespace {
+
+using StreamParserFn = std::unique_ptr<EmissionDistribution> (*)(std::istream &);
+
+// parse_gaussian: reads all of GaussianDistribution::toString() after the type keyword.
+std::unique_ptr<EmissionDistribution> parse_gaussian(std::istream &is) {
+    std::string s, t;
+    is >> s;                // "Distribution:"
+    is >> s >> s >> s >> t; // "\u03bc" "(mean)" "=" VALUE
+    const double mean = std::stod(t);
+    is >> s >> s >> s >> s >> t; // "\u03c3" "(std." "deviation)" "=" VALUE
+    const double sd = std::stod(t);
+    is >> s >> s >> t;
+    is >> s >> s >> t; // skip Mean, Variance
+    return std::make_unique<GaussianDistribution>(mean, sd);
+}
+
+std::unique_ptr<EmissionDistribution> parse_discrete(std::istream &is) {
+    std::string s, t;
+    is >> s; // "Distribution:"
+    if (!is)
+        throw std::runtime_error("Failed to parse Discrete distribution header");
+
+    is >> t;
+    if (!is)
+        throw std::runtime_error("Failed to parse Discrete distribution data");
+
+    // Modern format: "Number of symbols = N" followed by "P(i) = value" lines.
+    if (t == "Number") {
+        std::string of_tok, sym_tok, eq_tok, n_tok;
+        is >> of_tok >> sym_tok >> eq_tok >> n_tok;
+        if (of_tok != "of" || sym_tok != "symbols" || eq_tok != "=")
+            throw std::runtime_error("Malformed Discrete distribution symbol header");
+        const auto n = std::stoull(n_tok);
+        if (n == 0)
+            throw std::runtime_error("Discrete distribution must have at least one symbol");
+        auto dist = std::make_unique<DiscreteDistribution>(static_cast<int>(n));
+        for (std::size_t k = 0; k < n; ++k) {
+            std::string label, eq, val;
+            is >> label >> eq >> val;
+            if (eq != "=")
+                throw std::runtime_error("Malformed Discrete distribution probability entry");
+            dist->setProbability(static_cast<double>(k), std::stod(val));
+        }
+        return dist;
+    }
+
+    // Legacy fallback: bare probability list (11 symbols).
+    constexpr std::size_t kLegacySymbols = 11;
+    std::vector<double> probs(kLegacySymbols);
+    probs[0] = std::stod(t);
+    for (std::size_t k = 1; k < kLegacySymbols; ++k) {
+        is >> t;
+        probs[k] = std::stod(t);
+    }
+    auto dist = std::make_unique<DiscreteDistribution>(static_cast<int>(kLegacySymbols));
+    for (std::size_t k = 0; k < kLegacySymbols; ++k)
+        dist->setProbability(static_cast<double>(k), probs[k]);
+    return dist;
+}
+
+// parse_gamma: "k (shape parameter) = V\n\u03b8 (scale parameter) = V\nMean = V\nVariance = V"
+std::unique_ptr<EmissionDistribution> parse_gamma(std::istream &is) {
+    std::string s, t;
+    is >> s;                     // "Distribution:"
+    is >> s >> s >> s >> s >> t; // "k" "(shape" "parameter)" "=" VALUE
+    const double k = std::stod(t);
+    is >> s >> s >> s >> s >> t; // "\u03b8" "(scale" "parameter)" "=" VALUE
+    const double theta = std::stod(t);
+    is >> s >> s >> t;
+    is >> s >> s >> t; // skip Mean, Variance
+    return std::make_unique<GammaDistribution>(k, theta);
+}
+
+// parse_exponential: "\u03bb (rate parameter) = VALUE\nMean = VALUE"
+std::unique_ptr<EmissionDistribution> parse_exponential(std::istream &is) {
+    std::string s, t;
+    is >> s;                     // "Distribution:"
+    is >> s >> s >> s >> s >> t; // "\u03bb" "(rate" "parameter)" "=" VALUE
+    const double lambda = std::stod(t);
+    is >> s >> s >> t; // skip Mean
+    return std::make_unique<ExponentialDistribution>(lambda);
+}
+
+// parse_log_normal: "\u03bc (log mean) = V\n\u03c3 (log std. deviation) = V\nMean = V\nVariance = V"
+std::unique_ptr<EmissionDistribution> parse_log_normal(std::istream &is) {
+    std::string s, t;
+    is >> s;                     // "Distribution:"
+    is >> s >> s >> s >> s >> t; // "\u03bc" "(log" "mean)" "=" VALUE
+    const double mean = std::stod(t);
+    is >> s >> s >> s >> s >> s >> t; // "\u03c3" "(log" "std." "deviation)" "=" VALUE
+    const double sd = std::stod(t);
+    is >> s >> s >> t;
+    is >> s >> s >> t; // skip Mean, Variance
+    return std::make_unique<LogNormalDistribution>(mean, sd);
+}
+
+// parse_pareto: "k (shape parameter) = V\nx_m (scale parameter) = V\nMean = V\nVariance = V"
+std::unique_ptr<EmissionDistribution> parse_pareto(std::istream &is) {
+    std::string s, t;
+    is >> s;                     // "Distribution:"
+    is >> s >> s >> s >> s >> t; // "k" "(shape" "parameter)" "=" VALUE
+    const double k = std::stod(t);
+    is >> s >> s >> s >> s >> t; // "x_m" "(scale" "parameter)" "=" VALUE
+    const double xm = std::stod(t);
+    is >> s >> s >> t;
+    is >> s >> s >> t; // skip Mean, Variance
+    return std::make_unique<ParetoDistribution>(k, xm);
+}
+
+// parse_poisson: "\u03bb (rate parameter) = V\nMean = V\nVariance = V"
+std::unique_ptr<EmissionDistribution> parse_poisson(std::istream &is) {
+    std::string s, t;
+    is >> s;                     // "Distribution:"
+    is >> s >> s >> s >> s >> t; // "\u03bb" "(rate" "parameter)" "=" VALUE
+    const double lambda = std::stod(t);
+    is >> s >> s >> t;
+    is >> s >> s >> t; // skip Mean, Variance
+    return std::make_unique<PoissonDistribution>(lambda);
+}
+
+// parse_beta: "\u03b1 (alpha) = V\n\u03b2 (beta) = V\nMean = V\nVariance = V"
+std::unique_ptr<EmissionDistribution> parse_beta(std::istream &is) {
+    std::string s, t;
+    is >> s >> s >> s >> s >> t; // "Distribution:" "\u03b1" "(alpha)" "=" VALUE
+    const double alpha = std::stod(t);
+    is >> s >> s >> s >> t; // "\u03b2" "(beta)" "=" VALUE
+    const double beta = std::stod(t);
+    is >> s >> s >> t;
+    is >> s >> s >> t; // skip Mean, Variance
+    return std::make_unique<BetaDistribution>(alpha, beta);
+}
+
+std::unique_ptr<EmissionDistribution> parse_weibull(std::istream &is) {
+    std::string s, t;
+    is >> s >> s >> s >> s >> t; // "Distribution:" "k" "(shape)" "=" value
+    const double k = std::stod(t);
+    is >> s >> s >> s >> t; // "\u03bb" "(scale)" "=" value
+    return std::make_unique<WeibullDistribution>(k, std::stod(t));
+}
+
+// parse_uniform: "a (lower bound) = V\nb (upper bound) = V"
+std::unique_ptr<EmissionDistribution> parse_uniform(std::istream &is) {
+    std::string s, t;
+    is >> s;                     // "Distribution:"
+    is >> s >> s >> s >> s >> t; // "a" "(lower" "bound)" "=" VALUE
+    const double a = std::stod(t);
+    is >> s >> s >> s >> s >> t; // "b" "(upper" "bound)" "=" VALUE
+    return std::make_unique<UniformDistribution>(a, std::stod(t));
+}
+
+std::unique_ptr<EmissionDistribution> parse_student_t(std::istream &is) {
+    std::string s, t;
+    is >> s;                          // "Distribution:"
+    is >> s >> s >> s >> s >> s >> t; // "nu" "(degrees" "of" "freedom)" "=" value
+    const double nu = std::stod(t);
+    is >> s >> s >> s >> t; // "mu" "(location)" "=" value
+    const double mu = std::stod(t);
+    is >> s >> s >> s >> t; // "sigma" "(scale)" "=" value
+    return std::make_unique<StudentTDistribution>(nu, mu, std::stod(t));
+}
+
+std::unique_ptr<EmissionDistribution> parse_chi_squared(std::istream &is) {
+    std::string s, t;
+    is >> s;                          // "Distribution:"
+    is >> s >> s >> s >> s >> s >> t; // "k" "(degrees" "of" "freedom)" "=" value
+    return std::make_unique<ChiSquaredDistribution>(std::stod(t));
+}
+
+// parse_binomial: "n (trials) = V\np (success probability) = V\nMean = V\nVariance = V"
+std::unique_ptr<EmissionDistribution> parse_binomial(std::istream &is) {
+    std::string s, t;
+    is >> s;                // "Distribution:"
+    is >> s >> s >> s >> t; // "n" "(trials)" "=" VALUE
+    const int n = static_cast<int>(std::stod(t));
+    is >> s >> s >> s >> s >> t; // "p" "(success" "probability)" "=" VALUE
+    const double p = std::stod(t);
+    is >> s >> s >> t;
+    is >> s >> s >> t; // skip Mean, Variance
+    return std::make_unique<BinomialDistribution>(n, p);
+}
+
+// parse_rayleigh: "\u03c3 (scale parameter) = V\nMean = V\nVariance = V\nMedian = V\nMode = V"
+std::unique_ptr<EmissionDistribution> parse_rayleigh(std::istream &is) {
+    std::string s, t;
+    is >> s;                     // "Distribution:"
+    is >> s >> s >> s >> s >> t; // "\u03c3" "(scale" "parameter)" "=" VALUE
+    const double sigma = std::stod(t);
+    // skip Mean, Variance, Median, Mode
+    is >> s >> s >> t;
+    is >> s >> s >> t;
+    is >> s >> s >> t;
+    is >> s >> s >> t;
+    return std::make_unique<RayleighDistribution>(sigma);
+}
+
+// Map from the first word of each distribution's toString() output to its parser.
+// NegativeBinomial is absent: toString() writes "Negative Binomial Distribution:",
+// so the dispatch key would be "Negative" — a two-word type that cannot be
+// represented by a single-token lookup. Use JSON I/O for NegativeBinomial.
+const std::unordered_map<std::string, StreamParserFn> kStreamParsers = {
+    {"Gaussian", parse_gaussian},    {"Discrete", parse_discrete},
+    {"Gamma", parse_gamma},          {"Exponential", parse_exponential},
+    {"LogNormal", parse_log_normal}, {"Pareto", parse_pareto},
+    {"Poisson", parse_poisson},      {"Beta", parse_beta},
+    {"Weibull", parse_weibull},      {"Uniform", parse_uniform},
+    {"Binomial", parse_binomial},    {"Rayleigh", parse_rayleigh},
+    {"StudentT", parse_student_t},   {"ChiSquared", parse_chi_squared},
+};
+
+} // anonymous namespace
+
 std::istream &operator>>(std::istream &is, libhmm::Hmm &hmm) {
     std::string s, t;
     std::size_t states;
 
-    // Parse header
     is >> s >> s >> s >> s; // "Hidden Markov Model parameters"
     is >> s >> s;           // "States:"
     states = std::stoull(s);
-
-    if (states == 0) {
+    if (states == 0)
         throw std::runtime_error("Invalid number of states in HMM input");
-    }
 
-    // Create new HMM with proper number of states
     hmm = Hmm(states);
-
     Vector pi(states);
     Matrix trans(states, states);
 
-    // Parse Pi vector
     is >> s >> s; // "Pi:" "["
     for (std::size_t i = 0; i < states; ++i) {
         is >> t;
@@ -70,7 +291,6 @@ std::istream &operator>>(std::istream &is, libhmm::Hmm &hmm) {
     }
     is >> s; // "]"
 
-    // Parse transition matrix
     is >> s >> s; // "Transmission" "matrix:"
     for (std::size_t i = 0; i < states; ++i) {
         is >> s; // "["
@@ -81,225 +301,18 @@ std::istream &operator>>(std::istream &is, libhmm::Hmm &hmm) {
         is >> s; // "]"
     }
 
-    // Parse emissions
     is >> s; // "Emissions:"
     for (std::size_t i = 0; i < states; ++i) {
-        is >> s >> s >> t; // "State" "i:" "DistributionType"
-
-        // Modern C++17 approach: Hash-based dispatch for cleaner code
-        using DistributionParser =
-            std::function<std::unique_ptr<EmissionDistribution>(std::istream &)>;
-
-        static const std::unordered_map<std::string, DistributionParser> parsers = {
-            {"Gaussian",
-             [](std::istream &is) {
-                 std::string s, t;
-                 // Read "Distribution:"
-                 is >> s; // "Distribution:"
-
-                 // Read "μ (mean) = value"
-                 is >> s >> s >> s >> t; // "μ" "(mean)" "=" value
-                 double mean = std::stod(t);
-
-                 // Read "σ (std. deviation) = value"
-                 is >> s >> s >> s >> s >> t; // "σ" "(std." "deviation)" "=" value
-                 double sd = std::stod(t);
-
-                 // Read "Mean = value"
-                 is >> s >> s >> t; // "Mean" "=" value
-
-                 // Read "Variance = value"
-                 is >> s >> s >> t; // "Variance" "=" value
-
-                 return std::make_unique<GaussianDistribution>(mean, sd);
-             }},
-
-            {"Discrete",
-             [](std::istream &is) {
-                 std::string s, t;
-                 is >> s; // "Distribution:"
-                 if (!is) {
-                     throw std::runtime_error("Failed to parse Discrete distribution header");
-                 }
-
-                 is >> t;
-                 if (!is) {
-                     throw std::runtime_error("Failed to parse Discrete distribution data");
-                 }
-
-                 // Current format:
-                 //   Number of symbols = N
-                 //   P(0) = ...
-                 //   ...
-                 if (t == "Number") {
-                     std::string of, symbols, equals, numSymbolsToken;
-                     is >> of >> symbols >> equals >> numSymbolsToken;
-                     if (of != "of" || symbols != "symbols" || equals != "=") {
-                         throw std::runtime_error("Malformed Discrete distribution symbol header");
-                     }
-
-                     const auto numSymbols = std::stoull(numSymbolsToken);
-                     if (numSymbols == 0) {
-                         throw std::runtime_error(
-                             "Discrete distribution must have at least one symbol");
-                     }
-
-                     auto discreteDist =
-                         std::make_unique<DiscreteDistribution>(static_cast<int>(numSymbols));
-                     for (std::size_t symIndex = 0; symIndex < numSymbols; ++symIndex) {
-                         std::string label, valueEquals, valueToken;
-                         is >> label >> valueEquals >> valueToken;
-                         if (valueEquals != "=") {
-                             throw std::runtime_error(
-                                 "Malformed Discrete distribution probability entry");
-                         }
-                         const double probability = std::stod(valueToken);
-                         discreteDist->setProbability(static_cast<double>(symIndex), probability);
-                     }
-                     return discreteDist;
-                 }
-
-                 // Legacy fallback:
-                 //   Distribution: p0 p1 ... p10
-                 constexpr std::size_t MAX_SYMBOLS = 11;
-                 std::vector<double> symbols(MAX_SYMBOLS);
-                 symbols[0] = std::stod(t);
-                 for (std::size_t symIndex = 1; symIndex < MAX_SYMBOLS; ++symIndex) {
-                     is >> t;
-                     symbols[symIndex] = std::stod(t);
-                 }
-
-                 auto discreteDist = std::make_unique<DiscreteDistribution>(MAX_SYMBOLS);
-                 for (std::size_t symIndex = 0; symIndex < MAX_SYMBOLS; ++symIndex) {
-                     discreteDist->setProbability(static_cast<double>(symIndex), symbols[symIndex]);
-                 }
-                 return discreteDist;
-             }},
-
-            {"Gamma",
-             [](std::istream &is) {
-                 std::string s, t;
-                 is >> s >> s >> s >> t; // "Distribution:" "k" "=" value
-                 double k = std::stod(t);
-                 is >> s >> s >> t; // "theta" "=" value
-                 double theta = std::stod(t);
-                 return std::make_unique<GammaDistribution>(k, theta);
-             }},
-
-            {"Exponential",
-             [](std::istream &is) {
-                 std::string s, t;
-                 is >> s >> s >> s >> s >> t; // "Distribution:" "Rate" "parameter" "=" value
-                 double lambda = std::stod(t);
-                 return std::make_unique<ExponentialDistribution>(lambda);
-             }},
-
-            {"LogNormal",
-             [](std::istream &is) {
-                 std::string s, t;
-                 is >> s >> s >> s >> t; // "Distribution:" "Mean" "=" value
-                 double mean = std::stod(t);
-                 is >> s >> s >> s >> t; // "Standard" "Deviation" "=" value
-                 double sd = std::stod(t);
-                 return std::make_unique<LogNormalDistribution>(mean, sd);
-             }},
-
-            {"Pareto",
-             [](std::istream &is) {
-                 std::string s, t;
-                 is >> s >> s >> s >> t; // "Distribution:" "k" "=" value
-                 double k = std::stod(t);
-                 is >> s >> s >> t; // "xm" "=" value
-                 double xm = std::stod(t);
-                 return std::make_unique<ParetoDistribution>(k, xm);
-             }},
-
-            {"Poisson",
-             [](std::istream &is) {
-                 std::string s, t;
-                 is >> s >> s >> s >> t; // "Distribution:" "λ" "=" value
-                 double lambda = std::stod(t);
-                 return std::make_unique<PoissonDistribution>(lambda);
-             }},
-
-            {"Beta",
-             [](std::istream &is) {
-                 std::string s, t;
-                 is >> s >> s >> s >> s >> t; // "Distribution:" "α" "(alpha)" "=" value
-                 double alpha = std::stod(t);
-                 is >> s >> s >> s >> t; // "β" "(beta)" "=" value
-                 double beta = std::stod(t);
-                 return std::make_unique<BetaDistribution>(alpha, beta);
-             }},
-
-            {"Weibull",
-             [](std::istream &is) {
-                 std::string s, t;
-                 is >> s >> s >> s >> s >> t; // "Distribution:" "k" "(shape)" "=" value
-                 double k = std::stod(t);
-                 is >> s >> s >> s >> t; // "λ" "(scale)" "=" value
-                 double lambda = std::stod(t);
-                 return std::make_unique<WeibullDistribution>(k, lambda);
-             }},
-
-            {"Uniform",
-             [](std::istream &is) {
-                 std::string s, t;
-                 is >> s >> s >> s >> s >> t; // "Distribution:" "a" "(lower" "bound)" value
-                 double a = std::stod(t);
-                 is >> s >> s >> s >> s >> t; // "b" "(upper" "bound)" "=" value
-                 double b = std::stod(t);
-                 return std::make_unique<UniformDistribution>(a, b);
-             }},
-
-            {"StudentT",
-             [](std::istream &is) {
-                 std::string s, t;
-                 // Read "Distribution:"
-                 is >> s;
-
-                 // Read "  nu (degrees of freedom) = value"
-                 is >> s >> s >> s >> s >> s >> t; // "nu" "(degrees" "of" "freedom)" "=" value
-                 double nu = std::stod(t);
-
-                 // Read "  mu (location) = value"
-                 is >> s >> s >> s >> t; // "mu" "(location)" "=" value
-                 double mu = std::stod(t);
-
-                 // Read "  sigma (scale) = value"
-                 is >> s >> s >> s >> t; // "sigma" "(scale)" "=" value
-                 double sigma = std::stod(t);
-
-                 return std::make_unique<StudentTDistribution>(nu, mu, sigma);
-             }},
-
-            {"ChiSquared", [](std::istream &is) {
-                 std::string s, t;
-                 // Read "Distribution:"
-                 is >> s;
-
-                 // Read "  k (degrees of freedom) = value"
-                 is >> s >> s >> s >> s >> s >> t; // "k" "(degrees" "of" "freedom)" "=" value
-                 double k = std::stod(t);
-
-                 return std::make_unique<ChiSquaredDistribution>(k);
-             }}};
-
-        // Execute the appropriate parser
-        auto parser_it = parsers.find(t);
-        if (parser_it != parsers.end()) {
-            auto distribution = parser_it->second(is);
-            hmm.setDistribution(i, std::move(distribution));
-        } else {
-            throw std::runtime_error("Unknown distribution type: " + t);
-        }
+        is >> s >> s >> t; // "State" "N:" type-keyword
+        const auto it = kStreamParsers.find(t);
+        if (it == kStreamParsers.end())
+            throw std::runtime_error("Unknown distribution type in stream: " + t);
+        hmm.setDistribution(i, it->second(is));
     }
 
-    // Set the parsed parameters
     hmm.setPi(pi);
     hmm.setTrans(trans);
-
     return is;
-} //operator>>()
+} // operator>>()
 
 } // namespace libhmm

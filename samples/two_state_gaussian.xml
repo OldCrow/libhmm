@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<libhmm_model>
+<![CDATA[
+Hidden Markov Model parameters
+  States: 2
+  Pi: [         0.75         0.25 ]
+  Transmission matrix:
+   [       0.875       0.125 ]
+   [        0.25        0.75 ]
+  Emissions:
+   State 0: Gaussian Distribution:
+      μ (mean) = 0.000000
+      σ (std. deviation) = 1.000000
+      Mean = 0.000000
+      Variance = 1.000000
+
+   State 1: Gaussian Distribution:
+      μ (mean) = 2.500000
+      σ (std. deviation) = 0.500000
+      Mean = 2.500000
+      Variance = 0.250000
+
+]]>
+</libhmm_model>

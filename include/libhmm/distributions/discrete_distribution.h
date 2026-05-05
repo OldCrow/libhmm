@@ -189,9 +189,12 @@ public:
      * @return String showing all symbol probabilities
      */
     std::string toString() const override;
+    [[nodiscard]] std::string to_json() const override;
+    /// @internal JSON factory — called by the distribution registry in src/io/hmm_json.cpp.
+    static std::unique_ptr<EmissionDistribution> from_json(json::Reader &r);
 
     /**
-     * Gets the number of discrete symbols in the distribution.
+     * Gets the number of discrete symbols
      *
      * @return Number of symbols/categories
      */

@@ -1,4 +1,5 @@
 #include "libhmm/distributions/pareto_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/performance/simd_kernels_internal.h"
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <numeric>   // For std::accumulate (not in common.h)
@@ -171,29 +172,29 @@ std::ostream &operator<<(std::ostream &os, const libhmm::ParetoDistribution &dis
     return os;
 }
 
+// Parses the format produced by toString() / operator<<:
+//   Pareto Distribution:
+//     k (shape parameter) = VALUE
+//     x_m (scale parameter) = VALUE
+//     Mean = VALUE
+//     Variance = VALUE
 std::istream &operator>>(std::istream &is, libhmm::ParetoDistribution &distribution) {
     try {
-        std::string token, k_str, xm_str;
-        is >> token; //" k"
-        is >> token; // "="
-        is >> k_str;
-        double k = std::stod(k_str);
-
-        is >> token; // " xm"
-        is >> token; // " ="
-        is >> xm_str;
-        double xm = std::stod(xm_str);
-
+        std::string s, t;
+        is >> s >> s;                // "Pareto" "Distribution:"
+        is >> s >> s >> s >> s >> t; // "k" "(shape" "parameter)" "=" VALUE
+        const double k = std::stod(t);
+        is >> s >> s >> s >> s >> t; // "x_m" "(scale" "parameter)" "=" VALUE
+        const double xm = std::stod(t);
+        is >> s >> s >> t;
+        is >> s >> s >> t; // skip Mean, Variance
         if (is.good()) {
             distribution.setK(k);
             distribution.setXm(xm);
         }
-
     } catch (const std::exception &) {
-        // Set error state on stream if parsing fails
         is.setstate(std::ios::failbit);
     }
-
     return is;
 }
 
@@ -299,6 +300,18 @@ void ParetoDistribution::getBatchLogProbabilities(std::span<const double> observ
     // logK_ + kLogXm_ is a single scalar constant — compute once.
     detail::pareto_logpdf_batch(observations.data(), out.data(), observations.size(), xm_,
                                 logK_ + kLogXm_, kPlus1_);
+}
+
+std::string ParetoDistribution::to_json() const {
+    return json::write_distribution("Pareto", {{"k", k_}, {"xm", xm_}});
+}
+std::unique_ptr<EmissionDistribution> ParetoDistribution::from_json(json::Reader &r) {
+    r.read_key();
+    const double k = r.read_double();
+    r.read_key();
+    const double xm = r.read_double();
+    r.consume('}');
+    return std::make_unique<ParetoDistribution>(k, xm);
 }
 
 } // namespace libhmm

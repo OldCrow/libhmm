@@ -156,9 +156,12 @@ public:
      * @return String describing the distribution parameters
      */
     std::string toString() const override;
+    [[nodiscard]] std::string to_json() const override;
+    /// @internal JSON factory — called by the distribution registry in src/io/hmm_json.cpp.
+    static std::unique_ptr<EmissionDistribution> from_json(json::Reader &r);
 
     /**
-     * Computes the cumulative distribution function (CDF) for the Weibull distribution.
+     * Computes the cumulative distribution function
      *
      * @param x The value at which to evaluate the CDF (should be ≥ 0)
      * @return Cumulative probability P(X ≤ x), or 0.0 if x is negative

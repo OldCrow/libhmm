@@ -92,7 +92,17 @@ public:
     // Metadata
     // =========================================================================
 
-    [[nodiscard]] virtual std::string toString() const = 0;
+    /** @brief Human-readable string representation.  Delegates to to_json(). */
+    [[nodiscard]] virtual std::string toString() const { return to_json(); }
+
+    /**
+     * @brief Serialise to a compact JSON object string.
+     *
+     * Must produce output that round-trips exactly through the matching
+     * static from_json() factory registered in src/io/hmm_json.cpp.
+     * Use json::write_distribution() from libhmm/io/json_utils.h.
+     */
+    [[nodiscard]] virtual std::string to_json() const = 0;
 
     /** @brief Returns true for discrete (PMF) distributions, false for continuous (PDF). */
     [[nodiscard]] virtual bool isDiscrete() const noexcept = 0;
