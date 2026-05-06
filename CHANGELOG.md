@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-05-06
+
+cppcheck quality pass and V2 numerical framework removal. 37/37 tests pass.
+
 ### Removed
 
 - **V2 numerical safety framework** (`include/libhmm/math/numerical_stability.h`,
