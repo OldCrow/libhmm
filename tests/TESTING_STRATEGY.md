@@ -7,10 +7,9 @@ matching the library layered dependency graph.
 
 ```
 tests/
-├── common/                     # Level 1: Math, basic types
-│   ├── test_modern_constants.cpp
-│   ├── test_numerical_stability.cpp
-│   └── test_common.cpp
+|├── common/                     # Level 1: Math, basic types
+|│   ├── test_modern_constants.cpp
+|│   └── test_common.cpp
 ├── distributions/              # Level 3: All 15 distributions
 │   ├── test_distributions.cpp
 │   ├── test_distribution_type_safety.cpp
@@ -39,7 +38,7 @@ tests/
 ## Running Tests
 
 ```bash
-# Standard run -- all 33 tests (mirrors CI)
+# Standard run -- all 37 tests (mirrors CI)
 ctest --test-dir build -C Release --output-on-failure
 
 # cmake custom targets
@@ -86,4 +85,4 @@ Performance tools live in tools/, not tests/:
 
 ---
 
-33/33 tests pass on all platforms (Linux/GCC, Linux/Clang, macOS, Windows/MSVC).
+37/37 tests pass on all platforms (Linux/GCC, Linux/Clang, macOS, Windows/MSVC).

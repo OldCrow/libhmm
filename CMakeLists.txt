@@ -518,7 +518,6 @@ set(LIBHMM_SOURCES
     src/hmm.cpp
     src/common/common.cpp
     src/common/string_tokenizer.cpp
-    src/common/numerical_stability.cpp
     src/common/weighted_stats.cpp
     src/performance/transcendental_kernels.cpp
     src/distributions/distribution_base.cpp

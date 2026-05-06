@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **V2 numerical safety framework** (`include/libhmm/math/numerical_stability.h`,
+  `src/common/numerical_stability.cpp`, `tests/common/test_numerical_stability.cpp`):
+  `NumericalSafety`, `ConvergenceDetector`, `AdaptivePrecision`, `ErrorRecovery`,
+  and `NumericalDiagnostics` were built for the pre-V3 scaled-calculator architecture
+  and had no callers since the log-space-only pivot in V3. cppcheck confirmed every
+  method was unreachable; dead callee chain back to the deleted scaled trainers.
+  Files and associated test removed. 37/38 → 37 tests.
+
 ## [3.4.0] - 2026-05-05
 
 Code quality refactoring (Phases 1–3) and JSON serialization. 38/38 tests pass.
