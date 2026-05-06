@@ -247,7 +247,7 @@ public:
      * @param value The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ value)
      */
-    [[nodiscard]] double CDF(double value) const noexcept;
+    [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     /**
      * Gets the mode of the distribution.
