@@ -343,11 +343,16 @@ int main(int argc, char *argv[]) {
     if (argc >= 2) {
         output_path = argv[1];
     }
-    if (argc >= 3) {
-        runs = parse_positive_int(argv[2], "runs");
-    }
-    if (argc >= 4) {
-        warmup = parse_positive_int(argv[3], "warmup");
+    try {
+        if (argc >= 3) {
+            runs = parse_positive_int(argv[2], "runs");
+        }
+        if (argc >= 4) {
+            warmup = parse_positive_int(argv[3], "warmup");
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        return 1;
     }
     if (argc > 4) {
         std::cerr << "Usage:\n";

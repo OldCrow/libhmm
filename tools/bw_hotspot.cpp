@@ -261,11 +261,16 @@ int main(int argc, char *argv[]) {
     int warmup = 2, runs = 8;
 
     if (argc == 3 || argc == 4 || argc == 5) {
-        configs = {{parse_pos(argv[1], "N"), parse_pos(argv[2], "T")}};
-        if (argc >= 4)
-            runs = parse_pos(argv[3], "runs");
-        if (argc == 5)
-            warmup = parse_pos(argv[4], "warmup");
+        try {
+            configs = {{parse_pos(argv[1], "N"), parse_pos(argv[2], "T")}};
+            if (argc >= 4)
+                runs = parse_pos(argv[3], "runs");
+            if (argc == 5)
+                warmup = parse_pos(argv[4], "warmup");
+        } catch (const std::exception &e) {
+            std::cerr << "Error: " << e.what() << "\n";
+            return 1;
+        }
     } else if (argc != 1) {
         std::cerr << "Usage: bw_hotspot [N T [runs [warmup]]]\n";
         return 1;
