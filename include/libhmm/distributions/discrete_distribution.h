@@ -113,6 +113,19 @@ private:
             throw std::invalid_argument("Probability value must be between 0 and 1");
     }
 
+    /// Fills pdf_ with uniform probabilities 1/numSymbols_ and invalidates the cache.
+    ///
+    /// This exists as a private non-virtual helper so the constructor can
+    /// perform the same initialisation as reset() without invoking a virtual
+    /// function during construction (where virtual dispatch is not active and
+    /// cppcheck correctly flags the call as misleading). reset() delegates
+    /// here so the logic lives in exactly one place.
+    void init_uniform() noexcept {
+        const double p = 1.0 / static_cast<double>(numSymbols_);
+        std::fill(pdf_.begin(), pdf_.end(), p);
+        invalidateCache();
+    }
+
 public:
     /**
      * Constructs a Discrete distribution with given number of symbols.
@@ -124,7 +137,7 @@ public:
     explicit DiscreteDistribution(int symbols = 10)
         : DistributionBase{}, numSymbols_{validateSymbols(symbols)}, pdf_(numSymbols_),
           cachedSum_{1.0}, cachedEntropy_{0.0} {
-        reset();
+        init_uniform();
     }
 
     DiscreteDistribution(const DiscreteDistribution &other) = default;

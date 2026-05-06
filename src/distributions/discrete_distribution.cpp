@@ -84,9 +84,7 @@ void DiscreteDistribution::fit(std::span<const double> data, std::span<const dou
  * Each symbol gets probability 1/numSymbols
  */
 void DiscreteDistribution::reset() noexcept {
-    const double uniformProb = math::ONE / static_cast<double>(numSymbols_);
-    std::fill(pdf_.begin(), pdf_.end(), uniformProb);
-    invalidateCache();
+    init_uniform();
 }
 
 /**
