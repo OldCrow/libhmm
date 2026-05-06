@@ -136,25 +136,6 @@ public:
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /**
-     * Vectorized batch computation of PDF for multiple values.
-     * Optimized for processing many values efficiently with cache reuse.
-     *
-     * @param values Vector of input values
-     * @param results Output vector for results (will be resized if needed)
-     */
-    void getProbabilityBatch(const std::vector<double> &values, std::vector<double> &results);
-
-    /**
-     * Vectorized batch computation of log PDF for multiple values.
-     * Optimized for processing many values efficiently with cache reuse.
-     *
-     * @param values Vector of input values
-     * @param results Output vector for results (will be resized if needed)
-     */
-    void getLogProbabilityBatch(const std::vector<double> &values,
-                                std::vector<double> &results) const;
-
-    /**
      * Resets the distribution to default parameters (α = 1.0, β = 1.0).
      * This corresponds to a uniform distribution on [0,1].
      */

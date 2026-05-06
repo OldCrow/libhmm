@@ -29,7 +29,7 @@ void BaumWelchTrainer::accumulate_gamma(const Matrix &logAlpha, const Matrix &lo
                                         std::vector<std::vector<double>> &emisData,
                                         std::vector<std::vector<double>> &emisWts,
                                         std::vector<double> &piNum,
-                                        std::vector<double> &transDen) const noexcept {
+                                        std::vector<double> &transDen) noexcept {
     const std::size_t T = obs.size();
     const double *logAlphaData = logAlpha.data();
     const double *logBetaData = logBeta.data();
@@ -53,7 +53,7 @@ void BaumWelchTrainer::accumulate_xi(const double *logAlphaData, const double *l
                                      const std::vector<double> &logEmitByTime,
                                      const std::vector<double> &logTransT, double logP,
                                      std::size_t T, std::size_t N, bool hasZeroTransitions,
-                                     std::vector<double> &transNumT) const noexcept {
+                                     std::vector<double> &transNumT) noexcept {
     if (hasZeroTransitions) {
         for (std::size_t t = 0; t + 1 < T; ++t) {
             const double *alphaRow = logAlphaData + t * N;

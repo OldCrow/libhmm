@@ -65,7 +65,7 @@ private:
      * @param stdDev Standard deviation of ln(X) (must be positive and finite)
      * @throws std::invalid_argument if parameters are invalid
      */
-    void validateParameters(double mean, double stdDev) const {
+    static void validateParameters(double mean, double stdDev) {
         if (std::isnan(mean) || std::isinf(mean)) {
             throw std::invalid_argument("Mean parameter must be a finite number");
         }

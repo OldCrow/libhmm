@@ -82,6 +82,7 @@ void ViterbiTrainer::train() {
 // Private helpers
 // ---------------------------------------------------------------------------
 
+// cppcheck-suppress constParameterReference
 double ViterbiTrainer::accum_sequence(const Hmm &hmm, const ObservationSet &obs, Vector &pi,
                                       Matrix &trans,
                                       std::vector<std::vector<double>> &emisData) noexcept {
@@ -105,6 +106,7 @@ double ViterbiTrainer::accum_sequence(const Hmm &hmm, const ObservationSet &obs,
     }
 }
 
+// cppcheck-suppress constParameterReference
 void ViterbiTrainer::normalize_and_commit(Hmm &hmm, std::size_t N, Vector &pi, Matrix &trans) {
     // Normalize pi.
     double piSum = 0.0;

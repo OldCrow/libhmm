@@ -131,33 +131,6 @@ double BetaDistribution::getLogProbability(double value) const noexcept {
     return alphaMinus1_ * std::log(value) + betaMinus1_ * std::log(1.0 - value) - logBeta_;
 }
 
-void BetaDistribution::getProbabilityBatch(const std::vector<double> &values,
-                                           std::vector<double> &results) {
-    if (!isCacheValid())
-        updateCache();
-    if (results.size() != values.size())
-        results.resize(values.size());
-    auto it = results.begin();
-    for (const double &value : values)
-        *it++ = getProbability(value);
-}
-
-void BetaDistribution::getLogProbabilityBatch(const std::vector<double> &values,
-                                              std::vector<double> &results) const {
-    if (!isCacheValid())
-        updateCache();
-
-    // Resize the results vector if needed
-    if (results.size() != values.size()) {
-        results.resize(values.size());
-    }
-
-    auto it = results.begin();
-    for (const double &value : values) {
-        *it++ = getLogProbability(value);
-    }
-}
-
 void BetaDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();

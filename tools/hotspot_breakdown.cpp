@@ -468,14 +468,19 @@ int main(int argc, char *argv[]) {
     int runs = 8;
 
     if (argc == 3 || argc == 4 || argc == 5) {
-        const int n = parse_positive_int(argv[1], "N");
-        const int t = parse_positive_int(argv[2], "T");
-        configs = {{n, t}};
-        if (argc >= 4) {
-            runs = parse_positive_int(argv[3], "runs");
-        }
-        if (argc == 5) {
-            warmup = parse_positive_int(argv[4], "warmup");
+        try {
+            const int n = parse_positive_int(argv[1], "N");
+            const int t = parse_positive_int(argv[2], "T");
+            configs = {{n, t}};
+            if (argc >= 4) {
+                runs = parse_positive_int(argv[3], "runs");
+            }
+            if (argc == 5) {
+                warmup = parse_positive_int(argv[4], "warmup");
+            }
+        } catch (const std::exception &e) {
+            std::cerr << "Error: " << e.what() << "\n";
+            return 1;
         }
     } else if (argc != 1) {
         std::cerr << "Usage:\n";

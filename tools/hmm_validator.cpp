@@ -41,7 +41,16 @@ int main(int argc, char *argv[]) {
     }
 
     const std::filesystem::path hmm_path = argv[1];
-    const int T = (argc >= 3) ? std::stoi(argv[2]) : 100;
+    int T = 100;
+    if (argc >= 3) {
+        try {
+            T = std::stoi(argv[2]);
+        } catch (const std::exception &e) {
+            std::cerr << "Invalid T argument: " << e.what() << "\n";
+            print_usage(argv[0]);
+            return 1;
+        }
+    }
 
     std::cout << "libhmm HMM Validator\n";
     std::cout << "====================\n";

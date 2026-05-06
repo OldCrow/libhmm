@@ -64,7 +64,7 @@ private:
      * @param p Success probability (must be in (0,1])
      * @throws std::invalid_argument if parameters are invalid
      */
-    void validateParameters(double r, double p) const {
+    static void validateParameters(double r, double p) {
         if (std::isnan(r) || std::isinf(r) || r <= 0.0) {
             throw std::invalid_argument("Number of successes must be positive");
         }
@@ -247,7 +247,7 @@ public:
      * @param value The value at which to evaluate the CDF
      * @return Cumulative probability P(X ≤ value)
      */
-    [[nodiscard]] double CDF(double value) const noexcept;
+    [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     /**
      * Gets the mode of the distribution.
