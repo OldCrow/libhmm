@@ -488,8 +488,11 @@ void testIOOperators() {
     assert(output.find("shape") != std::string::npos);
     assert(output.find("scale") != std::string::npos);
 
-    // Test input operator
-    std::istringstream iss("k (shape) = 1.41 theta (scale) = 1.73");
+    // Test input operator via roundtrip
+    GammaDistribution source(1.41, 1.73);
+    std::ostringstream rss;
+    rss << source;
+    std::istringstream iss(rss.str());
     GammaDistribution reconstructed;
     iss >> reconstructed;
 

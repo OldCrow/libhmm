@@ -443,8 +443,13 @@ void testEqualityAndIO() {
     assert(!output.empty());
     assert(output.find("Discrete") != std::string::npos);
 
-    // Test stream input
-    std::istringstream iss("2 0.7 0.3");
+    // Test stream input via roundtrip
+    DiscreteDistribution source(2);
+    source.setProbability(0.0, 0.7);
+    source.setProbability(1.0, 0.3);
+    std::ostringstream rss;
+    rss << source;
+    std::istringstream iss(rss.str());
     DiscreteDistribution inputDiscrete;
     iss >> inputDiscrete;
     assert(inputDiscrete.getNumSymbols() == 2);

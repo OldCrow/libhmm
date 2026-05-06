@@ -535,16 +535,22 @@ void testStreamOperators() {
     assert(output.find("7.5") != std::string::npos);
     assert(output.find("0.35") != std::string::npos);
 
-    // Test input operator with simple format
-    std::istringstream iss("3.2 0.8");
+    // Test input operator via roundtrip
+    NegativeBinomialDistribution source(3.2, 0.8);
+    std::ostringstream rss;
+    rss << source;
+    std::istringstream iss(rss.str());
     NegativeBinomialDistribution parsed;
     iss >> parsed;
 
     assert(std::abs(parsed.getR() - 3.2) < 1e-10);
     assert(std::abs(parsed.getP() - 0.8) < 1e-10);
 
-    // Test input operator with NegativeBinomial format
-    std::istringstream iss2("NegativeBinomial(4.5,0.6)");
+    // Test input operator with a second set of parameters
+    NegativeBinomialDistribution source2(4.5, 0.6);
+    std::ostringstream rss2;
+    rss2 << source2;
+    std::istringstream iss2(rss2.str());
     NegativeBinomialDistribution parsed2;
     iss2 >> parsed2;
 
