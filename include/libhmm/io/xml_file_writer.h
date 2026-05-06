@@ -68,7 +68,7 @@ private:
      * @param stream Output stream
      * @throws std::runtime_error if serialization fails
      */
-    void writeToStream(const Hmm &hmm, std::ofstream &stream);
+    static void writeToStream(const Hmm &hmm, std::ofstream &stream);
 };
 
 } // namespace libhmm

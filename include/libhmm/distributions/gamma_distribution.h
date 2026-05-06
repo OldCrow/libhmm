@@ -89,7 +89,7 @@ private:
      * Evaluates the LOWER INCOMPLETE gamma function at x
      * Uses numerical approximation for computational efficiency
      */
-    double ligamma(double a, double x) noexcept;
+    static double ligamma(double a, double x) noexcept;
 
 public:
     /**

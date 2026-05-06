@@ -76,7 +76,7 @@ private:
      * @return Loaded HMM object
      * @throws std::runtime_error if deserialization fails
      */
-    Hmm readFromStream(std::ifstream &stream);
+    static Hmm readFromStream(std::ifstream &stream);
 };
 
 } // namespace libhmm

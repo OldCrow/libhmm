@@ -30,18 +30,20 @@ public:
 private:
     /// Accumulates gamma statistics (emission data/weights, pi numerator, trans
     /// denominator) for one observation sequence.
-    void accumulate_gamma(const Matrix &logAlpha, const Matrix &logBeta, const ObservationSet &obs,
-                          double logP, std::size_t N, std::vector<std::vector<double>> &emisData,
-                          std::vector<std::vector<double>> &emisWts, std::vector<double> &piNum,
-                          std::vector<double> &transDen) const noexcept;
+    static void accumulate_gamma(const Matrix &logAlpha, const Matrix &logBeta,
+                                  const ObservationSet &obs, double logP, std::size_t N,
+                                  std::vector<std::vector<double>> &emisData,
+                                  std::vector<std::vector<double>> &emisWts,
+                                  std::vector<double> &piNum,
+                                  std::vector<double> &transDen) noexcept;
 
     /// Accumulates xi statistics (expected transition counts) for one sequence.
     /// Dispatches to sparse or dense path based on hasZeroTransitions.
-    void accumulate_xi(const double *logAlphaData, const double *logBetaData,
-                       const std::vector<double> &logEmitByTime,
-                       const std::vector<double> &logTransT, double logP, std::size_t T,
-                       std::size_t N, bool hasZeroTransitions,
-                       std::vector<double> &transNumT) const noexcept;
+    static void accumulate_xi(const double *logAlphaData, const double *logBetaData,
+                               const std::vector<double> &logEmitByTime,
+                               const std::vector<double> &logTransT, double logP, std::size_t T,
+                               std::size_t N, bool hasZeroTransitions,
+                               std::vector<double> &transNumT) noexcept;
 
     /// M-step: normalize piNum and update the HMM initial distribution.
     static void m_step_pi(Hmm &hmm, std::size_t N, const std::vector<double> &piNum);

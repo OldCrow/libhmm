@@ -73,7 +73,7 @@ private:
      * @param k Value to validate
      * @return true if k is a valid count, false otherwise
      */
-    bool isValidCount(double k) const noexcept {
+    static bool isValidCount(double k) noexcept {
         return k >= 0.0 && std::floor(k) == k && std::isfinite(k);
     }
 
