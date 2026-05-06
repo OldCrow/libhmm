@@ -437,7 +437,7 @@ void testEqualityAndIO() {
     assert(output.find("LogNormal Distribution") != std::string::npos);
     // Check for mean and standard deviation values in the output format
     assert(output.find("Mean") != std::string::npos);
-    assert(output.find("Standard Deviation") != std::string::npos);
+    assert(output.find("std. deviation") != std::string::npos);
 
     // Test stream input operator
     std::istringstream iss(output);

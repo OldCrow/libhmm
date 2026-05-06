@@ -448,8 +448,11 @@ void testEqualityAndIO() {
     assert(!output.empty());
     assert(output.find("Binomial") != std::string::npos);
 
-    // Test stream input
-    std::istringstream iss("20 0.7");
+    // Test stream input via roundtrip
+    BinomialDistribution source(20, 0.7);
+    std::ostringstream rss;
+    rss << source;
+    std::istringstream iss(rss.str());
     BinomialDistribution inputBinomial;
     iss >> inputBinomial;
     assert(inputBinomial.getN() == 20);

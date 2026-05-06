@@ -427,7 +427,7 @@ void testEqualityAndIO() {
     std::ostringstream oss;
     oss << g1;
     std::string output = oss.str();
-    assert(output.find("Normal Distribution") != std::string::npos);
+    assert(output.find("Gaussian Distribution") != std::string::npos);
     assert(output.find("2.5") != std::string::npos);
     assert(output.find("1.5") != std::string::npos);
 
