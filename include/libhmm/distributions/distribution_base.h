@@ -25,7 +25,7 @@ class Reader;
  */
 class DistributionBase : public EmissionDistribution {
 public:
-    virtual ~DistributionBase() = default;
+    ~DistributionBase() override = default;
 
     DistributionBase();
     DistributionBase(const DistributionBase &other);

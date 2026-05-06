@@ -351,6 +351,7 @@ bool ErrorRecovery::recoverFromUnderflow(Vector &probs, RecoveryStrategy strateg
     return true;
 }
 
+// cppcheck-suppress constParameterReference
 bool ErrorRecovery::recoverFromOverflow(Vector &values, RecoveryStrategy strategy) {
     bool hasOverflow = false;
 
@@ -388,6 +389,7 @@ bool ErrorRecovery::recoverFromOverflow(Vector &values, RecoveryStrategy strateg
     return true;
 }
 
+// cppcheck-suppress constParameterReference
 std::size_t ErrorRecovery::handleNaNValues(Vector &values, RecoveryStrategy strategy) {
     std::size_t nanCount = 0;
 
@@ -423,6 +425,7 @@ std::size_t ErrorRecovery::handleNaNValues(Vector &values, RecoveryStrategy stra
     return nanCount;
 }
 
+// cppcheck-suppress constParameterReference
 bool ErrorRecovery::repairDegenerateMatrix(Matrix &matrix, RecoveryStrategy strategy) {
     bool hasIssues = false;
 
