@@ -341,11 +341,11 @@ public:
     BasicVector<T> row_sums() const {
         BasicVector<T> result(rows_);
         for (size_type i = 0; i < rows_; ++i) {
-            T sum = T{};
+            T row_sum = T{};
             for (size_type j = 0; j < cols_; ++j) {
-                sum += (*this)(i, j);
+                row_sum += (*this)(i, j);
             }
-            result[i] = sum;
+            result[i] = row_sum;
         }
         return result;
     }
@@ -357,11 +357,11 @@ public:
     BasicVector<T> column_sums() const {
         BasicVector<T> result(cols_);
         for (size_type j = 0; j < cols_; ++j) {
-            T sum = T{};
+            T col_sum = T{};
             for (size_type i = 0; i < rows_; ++i) {
-                sum += (*this)(i, j);
+                col_sum += (*this)(i, j);
             }
-            result[j] = sum;
+            result[j] = col_sum;
         }
         return result;
     }

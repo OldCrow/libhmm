@@ -429,10 +429,10 @@ void testCDF() {
     NegativeBinomialDistribution negbinom(3.0, 0.6);
 
     // Test CDF properties
-    double cdf0 = negbinom.CDF(0.0);
-    double cdf1 = negbinom.CDF(1.0);
-    double cdf5 = negbinom.CDF(5.0);
-    double cdf10 = negbinom.CDF(10.0);
+    double cdf0 = negbinom.getCumulativeProbability(0.0);
+    double cdf1 = negbinom.getCumulativeProbability(1.0);
+    double cdf5 = negbinom.getCumulativeProbability(5.0);
+    double cdf10 = negbinom.getCumulativeProbability(10.0);
 
     // CDF should be non-decreasing
     assert(cdf0 <= cdf1);
@@ -449,14 +449,14 @@ void testCDF() {
     assert(std::abs(cdf0 - negbinom.getProbability(0.0)) < 1e-10);
 
     // Test boundary cases
-    assert(negbinom.CDF(-1.0) == 0.0);
+    assert(negbinom.getCumulativeProbability(-1.0) == 0.0);
 
     // Test invalid inputs
     double nan_val = std::numeric_limits<double>::quiet_NaN();
     double inf_val = std::numeric_limits<double>::infinity();
 
-    assert(negbinom.CDF(nan_val) == 0.0);
-    assert(negbinom.CDF(inf_val) == 0.0);
+    assert(negbinom.getCumulativeProbability(nan_val) == 0.0);
+    assert(negbinom.getCumulativeProbability(inf_val) == 0.0);
 
     std::cout << "✓ CDF calculation tests passed" << std::endl;
 }

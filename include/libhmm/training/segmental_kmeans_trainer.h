@@ -56,7 +56,7 @@ private:
     bool terminated_{false};
     Clusters clusters_;
 
-    ObservationSet flattenObservationLists(const ObservationLists &observationLists);
+    static ObservationSet flattenObservationLists(const ObservationLists &observationLists);
     void iterate();
     void learnPi();
     void learnTrans();

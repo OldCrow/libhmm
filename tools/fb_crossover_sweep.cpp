@@ -60,6 +60,7 @@ ObservationSet make_obs(int t, int n) {
     return obs;
 }
 
+// cppcheck-suppress constParameterReference
 double time_mode(Hmm &hmm, const ObservationSet &obs, FbRecurrenceMode mode) {
     ForwardBackwardCalculator fbc(hmm, obs);
     fbc.setRecurrenceModeOverride(mode);

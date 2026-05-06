@@ -83,7 +83,7 @@ private:
      * @param lambda Scale parameter (must be positive and finite)
      * @throws std::invalid_argument if parameters are invalid
      */
-    void validateParameters(double k, double lambda) const {
+    static void validateParameters(double k, double lambda) {
         if (std::isnan(k) || std::isinf(k) || k <= 0.0) {
             throw std::invalid_argument("Shape parameter k must be a positive finite number");
         }

@@ -177,7 +177,7 @@ double NegativeBinomialDistribution::getLogProbability(double value) const noexc
     return logCoeff + r_ * logP_ + static_cast<double>(k) * log1MinusP_;
 }
 
-double NegativeBinomialDistribution::CDF(double value) const noexcept {
+double NegativeBinomialDistribution::getCumulativeProbability(double value) const noexcept {
     // Validate input
     if (std::isnan(value) || std::isinf(value)) {
         return math::ZERO_DOUBLE;

@@ -88,7 +88,7 @@ private:
      * @param xm Scale parameter (must be positive and finite)
      * @throws std::invalid_argument if parameters are invalid
      */
-    void validateParameters(double k, double xm) const {
+    static void validateParameters(double k, double xm) {
         if (std::isnan(k) || std::isinf(k) || k <= 0.0) {
             throw std::invalid_argument("Shape parameter k must be a positive finite number");
         }
