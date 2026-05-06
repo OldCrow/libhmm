@@ -3,8 +3,8 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-3.4.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-38%2F38_Passing-success.svg)](tests/)
+[![Version](https://img.shields.io/badge/Version-3.5.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-37%2F37_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
@@ -148,7 +148,7 @@ libhmm/
 │   ├── training/      # Layer 4: BaumWelch, Viterbi, SegmentalKMeans
 │   └── io/            # JSON (hmm_json.h) + legacy XML I/O
 ├── src/               # Implementation (mirrors include/)
-├── tests/             # 38-test GTest suite
+├── tests/             # 37-test GTest suite
 ├── examples/          # 12 usage demonstrations
 ├── tools/             # simd_inspection, batch_performance, hmm_validator (.json/.xml)
 ├── samples/           # Reference HMM files (two_state_gaussian, casino) in JSON and XML
