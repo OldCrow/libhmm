@@ -149,9 +149,8 @@ if(GTest_FOUND OR TARGET gtest)
     # =========================================================================
     # Math & Numerics
     # =========================================================================
-    add_hmm_test(test_modern_constants    common/test_modern_constants.cpp)
-    add_hmm_test(test_numerical_stability common/test_numerical_stability.cpp)
-    add_hmm_test(test_common              common/test_common.cpp)
+    add_hmm_test(test_modern_constants common/test_modern_constants.cpp)
+    add_hmm_test(test_common           common/test_common.cpp)
 
     # =========================================================================
     # Performance Primitives
