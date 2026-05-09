@@ -276,52 +276,57 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::cout << "libhmm BW Hotspot Breakdown  (median of " << runs << " runs, " << warmup
-              << " warmup)\n";
-    std::cout << std::string(66, '=') << "\n\n";
-    std::cout << std::fixed << std::setprecision(3);
+    try {
+        std::cout << "libhmm BW Hotspot Breakdown  (median of " << runs << " runs, " << warmup
+                  << " warmup)\n";
+        std::cout << std::string(66, '=') << "\n\n";
+        std::cout << std::fixed << std::setprecision(3);
 
-    for (const auto &cfg : configs) {
-        auto hmm = make_hmm(cfg.n);
-        auto obs = make_obs(cfg.t, cfg.n);
-        const auto bw = profile_bw(*hmm, obs, warmup, runs);
+        for (const auto &cfg : configs) {
+            auto hmm = make_hmm(cfg.n);
+            auto obs = make_obs(cfg.t, cfg.n);
+            const auto bw = profile_bw(*hmm, obs, warmup, runs);
 
-        const double total = bw.fb_ms + bw.gamma_ms + bw.xi_ms;
-        auto pct = [&](double v) {
-            return (total > 0.0) ? 100.0 * v / total : 0.0;
-        };
+            const double total = bw.fb_ms + bw.gamma_ms + bw.xi_ms;
+            auto pct = [&](double v) {
+                return (total > 0.0) ? 100.0 * v / total : 0.0;
+            };
 
-        std::cout << "N=" << cfg.n << "  T=" << cfg.t << "\n";
-        std::cout << "  exp() call volume:  gamma=" << static_cast<double>(bw.gamma_exp_calls) / 1e3
-                  << "K"
-                  << "  xi=" << static_cast<double>(bw.xi_exp_calls) / 1e6 << "M"
-                  << "  ratio xi/gamma="
-                  << (bw.gamma_exp_calls > 0 ? static_cast<double>(bw.xi_exp_calls) /
-                                                   static_cast<double>(bw.gamma_exp_calls)
-                                             : 0.0)
-                  << "x\n";
+            std::cout << "N=" << cfg.n << "  T=" << cfg.t << "\n";
+            std::cout << "  exp() call volume:  gamma="
+                      << static_cast<double>(bw.gamma_exp_calls) / 1e3 << "K"
+                      << "  xi=" << static_cast<double>(bw.xi_exp_calls) / 1e6 << "M"
+                      << "  ratio xi/gamma="
+                      << (bw.gamma_exp_calls > 0 ? static_cast<double>(bw.xi_exp_calls) /
+                                                       static_cast<double>(bw.gamma_exp_calls)
+                                                 : 0.0)
+                      << "x\n";
 
-        auto row = [&](const char *label, double ms, std::uint64_t calls) {
-            std::cout << "  " << std::left << std::setw(24) << label << std::right << std::setw(8)
-                      << ms << " ms"
-                      << "  " << std::setw(6) << std::setprecision(1) << pct(ms) << "%";
-            if (calls > 0) {
-                const double ns_per = (ms * 1e6) / static_cast<double>(calls);
-                std::cout << "  " << std::setprecision(1) << ns_per << " ns/exp()";
-            }
+            auto row = [&](const char *label, double ms, std::uint64_t calls) {
+                std::cout << "  " << std::left << std::setw(24) << label << std::right
+                          << std::setw(8) << ms << " ms"
+                          << "  " << std::setw(6) << std::setprecision(1) << pct(ms) << "%";
+                if (calls > 0) {
+                    const double ns_per = (ms * 1e6) / static_cast<double>(calls);
+                    std::cout << "  " << std::setprecision(1) << ns_per << " ns/exp()";
+                }
+                std::cout << "\n";
+                std::cout << std::setprecision(3);
+            };
+
+            row("FB (fwd+bwd)", bw.fb_ms, 0);
+            row("Gamma accum", bw.gamma_ms, bw.gamma_exp_calls);
+            row("Xi accum", bw.xi_ms, bw.xi_exp_calls);
+            std::cout << "  " << std::left << std::setw(24) << "TOTAL (1 BW iter)" << std::right
+                      << std::setw(8) << total << " ms\n";
             std::cout << "\n";
-            std::cout << std::setprecision(3);
-        };
+        }
 
-        row("FB (fwd+bwd)", bw.fb_ms, 0);
-        row("Gamma accum", bw.gamma_ms, bw.gamma_exp_calls);
-        row("Xi accum", bw.xi_ms, bw.xi_exp_calls);
-        std::cout << "  " << std::left << std::setw(24) << "TOTAL (1 BW iter)" << std::right
-                  << std::setw(8) << total << " ms\n";
-        std::cout << "\n";
+        if (g_sink == 1.23456789)
+            std::cout << "sink=" << g_sink << "\n";
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        return 1;
     }
-
-    if (g_sink == 1.23456789)
-        std::cout << "sink=" << g_sink << "\n";
     return 0;
 }
