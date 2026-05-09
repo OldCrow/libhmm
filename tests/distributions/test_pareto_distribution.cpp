@@ -1,19 +1,13 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <cassert>
 #include <stdexcept>
 #include <climits>
 #include <chrono>
 #include <iomanip>
 #include <sstream>
 #include "libhmm/distributions/pareto_distribution.h"
-#ifdef _MSC_VER
-#pragma warning(disable : 4189) // assert()-only variables appear unreferenced in Release
-#elif defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#endif
+#include <gtest/gtest.h>
 
 using libhmm::Observation;
 using libhmm::ParetoDistribution;
@@ -21,34 +15,31 @@ using libhmm::ParetoDistribution;
 /**
  * Test basic Pareto distribution functionality
  */
-void testBasicFunctionality() {
-    std::cout << "Testing basic Pareto distribution functionality..." << std::endl;
+TEST(ParetoDistributionTest, BasicFunctionality) {
 
     // Test default constructor
     ParetoDistribution pareto;
-    assert(pareto.getK() == 1.0);
-    assert(pareto.getXm() == 1.0);
+    EXPECT_EQ(pareto.getK(), 1.0);
+    EXPECT_EQ(pareto.getXm(), 1.0);
 
     // Test parameterized constructor
     ParetoDistribution pareto2(2.5, 1.5);
-    assert(pareto2.getK() == 2.5);
-    assert(pareto2.getXm() == 1.5);
+    EXPECT_EQ(pareto2.getK(), 2.5);
+    EXPECT_EQ(pareto2.getXm(), 1.5);
 
-    std::cout << "✓ Basic functionality tests passed" << std::endl;
 }
 
 /**
  * Test probability calculations
  */
-void testProbabilities() {
-    std::cout << "Testing probability calculations..." << std::endl;
+TEST(ParetoDistributionTest, Probabilities) {
 
     ParetoDistribution pareto(2.0, 1.0); // k=2, xm=1
 
     // Test that probability is zero for values below xm
-    assert(pareto.getProbability(0.5) == 0.0);
-    assert(pareto.getProbability(0.0) == 0.0);
-    assert(pareto.getProbability(-1.0) == 0.0);
+    EXPECT_EQ(pareto.getProbability(0.5), 0.0);
+    EXPECT_EQ(pareto.getProbability(0.0), 0.0);
+    EXPECT_EQ(pareto.getProbability(-1.0), 0.0);
 
     // Test that probability is positive for values > xm (might be 0 exactly at xm)
     double prob1 = pareto.getProbability(1.0); // At xm
@@ -56,85 +47,81 @@ void testProbabilities() {
     double prob3 = pareto.getProbability(3.0);
 
     // Note: some implementations may return 0 exactly at xm
-    assert(prob1 >= 0.0);
-    assert(prob2 > 0.0);
-    assert(prob3 > 0.0);
+    EXPECT_TRUE(prob1 >= 0.0);
+    EXPECT_GT(prob2, 0.0);
+    EXPECT_GT(prob3, 0.0);
 
     // For Pareto distribution, density should decrease as x increases
     // Note: if prob1 is 0 at xm, then we can't compare it
     if (prob1 > 0.0) {
-        assert(prob1 > prob2);
+        EXPECT_GT(prob1, prob2);
     }
-    assert(prob2 > prob3);
+    EXPECT_GT(prob2, prob3);
 
     // Test that probability density is reasonable (should be small for continuous dist)
-    assert(prob2 < 100.0); // Should be reasonable
-    assert(prob2 > 1e-10); // Should be greater than zero
+    EXPECT_LT(prob2, 100.0); // Should be reasonable
+    EXPECT_GT(prob2, 1e-10); // Should be greater than zero
 
-    std::cout << "✓ Probability calculation tests passed" << std::endl;
 }
 
 /**
  * Test parameter fitting
  */
-void testFitting() {
-    std::cout << "Testing parameter fitting..." << std::endl;
+TEST(ParetoDistributionTest, Fitting) {
 
     ParetoDistribution pareto;
 
     // Test with known data (values should be >= xm)
     std::vector<Observation> data = {1.0, 2.0, 3.0, 4.0, 5.0};
     pareto.fit(data);
-    assert(pareto.getK() > 0.0);  // Should have some reasonable value
-    assert(pareto.getXm() > 0.0); // Should have some reasonable value
+    EXPECT_GT(pareto.getK(), 0.0);  // Should have some reasonable value
+    EXPECT_GT(pareto.getXm(), 0.0); // Should have some reasonable value
 
     // Test with empty data (should reset to default)
     std::vector<Observation> emptyData;
     pareto.fit(emptyData);
-    assert(pareto.getK() == 1.0);
-    assert(pareto.getXm() == 1.0);
+    EXPECT_EQ(pareto.getK(), 1.0);
+    EXPECT_EQ(pareto.getXm(), 1.0);
 
     // Test with single point (should reset based on actual behavior)
     std::vector<Observation> singlePoint = {2.5};
     pareto.fit(singlePoint);
     // Based on debug output: k=1, xm=1 (resets to default)
-    assert(pareto.getK() == 1.0);
-    assert(pareto.getXm() == 1.0);
+    EXPECT_EQ(pareto.getK(), 1.0);
+    EXPECT_EQ(pareto.getXm(), 1.0);
 
-    std::cout << "✓ Parameter fitting tests passed" << std::endl;
 }
 
 /**
  * Test parameter validation
  */
-void testParameterValidation() {
-    std::cout << "Testing parameter validation..." << std::endl;
+TEST(ParetoDistributionTest, ParameterValidation) {
 
     // Test invalid constructor parameters
     try {
         ParetoDistribution pareto(0.0, 1.0); // Zero k
-        assert(false);                       // Should not reach here
+        ADD_FAILURE();                       // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
 
     try {
         ParetoDistribution pareto(-1.0, 1.0); // Negative k
-        assert(false);                        // Should not reach here
+        ADD_FAILURE();                        // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
 
     try {
         ParetoDistribution pareto(1.0, 0.0); // Zero xm
-        assert(false);                       // Should not reach here
+        ADD_FAILURE();                       // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
 
     try {
         ParetoDistribution pareto(1.0, -1.0); // Negative xm
-        assert(false);                        // Should not reach here
+        ADD_FAILURE();                        // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
@@ -143,115 +130,79 @@ void testParameterValidation() {
     double nan_val = std::numeric_limits<double>::quiet_NaN();
     double inf_val = std::numeric_limits<double>::infinity();
 
-    try {
-        ParetoDistribution pareto(nan_val, 1.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(ParetoDistribution pareto(nan_val, 1.0), std::invalid_argument);
 
-    try {
-        ParetoDistribution pareto(1.0, inf_val);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(ParetoDistribution pareto(1.0, inf_val), std::invalid_argument);
 
     // Test setters validation
     ParetoDistribution pareto(1.0, 1.0);
 
-    try {
-        pareto.setK(0.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(pareto.setK(0.0), std::invalid_argument);
 
-    try {
-        pareto.setK(-1.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(pareto.setK(-1.0), std::invalid_argument);
 
-    try {
-        pareto.setXm(0.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(pareto.setXm(0.0), std::invalid_argument);
 
-    try {
-        pareto.setXm(-1.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(pareto.setXm(-1.0), std::invalid_argument);
 
-    std::cout << "✓ Parameter validation tests passed" << std::endl;
 }
 
 /**
  * Test string representation
  */
-void testStringRepresentation() {
-    std::cout << "Testing string representation..." << std::endl;
+TEST(ParetoDistributionTest, StringRepresentation) {
 
     ParetoDistribution pareto(2.5, 1.5);
     std::string str = pareto.toString();
 
     // Should contain key information based on new format:
     // "Pareto Distribution:\n      k (shape parameter) = 2.5\n      x_m (scale parameter) = 1.5\n      Mean = 2.5\n      Variance = ...\n"
-    assert(str.find("Pareto") != std::string::npos);
-    assert(str.find("Distribution") != std::string::npos);
-    assert(str.find("2.5") != std::string::npos);
-    assert(str.find("1.5") != std::string::npos);
-    assert(str.find("shape parameter") != std::string::npos);
-    assert(str.find("scale parameter") != std::string::npos);
+    EXPECT_NE(str.find("Pareto"), std::string::npos);
+    EXPECT_NE(str.find("Distribution"), std::string::npos);
+    EXPECT_NE(str.find("2.5"), std::string::npos);
+    EXPECT_NE(str.find("1.5"), std::string::npos);
+    EXPECT_NE(str.find("shape parameter"), std::string::npos);
+    EXPECT_NE(str.find("scale parameter"), std::string::npos);
 
     std::cout << "String representation: " << str << std::endl;
-    std::cout << "✓ String representation tests passed" << std::endl;
 }
 
 /**
  * Test copy/move semantics
  */
-void testCopyMoveSemantics() {
-    std::cout << "Testing copy/move semantics..." << std::endl;
+TEST(ParetoDistributionTest, CopyMoveSemantics) {
 
     ParetoDistribution original(3.14, 2.71);
 
     // Test copy constructor
     ParetoDistribution copied(original);
-    assert(copied.getK() == original.getK());
-    assert(copied.getXm() == original.getXm());
+    EXPECT_EQ(copied.getK(), original.getK());
+    EXPECT_EQ(copied.getXm(), original.getXm());
 
     // Test copy assignment
     ParetoDistribution assigned;
     assigned = original;
-    assert(assigned.getK() == original.getK());
-    assert(assigned.getXm() == original.getXm());
+    EXPECT_EQ(assigned.getK(), original.getK());
+    EXPECT_EQ(assigned.getXm(), original.getXm());
 
     // Test move constructor
     ParetoDistribution moved(std::move(original));
-    assert(moved.getK() == 3.14);
-    assert(moved.getXm() == 2.71);
+    EXPECT_EQ(moved.getK(), 3.14);
+    EXPECT_EQ(moved.getXm(), 2.71);
 
     // Test move assignment
     ParetoDistribution moveAssigned;
     ParetoDistribution temp(1.41, 1.73);
     moveAssigned = std::move(temp);
-    assert(moveAssigned.getK() == 1.41);
-    assert(moveAssigned.getXm() == 1.73);
+    EXPECT_EQ(moveAssigned.getK(), 1.41);
+    EXPECT_EQ(moveAssigned.getXm(), 1.73);
 
-    std::cout << "✓ Copy/move semantics tests passed" << std::endl;
 }
 
 /**
  * Test invalid input handling
  */
-void testInvalidInputHandling() {
-    std::cout << "Testing invalid input handling..." << std::endl;
+TEST(ParetoDistributionTest, InvalidInputHandling) {
 
     ParetoDistribution pareto(2.0, 1.0);
 
@@ -260,67 +211,61 @@ void testInvalidInputHandling() {
     double inf_val = std::numeric_limits<double>::infinity();
     double neg_inf_val = -std::numeric_limits<double>::infinity();
 
-    assert(pareto.getProbability(nan_val) == 0.0);
-    assert(pareto.getProbability(inf_val) == 0.0);
-    assert(pareto.getProbability(neg_inf_val) == 0.0);
+    EXPECT_EQ(pareto.getProbability(nan_val), 0.0);
+    EXPECT_EQ(pareto.getProbability(inf_val), 0.0);
+    EXPECT_EQ(pareto.getProbability(neg_inf_val), 0.0);
 
     // Values below xm should return 0
-    assert(pareto.getProbability(0.5) == 0.0);
-    assert(pareto.getProbability(0.0) == 0.0);
-    assert(pareto.getProbability(-1.0) == 0.0);
+    EXPECT_EQ(pareto.getProbability(0.5), 0.0);
+    EXPECT_EQ(pareto.getProbability(0.0), 0.0);
+    EXPECT_EQ(pareto.getProbability(-1.0), 0.0);
 
-    std::cout << "✓ Invalid input handling tests passed" << std::endl;
 }
 
 /**
  * Test reset functionality
  */
-void testResetFunctionality() {
-    std::cout << "Testing reset functionality..." << std::endl;
+TEST(ParetoDistributionTest, ResetFunctionality) {
 
     ParetoDistribution pareto(10.0, 5.0);
     pareto.reset();
 
-    assert(pareto.getK() == 1.0);
-    assert(pareto.getXm() == 1.0);
+    EXPECT_EQ(pareto.getK(), 1.0);
+    EXPECT_EQ(pareto.getXm(), 1.0);
 
-    std::cout << "✓ Reset functionality tests passed" << std::endl;
 }
 
 /**
  * Test Pareto distribution properties
  */
-void testParetoProperties() {
-    std::cout << "Testing Pareto distribution properties..." << std::endl;
+TEST(ParetoDistributionTest, ParetoProperties) {
 
     ParetoDistribution pareto(2.0, 1.0);
 
     // Test that Pareto is only defined for x >= xm
-    assert(pareto.getProbability(0.5) == 0.0);  // Below xm
-    assert(pareto.getProbability(0.99) == 0.0); // Below xm
+    EXPECT_EQ(pareto.getProbability(0.5), 0.0);  // Below xm
+    EXPECT_EQ(pareto.getProbability(0.99), 0.0); // Below xm
 
     // Test at and above xm
     double probAtXm = pareto.getProbability(1.0);    // At xm
     double probAboveXm = pareto.getProbability(2.0); // Above xm
 
     // Note: some implementations may return 0 exactly at xm
-    assert(probAtXm >= 0.0);
-    assert(probAboveXm > 0.0);
+    EXPECT_TRUE(probAtXm >= 0.0);
+    EXPECT_GT(probAboveXm, 0.0);
 
     // Pareto distribution has heavy tail - probability decreases as power law
     // Only compare if both are positive
     if (probAtXm > 0.0) {
-        assert(probAtXm > probAboveXm);
+        EXPECT_GT(probAtXm, probAboveXm);
     }
 
-    std::cout << "✓ Pareto property tests passed" << std::endl;
 }
 
 /**
  * Test fitting validation
  */
-void testFittingValidation() {
-    std::cout << "Testing fitting validation..." << std::endl;
+TEST(ParetoDistributionTest, FittingValidation) {
 
     ParetoDistribution pareto;
 
@@ -334,8 +279,8 @@ void testFittingValidation() {
         // If it doesn't throw, check if parameters are valid (non-NaN, positive)
         // Some implementations may produce invalid parameters with bad data
         if (!std::isnan(pareto.getK()) && !std::isnan(pareto.getXm())) {
-            assert(pareto.getK() > 0.0);
-            assert(pareto.getXm() > 0.0);
+            EXPECT_GT(pareto.getK(), 0.0);
+            EXPECT_GT(pareto.getXm(), 0.0);
         }
         // If parameters are invalid, that's also acceptable behavior
     } catch (const std::exception &) {
@@ -348,21 +293,19 @@ void testFittingValidation() {
         pareto.fit(zeroData);
         // Check if parameters are valid (non-NaN, positive)
         if (!std::isnan(pareto.getK()) && !std::isnan(pareto.getXm())) {
-            assert(pareto.getK() > 0.0);
-            assert(pareto.getXm() > 0.0);
+            EXPECT_GT(pareto.getK(), 0.0);
+            EXPECT_GT(pareto.getXm(), 0.0);
         }
     } catch (const std::exception &) {
         // Acceptable to reject zero values
     }
 
-    std::cout << "✓ Fitting validation tests passed" << std::endl;
 }
 
 /**
  * Test log probability calculations
  */
-void testLogProbability() {
-    std::cout << "Testing log probability calculations..." << std::endl;
+TEST(ParetoDistributionTest, LogProbability) {
 
     ParetoDistribution pareto(2.0, 1.0);
 
@@ -371,74 +314,70 @@ void testLogProbability() {
     double logProb2 = pareto.getLogProbability(2.0);
     double logProb3 = pareto.getLogProbability(3.0);
 
-    assert(std::isfinite(logProb1));
-    assert(std::isfinite(logProb2));
-    assert(std::isfinite(logProb3));
+    EXPECT_TRUE(std::isfinite(logProb1));
+    EXPECT_TRUE(std::isfinite(logProb2));
+    EXPECT_TRUE(std::isfinite(logProb3));
 
     // Log probabilities should decrease as x increases (for decreasing PDF)
-    assert(logProb1 > logProb2);
-    assert(logProb2 > logProb3);
+    EXPECT_GT(logProb1, logProb2);
+    EXPECT_GT(logProb2, logProb3);
 
     // Test that log probability is -infinity for invalid values
-    assert(pareto.getLogProbability(0.5) == -std::numeric_limits<double>::infinity());
-    assert(pareto.getLogProbability(-1.0) == -std::numeric_limits<double>::infinity());
+    EXPECT_EQ(pareto.getLogProbability(0.5), -std::numeric_limits<double>::infinity());
+    EXPECT_EQ(pareto.getLogProbability(-1.0), -std::numeric_limits<double>::infinity());
 
-    std::cout << "✓ Log probability tests passed" << std::endl;
 }
 
 /**
  * Test CDF calculations
  */
-void testCDFCalculations() {
-    std::cout << "Testing CDF calculations..." << std::endl;
+TEST(ParetoDistributionTest, CDFCalculations) {
 
     ParetoDistribution pareto(2.0, 1.0);
 
     // Test boundary values
-    assert(pareto.getCumulativeProbability(-1.0) == 0.0);
-    assert(pareto.getCumulativeProbability(0.5) == 0.0);
-    assert(pareto.getCumulativeProbability(1.0) == 0.0); // At xm
+    EXPECT_EQ(pareto.getCumulativeProbability(-1.0), 0.0);
+    EXPECT_EQ(pareto.getCumulativeProbability(0.5), 0.0);
+    EXPECT_EQ(pareto.getCumulativeProbability(1.0), 0.0); // At xm
 
     // Test known values
     double cdf_at_2 = pareto.getCumulativeProbability(2.0);    // CDF at x = 2*xm
     double expected_cdf_at_2 = 1.0 - std::pow(1.0 / 2.0, 2.0); // 1 - (xm/x)^k = 1 - (1/2)^2 = 0.75
-    assert(std::abs(cdf_at_2 - expected_cdf_at_2) < 1e-10);
+    EXPECT_NEAR(cdf_at_2, expected_cdf_at_2, 1e-10);
 
     // Test monotonicity
     double cdf1 = pareto.getCumulativeProbability(1.5);
     double cdf2 = pareto.getCumulativeProbability(2.0);
     double cdf3 = pareto.getCumulativeProbability(3.0);
-    assert(cdf1 < cdf2);
-    assert(cdf2 < cdf3);
+    EXPECT_LT(cdf1, cdf2);
+    EXPECT_LT(cdf2, cdf3);
 
     // Test that CDF approaches 1 for large values
     double cdf_large = pareto.getCumulativeProbability(100.0);
-    assert(cdf_large > 0.99);
+    EXPECT_GT(cdf_large, 0.99);
 
-    std::cout << "✓ CDF calculation tests passed" << std::endl;
 }
 
 /**
  * Test equality and I/O operators
  */
-void testEqualityAndIO() {
-    std::cout << "Testing equality and I/O operators..." << std::endl;
+TEST(ParetoDistributionTest, EqualityAndIO) {
 
     ParetoDistribution p1(2.0, 1.5);
     ParetoDistribution p2(2.0, 1.5);
     ParetoDistribution p3(3.0, 1.5);
 
-    assert(p1 == p2);
-    assert(p2 == p1);
-    assert(!(p1 == p3));
-    assert(p1 != p3);
+    EXPECT_EQ(p1, p2);
+    EXPECT_EQ(p2, p1);
+    EXPECT_FALSE(p1 == p3);
+    EXPECT_NE(p1, p3);
 
     std::ostringstream oss;
     oss << p1;
     std::string output = oss.str();
-    assert(output.find("Pareto Distribution") != std::string::npos);
-    assert(output.find("2.0") != std::string::npos);
-    assert(output.find("1.5") != std::string::npos);
+    EXPECT_NE(output.find("Pareto Distribution"), std::string::npos);
+    EXPECT_NE(output.find("2.0"), std::string::npos);
+    EXPECT_NE(output.find("1.5"), std::string::npos);
 
     std::cout << "Stream output: " << output << std::endl;
 
@@ -448,17 +387,15 @@ void testEqualityAndIO() {
     iss >> inputDist;
 
     if (iss.good() || iss.eof()) {
-        assert(inputDist == p1);
+        EXPECT_EQ(inputDist, p1);
     }
 
-    std::cout << "✓ Equality and I/O tests passed" << std::endl;
 }
 
 /**
  * Test numerical stability
  */
-void testNumericalStability() {
-    std::cout << "Testing numerical stability..." << std::endl;
+TEST(ParetoDistributionTest, NumericalStability) {
 
     ParetoDistribution smallK(0.1, 1.0);
     ParetoDistribution largeK(10.0, 1.0);  // Reduced from 100.0 to avoid extreme values
@@ -473,27 +410,25 @@ void testNumericalStability() {
     std::cout << "  probLarge = " << probLarge << std::endl;
     std::cout << "  probLargeXm = " << probLargeXm << std::endl;
 
-    assert(probSmall > 0.0 && std::isfinite(probSmall));
-    assert(probLarge > 0.0 && std::isfinite(probLarge));
-    assert(probLargeXm > 0.0 && std::isfinite(probLargeXm));
+    EXPECT_TRUE(probSmall > 0.0 && std::isfinite(probSmall));
+    EXPECT_TRUE(probLarge > 0.0 && std::isfinite(probLarge));
+    EXPECT_TRUE(probLargeXm > 0.0 && std::isfinite(probLargeXm));
 
     // Test CDF stability
     double cdfSmall = smallK.getCumulativeProbability(2.0);
     double cdfLarge = largeK.getCumulativeProbability(2.0);
     double cdfLargeXm = largeXm.getCumulativeProbability(20.0);
 
-    assert(cdfSmall >= 0.0 && cdfSmall <= 1.0 && std::isfinite(cdfSmall));
-    assert(cdfLarge >= 0.0 && cdfLarge <= 1.0 && std::isfinite(cdfLarge));
-    assert(cdfLargeXm >= 0.0 && cdfLargeXm <= 1.0 && std::isfinite(cdfLargeXm));
+    EXPECT_TRUE(cdfSmall >= 0.0 && cdfSmall <= 1.0 && std::isfinite(cdfSmall));
+    EXPECT_TRUE(cdfLarge >= 0.0 && cdfLarge <= 1.0 && std::isfinite(cdfLarge));
+    EXPECT_TRUE(cdfLargeXm >= 0.0 && cdfLargeXm <= 1.0 && std::isfinite(cdfLargeXm));
 
-    std::cout << "✓ Numerical stability tests passed" << std::endl;
 }
 
 /**
  * Test performance characteristics
  */
-void testPerformanceCharacteristics() {
-    std::cout << "Testing performance characteristics..." << std::endl;
+TEST(ParetoDistributionTest, PerformanceCharacteristics) {
 
     ParetoDistribution pareto(2.0, 1.0);
     const int iterations = 10000; // Reduced for consistency
@@ -544,19 +479,16 @@ void testPerformanceCharacteristics() {
               << " μs/point (" << fitData.size() << " points)" << std::endl;
 
     // Performance requirements (relaxed for Pareto due to complexity)
-    assert(pdf_time_per_call < 5.0);    // Less than 5 μs per PDF call
-    assert(logpdf_time_per_call < 3.0); // Less than 3 μs per log PDF call
-    assert(fitTimePerPoint <
-           50.0); // Less than 50 μs per data point for fitting (Pareto fitting is complex)
+    EXPECT_LT(pdf_time_per_call, 5.0);    // Less than 5 μs per PDF call
+    EXPECT_LT(logpdf_time_per_call, 3.0); // Less than 3 μs per log PDF call
+    EXPECT_LT(fitTimePerPoint, 50.0); // Less than 50 μs per data point for fitting (Pareto fitting is complex)
 
-    std::cout << "✓ Performance tests passed" << std::endl;
 }
 
 /**
  * Test caching mechanism
  */
-void testCaching() {
-    std::cout << "Testing caching mechanism..." << std::endl;
+TEST(ParetoDistributionTest, Caching) {
 
     ParetoDistribution pareto(2.0, 1.0);
 
@@ -564,51 +496,20 @@ void testCaching() {
     pareto.setK(3.0);
     double prob2 = pareto.getProbability(2.0);
 
-    assert(prob1 != prob2);
+    EXPECT_NE(prob1, prob2);
 
     pareto.reset();                            // Reset back to k=1.0, xm=1.0
     double prob3 = pareto.getProbability(3.0); // Use x=3.0 instead of x=2.0
-    assert(prob1 != prob3);
+    EXPECT_NE(prob1, prob3);
 
     // Test that cache invalidation works correctly
     pareto.setXm(2.0);
     double prob4 = pareto.getProbability(3.0);
-    assert(std::isfinite(prob4) && prob4 > 0.0);
+    EXPECT_TRUE(std::isfinite(prob4) && prob4 > 0.0);
 
-    std::cout << "✓ Caching mechanism tests passed" << std::endl;
 }
 
-int main() {
-    std::cout << "Running Pareto distribution tests..." << std::endl;
-    std::cout << "====================================" << std::endl;
-
-    try {
-        testBasicFunctionality();
-        testProbabilities();
-        testFitting();
-        testParameterValidation();
-        testStringRepresentation();
-        testCopyMoveSemantics();
-        testInvalidInputHandling();
-        testResetFunctionality();
-        testParetoProperties();
-        testFittingValidation();
-        testLogProbability();
-        testCDFCalculations();
-        testEqualityAndIO();
-        testNumericalStability();
-        testPerformanceCharacteristics();
-        testCaching();
-
-        std::cout << "====================================" << std::endl;
-        std::cout << "✅ All Pareto distribution tests passed!" << std::endl;
-        return 0;
-
-    } catch (const std::exception &e) {
-        std::cerr << "❌ Test failed with exception: " << e.what() << std::endl;
-        return 1;
-    } catch (...) {
-        std::cerr << "❌ Test failed with unknown exception" << std::endl;
-        return 1;
-    }
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

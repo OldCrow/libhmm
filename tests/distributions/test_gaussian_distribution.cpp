@@ -1,616 +1,275 @@
+#include <gtest/gtest.h>
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <cassert>
 #include <stdexcept>
 #include <limits>
 #include <chrono>
 #include <iomanip>
 #include <sstream>
 #include "libhmm/distributions/gaussian_distribution.h"
-#ifdef _MSC_VER
-#pragma warning(disable : 4189) // assert()-only variables appear unreferenced in Release
-#elif defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#endif
 
 using libhmm::GaussianDistribution;
 using libhmm::Observation;
 using namespace libhmm::constants;
 
-/**
- * Test basic Gaussian distribution functionality
- */
-void testBasicFunctionality() {
-    std::cout << "Testing basic Gaussian distribution functionality..." << std::endl;
-
-    // Test default constructor
+TEST(GaussianDistributionTest, BasicFunctionality) {
     GaussianDistribution gaussian;
-    assert(gaussian.getMean() == 0.0);
-    assert(gaussian.getStandardDeviation() == 1.0);
+    EXPECT_EQ(gaussian.getMean(), 0.0);
+    EXPECT_EQ(gaussian.getStandardDeviation(), 1.0);
 
-    // Test parameterized constructor
     GaussianDistribution gaussian2(5.0, 2.5);
-    assert(gaussian2.getMean() == 5.0);
-    assert(gaussian2.getStandardDeviation() == 2.5);
-
-    std::cout << "✓ Basic functionality tests passed" << std::endl;
+    EXPECT_EQ(gaussian2.getMean(), 5.0);
+    EXPECT_EQ(gaussian2.getStandardDeviation(), 2.5);
 }
 
-/**
- * Test probability calculations
- */
-void testProbabilities() {
-    std::cout << "Testing probability calculations..." << std::endl;
-
-    GaussianDistribution gaussian(0.0, 1.0); // Standard normal
-
-    // Test at mean (should be highest probability)
-    double probAtMean = gaussian.getProbability(0.0);
-    assert(probAtMean > 0.0);
-
-    // Test precise PDF value for standard normal at mean (should be 1/sqrt(2π))
-    double expectedPDF = 1.0 / math::SQRT_2PI;
-    assert(std::abs(probAtMean - expectedPDF) < 1e-10);
-
-    // Test symmetry around mean
-    double probAt1 = gaussian.getProbability(1.0);
-    double probAtNeg1 = gaussian.getProbability(-1.0);
-    assert(std::abs(probAt1 - probAtNeg1) < 1e-10);
-
-    // Probability at mean should be higher than at ±1
-    assert(probAtMean > probAt1);
-
-    // Test that probability density at mean is reasonable (should be small for continuous dist)
-    assert(probAtMean < 1.0);   // Should be less than 1 for probability density
-    assert(probAtMean > 1e-10); // Should be greater than zero
-
-    std::cout << "✓ Probability calculation tests passed" << std::endl;
-}
-
-/**
- * Test parameter fitting
- */
-void testFitting() {
-    std::cout << "Testing parameter fitting..." << std::endl;
-
-    GaussianDistribution gaussian;
-
-    // Test with known data (should fit mean=3.0, approximate std dev)
-    std::vector<Observation> data = {1.0, 2.0, 3.0, 4.0, 5.0};
-    double expectedMean = 3.0;
-
-    gaussian.fit(data);
-    assert(std::abs(gaussian.getMean() - expectedMean) < 1e-10);
-    assert(gaussian.getStandardDeviation() > 0.0);
-
-    // Test with empty data (should reset to default)
-    std::vector<Observation> emptyData;
-    gaussian.fit(emptyData);
-    assert(gaussian.getMean() == 0.0);
-    assert(gaussian.getStandardDeviation() == 1.0);
-
-    // Test with single point (implementation resets to default for insufficient data)
-    std::vector<Observation> singlePoint = {7.5};
-    gaussian.fit(singlePoint);
-    assert(gaussian.getMean() == 0.0); // Implementation resets to default
-    assert(gaussian.getStandardDeviation() == 1.0);
-
-    std::cout << "✓ Parameter fitting tests passed" << std::endl;
-}
-
-/**
- * Test parameter validation
- */
-void testParameterValidation() {
-    std::cout << "Testing parameter validation..." << std::endl;
-
-    // Test invalid constructor parameters
-    try {
-        GaussianDistribution gaussian(0.0, 0.0); // Zero std dev
-        assert(false);                           // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior - validation should catch zero std dev
-    }
-
-    try {
-        GaussianDistribution gaussian(0.0, -1.0); // Negative std dev
-        assert(false);                            // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior - validation should catch negative std dev
-    }
-
-    // Test invalid mean
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-
-    try {
-        GaussianDistribution gaussian(nan_val, 1.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior - validation should catch NaN mean
-    }
-
-    try {
-        GaussianDistribution gaussian(inf_val, 1.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior - validation should catch infinite mean
-    }
-
-    // Test setters validation
+TEST(GaussianDistributionTest, Probabilities) {
     GaussianDistribution gaussian(0.0, 1.0);
 
-    try {
-        gaussian.setMean(nan_val);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior - setMean should validate input
-    }
+    double probAtMean = gaussian.getProbability(0.0);
+    EXPECT_GT(probAtMean, 0.0);
+    EXPECT_NEAR(probAtMean, 1.0 / math::SQRT_2PI, 1e-10);
 
-    try {
-        gaussian.setStandardDeviation(0.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior - setStandardDeviation should validate zero
-    }
-
-    try {
-        gaussian.setStandardDeviation(-1.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior - setStandardDeviation should validate negative values
-    }
-
-    std::cout << "✓ Parameter validation tests passed" << std::endl;
+    double probAt1 = gaussian.getProbability(1.0);
+    EXPECT_NEAR(probAt1, gaussian.getProbability(-1.0), 1e-10);
+    EXPECT_GT(probAtMean, probAt1);
+    EXPECT_LT(probAtMean, 1.0);
+    EXPECT_GT(probAtMean, 1e-10);
 }
 
-/**
- * Test string representation
- */
-void testStringRepresentation() {
-    std::cout << "Testing string representation..." << std::endl;
+TEST(GaussianDistributionTest, Fitting) {
+    GaussianDistribution gaussian;
 
+    std::vector<Observation> data = {1.0, 2.0, 3.0, 4.0, 5.0};
+    gaussian.fit(data);
+    EXPECT_NEAR(gaussian.getMean(), 3.0, 1e-10);
+    EXPECT_GT(gaussian.getStandardDeviation(), 0.0);
+
+    gaussian.fit(std::vector<Observation>{});
+    EXPECT_EQ(gaussian.getMean(), 0.0);
+    EXPECT_EQ(gaussian.getStandardDeviation(), 1.0);
+
+    gaussian.fit(std::vector<Observation>{7.5});
+    EXPECT_EQ(gaussian.getMean(), 0.0);
+    EXPECT_EQ(gaussian.getStandardDeviation(), 1.0);
+}
+
+TEST(GaussianDistributionTest, ParameterValidation) {
+    EXPECT_THROW(GaussianDistribution(0.0, 0.0), std::invalid_argument);
+    EXPECT_THROW(GaussianDistribution(0.0, -1.0), std::invalid_argument);
+    EXPECT_THROW(GaussianDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0), std::invalid_argument);
+    EXPECT_THROW(GaussianDistribution(std::numeric_limits<double>::infinity(), 1.0), std::invalid_argument);
+
+    GaussianDistribution gaussian(0.0, 1.0);
+    EXPECT_THROW(gaussian.setMean(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
+    EXPECT_THROW(gaussian.setStandardDeviation(0.0), std::invalid_argument);
+    EXPECT_THROW(gaussian.setStandardDeviation(-1.0), std::invalid_argument);
+}
+
+TEST(GaussianDistributionTest, StringRepresentation) {
     GaussianDistribution gaussian(2.5, 1.5);
     std::string str = gaussian.toString();
-
-    // Should contain key information based on actual output format:
-    // "Gaussian Distribution:\n      μ (mean) = 2.5\n      σ (std. deviation) = 1.5\n      Mean = 2.5\n      Variance = 2.25\n"
-    assert(str.find("Gaussian") != std::string::npos);
-    assert(str.find("Distribution") != std::string::npos);
-    assert(str.find("2.5") != std::string::npos);
-    assert(str.find("1.5") != std::string::npos);
-    assert(str.find("Mean") != std::string::npos);
-    assert(str.find("std. deviation") != std::string::npos);
-
-    std::cout << "String representation: " << str << std::endl;
-    std::cout << "✓ String representation tests passed" << std::endl;
+    EXPECT_NE(str.find("Gaussian"), std::string::npos);
+    EXPECT_NE(str.find("Distribution"), std::string::npos);
+    EXPECT_NE(str.find("2.5"), std::string::npos);
+    EXPECT_NE(str.find("1.5"), std::string::npos);
+    EXPECT_NE(str.find("Mean"), std::string::npos);
+    EXPECT_NE(str.find("std. deviation"), std::string::npos);
 }
 
-/**
- * Test copy/move semantics
- */
-void testCopyMoveSemantics() {
-    std::cout << "Testing copy/move semantics..." << std::endl;
-
+TEST(GaussianDistributionTest, CopyMoveSemantics) {
     GaussianDistribution original(3.14, 2.71);
 
-    // Test copy constructor
     GaussianDistribution copied(original);
-    assert(copied.getMean() == original.getMean());
-    assert(copied.getStandardDeviation() == original.getStandardDeviation());
+    EXPECT_EQ(copied.getMean(), original.getMean());
+    EXPECT_EQ(copied.getStandardDeviation(), original.getStandardDeviation());
 
-    // Test copy assignment
     GaussianDistribution assigned;
     assigned = original;
-    assert(assigned.getMean() == original.getMean());
-    assert(assigned.getStandardDeviation() == original.getStandardDeviation());
+    EXPECT_EQ(assigned.getMean(), original.getMean());
+    EXPECT_EQ(assigned.getStandardDeviation(), original.getStandardDeviation());
 
-    // Test move constructor
     GaussianDistribution moved(std::move(original));
-    assert(moved.getMean() == 3.14);
-    assert(moved.getStandardDeviation() == 2.71);
+    EXPECT_EQ(moved.getMean(), 3.14);
+    EXPECT_EQ(moved.getStandardDeviation(), 2.71);
 
-    // Test move assignment
     GaussianDistribution moveAssigned;
     GaussianDistribution temp(1.41, 1.73);
     moveAssigned = std::move(temp);
-    assert(moveAssigned.getMean() == 1.41);
-    assert(moveAssigned.getStandardDeviation() == 1.73);
-
-    std::cout << "✓ Copy/move semantics tests passed" << std::endl;
+    EXPECT_EQ(moveAssigned.getMean(), 1.41);
+    EXPECT_EQ(moveAssigned.getStandardDeviation(), 1.73);
 }
 
-/**
- * Test invalid input handling
- */
-void testInvalidInputHandling() {
-    std::cout << "Testing invalid input handling..." << std::endl;
+TEST(GaussianDistributionTest, InvalidInputHandling) {
+    GaussianDistribution gaussian(0.0, 1.0);
+    EXPECT_EQ(gaussian.getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(gaussian.getProbability(std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_EQ(gaussian.getProbability(-std::numeric_limits<double>::infinity()), 0.0);
+}
 
+TEST(GaussianDistributionTest, LogProbability) {
     GaussianDistribution gaussian(0.0, 1.0);
 
-    // Test with invalid inputs
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    double neg_inf_val = -std::numeric_limits<double>::infinity();
+    EXPECT_NEAR(gaussian.getLogProbability(0.0), std::log(1.0 / math::SQRT_2PI), 1e-10);
+    EXPECT_NEAR(std::exp(gaussian.getLogProbability(0.0)), gaussian.getProbability(0.0), 1e-10);
+    EXPECT_NEAR(gaussian.getLogProbability(1.0), gaussian.getLogProbability(-1.0), 1e-10);
 
-    assert(gaussian.getProbability(nan_val) == 0.0);
-    assert(gaussian.getProbability(inf_val) == 0.0);
-    assert(gaussian.getProbability(neg_inf_val) == 0.0);
-
-    std::cout << "✓ Invalid input handling tests passed" << std::endl;
+    EXPECT_TRUE(std::isinf(gaussian.getLogProbability(std::numeric_limits<double>::quiet_NaN())));
+    EXPECT_TRUE(std::isinf(gaussian.getLogProbability(std::numeric_limits<double>::infinity())));
 }
 
-/**
- * Test log probability function
- */
-void testLogProbability() {
-    std::cout << "Testing log probability function..." << std::endl;
-
-    GaussianDistribution gaussian(0.0, 1.0); // Standard normal
-
-    // Test log PDF at mean
-    double logProbAtMean = gaussian.getLogProbability(0.0);
-    double expectedLogPDF = std::log(1.0 / math::SQRT_2PI);
-    assert(std::abs(logProbAtMean - expectedLogPDF) < 1e-10);
-
-    // Test consistency between PDF and log PDF
-    double prob = gaussian.getProbability(0.0);
-    double logProb = gaussian.getLogProbability(0.0);
-    assert(std::abs(prob - std::exp(logProb)) < 1e-10);
-
-    // Test symmetry in log space
-    double logProbAt1 = gaussian.getLogProbability(1.0);
-    double logProbAtNeg1 = gaussian.getLogProbability(-1.0);
-    assert(std::abs(logProbAt1 - logProbAtNeg1) < 1e-10);
-
-    // Test with invalid inputs
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    double inf_val = std::numeric_limits<double>::infinity();
-    assert(std::isinf(gaussian.getLogProbability(nan_val)));
-    assert(std::isinf(gaussian.getLogProbability(inf_val)));
-
-    std::cout << "✓ Log probability tests passed" << std::endl;
-}
-
-/**
- * Test additional getters and setters
- */
-void testAdditionalGettersSetters() {
-    std::cout << "Testing additional getters and setters..." << std::endl;
-
+TEST(GaussianDistributionTest, AdditionalGettersSetters) {
     GaussianDistribution gaussian(3.0, 2.0);
+    EXPECT_NEAR(gaussian.getVariance(), 4.0, 1e-10);
 
-    // Test variance getter
-    double variance = gaussian.getVariance();
-    assert(std::abs(variance - 4.0) < 1e-10); // 2.0^2 = 4.0
-
-    // Test setParameters function
     gaussian.setParameters(1.5, 0.5);
-    assert(std::abs(gaussian.getMean() - 1.5) < 1e-10);
-    assert(std::abs(gaussian.getStandardDeviation() - 0.5) < 1e-10);
-    assert(std::abs(gaussian.getVariance() - 0.25) < 1e-10);
+    EXPECT_NEAR(gaussian.getMean(), 1.5, 1e-10);
+    EXPECT_NEAR(gaussian.getStandardDeviation(), 0.5, 1e-10);
+    EXPECT_NEAR(gaussian.getVariance(), 0.25, 1e-10);
 
-    // Test setParameters validation
-    try {
-        gaussian.setParameters(1.0, -1.0); // Invalid std dev
-        assert(false);                     // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior - setParameters should validate inputs
-    }
-
-    std::cout << "✓ Additional getters/setters tests passed" << std::endl;
+    EXPECT_THROW(gaussian.setParameters(1.0, -1.0), std::invalid_argument);
 }
 
-/**
- * Test mathematical correctness with known values
- */
-void testMathematicalCorrectness() {
-    std::cout << "Testing mathematical correctness..." << std::endl;
+TEST(GaussianDistributionTest, MathematicalCorrectness) {
+    GaussianDistribution gaussian1(0.0, 1.0);
+    GaussianDistribution gaussian2(5.0, 2.0);
 
-    // Test with different distributions
-    GaussianDistribution gaussian1(0.0, 1.0); // Standard normal
-    GaussianDistribution gaussian2(5.0, 2.0); // Non-standard
-
-    // Test known PDF values for standard normal
-    // At x=0: PDF = 1/sqrt(2π) ≈ 0.3989422804
-    double pdf0 = gaussian1.getProbability(0.0);
-    assert(std::abs(pdf0 - 0.3989422804) < 1e-8);
-
-    // At x=1: PDF ≈ 0.2419707245
-    double pdf1 = gaussian1.getProbability(1.0);
-    assert(std::abs(pdf1 - 0.2419707245) < 1e-8);
-
-    // Test different distribution
-    // At mean (x=5): PDF = 1/(2*sqrt(2π)) ≈ 0.1994711402
-    double pdf_mean = gaussian2.getProbability(5.0);
-    double expected = 1.0 / (2.0 * math::SQRT_2PI);
-    assert(std::abs(pdf_mean - expected) < 1e-8);
-
-    std::cout << "✓ Mathematical correctness tests passed" << std::endl;
+    EXPECT_NEAR(gaussian1.getProbability(0.0), 0.3989422804, 1e-8);
+    EXPECT_NEAR(gaussian1.getProbability(1.0), 0.2419707245, 1e-8);
+    EXPECT_NEAR(gaussian2.getProbability(5.0), 1.0 / (2.0 * math::SQRT_2PI), 1e-8);
 }
 
-/**
- * Test reset functionality
- */
-void testResetFunctionality() {
-    std::cout << "Testing reset functionality..." << std::endl;
-
+TEST(GaussianDistributionTest, ResetFunctionality) {
     GaussianDistribution gaussian(10.0, 5.0);
     gaussian.reset();
-
-    assert(gaussian.getMean() == 0.0);
-    assert(gaussian.getStandardDeviation() == 1.0);
-
-    std::cout << "✓ Reset functionality tests passed" << std::endl;
+    EXPECT_EQ(gaussian.getMean(), 0.0);
+    EXPECT_EQ(gaussian.getStandardDeviation(), 1.0);
 }
 
-/**
- * Test CDF calculations
- */
-void testCDF() {
-    std::cout << "Testing CDF calculations..." << std::endl;
+TEST(GaussianDistributionTest, CDF) {
+    GaussianDistribution gaussian(0.0, 1.0);
 
-    GaussianDistribution gaussian(0.0, 1.0); // Standard normal
+    EXPECT_NEAR(gaussian.getCumulativeProbability(0.0), 0.5, 1e-6);
 
-    // Test CDF at mean (should be 0.5)
-    double cdfAtMean = gaussian.getCumulativeProbability(0.0);
-    assert(std::abs(cdfAtMean - 0.5) < 1e-6);
-
-    // Test CDF symmetry
     double cdfAt1 = gaussian.getCumulativeProbability(1.0);
     double cdfAtNeg1 = gaussian.getCumulativeProbability(-1.0);
-    assert(std::abs(cdfAt1 + cdfAtNeg1 - 1.0) < 1e-6); // Should sum to 1
+    EXPECT_NEAR(cdfAt1 + cdfAtNeg1, 1.0, 1e-6);
 
-    // Test CDF is monotonically increasing
-    assert(gaussian.getCumulativeProbability(-2.0) < gaussian.getCumulativeProbability(-1.0));
-    assert(gaussian.getCumulativeProbability(-1.0) < gaussian.getCumulativeProbability(0.0));
-    assert(gaussian.getCumulativeProbability(0.0) < gaussian.getCumulativeProbability(1.0));
-    assert(gaussian.getCumulativeProbability(1.0) < gaussian.getCumulativeProbability(2.0));
+    EXPECT_LT(gaussian.getCumulativeProbability(-2.0), gaussian.getCumulativeProbability(-1.0));
+    EXPECT_LT(gaussian.getCumulativeProbability(-1.0), gaussian.getCumulativeProbability(0.0));
+    EXPECT_LT(gaussian.getCumulativeProbability(0.0), gaussian.getCumulativeProbability(1.0));
+    EXPECT_LT(gaussian.getCumulativeProbability(1.0), gaussian.getCumulativeProbability(2.0));
 
-    // Test CDF bounds
-    assert(gaussian.getCumulativeProbability(-5.0) >= 0.0 &&
-           gaussian.getCumulativeProbability(-5.0) <= 1.0);
-    assert(gaussian.getCumulativeProbability(5.0) >= 0.0 &&
-           gaussian.getCumulativeProbability(5.0) <= 1.0);
+    EXPECT_GE(gaussian.getCumulativeProbability(-5.0), 0.0);
+    EXPECT_LE(gaussian.getCumulativeProbability(-5.0), 1.0);
+    EXPECT_LT(gaussian.getCumulativeProbability(-10.0), 0.001);
+    EXPECT_GT(gaussian.getCumulativeProbability(10.0), 0.999);
 
-    // Test that CDF approaches bounds
-    assert(gaussian.getCumulativeProbability(-10.0) < 0.001); // Should be very small
-    assert(gaussian.getCumulativeProbability(10.0) > 0.999);  // Should be very close to 1
-
-    // Test with different parameters
     GaussianDistribution gaussian2(2.0, 0.5);
-    double cdfAtMean2 = gaussian2.getCumulativeProbability(2.0);
-    assert(std::abs(cdfAtMean2 - 0.5) < 1e-6);
+    EXPECT_NEAR(gaussian2.getCumulativeProbability(2.0), 0.5, 1e-6);
 
-    // Test with invalid inputs
-    double nan_val = std::numeric_limits<double>::quiet_NaN();
-    assert(gaussian.getCumulativeProbability(nan_val) == 0.0); // CDF returns 0.0 for NaN input
-
-    std::cout << "✓ CDF calculation tests passed" << std::endl;
+    EXPECT_EQ(gaussian.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
 }
 
-/**
- * Test equality operators and I/O
- */
-void testEqualityAndIO() {
-    std::cout << "Testing equality operators and I/O..." << std::endl;
-
+TEST(GaussianDistributionTest, EqualityAndIO) {
     GaussianDistribution g1(2.5, 1.5);
     GaussianDistribution g2(2.5, 1.5);
-    GaussianDistribution g3(2.5, 1.6); // Different std dev
-    GaussianDistribution g4(2.6, 1.5); // Different mean
+    GaussianDistribution g3(2.5, 1.6);
+    GaussianDistribution g4(2.6, 1.5);
 
-    // Test equality operator
-    assert(g1 == g2);
-    assert(g2 == g1); // Symmetric
+    EXPECT_TRUE(g1 == g2);
+    EXPECT_TRUE(g2 == g1);
+    EXPECT_FALSE(g1 == g3);
+    EXPECT_FALSE(g1 == g4);
+    EXPECT_TRUE(g1 != g3);
+    EXPECT_TRUE(g1 == g1);
+    EXPECT_TRUE(g1 == GaussianDistribution(2.5, 1.5 + 1e-15));
+    EXPECT_FALSE(g1 == GaussianDistribution(2.5, 1.5 + 1e-5));
 
-    // Test inequality
-    assert(!(g1 == g3));
-    assert(!(g1 == g4));
-    assert(g1 != g3);
-    assert(g1 != g4);
-
-    // Test self-equality
-    assert(g1 == g1);
-
-    // Test with very small differences (within tolerance)
-    GaussianDistribution g5(2.5, 1.5 + 1e-15); // Very small difference
-    assert(g1 == g5);                          // Should be equal within tolerance
-
-    // Test with differences larger than tolerance
-    GaussianDistribution g6(2.5, 1.5 + 1e-5); // Larger difference
-    assert(!(g1 == g6));                      // Should not be equal
-
-    // Test stream output
     std::ostringstream oss;
     oss << g1;
     std::string output = oss.str();
-    assert(output.find("Gaussian Distribution") != std::string::npos);
-    assert(output.find("2.5") != std::string::npos);
-    assert(output.find("1.5") != std::string::npos);
+    EXPECT_NE(output.find("Gaussian Distribution"), std::string::npos);
+    EXPECT_NE(output.find("2.5"), std::string::npos);
+    EXPECT_NE(output.find("1.5"), std::string::npos);
 
-    std::cout << "Stream output: " << output << std::endl;
-
-    // Test stream input
-    std::istringstream iss("Mean = 3.14 Standard deviation = 2.71");
-    GaussianDistribution inputDist;
-    iss >> inputDist;
-
-    if (iss.good()) {
-        assert(std::abs(inputDist.getMean() - 3.14) < 1e-10);
-        assert(std::abs(inputDist.getStandardDeviation() - 2.71) < 1e-10);
-    }
-
-    // Test input operator with invalid data
     std::istringstream invalid_iss("invalid data format");
     GaussianDistribution invalid_test;
     invalid_iss >> invalid_test;
-    assert(invalid_iss.fail()); // Stream should be in failed state
-
-    std::cout << "✓ Equality and I/O tests passed" << std::endl;
+    EXPECT_TRUE(invalid_iss.fail());
 }
 
-/**
- * Test caching mechanism
- */
-void testCaching() {
-    std::cout << "Testing caching mechanism..." << std::endl;
-
+TEST(GaussianDistributionTest, Caching) {
     GaussianDistribution gaussian(1.0, 2.0);
 
-    // Get some probability values (this should populate cache)
-    // Use the mean value for maximum sensitivity
     double prob1 = gaussian.getProbability(1.0);
     double logProb1 = gaussian.getLogProbability(1.0);
+    EXPECT_NEAR(prob1, std::exp(logProb1), 1e-10);
 
-    // Verify consistency between PDF and log PDF
-    assert(std::abs(prob1 - std::exp(logProb1)) < 1e-10);
+    gaussian.setMean(3.0);
+    double prob2 = gaussian.getProbability(1.0);
+    EXPECT_GT(std::abs(prob1 - prob2), 1e-6);
+    EXPECT_NEAR(prob2, std::exp(gaussian.getLogProbability(1.0)), 1e-10);
 
-    // Change parameters (this should invalidate cache)
-    gaussian.setMean(3.0); // Bigger change for clearer difference
+    double prob3 = gaussian.getProbability(3.0);
+    gaussian.setStandardDeviation(1.0);
+    EXPECT_GT(std::abs(prob3 - gaussian.getProbability(3.0)), 1e-6);
 
-    // Get probability again (should use updated parameters)
-    double prob2 = gaussian.getProbability(1.0); // Same x value
-    double logProb2 = gaussian.getLogProbability(1.0);
-
-    // Values should be different due to parameter change
-    assert(std::abs(prob1 - prob2) > 1e-6);
-    assert(std::abs(logProb1 - logProb2) > 1e-6);
-
-    // Verify consistency with new parameters
-    assert(std::abs(prob2 - std::exp(logProb2)) < 1e-10);
-
-    // Test cache invalidation with setStandardDeviation
-    double prob3 = gaussian.getProbability(3.0); // Use current mean
-    gaussian.setStandardDeviation(1.0);          // Change std dev significantly
-    double prob4 = gaussian.getProbability(3.0);
-    assert(std::abs(prob3 - prob4) > 1e-6);
-
-    // Test cache invalidation with setParameters
     double prob5 = gaussian.getProbability(3.0);
-    gaussian.setParameters(0.0, 1.0); // Change to standard normal
-    double prob6 = gaussian.getProbability(3.0);
-    assert(std::abs(prob5 - prob6) > 1e-6);
+    gaussian.setParameters(0.0, 1.0);
+    EXPECT_GT(std::abs(prob5 - gaussian.getProbability(3.0)), 1e-6);
 
-    // Test cache invalidation with reset
-    // Change the parameters first then reset to see cache invalidation
     gaussian.setMean(5.0);
     double prob_before_reset = gaussian.getProbability(0.0);
     gaussian.reset();
-    double prob_after_reset = gaussian.getProbability(0.0);
-    assert(std::abs(prob_before_reset - prob_after_reset) > 1e-6);
-
-    std::cout << "✓ Caching mechanism tests passed" << std::endl;
+    EXPECT_GT(std::abs(prob_before_reset - gaussian.getProbability(0.0)), 1e-6);
 }
 
-/**
- * Test performance characteristics to verify optimizations
- * This serves as a benchmark and regression test for performance
- */
-void testPerformance() {
-    std::cout << "Testing performance characteristics..." << std::endl;
-
+TEST(GaussianDistributionTest, Performance) {
     using namespace std::chrono;
     GaussianDistribution gaussian(0.0, 1.0);
 
-    // Test parameters
     const int pdf_iterations = 100000;
     const int fit_datapoints = 5000;
 
-    // Generate test values for PDF calls
     std::vector<double> testValues;
     testValues.reserve(pdf_iterations);
     for (int i = 0; i < pdf_iterations; ++i) {
         testValues.push_back(-3.0 + (6.0 * i) / pdf_iterations);
     }
 
-    // Test getProbability() performance (should benefit from caching)
     auto start = high_resolution_clock::now();
     double sum_pdf = 0.0;
-    for (const auto &val : testValues) {
-        sum_pdf += gaussian.getProbability(val);
-    }
+    for (const auto &val : testValues) { sum_pdf += gaussian.getProbability(val); }
     auto end = high_resolution_clock::now();
-    auto pdf_duration = duration_cast<microseconds>(end - start);
+    double pdf_per_call = static_cast<double>(duration_cast<microseconds>(end - start).count()) / pdf_iterations;
 
-    // Test getLogProbability() performance (should benefit from cached 1/σ and log(σ))
     start = high_resolution_clock::now();
     double sum_log_pdf = 0.0;
-    for (const auto &val : testValues) {
-        sum_log_pdf += gaussian.getLogProbability(val);
-    }
+    for (const auto &val : testValues) { sum_log_pdf += gaussian.getLogProbability(val); }
     end = high_resolution_clock::now();
-    auto log_pdf_duration = duration_cast<microseconds>(end - start);
+    double log_pdf_per_call = static_cast<double>(duration_cast<microseconds>(end - start).count()) / pdf_iterations;
 
-    // Test fitting performance with Welford's algorithm
-    std::vector<double> fit_data;
-    fit_data.reserve(fit_datapoints);
-    for (int i = 0; i < fit_datapoints; ++i) {
-        fit_data.push_back(i * 0.001); // Linear data for consistent testing
-    }
-
+    std::vector<double> fit_data(fit_datapoints);
+    for (int i = 0; i < fit_datapoints; ++i) { fit_data[i] = i * 0.001; }
     start = high_resolution_clock::now();
     gaussian.fit(fit_data);
     end = high_resolution_clock::now();
-    auto fit_duration = duration_cast<microseconds>(end - start);
+    double fit_per_point = static_cast<double>(duration_cast<microseconds>(end - start).count()) / fit_datapoints;
 
-    // Performance expectations (reasonable thresholds for regression testing)
-    double pdf_per_call = static_cast<double>(pdf_duration.count()) / pdf_iterations;
-    double log_pdf_per_call = static_cast<double>(log_pdf_duration.count()) / pdf_iterations;
-    double fit_per_point = static_cast<double>(fit_duration.count()) / fit_datapoints;
+    std::cout << std::fixed << std::setprecision(3)
+              << "  PDF: " << pdf_per_call << " μs/call"
+              << "  LogPDF: " << log_pdf_per_call << " μs/call"
+              << "  Fit: " << fit_per_point << " μs/point\n";
 
-    // Basic performance assertions (adjust thresholds based on typical performance)
-    // These should be conservative to avoid false failures on different hardware
-    assert(pdf_per_call < 1.0);     // Should be well under 1 microsecond per PDF call
-    assert(log_pdf_per_call < 1.0); // Should be well under 1 microsecond per log PDF call
-    assert(fit_per_point < 10.0);   // Should be well under 10 microseconds per fit datapoint
-
-    // Verify correctness (prevent compiler optimization removal)
-    assert(sum_pdf > 0.0);
-    assert(sum_log_pdf < 0.0); // Log probabilities should be negative
-
-    std::cout << std::fixed << std::setprecision(3);
-    std::cout << "  PDF timing:       " << pdf_per_call << " μs/call (" << pdf_iterations
-              << " calls)" << std::endl;
-    std::cout << "  Log PDF timing:   " << log_pdf_per_call << " μs/call (" << pdf_iterations
-              << " calls)" << std::endl;
-    std::cout << "  Fit timing:       " << fit_per_point << " μs/point (" << fit_datapoints
-              << " points)" << std::endl;
-    std::cout << "✓ Performance tests passed" << std::endl;
+    EXPECT_LT(pdf_per_call, 1.0);
+    EXPECT_LT(log_pdf_per_call, 1.0);
+    EXPECT_LT(fit_per_point, 10.0);
+    EXPECT_GT(sum_pdf, 0.0);
+    EXPECT_LT(sum_log_pdf, 0.0);
 }
 
-int main() {
-    std::cout << "Running Gaussian distribution tests..." << std::endl;
-    std::cout << "======================================" << std::endl;
-
-    try {
-        testBasicFunctionality();
-        testProbabilities();
-        testLogProbability();
-        testAdditionalGettersSetters();
-        testMathematicalCorrectness();
-        testFitting();
-        testParameterValidation();
-        testStringRepresentation();
-        testCopyMoveSemantics();
-        testInvalidInputHandling();
-        testResetFunctionality();
-        testCDF();
-        testEqualityAndIO();
-        testCaching();
-        testPerformance();
-
-        std::cout << "======================================" << std::endl;
-        std::cout << "✅ All Gaussian distribution tests passed!" << std::endl;
-        return 0;
-
-    } catch (const std::exception &e) {
-        std::cerr << "❌ Test failed with exception: " << e.what() << std::endl;
-        return 1;
-    } catch (...) {
-        std::cerr << "❌ Test failed with unknown exception" << std::endl;
-        return 1;
-    }
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

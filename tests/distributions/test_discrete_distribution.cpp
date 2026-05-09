@@ -1,19 +1,13 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <cassert>
 #include <stdexcept>
 #include <limits>
 #include <chrono>
 #include <iomanip>
 #include <sstream>
 #include "libhmm/distributions/discrete_distribution.h"
-#ifdef _MSC_VER
-#pragma warning(disable : 4189) // assert()-only variables appear unreferenced in Release
-#elif defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#endif
+#include <gtest/gtest.h>
 
 using libhmm::DiscreteDistribution;
 using libhmm::Observation;
@@ -21,33 +15,30 @@ using libhmm::Observation;
 /**
  * Test basic Discrete distribution functionality
  */
-void testBasicFunctionality() {
-    std::cout << "Testing basic Discrete distribution functionality..." << std::endl;
+TEST(DiscreteDistributionTest, BasicFunctionality) {
 
     // Test default constructor
     DiscreteDistribution discrete;
-    assert(discrete.getNumSymbols() == 10); // Default is 10 symbols
+    EXPECT_EQ(discrete.getNumSymbols(), 10); // Default is 10 symbols
 
     // Test parameterized constructor
     DiscreteDistribution discrete2(5);
-    assert(discrete2.getNumSymbols() == 5);
+    EXPECT_EQ(discrete2.getNumSymbols(), 5);
 
     // Test invalid constructor parameter
     try {
         DiscreteDistribution discrete3(0); // Zero symbols
-        assert(false);                     // Should not reach here
+        ADD_FAILURE();                     // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
 
-    std::cout << "✓ Basic functionality tests passed" << std::endl;
 }
 
 /**
  * Test probability calculations
  */
-void testProbabilities() {
-    std::cout << "Testing probability calculations..." << std::endl;
+TEST(DiscreteDistributionTest, Probabilities) {
 
     DiscreteDistribution discrete(5); // 5 symbols: 0,1,2,3,4
 
@@ -55,27 +46,25 @@ void testProbabilities() {
     double expectedProb = 1.0 / 5.0; // 0.2
     for (int i = 0; i < 5; i++) {
         double prob = discrete.getProbability(i);
-        assert(std::abs(prob - expectedProb) < 1e-10);
+        EXPECT_NEAR(prob, expectedProb, 1e-10);
     }
 
     // Test invalid symbol indices
-    assert(discrete.getProbability(-1) == 0.0);
-    assert(discrete.getProbability(5) == 0.0);
-    assert(discrete.getProbability(10) == 0.0);
+    EXPECT_EQ(discrete.getProbability(-1), 0.0);
+    EXPECT_EQ(discrete.getProbability(5), 0.0);
+    EXPECT_EQ(discrete.getProbability(10), 0.0);
 
     // Test non-integer values (should treat as floor)
     double prob2_5 = discrete.getProbability(2.5);
     double prob2 = discrete.getProbability(2);
-    assert(prob2_5 == prob2); // Should be same as symbol 2
+    EXPECT_EQ(prob2_5, prob2); // Should be same as symbol 2
 
-    std::cout << "✓ Probability calculation tests passed" << std::endl;
 }
 
 /**
  * Test parameter fitting
  */
-void testFitting() {
-    std::cout << "Testing parameter fitting..." << std::endl;
+TEST(DiscreteDistributionTest, Fitting) {
 
     DiscreteDistribution discrete(5);
 
@@ -84,37 +73,35 @@ void testFitting() {
     discrete.fit(data);
 
     // Check fitted probabilities
-    assert(std::abs(discrete.getProbability(0) - 0.2) < 1e-10); // 1/5
-    assert(std::abs(discrete.getProbability(1) - 0.4) < 1e-10); // 2/5
-    assert(std::abs(discrete.getProbability(2) - 0.2) < 1e-10); // 1/5
-    assert(std::abs(discrete.getProbability(3) - 0.2) < 1e-10); // 1/5
-    assert(std::abs(discrete.getProbability(4) - 0.0) < 1e-10); // 0/5
+    EXPECT_NEAR(discrete.getProbability(0), 0.2, 1e-10); // 1/5
+    EXPECT_NEAR(discrete.getProbability(1), 0.4, 1e-10); // 2/5
+    EXPECT_NEAR(discrete.getProbability(2), 0.2, 1e-10); // 1/5
+    EXPECT_NEAR(discrete.getProbability(3), 0.2, 1e-10); // 1/5
+    EXPECT_NEAR(discrete.getProbability(4), 0.0, 1e-10); // 0/5
 
     // Test with empty data (should reset to uniform)
     std::vector<Observation> emptyData;
     discrete.fit(emptyData);
     double expectedUniform = 1.0 / 5.0;
     for (int i = 0; i < 5; i++) {
-        assert(std::abs(discrete.getProbability(i) - expectedUniform) < 1e-10);
+        EXPECT_NEAR(discrete.getProbability(i), expectedUniform, 1e-10);
     }
 
     // Test with single point
     std::vector<Observation> singlePoint = {2};
     discrete.fit(singlePoint);
-    assert(discrete.getProbability(0) == 0.0);
-    assert(discrete.getProbability(1) == 0.0);
-    assert(discrete.getProbability(2) == 1.0); // All probability on symbol 2
-    assert(discrete.getProbability(3) == 0.0);
-    assert(discrete.getProbability(4) == 0.0);
+    EXPECT_EQ(discrete.getProbability(0), 0.0);
+    EXPECT_EQ(discrete.getProbability(1), 0.0);
+    EXPECT_EQ(discrete.getProbability(2), 1.0); // All probability on symbol 2
+    EXPECT_EQ(discrete.getProbability(3), 0.0);
+    EXPECT_EQ(discrete.getProbability(4), 0.0);
 
-    std::cout << "✓ Parameter fitting tests passed" << std::endl;
 }
 
 /**
  * Test setProbability functionality
  */
-void testSetProbability() {
-    std::cout << "Testing setProbability functionality..." << std::endl;
+TEST(DiscreteDistributionTest, SetProbability) {
 
     DiscreteDistribution discrete(3);
 
@@ -123,14 +110,14 @@ void testSetProbability() {
     discrete.setProbability(1, 0.3);
     discrete.setProbability(2, 0.2);
 
-    assert(std::abs(discrete.getProbability(0) - 0.5) < 1e-10);
-    assert(std::abs(discrete.getProbability(1) - 0.3) < 1e-10);
-    assert(std::abs(discrete.getProbability(2) - 0.2) < 1e-10);
+    EXPECT_NEAR(discrete.getProbability(0), 0.5, 1e-10);
+    EXPECT_NEAR(discrete.getProbability(1), 0.3, 1e-10);
+    EXPECT_NEAR(discrete.getProbability(2), 0.2, 1e-10);
 
     // Test invalid probability values
     try {
         discrete.setProbability(0, -0.1); // Negative probability
-        assert(false);                    // Should not reach here
+        ADD_FAILURE();                    // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior (if implemented)
     } catch (...) {
@@ -139,40 +126,36 @@ void testSetProbability() {
 
     try {
         discrete.setProbability(0, 1.1); // Probability > 1
-        assert(false);                   // Should not reach here
+        ADD_FAILURE();                   // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior (if implemented)
     } catch (...) {
         // Some implementations might not validate, which is also acceptable
     }
 
-    std::cout << "✓ setProbability tests passed" << std::endl;
 }
 
 /**
  * Test string representation
  */
-void testStringRepresentation() {
-    std::cout << "Testing string representation..." << std::endl;
+TEST(DiscreteDistributionTest, StringRepresentation) {
 
     DiscreteDistribution discrete(5);
     std::string str = discrete.toString();
 
     // Should contain key information (modern format focuses on content, not specific formatting)
-    assert(str.find("Discrete") != std::string::npos);
-    assert(str.find("Distribution") != std::string::npos);
-    assert(str.find("0.2") != std::string::npos); // Should contain the probabilities
+    EXPECT_NE(str.find("Discrete"), std::string::npos);
+    EXPECT_NE(str.find("Distribution"), std::string::npos);
+    EXPECT_NE(str.find("0.2"), std::string::npos); // Should contain the probabilities
     // Modern format is more readable - focus on content rather than specific separators
 
     std::cout << "String representation: " << str << std::endl;
-    std::cout << "✓ String representation tests passed" << std::endl;
 }
 
 /**
  * Test copy/move semantics
  */
-void testCopyMoveSemantics() {
-    std::cout << "Testing copy/move semantics..." << std::endl;
+TEST(DiscreteDistributionTest, CopyMoveSemantics) {
 
     DiscreteDistribution original(3);
     original.setProbability(0, 0.6);
@@ -181,25 +164,25 @@ void testCopyMoveSemantics() {
 
     // Test copy constructor
     DiscreteDistribution copied(original);
-    assert(copied.getNumSymbols() == original.getNumSymbols());
-    assert(std::abs(copied.getProbability(0) - 0.6) < 1e-10);
-    assert(std::abs(copied.getProbability(1) - 0.3) < 1e-10);
-    assert(std::abs(copied.getProbability(2) - 0.1) < 1e-10);
+    EXPECT_EQ(copied.getNumSymbols(), original.getNumSymbols());
+    EXPECT_NEAR(copied.getProbability(0), 0.6, 1e-10);
+    EXPECT_NEAR(copied.getProbability(1), 0.3, 1e-10);
+    EXPECT_NEAR(copied.getProbability(2), 0.1, 1e-10);
 
     // Test copy assignment
     DiscreteDistribution assigned(5); // Different size initially
     assigned = original;
-    assert(assigned.getNumSymbols() == original.getNumSymbols());
-    assert(std::abs(assigned.getProbability(0) - 0.6) < 1e-10);
-    assert(std::abs(assigned.getProbability(1) - 0.3) < 1e-10);
-    assert(std::abs(assigned.getProbability(2) - 0.1) < 1e-10);
+    EXPECT_EQ(assigned.getNumSymbols(), original.getNumSymbols());
+    EXPECT_NEAR(assigned.getProbability(0), 0.6, 1e-10);
+    EXPECT_NEAR(assigned.getProbability(1), 0.3, 1e-10);
+    EXPECT_NEAR(assigned.getProbability(2), 0.1, 1e-10);
 
     // Test move constructor
     DiscreteDistribution moved(std::move(original));
-    assert(moved.getNumSymbols() == 3);
-    assert(std::abs(moved.getProbability(0) - 0.6) < 1e-10);
-    assert(std::abs(moved.getProbability(1) - 0.3) < 1e-10);
-    assert(std::abs(moved.getProbability(2) - 0.1) < 1e-10);
+    EXPECT_EQ(moved.getNumSymbols(), 3);
+    EXPECT_NEAR(moved.getProbability(0), 0.6, 1e-10);
+    EXPECT_NEAR(moved.getProbability(1), 0.3, 1e-10);
+    EXPECT_NEAR(moved.getProbability(2), 0.1, 1e-10);
 
     // Test move assignment
     DiscreteDistribution moveAssigned(2);
@@ -207,18 +190,16 @@ void testCopyMoveSemantics() {
     temp.setProbability(1, 0.8);
     temp.setProbability(3, 0.2);
     moveAssigned = std::move(temp);
-    assert(moveAssigned.getNumSymbols() == 4);
-    assert(std::abs(moveAssigned.getProbability(1) - 0.8) < 1e-10);
-    assert(std::abs(moveAssigned.getProbability(3) - 0.2) < 1e-10);
+    EXPECT_EQ(moveAssigned.getNumSymbols(), 4);
+    EXPECT_NEAR(moveAssigned.getProbability(1), 0.8, 1e-10);
+    EXPECT_NEAR(moveAssigned.getProbability(3), 0.2, 1e-10);
 
-    std::cout << "✓ Copy/move semantics tests passed" << std::endl;
 }
 
 /**
  * Test invalid input handling
  */
-void testInvalidInputHandling() {
-    std::cout << "Testing invalid input handling..." << std::endl;
+TEST(DiscreteDistributionTest, InvalidInputHandling) {
 
     DiscreteDistribution discrete(5);
 
@@ -227,23 +208,21 @@ void testInvalidInputHandling() {
     double inf_val = std::numeric_limits<double>::infinity();
     double neg_inf_val = -std::numeric_limits<double>::infinity();
 
-    assert(discrete.getProbability(nan_val) == 0.0);
-    assert(discrete.getProbability(inf_val) == 0.0);
-    assert(discrete.getProbability(neg_inf_val) == 0.0);
+    EXPECT_EQ(discrete.getProbability(nan_val), 0.0);
+    EXPECT_EQ(discrete.getProbability(inf_val), 0.0);
+    EXPECT_EQ(discrete.getProbability(neg_inf_val), 0.0);
 
     // Test with out-of-range indices
-    assert(discrete.getProbability(-1) == 0.0);
-    assert(discrete.getProbability(5) == 0.0);
-    assert(discrete.getProbability(100) == 0.0);
+    EXPECT_EQ(discrete.getProbability(-1), 0.0);
+    EXPECT_EQ(discrete.getProbability(5), 0.0);
+    EXPECT_EQ(discrete.getProbability(100), 0.0);
 
-    std::cout << "✓ Invalid input handling tests passed" << std::endl;
 }
 
 /**
  * Test reset functionality
  */
-void testResetFunctionality() {
-    std::cout << "Testing reset functionality..." << std::endl;
+TEST(DiscreteDistributionTest, ResetFunctionality) {
 
     DiscreteDistribution discrete(4);
 
@@ -257,17 +236,15 @@ void testResetFunctionality() {
     discrete.reset();
     double expectedUniform = 1.0 / 4.0;
     for (int i = 0; i < 4; i++) {
-        assert(std::abs(discrete.getProbability(i) - expectedUniform) < 1e-10);
+        EXPECT_NEAR(discrete.getProbability(i), expectedUniform, 1e-10);
     }
 
-    std::cout << "✓ Reset functionality tests passed" << std::endl;
 }
 
 /**
  * Test discrete distribution properties
  */
-void testDiscreteProperties() {
-    std::cout << "Testing discrete distribution properties..." << std::endl;
+TEST(DiscreteDistributionTest, DiscreteProperties) {
 
     DiscreteDistribution discrete(3);
 
@@ -276,7 +253,7 @@ void testDiscreteProperties() {
     for (int i = 0; i < 3; i++) {
         totalProb += discrete.getProbability(i);
     }
-    assert(std::abs(totalProb - 1.0) < 1e-10);
+    EXPECT_NEAR(totalProb, 1.0, 1e-10);
 
     // Test with fitted data
     std::vector<Observation> data = {0, 0, 1, 2};
@@ -286,21 +263,19 @@ void testDiscreteProperties() {
     for (int i = 0; i < 3; i++) {
         totalProb += discrete.getProbability(i);
     }
-    assert(std::abs(totalProb - 1.0) < 1e-10);
+    EXPECT_NEAR(totalProb, 1.0, 1e-10);
 
     // Expected probabilities: 0->2/4=0.5, 1->1/4=0.25, 2->1/4=0.25
-    assert(std::abs(discrete.getProbability(0) - 0.5) < 1e-10);
-    assert(std::abs(discrete.getProbability(1) - 0.25) < 1e-10);
-    assert(std::abs(discrete.getProbability(2) - 0.25) < 1e-10);
+    EXPECT_NEAR(discrete.getProbability(0), 0.5, 1e-10);
+    EXPECT_NEAR(discrete.getProbability(1), 0.25, 1e-10);
+    EXPECT_NEAR(discrete.getProbability(2), 0.25, 1e-10);
 
-    std::cout << "✓ Discrete property tests passed" << std::endl;
 }
 
 /**
  * Test fitting validation
  */
-void testFittingValidation() {
-    std::cout << "Testing fitting validation..." << std::endl;
+TEST(DiscreteDistributionTest, FittingValidation) {
 
     DiscreteDistribution discrete(5);
 
@@ -316,7 +291,7 @@ void testFittingValidation() {
             totalValidProb += discrete.getProbability(i);
         }
         // Should still sum close to 1 (might ignore invalid values)
-        assert(totalValidProb > 0.5); // At least some probability assigned
+        EXPECT_GT(totalValidProb, 0.5); // At least some probability assigned
     } catch (const std::exception &) {
         // It's also acceptable to throw for invalid data
     }
@@ -326,21 +301,19 @@ void testFittingValidation() {
     try {
         discrete.fit(negativeData);
         // Check that non-negative symbols still get reasonable probabilities
-        assert(discrete.getProbability(0) >= 0.0);
-        assert(discrete.getProbability(1) >= 0.0);
-        assert(discrete.getProbability(2) >= 0.0);
+        EXPECT_TRUE(discrete.getProbability(0) >= 0.0);
+        EXPECT_TRUE(discrete.getProbability(1) >= 0.0);
+        EXPECT_TRUE(discrete.getProbability(2) >= 0.0);
     } catch (const std::exception &) {
         // Acceptable to reject negative values
     }
 
-    std::cout << "✓ Fitting validation tests passed" << std::endl;
 }
 
 /**
  * Test log probability calculations
  */
-void testLogProbability() {
-    std::cout << "Testing log probability calculations..." << std::endl;
+TEST(DiscreteDistributionTest, LogProbability) {
 
     DiscreteDistribution discrete(3);
     discrete.setProbability(0, 0.5);
@@ -352,27 +325,25 @@ void testLogProbability() {
     double prob0 = discrete.getProbability(0.0);
 
     // log(prob) should equal logProb (within numerical precision)
-    assert(std::abs(std::log(prob0) - logProb0) < 1e-10);
+    EXPECT_NEAR(std::log(prob0), logProb0, 1e-10);
 
     // Test out of range (should return -infinity)
     double logProbNeg = discrete.getLogProbability(-1.0);
     double logProbHigh = discrete.getLogProbability(3.0);
-    assert(std::isinf(logProbNeg) && logProbNeg < 0);
-    assert(std::isinf(logProbHigh) && logProbHigh < 0);
+    EXPECT_TRUE(std::isinf(logProbNeg) && logProbNeg < 0);
+    EXPECT_TRUE(std::isinf(logProbHigh) && logProbHigh < 0);
 
     // Test with zero probability
     discrete.setProbability(2, 0.0);
     double logProbZero = discrete.getLogProbability(2.0);
-    assert(std::isinf(logProbZero) && logProbZero < 0);
+    EXPECT_TRUE(std::isinf(logProbZero) && logProbZero < 0);
 
-    std::cout << "✓ Log probability tests passed" << std::endl;
 }
 
 /**
  * Test CDF calculations
  */
-void testCDF() {
-    std::cout << "Testing CDF calculations..." << std::endl;
+TEST(DiscreteDistributionTest, CDF) {
 
     DiscreteDistribution discrete(4);
     discrete.setProbability(0, 0.1);
@@ -386,28 +357,26 @@ void testCDF() {
     double cdf2 = discrete.getCumulativeProbability(2.0);
     double cdf3 = discrete.getCumulativeProbability(3.0);
 
-    assert(std::abs(cdf0 - 0.1) < 1e-10);
-    assert(std::abs(cdf1 - 0.3) < 1e-10); // 0.1 + 0.2
-    assert(std::abs(cdf2 - 0.6) < 1e-10); // 0.1 + 0.2 + 0.3
-    assert(std::abs(cdf3 - 1.0) < 1e-10); // 0.1 + 0.2 + 0.3 + 0.4
+    EXPECT_NEAR(cdf0, 0.1, 1e-10);
+    EXPECT_NEAR(cdf1, 0.3, 1e-10); // 0.1 + 0.2
+    EXPECT_NEAR(cdf2, 0.6, 1e-10); // 0.1 + 0.2 + 0.3
+    EXPECT_NEAR(cdf3, 1.0, 1e-10); // 0.1 + 0.2 + 0.3 + 0.4
 
     // CDF should be monotonic
-    assert(cdf0 <= cdf1);
-    assert(cdf1 <= cdf2);
-    assert(cdf2 <= cdf3);
+    EXPECT_LE(cdf0, cdf1);
+    EXPECT_LE(cdf1, cdf2);
+    EXPECT_LE(cdf2, cdf3);
 
     // Test boundary cases
-    assert(discrete.getCumulativeProbability(-1.0) == 0.0);
-    assert(discrete.getCumulativeProbability(10.0) == 1.0);
+    EXPECT_EQ(discrete.getCumulativeProbability(-1.0), 0.0);
+    EXPECT_EQ(discrete.getCumulativeProbability(10.0), 1.0);
 
-    std::cout << "✓ CDF tests passed" << std::endl;
 }
 
 /**
  * Test equality and I/O operators
  */
-void testEqualityAndIO() {
-    std::cout << "Testing equality and I/O operators..." << std::endl;
+TEST(DiscreteDistributionTest, EqualityAndIO) {
 
     DiscreteDistribution discrete1(3);
     discrete1.setProbability(0, 0.5);
@@ -427,21 +396,21 @@ void testEqualityAndIO() {
     DiscreteDistribution discrete4(4); // Different size
 
     // Test equality
-    assert(discrete1 == discrete2);
-    assert(!(discrete1 == discrete3));
-    assert(!(discrete1 == discrete4));
+    EXPECT_EQ(discrete1, discrete2);
+    EXPECT_FALSE(discrete1 == discrete3);
+    EXPECT_FALSE(discrete1 == discrete4);
 
     // Test inequality
-    assert(!(discrete1 != discrete2));
-    assert(discrete1 != discrete3);
-    assert(discrete1 != discrete4);
+    EXPECT_FALSE(discrete1 != discrete2);
+    EXPECT_NE(discrete1, discrete3);
+    EXPECT_NE(discrete1, discrete4);
 
     // Test stream output
     std::ostringstream oss;
     oss << discrete1;
     std::string output = oss.str();
-    assert(!output.empty());
-    assert(output.find("Discrete") != std::string::npos);
+    EXPECT_FALSE(output.empty());
+    EXPECT_NE(output.find("Discrete"), std::string::npos);
 
     // Test stream input via roundtrip
     DiscreteDistribution source(2);
@@ -452,18 +421,16 @@ void testEqualityAndIO() {
     std::istringstream iss(rss.str());
     DiscreteDistribution inputDiscrete;
     iss >> inputDiscrete;
-    assert(inputDiscrete.getNumSymbols() == 2);
-    assert(std::abs(inputDiscrete.getProbability(0) - 0.7) < 1e-10);
-    assert(std::abs(inputDiscrete.getProbability(1) - 0.3) < 1e-10);
+    EXPECT_EQ(inputDiscrete.getNumSymbols(), 2);
+    EXPECT_NEAR(inputDiscrete.getProbability(0), 0.7, 1e-10);
+    EXPECT_NEAR(inputDiscrete.getProbability(1), 0.3, 1e-10);
 
-    std::cout << "✓ Equality and I/O tests passed" << std::endl;
 }
 
 /**
  * Test performance characteristics
  */
-void testPerformance() {
-    std::cout << "Testing performance characteristics..." << std::endl;
+TEST(DiscreteDistributionTest, Performance) {
 
     DiscreteDistribution discrete(100); // Larger distribution
 
@@ -512,19 +479,16 @@ void testPerformance() {
               << " μs/point (" << fitData.size() << " points)" << std::endl;
 
     // Performance requirements (should be reasonable)
-    assert(pdfTimePerCall < 2.0);    // Less than 2 μs per PDF call (discrete should be very fast)
-    assert(logPdfTimePerCall < 2.0); // Less than 2 μs per log PDF call
-    assert(fitTimePerPoint <
-           2.0); // Less than 2 μs per data point for fitting (discrete fitting is simple)
+    EXPECT_LT(pdfTimePerCall, 2.0);    // Less than 2 μs per PDF call (discrete should be very fast)
+    EXPECT_LT(logPdfTimePerCall, 2.0); // Less than 2 μs per log PDF call
+    EXPECT_LT(fitTimePerPoint, 2.0); // Less than 2 μs per data point for fitting (discrete fitting is simple)
 
-    std::cout << "✓ Performance tests passed" << std::endl;
 }
 
 /**
  * Test caching mechanism
  */
-void testCaching() {
-    std::cout << "Testing caching mechanism..." << std::endl;
+TEST(DiscreteDistributionTest, Caching) {
 
     DiscreteDistribution discrete(3);
     discrete.setProbability(0, 0.4);
@@ -534,54 +498,22 @@ void testCaching() {
     // Test entropy calculation (uses caching)
     double entropy1 = discrete.getEntropy();
     double entropy2 = discrete.getEntropy();
-    assert(entropy1 == entropy2); // Should be identical due to caching
+    EXPECT_EQ(entropy1, entropy2); // Should be identical due to caching
 
     // Test probability sum calculation (uses caching)
     double sum1 = discrete.getProbabilitySum();
     double sum2 = discrete.getProbabilitySum();
-    assert(sum1 == sum2);                 // Should be identical due to caching
-    assert(std::abs(sum1 - 1.0) < 1e-10); // Should sum to 1
+    EXPECT_EQ(sum1, sum2);                 // Should be identical due to caching
+    EXPECT_NEAR(sum1, 1.0, 1e-10); // Should sum to 1
 
     // Changing probabilities should invalidate cache
     discrete.setProbability(0, 0.5);
     double newEntropy = discrete.getEntropy();
-    assert(newEntropy != entropy1); // Should be different after change
+    EXPECT_NE(newEntropy, entropy1); // Should be different after change
 
-    std::cout << "✓ Caching tests passed" << std::endl;
 }
 
-int main() {
-    std::cout << "Running Discrete distribution tests..." << std::endl;
-    std::cout << "=====================================" << std::endl;
-
-    try {
-        testBasicFunctionality();
-        testProbabilities();
-        testFitting();
-        testSetProbability();
-        testStringRepresentation();
-        testCopyMoveSemantics();
-        testInvalidInputHandling();
-        testResetFunctionality();
-        testDiscreteProperties();
-        testFittingValidation();
-
-        // Gold Standard Tests
-        testLogProbability();
-        testCDF();
-        testEqualityAndIO();
-        testPerformance();
-        testCaching();
-
-        std::cout << "=====================================" << std::endl;
-        std::cout << "✅ All Discrete distribution tests passed!" << std::endl;
-        return 0;
-
-    } catch (const std::exception &e) {
-        std::cerr << "❌ Test failed with exception: " << e.what() << std::endl;
-        return 1;
-    } catch (...) {
-        std::cerr << "❌ Test failed with unknown exception" << std::endl;
-        return 1;
-    }
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
