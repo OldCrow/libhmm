@@ -85,12 +85,6 @@ private:
         }
     }
 
-    /**
-     * Evaluates the LOWER INCOMPLETE gamma function at x
-     * Uses numerical approximation for computational efficiency
-     */
-    static double ligamma(double a, double x) noexcept;
-
 public:
     /**
      * Constructs a Gamma distribution with given parameters.

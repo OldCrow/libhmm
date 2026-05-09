@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.2] - 2026-05-09
+
+Code quality patch: dead code removal, tool exception safety, lizard triage. 37/37 tests pass.
+
+### Removed
+
+- **`GammaDistribution::ligamma`** (`include/libhmm/distributions/gamma_distribution.h`,
+  `src/distributions/gamma_distribution.cpp`): private static method declared and
+  implemented but never called. `getCumulativeProbability()` calls `gammap()` directly;
+  `ligamma` was a redundant wrapper left over from an earlier draft. Closes #9.
+- **`ParetoDistribution::CDF`** (`include/libhmm/distributions/pareto_distribution.h`,
+  `src/distributions/pareto_distribution.cpp`): private method that forwarded directly
+  to `getCumulativeProbability()`; zero callers (tests use the public method). Also
+  removes the `negK_` cached field, which was computed in `updateCache()` solely for
+  `CDF`'s use and never read by any other code path. Closes #9.
+
+### Fixed
+
+- **Tool exception safety** (`tools/bw_hotspot.cpp`, `tools/fb_contour_sweep.cpp`,
+  `tools/hotspot_breakdown.cpp`): each tool had a `try/catch` covering only the
+  argument-parsing section; the main profiling loop was unprotected. Exceptions during
+  model construction or benchmarking (e.g. `std::bad_alloc`) now produce a clean
+  error message on stderr and exit 1 instead of terminating without output. Closes #8.
+
 ## [3.5.1] - 2026-05-09
 
 Test infrastructure patch. 37 test executables / 37 passing.

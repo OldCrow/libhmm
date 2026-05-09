@@ -360,61 +360,66 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    const std::vector<Config> configs = {
-        {2, 1000},   {2, 10000}, {2, 100000}, {2, 1000000}, {4, 1000},  {4, 10000},
-        {4, 100000}, {8, 1000},  {8, 5000},   {8, 10000},   {16, 1000}, {16, 2000},
-        {16, 5000},  {32, 500},  {32, 1000},  {32, 2000},   {64, 200},  {64, 500},
-        {64, 1000},  {128, 100}, {128, 250},  {128, 500},
-    };
+    try {
+        const std::vector<Config> configs = {
+            {2, 1000},   {2, 10000}, {2, 100000}, {2, 1000000}, {4, 1000},  {4, 10000},
+            {4, 100000}, {8, 1000},  {8, 5000},   {8, 10000},   {16, 1000}, {16, 2000},
+            {16, 5000},  {32, 500},  {32, 1000},  {32, 2000},   {64, 200},  {64, 500},
+            {64, 1000},  {128, 100}, {128, 250},  {128, 500},
+        };
 
-    const fs::path output_dir = output_path.parent_path();
-    if (!output_dir.empty()) {
-        fs::create_directories(output_dir);
-    }
-    std::ofstream csv(output_path);
-    if (!csv) {
-        std::cerr << "Failed to open output file: " << output_path << "\n";
+        const fs::path output_dir = output_path.parent_path();
+        if (!output_dir.empty()) {
+            fs::create_directories(output_dir);
+        }
+        std::ofstream csv(output_path);
+        if (!csv) {
+            std::cerr << "Failed to open output file: " << output_path << "\n";
+            return 1;
+        }
+
+        csv << "mode,n,t,runs,warmup,recurrence_work,emission_work,transition_ms,obs_copy_ms,"
+               "emission_ms,alloc_ms,forward_ms,backward_ms,reduction_ms,total_ms\n";
+
+        std::cout << "libhmm FB contour sweep\n";
+        std::cout << "Mode: " << mode_name() << "\n";
+        std::cout << "Runs: " << runs << " (warmup " << warmup << ")\n";
+        std::cout << "Output: " << output_path << "\n\n";
+        std::cout << std::fixed << std::setprecision(3);
+
+        for (const auto &cfg : configs) {
+            auto hmm = make_hmm(cfg.n);
+            auto obs = make_obs(cfg.t, cfg.n);
+            const Timings timed = profile_config(*hmm, obs, runs, warmup);
+
+            const std::uint64_t recurrence_work =
+                static_cast<std::uint64_t>(cfg.n) * cfg.n * static_cast<std::uint64_t>(cfg.t - 1);
+            const std::uint64_t emission_work =
+                static_cast<std::uint64_t>(cfg.n) * static_cast<std::uint64_t>(cfg.t);
+
+            csv << mode_name() << "," << cfg.n << "," << cfg.t << "," << runs << "," << warmup
+                << "," << recurrence_work << "," << emission_work << "," << timed.transition_ms
+                << "," << timed.obs_copy_ms << "," << timed.emission_ms << "," << timed.alloc_ms
+                << "," << timed.forward_ms << "," << timed.backward_ms << "," << timed.reduction_ms
+                << "," << timed.total_ms << "\n";
+
+            const double recurrence_pct =
+                (timed.total_ms > 0.0)
+                    ? ((timed.forward_ms + timed.backward_ms) * 100.0 / timed.total_ms)
+                    : 0.0;
+            std::cout << "N=" << std::setw(3) << cfg.n << " T=" << std::setw(8) << cfg.t
+                      << " total=" << std::setw(9) << timed.total_ms << " ms"
+                      << " recur=" << std::setw(6) << recurrence_pct << "%\n";
+        }
+
+        csv.close();
+        if (g_sink_double == 42.0) {
+            std::cout << "sink=" << g_sink_double << "\n";
+        }
+        std::cout << "\nDone.\n";
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << "\n";
         return 1;
     }
-
-    csv << "mode,n,t,runs,warmup,recurrence_work,emission_work,transition_ms,obs_copy_ms,"
-           "emission_ms,alloc_ms,forward_ms,backward_ms,reduction_ms,total_ms\n";
-
-    std::cout << "libhmm FB contour sweep\n";
-    std::cout << "Mode: " << mode_name() << "\n";
-    std::cout << "Runs: " << runs << " (warmup " << warmup << ")\n";
-    std::cout << "Output: " << output_path << "\n\n";
-    std::cout << std::fixed << std::setprecision(3);
-
-    for (const auto &cfg : configs) {
-        auto hmm = make_hmm(cfg.n);
-        auto obs = make_obs(cfg.t, cfg.n);
-        const Timings timed = profile_config(*hmm, obs, runs, warmup);
-
-        const std::uint64_t recurrence_work =
-            static_cast<std::uint64_t>(cfg.n) * cfg.n * static_cast<std::uint64_t>(cfg.t - 1);
-        const std::uint64_t emission_work =
-            static_cast<std::uint64_t>(cfg.n) * static_cast<std::uint64_t>(cfg.t);
-
-        csv << mode_name() << "," << cfg.n << "," << cfg.t << "," << runs << "," << warmup << ","
-            << recurrence_work << "," << emission_work << "," << timed.transition_ms << ","
-            << timed.obs_copy_ms << "," << timed.emission_ms << "," << timed.alloc_ms << ","
-            << timed.forward_ms << "," << timed.backward_ms << "," << timed.reduction_ms << ","
-            << timed.total_ms << "\n";
-
-        const double recurrence_pct =
-            (timed.total_ms > 0.0)
-                ? ((timed.forward_ms + timed.backward_ms) * 100.0 / timed.total_ms)
-                : 0.0;
-        std::cout << "N=" << std::setw(3) << cfg.n << " T=" << std::setw(8) << cfg.t
-                  << " total=" << std::setw(9) << timed.total_ms << " ms"
-                  << " recur=" << std::setw(6) << recurrence_pct << "%\n";
-    }
-
-    csv.close();
-    if (g_sink_double == 42.0) {
-        std::cout << "sink=" << g_sink_double << "\n";
-    }
-    std::cout << "\nDone.\n";
     return 0;
 }
