@@ -26,7 +26,6 @@ TEST(BinomialDistributionTest, BasicFunctionality) {
     BinomialDistribution binomial2(20, 0.3);
     EXPECT_EQ(binomial2.getN(), 20);
     EXPECT_EQ(binomial2.getP(), 0.3);
-
 }
 
 /**
@@ -61,7 +60,6 @@ TEST(BinomialDistributionTest, Probabilities) {
     BinomialDistribution binomial_p1(10, 1.0);
     EXPECT_EQ(binomial_p1.getProbability(10.0), 1.0);
     EXPECT_EQ(binomial_p1.getProbability(9.0), 0.0);
-
 }
 
 /**
@@ -90,7 +88,6 @@ TEST(BinomialDistributionTest, Fitting) {
     binomial.fit(singlePoint);
     EXPECT_TRUE(binomial.getN() >= 1);
     EXPECT_TRUE(binomial.getP() >= 0.0 && binomial.getP() <= 1.0);
-
 }
 
 /**
@@ -141,7 +138,6 @@ TEST(BinomialDistributionTest, ParameterValidation) {
     EXPECT_THROW(binomial.setN(0), std::invalid_argument);
 
     EXPECT_THROW(binomial.setP(-0.1), std::invalid_argument);
-
 }
 
 /**
@@ -195,7 +191,6 @@ TEST(BinomialDistributionTest, CopyMoveSemantics) {
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getN(), 8);
     EXPECT_EQ(moveAssigned.getP(), 0.4);
-
 }
 
 /**
@@ -217,7 +212,6 @@ TEST(BinomialDistributionTest, InvalidInputHandling) {
     // Out of range values should return 0
     EXPECT_EQ(binomial.getProbability(-1.0), 0.0);
     EXPECT_EQ(binomial.getProbability(11.0), 0.0);
-
 }
 
 /**
@@ -230,7 +224,6 @@ TEST(BinomialDistributionTest, ResetFunctionality) {
 
     EXPECT_EQ(binomial.getN(), 10);
     EXPECT_EQ(binomial.getP(), 0.5);
-
 }
 
 /**
@@ -256,7 +249,6 @@ TEST(BinomialDistributionTest, BinomialProperties) {
         total_prob += binomial.getProbability(k);
     }
     EXPECT_NEAR(total_prob, 1.0, 1e-6); // Should sum to 1
-
 }
 
 /**
@@ -282,7 +274,6 @@ TEST(BinomialDistributionTest, FittingValidation) {
     binomial.fit(zeroData);
     EXPECT_TRUE(binomial.getN() >= 1);
     EXPECT_TRUE(binomial.getP() >= 0.0 && binomial.getP() <= 1.0);
-
 }
 
 /**
@@ -300,7 +291,6 @@ TEST(BinomialDistributionTest, StatisticalMoments) {
     EXPECT_NEAR(mean, 50 * 0.4, 1e-10);
     EXPECT_NEAR(variance, 50 * 0.4 * 0.6, 1e-10);
     EXPECT_NEAR(stddev * stddev, variance, 1e-10);
-
 }
 
 /**
@@ -327,10 +317,9 @@ TEST(BinomialDistributionTest, LogProbability) {
     double nan_val = std::numeric_limits<double>::quiet_NaN();
     double inf_val = std::numeric_limits<double>::infinity();
     EXPECT_TRUE(std::isinf(binomial.getLogProbability(nan_val)) &&
-           binomial.getLogProbability(nan_val) < 0);
+                binomial.getLogProbability(nan_val) < 0);
     EXPECT_TRUE(std::isinf(binomial.getLogProbability(inf_val)) &&
-           binomial.getLogProbability(inf_val) < 0);
-
+                binomial.getLogProbability(inf_val) < 0);
 }
 
 /**
@@ -365,7 +354,6 @@ TEST(BinomialDistributionTest, CDF) {
     double inf_val = std::numeric_limits<double>::infinity();
     EXPECT_EQ(binomial.getCumulativeProbability(nan_val), 0.0);
     EXPECT_EQ(binomial.getCumulativeProbability(inf_val), 0.0);
-
 }
 
 /**
@@ -404,7 +392,6 @@ TEST(BinomialDistributionTest, EqualityAndIO) {
     iss >> inputBinomial;
     EXPECT_EQ(inputBinomial.getN(), 20);
     EXPECT_NEAR(inputBinomial.getP(), 0.7, 1e-10);
-
 }
 
 /**
@@ -462,7 +449,6 @@ TEST(BinomialDistributionTest, Performance) {
     EXPECT_LT(pdfTimePerCall, 10.0);   // Less than 10 μs per PDF call
     EXPECT_LT(logPdfTimePerCall, 5.0); // Less than 5 μs per log PDF call
     EXPECT_LT(fitTimePerPoint, 10.0);  // Less than 10 μs per data point for fitting
-
 }
 
 /**
@@ -492,7 +478,6 @@ TEST(BinomialDistributionTest, Caching) {
     double logProb1 = binomial.getLogProbability(3.0);
     double logProb2 = binomial.getLogProbability(3.0);
     EXPECT_EQ(logProb1, logProb2);
-
 }
 
 int main(int argc, char **argv) {

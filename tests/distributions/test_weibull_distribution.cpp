@@ -28,7 +28,6 @@ TEST(WeibullDistributionTest, BasicFunctionality) {
     WeibullDistribution weibull2(2.5, 1.5);
     EXPECT_EQ(weibull2.getK(), 2.5);
     EXPECT_EQ(weibull2.getLambda(), 1.5);
-
 }
 
 /**
@@ -62,7 +61,6 @@ TEST(WeibullDistributionTest, Probabilities) {
     // Test that probability density is reasonable (should be small for continuous dist)
     EXPECT_LT(prob1, 10.0);  // Should be reasonable
     EXPECT_GT(prob1, 1e-10); // Should be greater than zero
-
 }
 
 /**
@@ -89,7 +87,6 @@ TEST(WeibullDistributionTest, Fitting) {
     weibull.fit(singlePoint);
     EXPECT_EQ(weibull.getK(), 1.0);
     EXPECT_EQ(weibull.getLambda(), 1.0);
-
 }
 
 /**
@@ -140,7 +137,6 @@ TEST(WeibullDistributionTest, ParameterValidation) {
     EXPECT_THROW(weibull.setK(0.0), std::invalid_argument);
 
     EXPECT_THROW(weibull.setLambda(-1.0), std::invalid_argument);
-
 }
 
 /**
@@ -193,7 +189,6 @@ TEST(WeibullDistributionTest, CopyMoveSemantics) {
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getK(), 1.41);
     EXPECT_EQ(moveAssigned.getLambda(), 1.73);
-
 }
 
 /**
@@ -216,7 +211,6 @@ TEST(WeibullDistributionTest, InvalidInputHandling) {
     EXPECT_EQ(weibull.getProbability(-0.1), 0.0);
     EXPECT_EQ(weibull.getProbability(-1.0), 0.0);
     EXPECT_EQ(weibull.getProbability(-10.0), 0.0);
-
 }
 
 /**
@@ -229,7 +223,6 @@ TEST(WeibullDistributionTest, ResetFunctionality) {
 
     EXPECT_EQ(weibull.getK(), 1.0);
     EXPECT_EQ(weibull.getLambda(), 1.0);
-
 }
 
 /**
@@ -259,7 +252,6 @@ TEST(WeibullDistributionTest, WeibullProperties) {
 
     // Test standard deviation relationship
     EXPECT_NEAR(exponential.getStandardDeviation(), std::sqrt(exponential.getVariance()), 1e-10);
-
 }
 
 /**
@@ -288,7 +280,6 @@ TEST(WeibullDistributionTest, FittingValidation) {
     } catch (const std::exception &) {
         // Also acceptable if implementation has specific constraints
     }
-
 }
 
 /**
@@ -321,7 +312,6 @@ TEST(WeibullDistributionTest, StatisticalMoments) {
     // Variance should be (4-π)/4 ≈ 0.2146
     double rayleighVar = rayleigh.getVariance();
     EXPECT_TRUE(rayleighVar > 0.21 && rayleighVar < 0.22);
-
 }
 
 /**
@@ -355,9 +345,8 @@ TEST(WeibullDistributionTest, SpecialCases) {
     // Test very large values
     WeibullDistribution normal_case(1.0, 1.0);
     double prob_large = normal_case.getProbability(100.0);
-    EXPECT_TRUE(prob_large >= 0.0);  // Should be very small but non-negative
-    EXPECT_LT(prob_large, 1e-10); // Should be essentially zero
-
+    EXPECT_TRUE(prob_large >= 0.0); // Should be very small but non-negative
+    EXPECT_LT(prob_large, 1e-10);   // Should be essentially zero
 }
 
 /**
@@ -390,7 +379,6 @@ TEST(WeibullDistributionTest, LogProbability) {
     double inf_val = std::numeric_limits<double>::infinity();
     EXPECT_EQ(weibull.getLogProbability(nan_val), -std::numeric_limits<double>::infinity());
     EXPECT_EQ(weibull.getLogProbability(inf_val), -std::numeric_limits<double>::infinity());
-
 }
 
 /**
@@ -427,7 +415,6 @@ TEST(WeibullDistributionTest, CDF) {
                   << std::endl;
         ADD_FAILURE();
     }
-
 }
 
 /**
@@ -440,7 +427,7 @@ TEST(WeibullDistributionTest, EqualityAndIO) {
     WeibullDistribution weibull3(3.0, 2.0);
 
     // Test equality operator
-    EXPECT_EQ(weibull1, weibull2);    // Same parameters
+    EXPECT_EQ(weibull1, weibull2);      // Same parameters
     EXPECT_FALSE(weibull1 == weibull3); // Different parameters
 
     // Test with slightly different parameters (within tolerance)
@@ -464,7 +451,6 @@ TEST(WeibullDistributionTest, EqualityAndIO) {
     if (iss.good() || iss.eof()) {
         EXPECT_EQ(weibullFromStream, weibull1);
     }
-
 }
 
 /**
@@ -544,8 +530,8 @@ TEST(WeibullDistributionTest, PerformanceCharacteristics) {
     EXPECT_LT(pdf_time_per_call, 1.0);     // Less than 1 μs per PDF call
     EXPECT_LT(log_pdf_time_per_call, 1.0); // Less than 1 μs per log PDF call
     EXPECT_LT(cdf_time_per_call, 1.0);     // Less than 1 μs per CDF call
-    EXPECT_LT(fit_time_per_point, 0.1); // Less than 0.1 μs per data point for fitting (Welford's is fast)
-
+    EXPECT_LT(fit_time_per_point,
+              0.1); // Less than 0.1 μs per data point for fitting (Welford's is fast)
 }
 
 /**
@@ -605,7 +591,6 @@ TEST(WeibullDistributionTest, NumericalStability) {
     // For k=2 (Rayleigh): PDF(x) = (2x/λ²)exp(-(x/λ)²)
     double expectedRayProb = (2.0 * 1.0 / (1.0 * 1.0)) * std::exp(-(1.0 * 1.0));
     EXPECT_NEAR(rayProb, expectedRayProb, 1e-10);
-
 }
 
 /**
@@ -649,7 +634,6 @@ TEST(WeibullDistributionTest, Caching) {
     EXPECT_EQ(weibull.getProbability(1.0), prob4);
     EXPECT_EQ(weibull.CDF(1.0), cdf4);
     EXPECT_EQ(weibull.getLogProbability(1.0), logProb4);
-
 }
 
 int main(int argc, char **argv) {

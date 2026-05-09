@@ -26,7 +26,6 @@ TEST(LogNormalDistributionTest, BasicFunctionality) {
     LogNormalDistribution lognormal2(5.0, 2.5);
     EXPECT_EQ(lognormal2.getMean(), 5.0);
     EXPECT_EQ(lognormal2.getStandardDeviation(), 2.5);
-
 }
 
 /**
@@ -53,7 +52,6 @@ TEST(LogNormalDistributionTest, Probabilities) {
     // Test that probability density is reasonable (should be small for continuous dist)
     EXPECT_LT(prob1, 1.0);   // Should be less than 1 for probability density
     EXPECT_GT(prob1, 1e-10); // Should be greater than zero
-
 }
 
 /**
@@ -81,7 +79,6 @@ TEST(LogNormalDistributionTest, Fitting) {
     // Based on debug output: mean=0.916291, stddev=1e-30
     EXPECT_GT(lognormal.getMean(), 0.0);
     EXPECT_GT(lognormal.getStandardDeviation(), 0.0);
-
 }
 
 /**
@@ -120,7 +117,6 @@ TEST(LogNormalDistributionTest, ParameterValidation) {
     EXPECT_THROW(lognormal.setStandardDeviation(0.0), std::invalid_argument);
 
     EXPECT_THROW(lognormal.setStandardDeviation(-1.0), std::invalid_argument);
-
 }
 
 /**
@@ -172,7 +168,6 @@ TEST(LogNormalDistributionTest, CopyMoveSemantics) {
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getMean(), 1.41);
     EXPECT_EQ(moveAssigned.getStandardDeviation(), 1.73);
-
 }
 
 /**
@@ -194,7 +189,6 @@ TEST(LogNormalDistributionTest, InvalidInputHandling) {
     // Negative and zero values should return 0
     EXPECT_EQ(lognormal.getProbability(-1.0), 0.0);
     EXPECT_EQ(lognormal.getProbability(0.0), 0.0);
-
 }
 
 /**
@@ -207,7 +201,6 @@ TEST(LogNormalDistributionTest, ResetFunctionality) {
 
     EXPECT_EQ(lognormal.getMean(), 0.0);
     EXPECT_EQ(lognormal.getStandardDeviation(), 1.0);
-
 }
 
 /**
@@ -229,7 +222,6 @@ TEST(LogNormalDistributionTest, LogNormalProperties) {
     EXPECT_GT(prob1, 0.0);
     EXPECT_GT(prob2, 0.0);
     EXPECT_GT(prob3, 0.0);
-
 }
 
 /**
@@ -255,7 +247,6 @@ TEST(LogNormalDistributionTest, FittingValidation) {
     // Should have fitted to positive values {1.0, 2.0}
     EXPECT_GT(lognormal.getMean(), 0.0);
     EXPECT_GT(lognormal.getStandardDeviation(), 0.0);
-
 }
 
 /**
@@ -282,7 +273,6 @@ TEST(LogNormalDistributionTest, StatisticalMoments) {
     // Test mode = exp(μ - σ²) = exp(1.0 - 0.25) = exp(0.75)
     double expectedMode = std::exp(1.0 - 0.25);
     EXPECT_NEAR(lognormal.getMode(), expectedMode, 1e-10);
-
 }
 
 /**
@@ -323,7 +313,6 @@ TEST(LogNormalDistributionTest, LogProbability) {
     EXPECT_TRUE(std::isnan(lognormal.getLogProbability(std::numeric_limits<double>::quiet_NaN())) ||
                 lognormal.getLogProbability(std::numeric_limits<double>::quiet_NaN()) ==
                     -std::numeric_limits<double>::infinity());
-
 }
 
 /**
@@ -356,7 +345,6 @@ TEST(LogNormalDistributionTest, CDFCalculations) {
     // Test approach to 1 for large values
     double cdfLarge = lognormal.getCumulativeProbability(100.0);
     EXPECT_GT(cdfLarge, 0.99);
-
 }
 
 /**
@@ -389,7 +377,6 @@ TEST(LogNormalDistributionTest, EqualityAndIO) {
     if (iss.good() || iss.eof()) {
         EXPECT_EQ(inputDist, ln1);
     }
-
 }
 
 /**
@@ -421,7 +408,6 @@ TEST(LogNormalDistributionTest, NumericalStability) {
     double cdfLarge = largeSigma.getCumulativeProbability(1.0);
     EXPECT_TRUE(cdfSmall >= 0.0 && cdfSmall <= 1.0 && std::isfinite(cdfSmall));
     EXPECT_TRUE(cdfLarge >= 0.0 && cdfLarge <= 1.0 && std::isfinite(cdfLarge));
-
 }
 
 /**
@@ -481,7 +467,6 @@ TEST(LogNormalDistributionTest, PerformanceCharacteristics) {
     EXPECT_LT(pdf_time_per_call, 5.0);    // Less than 5 μs per PDF call
     EXPECT_LT(logpdf_time_per_call, 3.0); // Less than 3 μs per log PDF call
     EXPECT_LT(fitTimePerPoint, 50.0);     // Less than 50 μs per data point for fitting
-
 }
 
 /**
@@ -525,7 +510,6 @@ TEST(LogNormalDistributionTest, Caching) {
     EXPECT_EQ(lognormal.getProbability(2.0), prob4);
     EXPECT_EQ(lognormal.getCumulativeProbability(2.0), cdf4);
     EXPECT_EQ(lognormal.getLogProbability(2.0), logProb4);
-
 }
 
 int main(int argc, char **argv) {

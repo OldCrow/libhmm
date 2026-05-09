@@ -25,7 +25,6 @@ TEST(GammaDistributionTest, BasicFunctionality) {
     GammaDistribution gamma2(2.5, 1.5);
     EXPECT_EQ(gamma2.getK(), 2.5);
     EXPECT_EQ(gamma2.getTheta(), 1.5);
-
 }
 
 /**
@@ -53,7 +52,6 @@ TEST(GammaDistributionTest, Probabilities) {
 
     // For Gamma(2,1), the mode is at k-1 = 1, so prob at 1 should be relatively high
     EXPECT_GT(prob1, prob3); // Probability should decrease away from mode
-
 }
 
 /**
@@ -82,7 +80,6 @@ TEST(GammaDistributionTest, Fitting) {
     gamma.fit(singlePoint);
     EXPECT_EQ(gamma.getK(), 1.0); // Implementation resets to default
     EXPECT_EQ(gamma.getTheta(), 1.0);
-
 }
 
 /**
@@ -126,7 +123,6 @@ TEST(GammaDistributionTest, ParameterValidation) {
     EXPECT_THROW(GammaDistribution gamma(nan_val, 1.0), std::invalid_argument);
 
     EXPECT_THROW(GammaDistribution gamma(1.0, inf_val), std::invalid_argument);
-
 }
 
 /**
@@ -177,7 +173,6 @@ TEST(GammaDistributionTest, CopyMoveSemantics) {
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getK(), 1.41);
     EXPECT_EQ(moveAssigned.getTheta(), 1.73);
-
 }
 
 /**
@@ -199,7 +194,6 @@ TEST(GammaDistributionTest, InvalidInputHandling) {
     // Negative values should return 0
     EXPECT_EQ(gamma.getProbability(-1.0), 0.0);
     EXPECT_EQ(gamma.getProbability(-0.1), 0.0);
-
 }
 
 /**
@@ -212,7 +206,6 @@ TEST(GammaDistributionTest, ResetFunctionality) {
 
     EXPECT_EQ(gamma.getK(), 1.0);
     EXPECT_EQ(gamma.getTheta(), 1.0);
-
 }
 
 /**
@@ -245,7 +238,6 @@ TEST(GammaDistributionTest, LogProbability) {
     EXPECT_TRUE(std::isinf(gamma.getLogProbability(nan_val)));
     EXPECT_TRUE(std::isinf(gamma.getLogProbability(inf_val)));
     EXPECT_TRUE(std::isinf(gamma.getLogProbability(-1.0)));
-
 }
 
 /**
@@ -288,7 +280,6 @@ TEST(GammaDistributionTest, AdditionalGettersSetters) {
     } catch (const std::invalid_argument &) {
         // Expected behavior - setParameters should validate inputs
     }
-
 }
 
 /**
@@ -311,7 +302,6 @@ TEST(GammaDistributionTest, MathematicalCorrectness) {
     double pdf2 = gamma2.getProbability(1.0);
     double expected2 = std::exp(-1.0);
     EXPECT_NEAR(pdf2, expected2, 1e-6);
-
 }
 
 /**
@@ -352,7 +342,6 @@ TEST(GammaDistributionTest, FittingValidation) {
     gamma.fit(allZeros);
     EXPECT_EQ(gamma.getK(), 1.0);
     EXPECT_EQ(gamma.getTheta(), 1.0);
-
 }
 
 /**
@@ -388,7 +377,6 @@ TEST(GammaDistributionTest, CDF) {
     double nan_val = std::numeric_limits<double>::quiet_NaN();
     EXPECT_TRUE(gamma.getCumulativeProbability(nan_val) == 0.0 ||
                 std::isnan(gamma.getCumulativeProbability(nan_val)));
-
 }
 
 /**
@@ -416,12 +404,11 @@ TEST(GammaDistributionTest, EqualityOperator) {
 
     // Test with very small differences (within tolerance)
     GammaDistribution gamma5(2.5, 1.5 + 1e-15); // Very small difference
-    EXPECT_EQ(gamma1, gamma5);                   // Should be equal within tolerance
+    EXPECT_EQ(gamma1, gamma5);                  // Should be equal within tolerance
 
     // Test with differences larger than tolerance
     GammaDistribution gamma6(2.5, 1.5 + 1e-5); // Larger difference (10x the tolerance)
-    EXPECT_FALSE(gamma1 == gamma6);               // Should not be equal
-
+    EXPECT_FALSE(gamma1 == gamma6);            // Should not be equal
 }
 
 /**
@@ -460,7 +447,6 @@ TEST(GammaDistributionTest, IOOperators) {
     GammaDistribution invalid_test;
     invalid_iss >> invalid_test;
     EXPECT_TRUE(invalid_iss.fail()); // Stream should be in failed state
-
 }
 
 /**
@@ -502,7 +488,6 @@ TEST(GammaDistributionTest, Caching) {
     gamma.setParameters(1.5, 0.8);
     double prob6 = gamma.getProbability(1.0);
     EXPECT_GT(std::abs(prob5 - prob6), 1e-6);
-
 }
 
 /**
@@ -538,7 +523,7 @@ TEST(GammaDistributionTest, NumericalStability) {
     GammaDistribution gamma_extreme(0.01, 0.01);
     double logProb_extreme = gamma_extreme.getLogProbability(1e-10);
     EXPECT_TRUE(std::isfinite(logProb_extreme) ||
-           logProb_extreme == -std::numeric_limits<double>::infinity());
+                logProb_extreme == -std::numeric_limits<double>::infinity());
 
     // Test CDF stability
     double cdf_small = gamma_small.getCumulativeProbability(1e-6);
@@ -550,7 +535,6 @@ TEST(GammaDistributionTest, NumericalStability) {
     GammaDistribution gamma_test(1.5, 1.0);
     double prob_near_zero = gamma_test.getProbability(1e-100);
     EXPECT_TRUE(prob_near_zero >= 0.0);
-
 }
 
 /**

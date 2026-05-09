@@ -25,7 +25,6 @@ TEST(ExponentialDistributionTest, BasicFunctionality) {
     // Test parameterized constructor
     ExponentialDistribution exponential2(2.5);
     EXPECT_EQ(exponential2.getLambda(), 2.5);
-
 }
 
 /**
@@ -58,7 +57,6 @@ TEST(ExponentialDistributionTest, Probabilities) {
     // Test that probability is reasonable (our implementation returns small values for continuous distributions)
     EXPECT_GT(prob1, 1e-10); // Should be positive
     EXPECT_LT(prob1, 1.0);   // Should be less than 1
-
 }
 
 /**
@@ -85,7 +83,6 @@ TEST(ExponentialDistributionTest, Fitting) {
     std::vector<Observation> singlePoint = {2.5};
     exponential.fit(singlePoint);
     EXPECT_EQ(exponential.getLambda(), 1.0); // Implementation resets to default
-
 }
 
 /**
@@ -124,7 +121,6 @@ TEST(ExponentialDistributionTest, ParameterValidation) {
     EXPECT_THROW(exponential.setLambda(-1.0), std::invalid_argument);
 
     EXPECT_THROW(exponential.setLambda(nan_val), std::invalid_argument);
-
 }
 
 /**
@@ -170,7 +166,6 @@ TEST(ExponentialDistributionTest, CopyMoveSemantics) {
     ExponentialDistribution temp(2.71);
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getLambda(), 2.71);
-
 }
 
 /**
@@ -192,7 +187,6 @@ TEST(ExponentialDistributionTest, InvalidInputHandling) {
     // Negative values should return 0
     EXPECT_EQ(exponential.getProbability(-1.0), 0.0);
     EXPECT_EQ(exponential.getProbability(-0.1), 0.0);
-
 }
 
 /**
@@ -204,7 +198,6 @@ TEST(ExponentialDistributionTest, ResetFunctionality) {
     exponential.reset();
 
     EXPECT_EQ(exponential.getLambda(), 1.0);
-
 }
 
 /**
@@ -235,7 +228,6 @@ TEST(ExponentialDistributionTest, FittingValidation) {
     } catch (const std::exception &) {
         // Acceptable to reject zero values
     }
-
 }
 
 /**
@@ -279,8 +271,8 @@ TEST(ExponentialDistributionTest, LogProbability) {
 
     // Test invalid inputs return -infinity
     EXPECT_EQ(exponential.getLogProbability(-1.0), -std::numeric_limits<double>::infinity());
-    EXPECT_EQ(exponential.getLogProbability(std::numeric_limits<double>::quiet_NaN()), -std::numeric_limits<double>::infinity());
-
+    EXPECT_EQ(exponential.getLogProbability(std::numeric_limits<double>::quiet_NaN()),
+              -std::numeric_limits<double>::infinity());
 }
 
 /**
@@ -306,7 +298,6 @@ TEST(ExponentialDistributionTest, MemorylessProperty) {
 
     // Ratios should be approximately equal due to memoryless property
     EXPECT_NEAR(ratio1, ratio2, 1e-9); // Slightly looser tolerance for numerical precision
-
 }
 
 /**
@@ -330,7 +321,6 @@ TEST(ExponentialDistributionTest, StatisticalMoments) {
 
     // For exponential distribution, mean = standard deviation
     EXPECT_NEAR(exponential.getMean(), exponential.getStandardDeviation(), 1e-10);
-
 }
 
 /**
@@ -390,7 +380,6 @@ TEST(ExponentialDistributionTest, PerformanceCharacteristics) {
     EXPECT_LT(pdfTimePerCall, 1.0);    // Less than 1 μs per PDF call
     EXPECT_LT(logPdfTimePerCall, 1.0); // Less than 1 μs per log PDF call
     EXPECT_LT(fitTimePerPoint, 0.1);   // Less than 0.1 μs per data point for fitting
-
 }
 
 /**
@@ -422,7 +411,6 @@ TEST(ExponentialDistributionTest, EnhancedFitting) {
     std::vector<Observation> allZeros = {0.0, 0.0, 0.0};
     exponential.fit(allZeros);
     EXPECT_EQ(exponential.getLambda(), 1.0); // Should reset to default
-
 }
 
 /**
@@ -456,7 +444,6 @@ TEST(ExponentialDistributionTest, NumericalStability) {
 
     // Log PDF at x=0 should equal log(lambda)
     EXPECT_NEAR(unit.getLogProbability(0.0), std::log(1.0), 1e-10);
-
 }
 
 /**
@@ -490,7 +477,8 @@ TEST(ExponentialDistributionTest, CDF) {
     EXPECT_LE(exponential.getCumulativeProbability(10.0), 1.0);
 
     // Test that CDF approaches 1 for large values
-    EXPECT_GT(exponential.getCumulativeProbability(10.0), 0.99995); // Should be very close to 1 (for λ=1, F(10) ≈ 0.99995)
+    EXPECT_GT(exponential.getCumulativeProbability(10.0),
+              0.99995); // Should be very close to 1 (for λ=1, F(10) ≈ 0.99995)
 
     // Test with different parameters
     ExponentialDistribution exponential2(2.0);
@@ -499,8 +487,8 @@ TEST(ExponentialDistributionTest, CDF) {
     EXPECT_NEAR(cdf2At1, expectedCdf2At1, 1e-10);
 
     // CDF for λ=2 should be higher than for λ=1 at same x
-    EXPECT_GT(exponential2.getCumulativeProbability(1.0), exponential.getCumulativeProbability(1.0));
-
+    EXPECT_GT(exponential2.getCumulativeProbability(1.0),
+              exponential.getCumulativeProbability(1.0));
 }
 
 /**
@@ -525,11 +513,11 @@ TEST(ExponentialDistributionTest, EqualityAndIO) {
 
     // Test with very small differences (within tolerance)
     ExponentialDistribution e4(2.5 + 1e-15); // Very small difference
-    EXPECT_EQ(e1, e4);                        // Should be equal within tolerance
+    EXPECT_EQ(e1, e4);                       // Should be equal within tolerance
 
     // Test with differences larger than tolerance
     ExponentialDistribution e5(2.5 + 1e-5); // Larger difference
-    EXPECT_FALSE(e1 == e5);                    // Should not be equal
+    EXPECT_FALSE(e1 == e5);                 // Should not be equal
 
     // Test stream output
     std::ostringstream oss;
@@ -554,7 +542,6 @@ TEST(ExponentialDistributionTest, EqualityAndIO) {
     ExponentialDistribution invalid_test;
     invalid_iss >> invalid_test;
     EXPECT_TRUE(invalid_iss.fail()); // Stream should be in failed state
-
 }
 
 /**
@@ -602,7 +589,6 @@ TEST(ExponentialDistributionTest, Caching) {
     exponential.reset();
     double prob4 = exponential.getProbability(1.0);
     EXPECT_GT(std::abs(prob3 - prob4), 1e-6); // Should be different after reset
-
 }
 
 int main(int argc, char **argv) {

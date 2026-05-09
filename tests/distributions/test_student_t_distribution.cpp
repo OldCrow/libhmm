@@ -28,7 +28,6 @@ TEST(StudentTDistributionTest, BasicFunctionality) {
     // Test parameter setter
     t_dist.setDegreesOfFreedom(3.0);
     EXPECT_EQ(t_dist.getDegreesOfFreedom(), 3.0);
-
 }
 
 /**
@@ -65,7 +64,6 @@ TEST(StudentTDistributionTest, Probabilities) {
     // But for t(1) vs t(30), t(30) should have higher peak and lower tails
     EXPECT_GT(prob_1, 0.0);
     EXPECT_GT(prob_30, 0.0);
-
 }
 
 /**
@@ -99,7 +97,6 @@ TEST(StudentTDistributionTest, StatisticalProperties) {
     StudentTDistribution t_dist_10(10.0);
     double expected_var = 10.0 / (10.0 - 2.0);
     EXPECT_NEAR(t_dist_10.getVariance(), expected_var, 1e-10);
-
 }
 
 /**
@@ -128,7 +125,6 @@ TEST(StudentTDistributionTest, Fitting) {
     EXPECT_EQ(t_dist.getDegreesOfFreedom(), 1.0);
     EXPECT_EQ(t_dist.getLocation(), 0.0);
     EXPECT_EQ(t_dist.getScale(), 1.0);
-
 }
 
 /**
@@ -165,7 +161,6 @@ TEST(StudentTDistributionTest, ParameterValidation) {
     EXPECT_THROW(t_dist.setDegreesOfFreedom(0.0), std::invalid_argument);
 
     EXPECT_THROW(t_dist.setDegreesOfFreedom(-5.0), std::invalid_argument);
-
 }
 
 /**
@@ -206,7 +201,6 @@ TEST(StudentTDistributionTest, CopyMoveSemantics) {
     double original_df = original.getDegreesOfFreedom();
     StudentTDistribution moved(std::move(original));
     EXPECT_EQ(moved.getDegreesOfFreedom(), original_df);
-
 }
 
 /**
@@ -222,7 +216,6 @@ TEST(StudentTDistributionTest, EqualityOperators) {
     EXPECT_FALSE(t1 == t3);
     EXPECT_NE(t1, t3);
     EXPECT_FALSE(t1 != t2);
-
 }
 
 /**
@@ -244,7 +237,6 @@ TEST(StudentTDistributionTest, EdgeCases) {
     StudentTDistribution t_test(10.0);
     t_test.reset();
     EXPECT_EQ(t_test.getDegreesOfFreedom(), 1.0);
-
 }
 
 /**
@@ -267,7 +259,6 @@ TEST(StudentTDistributionTest, LogProbability) {
     double prob_0 = t_dist.getProbability(0.0);
     double calculated_log_prob_0 = std::log(prob_0);
     EXPECT_NEAR(calculated_log_prob_0, log_prob_0, 1e-10);
-
 }
 
 /**
@@ -285,7 +276,6 @@ TEST(StudentTDistributionTest, CDF) {
     EXPECT_TRUE(cdf_0 > 0.0 && cdf_0 < 1.0);
     EXPECT_GT(cdf_1, cdf_0);
     EXPECT_GT(cdf_2, cdf_1);
-
 }
 
 /**
@@ -299,8 +289,8 @@ TEST(StudentTDistributionTest, InvalidInputHandling) {
     EXPECT_EQ(t_dist.getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
 
     // Test CDF with NaN (should return NaN for CDF)
-    EXPECT_TRUE(std::isnan(t_dist.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN())));
-
+    EXPECT_TRUE(
+        std::isnan(t_dist.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN())));
 }
 
 /**
@@ -317,7 +307,6 @@ TEST(StudentTDistributionTest, Caching) {
     t_dist.setDegreesOfFreedom(10.0);
     double prob2 = t_dist.getProbability(1.5);
     EXPECT_NE(prob1, prob2); // Should differ because cache was invalidated
-
 }
 
 /**
@@ -377,7 +366,6 @@ TEST(StudentTDistributionTest, Performance) {
     EXPECT_LT(pdfTimePerCall, 10.0);   // Less than 10 μs per PDF call
     EXPECT_LT(logPdfTimePerCall, 5.0); // Less than 5 μs per log PDF call
     EXPECT_LT(fitTimePerPoint, 50.0);  // Less than 50 μs per data point for fitting
-
 }
 
 /**

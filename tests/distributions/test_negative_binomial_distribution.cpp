@@ -25,7 +25,6 @@ TEST(NegativeBinomialDistributionTest, BasicFunctionality) {
     NegativeBinomialDistribution negbinom2(3.0, 0.7);
     EXPECT_EQ(negbinom2.getR(), 3.0);
     EXPECT_EQ(negbinom2.getP(), 0.7);
-
 }
 
 /**
@@ -54,7 +53,6 @@ TEST(NegativeBinomialDistributionTest, Probabilities) {
     NegativeBinomialDistribution negbinom_p1(5.0, 1.0);
     EXPECT_EQ(negbinom_p1.getProbability(0.0), 1.0);
     EXPECT_EQ(negbinom_p1.getProbability(1.0), 0.0);
-
 }
 
 /**
@@ -83,7 +81,6 @@ TEST(NegativeBinomialDistributionTest, Fitting) {
     negbinom.fit(singlePoint);
     EXPECT_EQ(negbinom.getR(), 5.0);
     EXPECT_EQ(negbinom.getP(), 0.5);
-
 }
 
 /**
@@ -143,7 +140,6 @@ TEST(NegativeBinomialDistributionTest, ParameterValidation) {
     EXPECT_THROW(negbinom.setP(0.0), std::invalid_argument);
 
     EXPECT_THROW(negbinom.setP(1.5), std::invalid_argument);
-
 }
 
 /**
@@ -197,7 +193,6 @@ TEST(NegativeBinomialDistributionTest, CopyMoveSemantics) {
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getR(), 3.2);
     EXPECT_EQ(moveAssigned.getP(), 0.8);
-
 }
 
 /**
@@ -219,7 +214,6 @@ TEST(NegativeBinomialDistributionTest, InvalidInputHandling) {
     // Negative values should return 0
     EXPECT_EQ(negbinom.getProbability(-1.0), 0.0);
     EXPECT_EQ(negbinom.getProbability(-0.5), 0.0);
-
 }
 
 /**
@@ -232,7 +226,6 @@ TEST(NegativeBinomialDistributionTest, ResetFunctionality) {
 
     EXPECT_EQ(negbinom.getR(), 5.0);
     EXPECT_EQ(negbinom.getP(), 0.5);
-
 }
 
 /**
@@ -257,7 +250,6 @@ TEST(NegativeBinomialDistributionTest, NegativeBinomialProperties) {
 
     // Test that variance > mean (over-dispersion property)
     EXPECT_GT(variance, mean);
-
 }
 
 /**
@@ -284,7 +276,6 @@ TEST(NegativeBinomialDistributionTest, FittingValidation) {
     // Should fall back to defaults since negative binomial is not appropriate
     EXPECT_EQ(negbinom.getR(), 5.0);
     EXPECT_EQ(negbinom.getP(), 0.5);
-
 }
 
 /**
@@ -305,7 +296,6 @@ TEST(NegativeBinomialDistributionTest, StatisticalMoments) {
     EXPECT_NEAR(mean, expected_mean, 1e-10);
     EXPECT_NEAR(variance, expected_variance, 1e-10);
     EXPECT_NEAR(stddev * stddev, variance, 1e-10);
-
 }
 
 /**
@@ -321,7 +311,6 @@ TEST(NegativeBinomialDistributionTest, OverDispersion) {
     EXPECT_GT(negbinom1.getVariance(), negbinom1.getMean());
     EXPECT_GT(negbinom2.getVariance(), negbinom2.getMean());
     EXPECT_GT(negbinom3.getVariance(), negbinom3.getMean());
-
 }
 
 /**
@@ -360,7 +349,6 @@ TEST(NegativeBinomialDistributionTest, LogProbability) {
     NegativeBinomialDistribution negbinom_p1(5.0, 1.0);
     EXPECT_EQ(negbinom_p1.getLogProbability(0.0), 0.0); // log(1) = 0
     EXPECT_EQ(negbinom_p1.getLogProbability(1.0), -std::numeric_limits<double>::infinity());
-
 }
 
 /**
@@ -399,7 +387,6 @@ TEST(NegativeBinomialDistributionTest, CDF) {
 
     EXPECT_EQ(negbinom.getCumulativeProbability(nan_val), 0.0);
     EXPECT_EQ(negbinom.getCumulativeProbability(inf_val), 0.0);
-
 }
 
 /**
@@ -430,7 +417,6 @@ TEST(NegativeBinomialDistributionTest, AdditionalStatistics) {
     double kurtosis = negbinom.getKurtosis();
     double expected_kurtosis = 3.0 + (6.0 / 4.0) + (0.3 * 0.3) / (4.0 * (1.0 - 0.3));
     EXPECT_NEAR(kurtosis, expected_kurtosis, 1e-10);
-
 }
 
 /**
@@ -452,7 +438,6 @@ TEST(NegativeBinomialDistributionTest, EqualityOperators) {
     EXPECT_FALSE(negbinom1 != negbinom2);
     EXPECT_NE(negbinom1, negbinom3);
     EXPECT_NE(negbinom1, negbinom4);
-
 }
 
 /**
@@ -492,7 +477,6 @@ TEST(NegativeBinomialDistributionTest, StreamOperators) {
 
     EXPECT_NEAR(parsed2.getR(), 4.5, 1e-10);
     EXPECT_NEAR(parsed2.getP(), 0.6, 1e-10);
-
 }
 
 /**
@@ -529,7 +513,6 @@ TEST(NegativeBinomialDistributionTest, Caching) {
     negbinom.setParameters(8.0, 0.3);
     double prob1_after_both_change = negbinom.getProbability(1.0);
     EXPECT_NE(prob1_after_both_change, prob1_after_r_change);
-
 }
 
 /**
@@ -555,7 +538,6 @@ TEST(NegativeBinomialDistributionTest, NumericalStability) {
 
     EXPECT_FALSE(std::isnan(logProb_large));
     EXPECT_FALSE(std::isnan(logProb_small));
-
 }
 
 /**
@@ -613,7 +595,6 @@ TEST(NegativeBinomialDistributionTest, Performance) {
     EXPECT_LT(pdfTimePerCall, 10.0);   // Less than 10 μs per PDF call
     EXPECT_LT(logPdfTimePerCall, 5.0); // Less than 5 μs per log PDF call
     EXPECT_LT(fitTimePerPoint, 20.0);  // Less than 20 μs per data point for fitting
-
 }
 
 int main(int argc, char **argv) {

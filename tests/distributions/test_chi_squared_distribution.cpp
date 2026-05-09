@@ -27,7 +27,6 @@ TEST(ChiSquaredDistributionTest, BasicFunctionality) {
     // Test parameter setter
     chi_dist.setDegreesOfFreedom(3.0);
     EXPECT_EQ(chi_dist.getDegreesOfFreedom(), 3.0);
-
 }
 
 /**
@@ -78,7 +77,6 @@ TEST(ChiSquaredDistributionTest, Probabilities) {
     // Probability at mode should be higher than nearby points
     EXPECT_TRUE(prob_at_mode >= prob_before_mode);
     EXPECT_TRUE(prob_at_mode >= prob_after_mode);
-
 }
 
 /**
@@ -105,7 +103,6 @@ TEST(ChiSquaredDistributionTest, StatisticalProperties) {
     EXPECT_EQ(chi_dist_1.getMode(), 0.0); // max(0, 1-2) = 0
     EXPECT_EQ(chi_dist_2.getMode(), 0.0); // max(0, 2-2) = 0
     EXPECT_EQ(chi_dist_5.getMode(), 3.0); // max(0, 5-2) = 3
-
 }
 
 /**
@@ -134,7 +131,6 @@ TEST(ChiSquaredDistributionTest, Fitting) {
     // Test with negative values - should throw exception
     std::vector<Observation> negative_data = {1.0, -2.0, 3.0};
     EXPECT_THROW(chi_dist.fit(negative_data), std::invalid_argument);
-
 }
 
 /**
@@ -171,7 +167,6 @@ TEST(ChiSquaredDistributionTest, ParameterValidation) {
     EXPECT_THROW(chi_dist.setDegreesOfFreedom(0.0), std::invalid_argument);
 
     EXPECT_THROW(chi_dist.setDegreesOfFreedom(-5.0), std::invalid_argument);
-
 }
 
 /**
@@ -212,7 +207,6 @@ TEST(ChiSquaredDistributionTest, CopyMoveSemantics) {
     double original_df = original.getDegreesOfFreedom();
     ChiSquaredDistribution moved(std::move(original));
     EXPECT_EQ(moved.getDegreesOfFreedom(), original_df);
-
 }
 
 /**
@@ -228,7 +222,6 @@ TEST(ChiSquaredDistributionTest, EqualityOperators) {
     EXPECT_FALSE(chi1 == chi3);
     EXPECT_NE(chi1, chi3);
     EXPECT_FALSE(chi1 != chi2);
-
 }
 
 /**
@@ -259,7 +252,6 @@ TEST(ChiSquaredDistributionTest, EdgeCases) {
     ChiSquaredDistribution chi_exactly_2(2.0); // df = 2
     double prob_2_at_zero = chi_exactly_2.getProbability(0.0);
     EXPECT_TRUE(std::isfinite(prob_2_at_zero) && prob_2_at_zero > 0.0); // Should be finite
-
 }
 
 /**
@@ -281,7 +273,6 @@ TEST(ChiSquaredDistributionTest, GammaRelationship) {
     EXPECT_EQ(chi_4.getMean(), 4.0);
     EXPECT_EQ(chi_4.getVariance(), 8.0);
     EXPECT_EQ(chi_4.getMode(), 2.0);
-
 }
 
 /**
@@ -292,8 +283,10 @@ TEST(ChiSquaredDistributionTest, LogProbabilities) {
     ChiSquaredDistribution chi_dist(3.0);
 
     // Test that log probability is -infinity for negative values
-    EXPECT_TRUE(std::isinf(chi_dist.getLogProbability(-0.1)) && chi_dist.getLogProbability(-0.1) < 0);
-    EXPECT_TRUE(std::isinf(chi_dist.getLogProbability(-1.0)) && chi_dist.getLogProbability(-1.0) < 0);
+    EXPECT_TRUE(std::isinf(chi_dist.getLogProbability(-0.1)) &&
+                chi_dist.getLogProbability(-0.1) < 0);
+    EXPECT_TRUE(std::isinf(chi_dist.getLogProbability(-1.0)) &&
+                chi_dist.getLogProbability(-1.0) < 0);
 
     // Test that log probability is finite for positive values
     EXPECT_TRUE(std::isfinite(chi_dist.getLogProbability(0.5)));
@@ -313,7 +306,6 @@ TEST(ChiSquaredDistributionTest, LogProbabilities) {
     // Test special case for df = 2 at x = 0
     ChiSquaredDistribution chi_2(2.0);
     EXPECT_TRUE(std::isfinite(chi_2.getLogProbability(0.0)));
-
 }
 
 /**
@@ -336,7 +328,8 @@ TEST(ChiSquaredDistributionTest, CDF) {
     EXPECT_GT(chi_dist.getCumulativeProbability(100.0), 0.99);
 
     // Test with NaN
-    EXPECT_TRUE(std::isnan(chi_dist.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN())));
+    EXPECT_TRUE(
+        std::isnan(chi_dist.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN())));
 
     // Test known values for Chi-squared(2) which is exponential-like
     ChiSquaredDistribution chi_2(2.0);
@@ -351,7 +344,6 @@ TEST(ChiSquaredDistributionTest, CDF) {
     // CDF calculations involving gamma functions need slightly more tolerance
     using namespace libhmm::constants;
     EXPECT_NEAR(cdf_at_2, expected_cdf, precision::LIMIT_TOLERANCE);
-
 }
 
 /**
@@ -384,7 +376,6 @@ TEST(ChiSquaredDistributionTest, EqualityAndIO) {
     if (iss.good()) {
         EXPECT_NEAR(inputDist.getDegreesOfFreedom(), 6.75, 1e-10);
     }
-
 }
 
 /**
@@ -417,7 +408,6 @@ TEST(ChiSquaredDistributionTest, Caching) {
     chi_dist.reset();
     double prob4 = chi_dist.getProbability(2.0);
     EXPECT_NE(prob4, prob3); // Should be different after reset
-
 }
 
 /**
@@ -477,7 +467,6 @@ TEST(ChiSquaredDistributionTest, Performance) {
     EXPECT_LT(pdfTimePerCall, 5.0);    // Less than 5 μs per PDF call
     EXPECT_LT(logPdfTimePerCall, 3.0); // Less than 3 μs per log PDF call
     EXPECT_LT(fitTimePerPoint, 10.0);  // Less than 10 μs per data point for fitting
-
 }
 
 /**

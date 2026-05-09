@@ -57,8 +57,10 @@ TEST(GaussianDistributionTest, Fitting) {
 TEST(GaussianDistributionTest, ParameterValidation) {
     EXPECT_THROW(GaussianDistribution(0.0, 0.0), std::invalid_argument);
     EXPECT_THROW(GaussianDistribution(0.0, -1.0), std::invalid_argument);
-    EXPECT_THROW(GaussianDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0), std::invalid_argument);
-    EXPECT_THROW(GaussianDistribution(std::numeric_limits<double>::infinity(), 1.0), std::invalid_argument);
+    EXPECT_THROW(GaussianDistribution(std::numeric_limits<double>::quiet_NaN(), 1.0),
+                 std::invalid_argument);
+    EXPECT_THROW(GaussianDistribution(std::numeric_limits<double>::infinity(), 1.0),
+                 std::invalid_argument);
 
     GaussianDistribution gaussian(0.0, 1.0);
     EXPECT_THROW(gaussian.setMean(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
@@ -240,25 +242,33 @@ TEST(GaussianDistributionTest, Performance) {
 
     auto start = high_resolution_clock::now();
     double sum_pdf = 0.0;
-    for (const auto &val : testValues) { sum_pdf += gaussian.getProbability(val); }
+    for (const auto &val : testValues) {
+        sum_pdf += gaussian.getProbability(val);
+    }
     auto end = high_resolution_clock::now();
-    double pdf_per_call = static_cast<double>(duration_cast<microseconds>(end - start).count()) / pdf_iterations;
+    double pdf_per_call =
+        static_cast<double>(duration_cast<microseconds>(end - start).count()) / pdf_iterations;
 
     start = high_resolution_clock::now();
     double sum_log_pdf = 0.0;
-    for (const auto &val : testValues) { sum_log_pdf += gaussian.getLogProbability(val); }
+    for (const auto &val : testValues) {
+        sum_log_pdf += gaussian.getLogProbability(val);
+    }
     end = high_resolution_clock::now();
-    double log_pdf_per_call = static_cast<double>(duration_cast<microseconds>(end - start).count()) / pdf_iterations;
+    double log_pdf_per_call =
+        static_cast<double>(duration_cast<microseconds>(end - start).count()) / pdf_iterations;
 
     std::vector<double> fit_data(fit_datapoints);
-    for (int i = 0; i < fit_datapoints; ++i) { fit_data[i] = i * 0.001; }
+    for (int i = 0; i < fit_datapoints; ++i) {
+        fit_data[i] = i * 0.001;
+    }
     start = high_resolution_clock::now();
     gaussian.fit(fit_data);
     end = high_resolution_clock::now();
-    double fit_per_point = static_cast<double>(duration_cast<microseconds>(end - start).count()) / fit_datapoints;
+    double fit_per_point =
+        static_cast<double>(duration_cast<microseconds>(end - start).count()) / fit_datapoints;
 
-    std::cout << std::fixed << std::setprecision(3)
-              << "  PDF: " << pdf_per_call << " μs/call"
+    std::cout << std::fixed << std::setprecision(3) << "  PDF: " << pdf_per_call << " μs/call"
               << "  LogPDF: " << log_pdf_per_call << " μs/call"
               << "  Fit: " << fit_per_point << " μs/point\n";
 
