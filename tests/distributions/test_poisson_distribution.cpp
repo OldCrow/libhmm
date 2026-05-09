@@ -30,7 +30,6 @@ TEST(PoissonDistributionTest, BasicFunctionality) {
     EXPECT_EQ(poisson2.getMean(), 3.5);
     EXPECT_EQ(poisson2.getVariance(), 3.5);
     EXPECT_NEAR(poisson2.getStandardDeviation(), std::sqrt(3.5), 1e-10);
-
 }
 
 /**
@@ -57,7 +56,6 @@ TEST(PoissonDistributionTest, Probabilities) {
     EXPECT_EQ(poisson.getProbability(-1.0), 0.0);
     EXPECT_EQ(poisson.getProbability(1.5), 0.0); // non-integer
     EXPECT_EQ(poisson.getProbability(std::numeric_limits<double>::infinity()), 0.0);
-
 }
 
 /**
@@ -82,7 +80,6 @@ TEST(PoissonDistributionTest, Fitting) {
     // Test with invalid data (should throw)
     std::vector<Observation> invalidData = {1, 2, -1, 3};
     EXPECT_THROW(poisson.fit(invalidData), std::invalid_argument);
-
 }
 
 /**
@@ -95,12 +92,12 @@ TEST(PoissonDistributionTest, ParameterValidation) {
 
     EXPECT_THROW(PoissonDistribution poisson(0.0), std::invalid_argument);
 
-    EXPECT_THROW(PoissonDistribution poisson(std::numeric_limits<double>::infinity()), std::invalid_argument);
+    EXPECT_THROW(PoissonDistribution poisson(std::numeric_limits<double>::infinity()),
+                 std::invalid_argument);
 
     // Test setLambda validation
     PoissonDistribution poisson(1.0);
     EXPECT_THROW(poisson.setLambda(-1.0), std::invalid_argument);
-
 }
 
 /**
@@ -145,7 +142,6 @@ TEST(PoissonDistributionTest, CopyMoveSemantics) {
     PoissonDistribution temp(2.71);
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getLambda(), 2.71);
-
 }
 
 /**
@@ -168,7 +164,6 @@ TEST(PoissonDistributionTest, NumericalStability) {
     double probExtreme = poissonExtreme.getProbability(200.0); // Far from mean
     // Should return a very small but positive number, or 0 due to underflow
     EXPECT_TRUE(probExtreme >= 0.0);
-
 }
 
 /**
@@ -195,10 +190,9 @@ TEST(PoissonDistributionTest, LogProbability) {
     double nan_val = std::numeric_limits<double>::quiet_NaN();
     double inf_val = std::numeric_limits<double>::infinity();
     EXPECT_TRUE(std::isinf(poisson.getLogProbability(nan_val)) &&
-           poisson.getLogProbability(nan_val) < 0);
+                poisson.getLogProbability(nan_val) < 0);
     EXPECT_TRUE(std::isinf(poisson.getLogProbability(inf_val)) &&
-           poisson.getLogProbability(inf_val) < 0);
-
+                poisson.getLogProbability(inf_val) < 0);
 }
 
 /**
@@ -231,7 +225,6 @@ TEST(PoissonDistributionTest, CDF) {
     PoissonDistribution poissonLarge(200.0);
     double cdfLarge = poissonLarge.getCumulativeProbability(200.0);
     EXPECT_TRUE(cdfLarge >= 0.0 && cdfLarge <= 1.0);
-
 }
 
 /**
@@ -257,7 +250,6 @@ TEST(PoissonDistributionTest, EqualityAndIO) {
     std::string output = oss.str();
     EXPECT_FALSE(output.empty());
     EXPECT_NE(output.find("Poisson"), std::string::npos);
-
 }
 
 /**
@@ -314,8 +306,8 @@ TEST(PoissonDistributionTest, Performance) {
     // Performance requirements (should be reasonable)
     EXPECT_LT(pdfTimePerCall, 10.0);   // Less than 10 μs per PDF call
     EXPECT_LT(logPdfTimePerCall, 5.0); // Less than 5 μs per log PDF call
-    EXPECT_LT(fitTimePerPoint, 5.0); // Less than 5 μs per data point for fitting (Poisson fitting is simple)
-
+    EXPECT_LT(fitTimePerPoint,
+              5.0); // Less than 5 μs per data point for fitting (Poisson fitting is simple)
 }
 
 /**
@@ -343,7 +335,6 @@ TEST(PoissonDistributionTest, Caching) {
     double logProb1 = poisson.getLogProbability(3.0);
     double logProb2 = poisson.getLogProbability(3.0);
     EXPECT_EQ(logProb1, logProb2);
-
 }
 
 int main(int argc, char **argv) {

@@ -28,7 +28,6 @@ TEST(UniformDistributionTest, BasicFunctionality) {
     UniformDistribution uniform2(2.0, 5.0);
     EXPECT_EQ(uniform2.getA(), 2.0);
     EXPECT_EQ(uniform2.getB(), 5.0);
-
 }
 
 /**
@@ -56,7 +55,6 @@ TEST(UniformDistributionTest, Probabilities) {
     // Test that probability density is reasonable
     EXPECT_GT(uniform.getProbability(2.0), 0.0);
     EXPECT_LT(uniform.getProbability(2.0), 1.0);
-
 }
 
 /**
@@ -71,8 +69,8 @@ TEST(UniformDistributionTest, Fitting) {
     uniform.fit(data);
 
     // After fitting, bounds should encompass all data with some padding
-    EXPECT_LE(uniform.getA(), 1.0);           // Should be at or below minimum
-    EXPECT_TRUE(uniform.getB() >= 5.0);           // Should be at or above maximum
+    EXPECT_LE(uniform.getA(), 1.0);            // Should be at or below minimum
+    EXPECT_TRUE(uniform.getB() >= 5.0);        // Should be at or above maximum
     EXPECT_LT(uniform.getA(), uniform.getB()); // Valid interval
 
     // Test with empty data (should reset to default)
@@ -86,7 +84,6 @@ TEST(UniformDistributionTest, Fitting) {
     uniform.fit(singlePoint);
     EXPECT_EQ(uniform.getA(), 0.0);
     EXPECT_EQ(uniform.getB(), 1.0);
-
 }
 
 /**
@@ -133,7 +130,6 @@ TEST(UniformDistributionTest, ParameterValidation) {
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
-
 }
 
 /**
@@ -187,7 +183,6 @@ TEST(UniformDistributionTest, CopyMoveSemantics) {
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getA(), 1.41);
     EXPECT_EQ(moveAssigned.getB(), 2.73);
-
 }
 
 /**
@@ -205,7 +200,6 @@ TEST(UniformDistributionTest, InvalidInputHandling) {
     EXPECT_EQ(uniform.getProbability(nan_val), 0.0);
     EXPECT_EQ(uniform.getProbability(inf_val), 0.0);
     EXPECT_EQ(uniform.getProbability(neg_inf_val), 0.0);
-
 }
 
 /**
@@ -218,7 +212,6 @@ TEST(UniformDistributionTest, ResetFunctionality) {
 
     EXPECT_EQ(uniform.getA(), 0.0);
     EXPECT_EQ(uniform.getB(), 1.0);
-
 }
 
 /**
@@ -247,7 +240,6 @@ TEST(UniformDistributionTest, UniformProperties) {
     double pdf3 = general.getProbability(7.0);
     EXPECT_NEAR(pdf1, pdf2, 1e-10);
     EXPECT_NEAR(pdf2, pdf3, 1e-10);
-
 }
 
 /**
@@ -271,12 +263,11 @@ TEST(UniformDistributionTest, FittingValidation) {
         uniform.fit(validData);
         // Should work fine, check that parameters are reasonable
         EXPECT_LT(uniform.getA(), uniform.getB());
-        EXPECT_LE(uniform.getA(), 1.5); // Should encompass minimum
+        EXPECT_LE(uniform.getA(), 1.5);     // Should encompass minimum
         EXPECT_TRUE(uniform.getB() >= 4.0); // Should encompass maximum
     } catch (const std::exception &) {
         ADD_FAILURE(); // Should not throw
     }
-
 }
 
 /**
@@ -299,7 +290,6 @@ TEST(UniformDistributionTest, ParameterSetters) {
     uniform.setParameters(2.0, 8.0);
     EXPECT_EQ(uniform.getA(), 2.0);
     EXPECT_EQ(uniform.getB(), 8.0);
-
 }
 
 /**
@@ -309,7 +299,7 @@ TEST(UniformDistributionTest, EdgeCases) {
 
     // Test with very small interval
     UniformDistribution tiny(0.0, 1e-10);
-    EXPECT_GT(tiny.getProbability(5e-11), 0.0);  // Should be within interval
+    EXPECT_GT(tiny.getProbability(5e-11), 0.0); // Should be within interval
     EXPECT_EQ(tiny.getProbability(2e-10), 0.0); // Should be outside interval
 
     // Test with large interval
@@ -331,7 +321,6 @@ TEST(UniformDistributionTest, EdgeCases) {
 
     EXPECT_TRUE(u1.isApproximatelyEqual(u2, 1e-8));
     EXPECT_FALSE(u1.isApproximatelyEqual(u3, 1e-8));
-
 }
 
 /**
@@ -352,7 +341,6 @@ TEST(UniformDistributionTest, FittingIdenticalData) {
 
     // The value should be within the fitted interval
     EXPECT_GT(uniform.getProbability(5.0), 0.0);
-
 }
 
 /**
@@ -380,7 +368,6 @@ TEST(UniformDistributionTest, LogProbabilities) {
     // Test consistency between log and regular probability
     double x = 2.5;
     EXPECT_NEAR(std::log(uniform.getProbability(x)), uniform.getLogProbability(x), 1e-10);
-
 }
 
 /**
@@ -412,7 +399,6 @@ TEST(UniformDistributionTest, CDF) {
     EXPECT_TRUE(std::isnan(uniform.CDF(std::numeric_limits<double>::quiet_NaN())));
     EXPECT_EQ(uniform.CDF(std::numeric_limits<double>::infinity()), 1.0);
     EXPECT_EQ(uniform.CDF(-std::numeric_limits<double>::infinity()), 0.0);
-
 }
 
 /**
@@ -447,7 +433,6 @@ TEST(UniformDistributionTest, EqualityAndIO) {
         EXPECT_NEAR(inputDist.getA(), 3.14, 1e-10);
         EXPECT_NEAR(inputDist.getB(), 6.28, 1e-10);
     }
-
 }
 
 /**
@@ -478,7 +463,6 @@ TEST(UniformDistributionTest, Caching) {
     uniform.reset();
     double pdf4 = uniform.getProbability(0.5);
     EXPECT_EQ(pdf4, 1.0); // Should be 1.0 for [0,1] interval
-
 }
 
 /**
@@ -538,7 +522,6 @@ TEST(UniformDistributionTest, PerformanceCharacteristics) {
     EXPECT_LT(pdfTimePerCall, 1.0);    // Less than 1 μs per PDF call
     EXPECT_LT(logPdfTimePerCall, 1.0); // Less than 1 μs per log PDF call
     EXPECT_LT(fitTimePerPoint, 0.1);   // Less than 0.1 μs per data point for fitting
-
 }
 
 int main(int argc, char **argv) {

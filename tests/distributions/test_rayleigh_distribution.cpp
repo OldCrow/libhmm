@@ -21,7 +21,6 @@ TEST(RayleighDistributionTest, BasicFunctionality) {
     // Test parameterized constructor
     RayleighDistribution rayleigh2(2.5);
     EXPECT_EQ(rayleigh2.getSigma(), 2.5);
-
 }
 
 TEST(RayleighDistributionTest, Probabilities) {
@@ -44,7 +43,6 @@ TEST(RayleighDistributionTest, Probabilities) {
     // Test boundary value at x=0
     double probAt0 = rayleigh.getProbability(0.0);
     EXPECT_EQ(probAt0, 0.0);
-
 }
 
 TEST(RayleighDistributionTest, Fitting) {
@@ -60,7 +58,6 @@ TEST(RayleighDistributionTest, Fitting) {
     std::vector<Observation> emptyData;
     rayleigh.fit(emptyData);
     EXPECT_EQ(rayleigh.getSigma(), 1.0);
-
 }
 
 TEST(RayleighDistributionTest, ParameterValidation) {
@@ -76,7 +73,6 @@ TEST(RayleighDistributionTest, ParameterValidation) {
     EXPECT_THROW(RayleighDistribution rayleigh(nan_val), std::invalid_argument);
 
     EXPECT_THROW(RayleighDistribution rayleigh(inf_val), std::invalid_argument);
-
 }
 
 TEST(RayleighDistributionTest, Statistics) {
@@ -91,7 +87,6 @@ TEST(RayleighDistributionTest, Statistics) {
     EXPECT_TRUE(mean > 1.25 && mean < 1.26);         // σ * √(π/2) ≈ 1.253
     EXPECT_TRUE(variance > 0.42 && variance < 0.43); // σ² * (4-π)/2 ≈ 0.429
     EXPECT_NEAR(stddev, std::sqrt(variance), 1e-10);
-
 }
 
 TEST(RayleighDistributionTest, StatisticalMoments) {
@@ -104,7 +99,6 @@ TEST(RayleighDistributionTest, StatisticalMoments) {
     EXPECT_NEAR(rayleigh.getMean(), expectedMean, 1e-10);
     EXPECT_NEAR(rayleigh.getVariance(), expectedVar, 1e-10);
     EXPECT_NEAR(rayleigh.getStandardDeviation(), std::sqrt(expectedVar), 1e-10);
-
 }
 
 TEST(RayleighDistributionTest, StringRepresentation) {
@@ -132,7 +126,6 @@ TEST(RayleighDistributionTest, CopyMoveSemantics) {
 
     RayleighDistribution moved(std::move(original));
     EXPECT_EQ(moved.getSigma(), 2.0);
-
 }
 
 TEST(RayleighDistributionTest, EqualityAndIO) {
@@ -160,7 +153,6 @@ TEST(RayleighDistributionTest, EqualityAndIO) {
     if (!iss.fail()) {
         EXPECT_NEAR(inputDist.getSigma(), 3.14, 1e-10);
     }
-
 }
 
 TEST(RayleighDistributionTest, Caching) {
@@ -182,7 +174,6 @@ TEST(RayleighDistributionTest, Caching) {
     double prob4 = rayleigh.getProbability(1.0);
     EXPECT_NE(prob1, prob4);
     EXPECT_NE(prob2, prob4);
-
 }
 
 TEST(RayleighDistributionTest, CDFCalculations) {
@@ -208,7 +199,6 @@ TEST(RayleighDistributionTest, CDFCalculations) {
     // Test that CDF approaches 1 for large values
     double cdf_large = rayleigh.getCumulativeProbability(10.0);
     EXPECT_GT(cdf_large, 0.99);
-
 }
 
 TEST(RayleighDistributionTest, NumericalStability) {
@@ -228,7 +218,6 @@ TEST(RayleighDistributionTest, NumericalStability) {
 
     EXPECT_TRUE(cdfSmall >= 0.0 && cdfSmall <= 1.0 && std::isfinite(cdfSmall));
     EXPECT_TRUE(cdfLarge >= 0.0 && cdfLarge <= 1.0 && std::isfinite(cdfLarge));
-
 }
 
 TEST(RayleighDistributionTest, PerformanceCharacteristics) {
@@ -285,7 +274,6 @@ TEST(RayleighDistributionTest, PerformanceCharacteristics) {
     EXPECT_LT(pdfTimePerCall, 1.0);    // Less than 1 μs per PDF call
     EXPECT_LT(logPdfTimePerCall, 1.0); // Less than 1 μs per log PDF call
     EXPECT_LT(fitTimePerPoint, 0.1);   // Less than 0.1 μs per data point for fitting
-
 }
 
 int main(int argc, char **argv) {

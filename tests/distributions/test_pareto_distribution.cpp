@@ -26,7 +26,6 @@ TEST(ParetoDistributionTest, BasicFunctionality) {
     ParetoDistribution pareto2(2.5, 1.5);
     EXPECT_EQ(pareto2.getK(), 2.5);
     EXPECT_EQ(pareto2.getXm(), 1.5);
-
 }
 
 /**
@@ -61,7 +60,6 @@ TEST(ParetoDistributionTest, Probabilities) {
     // Test that probability density is reasonable (should be small for continuous dist)
     EXPECT_LT(prob2, 100.0); // Should be reasonable
     EXPECT_GT(prob2, 1e-10); // Should be greater than zero
-
 }
 
 /**
@@ -89,7 +87,6 @@ TEST(ParetoDistributionTest, Fitting) {
     // Based on debug output: k=1, xm=1 (resets to default)
     EXPECT_EQ(pareto.getK(), 1.0);
     EXPECT_EQ(pareto.getXm(), 1.0);
-
 }
 
 /**
@@ -144,7 +141,6 @@ TEST(ParetoDistributionTest, ParameterValidation) {
     EXPECT_THROW(pareto.setXm(0.0), std::invalid_argument);
 
     EXPECT_THROW(pareto.setXm(-1.0), std::invalid_argument);
-
 }
 
 /**
@@ -196,7 +192,6 @@ TEST(ParetoDistributionTest, CopyMoveSemantics) {
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getK(), 1.41);
     EXPECT_EQ(moveAssigned.getXm(), 1.73);
-
 }
 
 /**
@@ -219,7 +214,6 @@ TEST(ParetoDistributionTest, InvalidInputHandling) {
     EXPECT_EQ(pareto.getProbability(0.5), 0.0);
     EXPECT_EQ(pareto.getProbability(0.0), 0.0);
     EXPECT_EQ(pareto.getProbability(-1.0), 0.0);
-
 }
 
 /**
@@ -232,7 +226,6 @@ TEST(ParetoDistributionTest, ResetFunctionality) {
 
     EXPECT_EQ(pareto.getK(), 1.0);
     EXPECT_EQ(pareto.getXm(), 1.0);
-
 }
 
 /**
@@ -259,7 +252,6 @@ TEST(ParetoDistributionTest, ParetoProperties) {
     if (probAtXm > 0.0) {
         EXPECT_GT(probAtXm, probAboveXm);
     }
-
 }
 
 /**
@@ -299,7 +291,6 @@ TEST(ParetoDistributionTest, FittingValidation) {
     } catch (const std::exception &) {
         // Acceptable to reject zero values
     }
-
 }
 
 /**
@@ -325,7 +316,6 @@ TEST(ParetoDistributionTest, LogProbability) {
     // Test that log probability is -infinity for invalid values
     EXPECT_EQ(pareto.getLogProbability(0.5), -std::numeric_limits<double>::infinity());
     EXPECT_EQ(pareto.getLogProbability(-1.0), -std::numeric_limits<double>::infinity());
-
 }
 
 /**
@@ -355,7 +345,6 @@ TEST(ParetoDistributionTest, CDFCalculations) {
     // Test that CDF approaches 1 for large values
     double cdf_large = pareto.getCumulativeProbability(100.0);
     EXPECT_GT(cdf_large, 0.99);
-
 }
 
 /**
@@ -389,7 +378,6 @@ TEST(ParetoDistributionTest, EqualityAndIO) {
     if (iss.good() || iss.eof()) {
         EXPECT_EQ(inputDist, p1);
     }
-
 }
 
 /**
@@ -422,7 +410,6 @@ TEST(ParetoDistributionTest, NumericalStability) {
     EXPECT_TRUE(cdfSmall >= 0.0 && cdfSmall <= 1.0 && std::isfinite(cdfSmall));
     EXPECT_TRUE(cdfLarge >= 0.0 && cdfLarge <= 1.0 && std::isfinite(cdfLarge));
     EXPECT_TRUE(cdfLargeXm >= 0.0 && cdfLargeXm <= 1.0 && std::isfinite(cdfLargeXm));
-
 }
 
 /**
@@ -481,8 +468,8 @@ TEST(ParetoDistributionTest, PerformanceCharacteristics) {
     // Performance requirements (relaxed for Pareto due to complexity)
     EXPECT_LT(pdf_time_per_call, 5.0);    // Less than 5 μs per PDF call
     EXPECT_LT(logpdf_time_per_call, 3.0); // Less than 3 μs per log PDF call
-    EXPECT_LT(fitTimePerPoint, 50.0); // Less than 50 μs per data point for fitting (Pareto fitting is complex)
-
+    EXPECT_LT(fitTimePerPoint,
+              50.0); // Less than 50 μs per data point for fitting (Pareto fitting is complex)
 }
 
 /**
@@ -506,7 +493,6 @@ TEST(ParetoDistributionTest, Caching) {
     pareto.setXm(2.0);
     double prob4 = pareto.getProbability(3.0);
     EXPECT_TRUE(std::isfinite(prob4) && prob4 > 0.0);
-
 }
 
 int main(int argc, char **argv) {

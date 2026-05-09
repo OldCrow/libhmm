@@ -25,7 +25,6 @@ TEST(BetaDistributionTest, BasicFunctionality) {
     BetaDistribution beta2(2.5, 1.5);
     EXPECT_EQ(beta2.getAlpha(), 2.5);
     EXPECT_EQ(beta2.getBeta(), 1.5);
-
 }
 
 /**
@@ -59,7 +58,6 @@ TEST(BetaDistributionTest, Probabilities) {
     double probAt1 = beta.getProbability(1.0);
     EXPECT_TRUE(probAt0 >= 0.0); // Should be 0 for Beta(2,3) since α > 1
     EXPECT_TRUE(probAt1 >= 0.0); // Should be 0 for Beta(2,3) since β > 1
-
 }
 
 /**
@@ -86,7 +84,6 @@ TEST(BetaDistributionTest, Fitting) {
     beta.fit(singlePoint);
     EXPECT_EQ(beta.getAlpha(), 1.0);
     EXPECT_EQ(beta.getBeta(), 1.0);
-
 }
 
 /**
@@ -137,7 +134,6 @@ TEST(BetaDistributionTest, ParameterValidation) {
     EXPECT_THROW(beta.setAlpha(0.0), std::invalid_argument);
 
     EXPECT_THROW(beta.setBeta(-1.0), std::invalid_argument);
-
 }
 
 /**
@@ -189,7 +185,6 @@ TEST(BetaDistributionTest, CopyMoveSemantics) {
     moveAssigned = std::move(temp);
     EXPECT_EQ(moveAssigned.getAlpha(), 1.41);
     EXPECT_EQ(moveAssigned.getBeta(), 1.73);
-
 }
 
 /**
@@ -213,7 +208,6 @@ TEST(BetaDistributionTest, InvalidInputHandling) {
     EXPECT_EQ(beta.getProbability(1.1), 0.0);
     EXPECT_EQ(beta.getProbability(-5.0), 0.0);
     EXPECT_EQ(beta.getProbability(10.0), 0.0);
-
 }
 
 /**
@@ -226,7 +220,6 @@ TEST(BetaDistributionTest, ResetFunctionality) {
 
     EXPECT_EQ(beta.getAlpha(), 1.0);
     EXPECT_EQ(beta.getBeta(), 1.0);
-
 }
 
 /**
@@ -277,7 +270,8 @@ TEST(BetaDistributionTest, LogProbability) {
     // Test invalid inputs return -infinity
     EXPECT_EQ(beta.getLogProbability(-0.1), -std::numeric_limits<double>::infinity());
     EXPECT_EQ(beta.getLogProbability(1.1), -std::numeric_limits<double>::infinity());
-    EXPECT_EQ(beta.getLogProbability(std::numeric_limits<double>::quiet_NaN()), -std::numeric_limits<double>::infinity());
+    EXPECT_EQ(beta.getLogProbability(std::numeric_limits<double>::quiet_NaN()),
+              -std::numeric_limits<double>::infinity());
 
     // Test boundary cases
     BetaDistribution uniform(1.0, 1.0); // Uniform on [0,1]
@@ -287,7 +281,6 @@ TEST(BetaDistributionTest, LogProbability) {
     // For uniform distribution, log(f(x)) = -log(B(1,1)) = -log(1) = 0
     EXPECT_NEAR(logP0, 0.0, 1e-10);
     EXPECT_NEAR(logP1_boundary, 0.0, 1e-10);
-
 }
 
 /**
@@ -314,7 +307,6 @@ TEST(BetaDistributionTest, BetaProperties) {
     EXPECT_EQ(uniform.getProbability(-0.1), 0.0);
     EXPECT_EQ(uniform.getProbability(1.1), 0.0);
     EXPECT_GT(uniform.getProbability(0.5), 0.0);
-
 }
 
 /**
@@ -343,7 +335,6 @@ TEST(BetaDistributionTest, FittingValidation) {
     } catch (const std::exception &) {
         // Also acceptable if implementation rejects boundary values
     }
-
 }
 
 /**
@@ -364,7 +355,6 @@ TEST(BetaDistributionTest, StatisticalMoments) {
     // Test standard deviation
     double expectedStd = std::sqrt(expectedVar);
     EXPECT_NEAR(beta.getStandardDeviation(), expectedStd, 1e-10);
-
 }
 
 /**
@@ -429,7 +419,8 @@ TEST(BetaDistributionTest, Performance) {
     // Basic performance assertions (adjust thresholds based on typical performance)
     // These should be conservative to avoid false failures on different hardware
     EXPECT_LT(pdf_per_call, 2.0); // Should be well under 2 microseconds per PDF call
-    EXPECT_LT(log_pdf_per_call, 1.0); // Should be well under 1 microsecond per log PDF call (faster due to no exp)
+    EXPECT_LT(log_pdf_per_call,
+              1.0); // Should be well under 1 microsecond per log PDF call (faster due to no exp)
     EXPECT_LT(fit_per_point, 5.0); // Should be well under 5 microseconds per fit datapoint
 
     // Verify correctness (prevent compiler optimization removal)
@@ -469,7 +460,6 @@ TEST(BetaDistributionTest, CDFCalculations) {
     EXPECT_TRUE(cdf1 >= 0.0 && cdf1 <= 1.0);
     EXPECT_TRUE(cdf2 >= 0.0 && cdf2 <= 1.0);
     EXPECT_TRUE(cdf3 >= 0.0 && cdf3 <= 1.0);
-
 }
 
 /**
@@ -492,7 +482,6 @@ TEST(BetaDistributionTest, EqualityAndIO) {
     EXPECT_NE(output.find("Beta Distribution"), std::string::npos);
     EXPECT_NE(output.find("2.0"), std::string::npos);
     EXPECT_NE(output.find("1.5"), std::string::npos);
-
 }
 
 /**
@@ -518,7 +507,6 @@ TEST(BetaDistributionTest, NumericalStability) {
     double logProbLarge = largeAlpha.getLogProbability(0.1);
     EXPECT_TRUE(std::isfinite(logProbSmall));
     EXPECT_TRUE(std::isfinite(logProbLarge));
-
 }
 
 /**
@@ -562,7 +550,6 @@ TEST(BetaDistributionTest, Caching) {
     EXPECT_EQ(beta.getProbability(0.5), prob4);
     EXPECT_EQ(beta.getCumulativeProbability(0.5), cdf4);
     EXPECT_EQ(beta.getLogProbability(0.5), logProb4);
-
 }
 
 int main(int argc, char **argv) {

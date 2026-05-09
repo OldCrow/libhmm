@@ -345,24 +345,24 @@ TEST_F(CommonErrorHandlingTest, MatrixVectorEdgeCases) {
 // corrupt all weighted fits, so they deserve a direct unit test.
 // =============================================================================
 
-using libhmm::detail::compute_weighted_stats;
 using libhmm::detail::compute_weighted_mean;
+using libhmm::detail::compute_weighted_stats;
 
 TEST(WeightedStatsTest, UniformWeightsKnownValue) {
     // Uniform weights: result must equal unweighted mean/variance.
-    const std::vector<double> data    = {1.0, 2.0, 3.0};
+    const std::vector<double> data = {1.0, 2.0, 3.0};
     const std::vector<double> weights = {1.0, 1.0, 1.0};
 
     auto r = compute_weighted_stats(data, weights);
     ASSERT_TRUE(r.has_value());
-    EXPECT_NEAR(r->mean, 2.0, 1e-12);       // (1+2+3)/3
-    EXPECT_NEAR(r->variance, 2.0/3.0, 1e-12); // biased: ((1)^2+(0)^2+(1)^2)/3
+    EXPECT_NEAR(r->mean, 2.0, 1e-12);           // (1+2+3)/3
+    EXPECT_NEAR(r->variance, 2.0 / 3.0, 1e-12); // biased: ((1)^2+(0)^2+(1)^2)/3
 }
 
 TEST(WeightedStatsTest, NonUniformWeightsKnownValue) {
     // data={0,2,4}, weights={1,2,1}: sumW=4, mean=(0+4+4)/4=2,
     // var=(1*(0-2)^2+2*(2-2)^2+1*(4-2)^2)/4=(4+0+4)/4=2.
-    const std::vector<double> data    = {0.0, 2.0, 4.0};
+    const std::vector<double> data = {0.0, 2.0, 4.0};
     const std::vector<double> weights = {1.0, 2.0, 1.0};
 
     auto r = compute_weighted_stats(data, weights);
@@ -372,7 +372,7 @@ TEST(WeightedStatsTest, NonUniformWeightsKnownValue) {
 }
 
 TEST(WeightedStatsTest, SingleElementVarianceIsZero) {
-    const std::vector<double> data    = {5.0};
+    const std::vector<double> data = {5.0};
     const std::vector<double> weights = {1.0};
 
     auto r = compute_weighted_stats(data, weights);
@@ -391,7 +391,7 @@ TEST(WeightedStatsTest, EmptySpansReturnNullopt) {
 }
 
 TEST(WeightedStatsTest, ZeroWeightSumReturnNullopt) {
-    const std::vector<double> data    = {1.0, 2.0, 3.0};
+    const std::vector<double> data = {1.0, 2.0, 3.0};
     const std::vector<double> weights = {0.0, 0.0, 0.0};
 
     EXPECT_FALSE(compute_weighted_stats(data, weights).has_value());
@@ -400,7 +400,7 @@ TEST(WeightedStatsTest, ZeroWeightSumReturnNullopt) {
 
 TEST(WeightedStatsTest, NanWeightReturnNullopt) {
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    const std::vector<double> data    = {1.0, 2.0};
+    const std::vector<double> data = {1.0, 2.0};
     const std::vector<double> weights = {nan, 1.0};
 
     EXPECT_FALSE(compute_weighted_stats(data, weights).has_value());
@@ -409,7 +409,7 @@ TEST(WeightedStatsTest, NanWeightReturnNullopt) {
 
 TEST(WeightedMeanTest, NonUniformWeightsKnownValue) {
     // data={1,2,3}, weights={0.5,1.0,0.5}: sumW=2, mean=(0.5+2+1.5)/2=2.
-    const std::vector<double> data    = {1.0, 2.0, 3.0};
+    const std::vector<double> data = {1.0, 2.0, 3.0};
     const std::vector<double> weights = {0.5, 1.0, 0.5};
 
     auto m = compute_weighted_mean(data, weights);

@@ -32,7 +32,6 @@ TEST(DiscreteDistributionTest, BasicFunctionality) {
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
-
 }
 
 /**
@@ -58,7 +57,6 @@ TEST(DiscreteDistributionTest, Probabilities) {
     double prob2_5 = discrete.getProbability(2.5);
     double prob2 = discrete.getProbability(2);
     EXPECT_EQ(prob2_5, prob2); // Should be same as symbol 2
-
 }
 
 /**
@@ -95,7 +93,6 @@ TEST(DiscreteDistributionTest, Fitting) {
     EXPECT_EQ(discrete.getProbability(2), 1.0); // All probability on symbol 2
     EXPECT_EQ(discrete.getProbability(3), 0.0);
     EXPECT_EQ(discrete.getProbability(4), 0.0);
-
 }
 
 /**
@@ -132,7 +129,6 @@ TEST(DiscreteDistributionTest, SetProbability) {
     } catch (...) {
         // Some implementations might not validate, which is also acceptable
     }
-
 }
 
 /**
@@ -193,7 +189,6 @@ TEST(DiscreteDistributionTest, CopyMoveSemantics) {
     EXPECT_EQ(moveAssigned.getNumSymbols(), 4);
     EXPECT_NEAR(moveAssigned.getProbability(1), 0.8, 1e-10);
     EXPECT_NEAR(moveAssigned.getProbability(3), 0.2, 1e-10);
-
 }
 
 /**
@@ -216,7 +211,6 @@ TEST(DiscreteDistributionTest, InvalidInputHandling) {
     EXPECT_EQ(discrete.getProbability(-1), 0.0);
     EXPECT_EQ(discrete.getProbability(5), 0.0);
     EXPECT_EQ(discrete.getProbability(100), 0.0);
-
 }
 
 /**
@@ -238,7 +232,6 @@ TEST(DiscreteDistributionTest, ResetFunctionality) {
     for (int i = 0; i < 4; i++) {
         EXPECT_NEAR(discrete.getProbability(i), expectedUniform, 1e-10);
     }
-
 }
 
 /**
@@ -269,7 +262,6 @@ TEST(DiscreteDistributionTest, DiscreteProperties) {
     EXPECT_NEAR(discrete.getProbability(0), 0.5, 1e-10);
     EXPECT_NEAR(discrete.getProbability(1), 0.25, 1e-10);
     EXPECT_NEAR(discrete.getProbability(2), 0.25, 1e-10);
-
 }
 
 /**
@@ -307,7 +299,6 @@ TEST(DiscreteDistributionTest, FittingValidation) {
     } catch (const std::exception &) {
         // Acceptable to reject negative values
     }
-
 }
 
 /**
@@ -337,7 +328,6 @@ TEST(DiscreteDistributionTest, LogProbability) {
     discrete.setProbability(2, 0.0);
     double logProbZero = discrete.getLogProbability(2.0);
     EXPECT_TRUE(std::isinf(logProbZero) && logProbZero < 0);
-
 }
 
 /**
@@ -370,7 +360,6 @@ TEST(DiscreteDistributionTest, CDF) {
     // Test boundary cases
     EXPECT_EQ(discrete.getCumulativeProbability(-1.0), 0.0);
     EXPECT_EQ(discrete.getCumulativeProbability(10.0), 1.0);
-
 }
 
 /**
@@ -424,7 +413,6 @@ TEST(DiscreteDistributionTest, EqualityAndIO) {
     EXPECT_EQ(inputDiscrete.getNumSymbols(), 2);
     EXPECT_NEAR(inputDiscrete.getProbability(0), 0.7, 1e-10);
     EXPECT_NEAR(inputDiscrete.getProbability(1), 0.3, 1e-10);
-
 }
 
 /**
@@ -481,8 +469,8 @@ TEST(DiscreteDistributionTest, Performance) {
     // Performance requirements (should be reasonable)
     EXPECT_LT(pdfTimePerCall, 2.0);    // Less than 2 μs per PDF call (discrete should be very fast)
     EXPECT_LT(logPdfTimePerCall, 2.0); // Less than 2 μs per log PDF call
-    EXPECT_LT(fitTimePerPoint, 2.0); // Less than 2 μs per data point for fitting (discrete fitting is simple)
-
+    EXPECT_LT(fitTimePerPoint,
+              2.0); // Less than 2 μs per data point for fitting (discrete fitting is simple)
 }
 
 /**
@@ -503,14 +491,13 @@ TEST(DiscreteDistributionTest, Caching) {
     // Test probability sum calculation (uses caching)
     double sum1 = discrete.getProbabilitySum();
     double sum2 = discrete.getProbabilitySum();
-    EXPECT_EQ(sum1, sum2);                 // Should be identical due to caching
+    EXPECT_EQ(sum1, sum2);         // Should be identical due to caching
     EXPECT_NEAR(sum1, 1.0, 1e-10); // Should sum to 1
 
     // Changing probabilities should invalidate cache
     discrete.setProbability(0, 0.5);
     double newEntropy = discrete.getEntropy();
     EXPECT_NE(newEntropy, entropy1); // Should be different after change
-
 }
 
 int main(int argc, char **argv) {
