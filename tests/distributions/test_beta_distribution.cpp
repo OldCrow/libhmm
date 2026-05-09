@@ -1,18 +1,12 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <cassert>
 #include <stdexcept>
 #include <limits>
 #include <chrono>
 #include <iomanip>
 #include "libhmm/distributions/beta_distribution.h"
-#ifdef _MSC_VER
-#pragma warning(disable : 4189) // assert()-only variables appear unreferenced in Release
-#elif defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#endif
+#include <gtest/gtest.h>
 
 using libhmm::BetaDistribution;
 using libhmm::Observation;
@@ -20,118 +14,108 @@ using libhmm::Observation;
 /**
  * Test basic Beta distribution functionality
  */
-void testBasicFunctionality() {
-    std::cout << "Testing basic Beta distribution functionality..." << std::endl;
+TEST(BetaDistributionTest, BasicFunctionality) {
 
     // Test default constructor
     BetaDistribution beta;
-    assert(beta.getAlpha() == 1.0);
-    assert(beta.getBeta() == 1.0);
+    EXPECT_EQ(beta.getAlpha(), 1.0);
+    EXPECT_EQ(beta.getBeta(), 1.0);
 
     // Test parameterized constructor
     BetaDistribution beta2(2.5, 1.5);
-    assert(beta2.getAlpha() == 2.5);
-    assert(beta2.getBeta() == 1.5);
-
-    std::cout << "✓ Basic functionality tests passed" << std::endl;
+    EXPECT_EQ(beta2.getAlpha(), 2.5);
+    EXPECT_EQ(beta2.getBeta(), 1.5);
 }
 
 /**
  * Test probability calculations
  */
-void testProbabilities() {
-    std::cout << "Testing probability calculations..." << std::endl;
+TEST(BetaDistributionTest, Probabilities) {
 
     BetaDistribution beta(2.0, 3.0); // Alpha=2, Beta=3
 
     // Test that probability is zero for values outside [0,1]
-    assert(beta.getProbability(-0.1) == 0.0);
-    assert(beta.getProbability(1.1) == 0.0);
-    assert(beta.getProbability(-1.0) == 0.0);
-    assert(beta.getProbability(2.0) == 0.0);
+    EXPECT_EQ(beta.getProbability(-0.1), 0.0);
+    EXPECT_EQ(beta.getProbability(1.1), 0.0);
+    EXPECT_EQ(beta.getProbability(-1.0), 0.0);
+    EXPECT_EQ(beta.getProbability(2.0), 0.0);
 
     // Test that probability is positive for values in [0,1]
     double prob1 = beta.getProbability(0.2);
     double prob2 = beta.getProbability(0.5);
     double prob3 = beta.getProbability(0.8);
 
-    assert(prob1 > 0.0);
-    assert(prob2 > 0.0);
-    assert(prob3 > 0.0);
+    EXPECT_GT(prob1, 0.0);
+    EXPECT_GT(prob2, 0.0);
+    EXPECT_GT(prob3, 0.0);
 
     // For Beta(2,3), mode is at (α-1)/(α+β-2) = 1/3 ≈ 0.333
     // So probability should be higher at 0.2 than at 0.8
-    assert(prob1 > prob3);
+    EXPECT_GT(prob1, prob3);
 
     // Test boundary values
     double probAt0 = beta.getProbability(0.0);
     double probAt1 = beta.getProbability(1.0);
-    assert(probAt0 >= 0.0); // Should be 0 for Beta(2,3) since α > 1
-    assert(probAt1 >= 0.0); // Should be 0 for Beta(2,3) since β > 1
-
-    std::cout << "✓ Probability calculation tests passed" << std::endl;
+    EXPECT_TRUE(probAt0 >= 0.0); // Should be 0 for Beta(2,3) since α > 1
+    EXPECT_TRUE(probAt1 >= 0.0); // Should be 0 for Beta(2,3) since β > 1
 }
 
 /**
  * Test parameter fitting
  */
-void testFitting() {
-    std::cout << "Testing parameter fitting..." << std::endl;
+TEST(BetaDistributionTest, Fitting) {
 
     BetaDistribution beta;
 
     // Test with known data
     std::vector<Observation> data = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7};
     beta.fit(data);
-    assert(beta.getAlpha() > 0.0); // Should have some reasonable value
-    assert(beta.getBeta() > 0.0);  // Should have some reasonable value
+    EXPECT_GT(beta.getAlpha(), 0.0); // Should have some reasonable value
+    EXPECT_GT(beta.getBeta(), 0.0);  // Should have some reasonable value
 
     // Test with empty data (should reset to default)
     std::vector<Observation> emptyData;
     beta.fit(emptyData);
-    assert(beta.getAlpha() == 1.0);
-    assert(beta.getBeta() == 1.0);
+    EXPECT_EQ(beta.getAlpha(), 1.0);
+    EXPECT_EQ(beta.getBeta(), 1.0);
 
     // Test with single point (should reset to default for insufficient data)
     std::vector<Observation> singlePoint = {0.5};
     beta.fit(singlePoint);
-    assert(beta.getAlpha() == 1.0);
-    assert(beta.getBeta() == 1.0);
-
-    std::cout << "✓ Parameter fitting tests passed" << std::endl;
+    EXPECT_EQ(beta.getAlpha(), 1.0);
+    EXPECT_EQ(beta.getBeta(), 1.0);
 }
 
 /**
  * Test parameter validation
  */
-void testParameterValidation() {
-    std::cout << "Testing parameter validation..." << std::endl;
+TEST(BetaDistributionTest, ParameterValidation) {
 
     // Test invalid constructor parameters
     try {
         BetaDistribution beta(0.0, 1.0); // Zero alpha
-        assert(false);                   // Should not reach here
+        ADD_FAILURE();                   // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
 
     try {
         BetaDistribution beta(-1.0, 1.0); // Negative alpha
-        assert(false);                    // Should not reach here
+        ADD_FAILURE();                    // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
 
     try {
         BetaDistribution beta(1.0, 0.0); // Zero beta
-        assert(false);                   // Should not reach here
+        ADD_FAILURE();                   // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
 
     try {
         BetaDistribution beta(1.0, -1.0); // Negative beta
-        assert(false);                    // Should not reach here
+        ADD_FAILURE();                    // Should not reach here
     } catch (const std::invalid_argument &) {
         // Expected behavior
     }
@@ -140,101 +124,73 @@ void testParameterValidation() {
     double nan_val = std::numeric_limits<double>::quiet_NaN();
     double inf_val = std::numeric_limits<double>::infinity();
 
-    try {
-        BetaDistribution beta(nan_val, 1.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(BetaDistribution beta(nan_val, 1.0), std::invalid_argument);
 
-    try {
-        BetaDistribution beta(1.0, inf_val);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(BetaDistribution beta(1.0, inf_val), std::invalid_argument);
 
     // Test setters validation
     BetaDistribution beta(1.0, 1.0);
 
-    try {
-        beta.setAlpha(0.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(beta.setAlpha(0.0), std::invalid_argument);
 
-    try {
-        beta.setBeta(-1.0);
-        assert(false); // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
-
-    std::cout << "✓ Parameter validation tests passed" << std::endl;
+    EXPECT_THROW(beta.setBeta(-1.0), std::invalid_argument);
 }
 
 /**
  * Test string representation
  */
-void testStringRepresentation() {
-    std::cout << "Testing string representation..." << std::endl;
+TEST(BetaDistributionTest, StringRepresentation) {
 
     BetaDistribution beta(2.5, 1.5);
     std::string str = beta.toString();
 
     // Should contain key information based on actual output format:
     // "Beta Distribution:\n      α (alpha) = 2.5\n      β (beta) = 1.5\n"
-    assert(str.find("Beta") != std::string::npos);
-    assert(str.find("Distribution") != std::string::npos);
-    assert(str.find("2.5") != std::string::npos);
-    assert(str.find("1.5") != std::string::npos);
-    assert(str.find("α") != std::string::npos || str.find("alpha") != std::string::npos);
-    assert(str.find("β") != std::string::npos || str.find("beta") != std::string::npos);
+    EXPECT_NE(str.find("Beta"), std::string::npos);
+    EXPECT_NE(str.find("Distribution"), std::string::npos);
+    EXPECT_NE(str.find("2.5"), std::string::npos);
+    EXPECT_NE(str.find("1.5"), std::string::npos);
+    EXPECT_NE(str.find("α"), std::string::npos || str.find("alpha") != std::string::npos);
+    EXPECT_NE(str.find("β"), std::string::npos || str.find("beta") != std::string::npos);
 
     std::cout << "String representation: " << str << std::endl;
-    std::cout << "✓ String representation tests passed" << std::endl;
 }
 
 /**
  * Test copy/move semantics
  */
-void testCopyMoveSemantics() {
-    std::cout << "Testing copy/move semantics..." << std::endl;
+TEST(BetaDistributionTest, CopyMoveSemantics) {
 
     BetaDistribution original(3.14, 2.71);
 
     // Test copy constructor
     BetaDistribution copied(original);
-    assert(copied.getAlpha() == original.getAlpha());
-    assert(copied.getBeta() == original.getBeta());
+    EXPECT_EQ(copied.getAlpha(), original.getAlpha());
+    EXPECT_EQ(copied.getBeta(), original.getBeta());
 
     // Test copy assignment
     BetaDistribution assigned;
     assigned = original;
-    assert(assigned.getAlpha() == original.getAlpha());
-    assert(assigned.getBeta() == original.getBeta());
+    EXPECT_EQ(assigned.getAlpha(), original.getAlpha());
+    EXPECT_EQ(assigned.getBeta(), original.getBeta());
 
     // Test move constructor
     BetaDistribution moved(std::move(original));
-    assert(moved.getAlpha() == 3.14);
-    assert(moved.getBeta() == 2.71);
+    EXPECT_EQ(moved.getAlpha(), 3.14);
+    EXPECT_EQ(moved.getBeta(), 2.71);
 
     // Test move assignment
     BetaDistribution moveAssigned;
     BetaDistribution temp(1.41, 1.73);
     moveAssigned = std::move(temp);
-    assert(moveAssigned.getAlpha() == 1.41);
-    assert(moveAssigned.getBeta() == 1.73);
-
-    std::cout << "✓ Copy/move semantics tests passed" << std::endl;
+    EXPECT_EQ(moveAssigned.getAlpha(), 1.41);
+    EXPECT_EQ(moveAssigned.getBeta(), 1.73);
 }
 
 /**
  * Test invalid input handling
  */
-void testInvalidInputHandling() {
-    std::cout << "Testing invalid input handling..." << std::endl;
+TEST(BetaDistributionTest, InvalidInputHandling) {
 
     BetaDistribution beta(2.0, 3.0);
 
@@ -243,39 +199,33 @@ void testInvalidInputHandling() {
     double inf_val = std::numeric_limits<double>::infinity();
     double neg_inf_val = -std::numeric_limits<double>::infinity();
 
-    assert(beta.getProbability(nan_val) == 0.0);
-    assert(beta.getProbability(inf_val) == 0.0);
-    assert(beta.getProbability(neg_inf_val) == 0.0);
+    EXPECT_EQ(beta.getProbability(nan_val), 0.0);
+    EXPECT_EQ(beta.getProbability(inf_val), 0.0);
+    EXPECT_EQ(beta.getProbability(neg_inf_val), 0.0);
 
     // Values outside [0,1] should return 0
-    assert(beta.getProbability(-0.1) == 0.0);
-    assert(beta.getProbability(1.1) == 0.0);
-    assert(beta.getProbability(-5.0) == 0.0);
-    assert(beta.getProbability(10.0) == 0.0);
-
-    std::cout << "✓ Invalid input handling tests passed" << std::endl;
+    EXPECT_EQ(beta.getProbability(-0.1), 0.0);
+    EXPECT_EQ(beta.getProbability(1.1), 0.0);
+    EXPECT_EQ(beta.getProbability(-5.0), 0.0);
+    EXPECT_EQ(beta.getProbability(10.0), 0.0);
 }
 
 /**
  * Test reset functionality
  */
-void testResetFunctionality() {
-    std::cout << "Testing reset functionality..." << std::endl;
+TEST(BetaDistributionTest, ResetFunctionality) {
 
     BetaDistribution beta(10.0, 5.0);
     beta.reset();
 
-    assert(beta.getAlpha() == 1.0);
-    assert(beta.getBeta() == 1.0);
-
-    std::cout << "✓ Reset functionality tests passed" << std::endl;
+    EXPECT_EQ(beta.getAlpha(), 1.0);
+    EXPECT_EQ(beta.getBeta(), 1.0);
 }
 
 /**
  * Test log probability function for numerical stability
  */
-void testLogProbability() {
-    std::cout << "Testing log probability calculations..." << std::endl;
+TEST(BetaDistributionTest, LogProbability) {
 
     BetaDistribution beta(2.0, 3.0); // alpha=2, beta=3
 
@@ -294,9 +244,9 @@ void testLogProbability() {
 
     // Note: For continuous distributions, PDF can be > 1, so log(PDF) can be positive
     // We just verify they are finite and reasonable
-    assert(std::isfinite(logP1));
-    assert(std::isfinite(logP2));
-    assert(std::isfinite(logP3));
+    EXPECT_TRUE(std::isfinite(logP1));
+    EXPECT_TRUE(std::isfinite(logP2));
+    EXPECT_TRUE(std::isfinite(logP3));
 
     // For Beta(2,3): log(f(x)) = log(x) + 2*log(1-x) - log(B(2,3))
     // where B(2,3) = Γ(2)Γ(3)/Γ(5) = 1*2/(4*3*2*1) = 2/24 = 1/12
@@ -306,22 +256,22 @@ void testLogProbability() {
     double expectedLogP2 = std::log(x2) + 2.0 * std::log(1.0 - x2) - logBeta23;
     double expectedLogP3 = std::log(x3) + 2.0 * std::log(1.0 - x3) - logBeta23;
 
-    assert(std::abs(logP1 - expectedLogP1) < 1e-10);
-    assert(std::abs(logP2 - expectedLogP2) < 1e-10);
-    assert(std::abs(logP3 - expectedLogP3) < 1e-10);
+    EXPECT_NEAR(logP1, expectedLogP1, 1e-10);
+    EXPECT_NEAR(logP2, expectedLogP2, 1e-10);
+    EXPECT_NEAR(logP3, expectedLogP3, 1e-10);
 
     // Verify consistency with getProbability
     double p1 = beta.getProbability(x1);
     double p2 = beta.getProbability(x2);
 
-    assert(p1 > 0.0);
-    assert(p2 > 0.0);
+    EXPECT_GT(p1, 0.0);
+    EXPECT_GT(p2, 0.0);
 
     // Test invalid inputs return -infinity
-    assert(beta.getLogProbability(-0.1) == -std::numeric_limits<double>::infinity());
-    assert(beta.getLogProbability(1.1) == -std::numeric_limits<double>::infinity());
-    assert(beta.getLogProbability(std::numeric_limits<double>::quiet_NaN()) ==
-           -std::numeric_limits<double>::infinity());
+    EXPECT_EQ(beta.getLogProbability(-0.1), -std::numeric_limits<double>::infinity());
+    EXPECT_EQ(beta.getLogProbability(1.1), -std::numeric_limits<double>::infinity());
+    EXPECT_EQ(beta.getLogProbability(std::numeric_limits<double>::quiet_NaN()),
+              -std::numeric_limits<double>::infinity());
 
     // Test boundary cases
     BetaDistribution uniform(1.0, 1.0); // Uniform on [0,1]
@@ -329,111 +279,89 @@ void testLogProbability() {
     double logP1_boundary = uniform.getLogProbability(1.0);
 
     // For uniform distribution, log(f(x)) = -log(B(1,1)) = -log(1) = 0
-    assert(std::abs(logP0 - 0.0) < 1e-10);
-    assert(std::abs(logP1_boundary - 0.0) < 1e-10);
-
-    std::cout << "✓ Log probability calculation tests passed" << std::endl;
+    EXPECT_NEAR(logP0, 0.0, 1e-10);
+    EXPECT_NEAR(logP1_boundary, 0.0, 1e-10);
 }
 
 /**
  * Test Beta distribution properties
  */
-void testBetaProperties() {
-    std::cout << "Testing Beta distribution properties..." << std::endl;
+TEST(BetaDistributionTest, BetaProperties) {
 
     // Test uniform distribution (Beta(1,1))
     BetaDistribution uniform(1.0, 1.0);
-    assert(std::abs(uniform.getMean() - 0.5) < 1e-10);
-    assert(std::abs(uniform.getVariance() - (1.0 / 12.0)) < 1e-10);
+    EXPECT_NEAR(uniform.getMean(), 0.5, 1e-10);
+    EXPECT_NEAR(uniform.getVariance(), (1.0 / 12.0), 1e-10);
 
     // Test symmetric distribution (Beta(2,2))
     BetaDistribution symmetric(2.0, 2.0);
-    assert(std::abs(symmetric.getMean() - 0.5) < 1e-10);
+    EXPECT_NEAR(symmetric.getMean(), 0.5, 1e-10);
 
     // Test skewed distribution (Beta(2,5))
     BetaDistribution skewed(2.0, 5.0);
     double expectedMean = 2.0 / (2.0 + 5.0);
-    assert(std::abs(skewed.getMean() - expectedMean) < 1e-10);
-    assert(skewed.getMean() < 0.5); // Should be skewed toward 0
+    EXPECT_NEAR(skewed.getMean(), expectedMean, 1e-10);
+    EXPECT_LT(skewed.getMean(), 0.5); // Should be skewed toward 0
 
     // Test that probability is only defined on [0,1]
-    assert(uniform.getProbability(-0.1) == 0.0);
-    assert(uniform.getProbability(1.1) == 0.0);
-    assert(uniform.getProbability(0.5) > 0.0);
-
-    std::cout << "✓ Beta property tests passed" << std::endl;
+    EXPECT_EQ(uniform.getProbability(-0.1), 0.0);
+    EXPECT_EQ(uniform.getProbability(1.1), 0.0);
+    EXPECT_GT(uniform.getProbability(0.5), 0.0);
 }
 
 /**
  * Test fitting validation
  */
-void testFittingValidation() {
-    std::cout << "Testing fitting validation..." << std::endl;
+TEST(BetaDistributionTest, FittingValidation) {
 
     BetaDistribution beta;
 
     // Test with data containing values outside [0,1]
     std::vector<Observation> invalidData = {0.2, 0.5, 1.5, 0.8}; // 1.5 is out of range
 
-    try {
-        beta.fit(invalidData);
-        assert(false); // Should throw exception
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(beta.fit(invalidData), std::invalid_argument);
 
     // Test with negative values
     std::vector<Observation> negativeData = {0.2, 0.5, -0.1, 0.8}; // -0.1 is invalid
-    try {
-        beta.fit(negativeData);
-        assert(false); // Should throw exception
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(beta.fit(negativeData), std::invalid_argument);
 
     // Test with valid data in boundary cases
     std::vector<Observation> boundaryData = {0.0, 0.5, 1.0};
     try {
         beta.fit(boundaryData);
         // Should work fine, check that parameters are reasonable
-        assert(beta.getAlpha() > 0.0);
-        assert(beta.getBeta() > 0.0);
+        EXPECT_GT(beta.getAlpha(), 0.0);
+        EXPECT_GT(beta.getBeta(), 0.0);
     } catch (const std::exception &) {
         // Also acceptable if implementation rejects boundary values
     }
-
-    std::cout << "✓ Fitting validation tests passed" << std::endl;
 }
 
 /**
  * Test statistical moments
  */
-void testStatisticalMoments() {
-    std::cout << "Testing statistical moments..." << std::endl;
+TEST(BetaDistributionTest, StatisticalMoments) {
 
     BetaDistribution beta(3.0, 2.0);
 
     // Test mean: α/(α+β) = 3/(3+2) = 0.6
     double expectedMean = 3.0 / 5.0;
-    assert(std::abs(beta.getMean() - expectedMean) < 1e-10);
+    EXPECT_NEAR(beta.getMean(), expectedMean, 1e-10);
 
     // Test variance: αβ/((α+β)²(α+β+1)) = 6/(25*6) = 0.04
     double expectedVar = (3.0 * 2.0) / (5.0 * 5.0 * 6.0);
-    assert(std::abs(beta.getVariance() - expectedVar) < 1e-10);
+    EXPECT_NEAR(beta.getVariance(), expectedVar, 1e-10);
 
     // Test standard deviation
     double expectedStd = std::sqrt(expectedVar);
-    assert(std::abs(beta.getStandardDeviation() - expectedStd) < 1e-10);
-
-    std::cout << "✓ Statistical moments tests passed" << std::endl;
+    EXPECT_NEAR(beta.getStandardDeviation(), expectedStd, 1e-10);
 }
 
 /**
  * Test performance characteristics to verify optimizations
  * This serves as a benchmark and regression test for performance
  */
-void testPerformance() {
-    std::cout << "Testing performance characteristics..." << std::endl;
+TEST(BetaDistributionTest, Performance) {
 
     using namespace std::chrono;
     BetaDistribution beta(2.5, 3.5);
@@ -490,14 +418,14 @@ void testPerformance() {
 
     // Basic performance assertions (adjust thresholds based on typical performance)
     // These should be conservative to avoid false failures on different hardware
-    assert(pdf_per_call < 2.0); // Should be well under 2 microseconds per PDF call
-    assert(log_pdf_per_call <
-           1.0); // Should be well under 1 microsecond per log PDF call (faster due to no exp)
-    assert(fit_per_point < 5.0); // Should be well under 5 microseconds per fit datapoint
+    EXPECT_LT(pdf_per_call, 2.0); // Should be well under 2 microseconds per PDF call
+    EXPECT_LT(log_pdf_per_call,
+              1.0); // Should be well under 1 microsecond per log PDF call (faster due to no exp)
+    EXPECT_LT(fit_per_point, 5.0); // Should be well under 5 microseconds per fit datapoint
 
     // Verify correctness (prevent compiler optimization removal)
-    assert(sum_pdf > 0.0);
-    assert(std::isfinite(sum_log_pdf));
+    EXPECT_GT(sum_pdf, 0.0);
+    EXPECT_TRUE(std::isfinite(sum_log_pdf));
 
     std::cout << std::fixed << std::setprecision(3);
     std::cout << "  PDF timing:       " << pdf_per_call << " μs/call (" << pdf_iterations
@@ -506,68 +434,60 @@ void testPerformance() {
               << " calls)" << std::endl;
     std::cout << "  Fit timing:       " << fit_per_point << " μs/point (" << fit_datapoints
               << " points)" << std::endl;
-    std::cout << "✓ Performance tests passed" << std::endl;
 }
 
 /**
  * Test CDF calculations (Gold Standard)
  */
-void testCDFCalculations() {
-    std::cout << "Testing CDF calculations..." << std::endl;
+TEST(BetaDistributionTest, CDFCalculations) {
 
     BetaDistribution beta(2.0, 3.0);
 
     // Test boundary values
-    assert(beta.getCumulativeProbability(-0.1) == 0.0);
-    assert(beta.getCumulativeProbability(0.0) == 0.0);
-    assert(beta.getCumulativeProbability(1.0) == 1.0);
-    assert(beta.getCumulativeProbability(1.1) == 1.0);
+    EXPECT_EQ(beta.getCumulativeProbability(-0.1), 0.0);
+    EXPECT_EQ(beta.getCumulativeProbability(0.0), 0.0);
+    EXPECT_EQ(beta.getCumulativeProbability(1.0), 1.0);
+    EXPECT_EQ(beta.getCumulativeProbability(1.1), 1.0);
 
     // Test monotonicity
     double cdf1 = beta.getCumulativeProbability(0.2);
     double cdf2 = beta.getCumulativeProbability(0.5);
     double cdf3 = beta.getCumulativeProbability(0.8);
-    assert(cdf1 < cdf2);
-    assert(cdf2 < cdf3);
+    EXPECT_LT(cdf1, cdf2);
+    EXPECT_LT(cdf2, cdf3);
 
     // Test that CDF values are in [0,1]
-    assert(cdf1 >= 0.0 && cdf1 <= 1.0);
-    assert(cdf2 >= 0.0 && cdf2 <= 1.0);
-    assert(cdf3 >= 0.0 && cdf3 <= 1.0);
-
-    std::cout << "✓ CDF calculation tests passed" << std::endl;
+    EXPECT_TRUE(cdf1 >= 0.0 && cdf1 <= 1.0);
+    EXPECT_TRUE(cdf2 >= 0.0 && cdf2 <= 1.0);
+    EXPECT_TRUE(cdf3 >= 0.0 && cdf3 <= 1.0);
 }
 
 /**
  * Test equality and I/O operators (Gold Standard)
  */
-void testEqualityAndIO() {
-    std::cout << "Testing equality and I/O operators..." << std::endl;
+TEST(BetaDistributionTest, EqualityAndIO) {
 
     BetaDistribution b1(2.0, 1.5);
     BetaDistribution b2(2.0, 1.5);
     BetaDistribution b3(3.0, 1.5);
 
-    assert(b1 == b2);
-    assert(b2 == b1);
-    assert(!(b1 == b3));
-    assert(b1 != b3);
+    EXPECT_EQ(b1, b2);
+    EXPECT_EQ(b2, b1);
+    EXPECT_FALSE(b1 == b3);
+    EXPECT_NE(b1, b3);
 
     std::ostringstream oss;
     oss << b1;
     std::string output = oss.str();
-    assert(output.find("Beta Distribution") != std::string::npos);
-    assert(output.find("2.0") != std::string::npos);
-    assert(output.find("1.5") != std::string::npos);
-
-    std::cout << "✓ Equality and I/O tests passed" << std::endl;
+    EXPECT_NE(output.find("Beta Distribution"), std::string::npos);
+    EXPECT_NE(output.find("2.0"), std::string::npos);
+    EXPECT_NE(output.find("1.5"), std::string::npos);
 }
 
 /**
  * Test numerical stability (Gold Standard)
  */
-void testNumericalStability() {
-    std::cout << "Testing numerical stability..." << std::endl;
+TEST(BetaDistributionTest, NumericalStability) {
 
     // Test extreme parameter values
     BetaDistribution smallAlpha(0.1, 1.0);
@@ -578,24 +498,21 @@ void testNumericalStability() {
     double probLarge = largeAlpha.getProbability(0.1);
     double probBoth = largeBoth.getProbability(0.5);
 
-    assert(probSmall > 0.0 && std::isfinite(probSmall));
-    assert(probLarge > 0.0 && std::isfinite(probLarge));
-    assert(probBoth > 0.0 && std::isfinite(probBoth));
+    EXPECT_TRUE(probSmall > 0.0 && std::isfinite(probSmall));
+    EXPECT_TRUE(probLarge > 0.0 && std::isfinite(probLarge));
+    EXPECT_TRUE(probBoth > 0.0 && std::isfinite(probBoth));
 
     // Test log probability with extreme values
     double logProbSmall = smallAlpha.getLogProbability(0.1);
     double logProbLarge = largeAlpha.getLogProbability(0.1);
-    assert(std::isfinite(logProbSmall));
-    assert(std::isfinite(logProbLarge));
-
-    std::cout << "✓ Numerical stability tests passed" << std::endl;
+    EXPECT_TRUE(std::isfinite(logProbSmall));
+    EXPECT_TRUE(std::isfinite(logProbLarge));
 }
 
 /**
  * Test caching mechanism (Gold Standard)
  */
-void testCaching() {
-    std::cout << "Testing caching mechanism..." << std::endl;
+TEST(BetaDistributionTest, Caching) {
 
     BetaDistribution beta(2.0, 1.0);
 
@@ -608,21 +525,21 @@ void testCaching() {
     double prob2 = beta.getProbability(0.5);
     double logProb2 = beta.getLogProbability(0.5);
 
-    assert(prob1 != prob2);       // Should be different after parameter change
-    assert(logProb1 != logProb2); // Should be different after parameter change
+    EXPECT_NE(prob1, prob2);       // Should be different after parameter change
+    EXPECT_NE(logProb1, logProb2); // Should be different after parameter change
 
     // Change beta parameter
     beta.setBeta(2.0);
     double prob3 = beta.getProbability(0.5);
     double logProb3 = beta.getLogProbability(0.5);
 
-    assert(prob2 != prob3);       // Should be different after parameter change
-    assert(logProb2 != logProb3); // Should be different after parameter change
+    EXPECT_NE(prob2, prob3);       // Should be different after parameter change
+    EXPECT_NE(logProb2, logProb3); // Should be different after parameter change
 
     // Test that copy constructor preserves cache state
     BetaDistribution copied(beta);
-    assert(copied.getProbability(0.5) == beta.getProbability(0.5));
-    assert(copied.getLogProbability(0.5) == beta.getLogProbability(0.5));
+    EXPECT_EQ(copied.getProbability(0.5), beta.getProbability(0.5));
+    EXPECT_EQ(copied.getLogProbability(0.5), beta.getLogProbability(0.5));
 
     // Test that cached values are consistent
     double prob4 = beta.getProbability(0.5);
@@ -630,48 +547,12 @@ void testCaching() {
     double logProb4 = beta.getLogProbability(0.5);
 
     // Multiple calls should return identical results (using cache)
-    assert(beta.getProbability(0.5) == prob4);
-    assert(beta.getCumulativeProbability(0.5) == cdf4);
-    assert(beta.getLogProbability(0.5) == logProb4);
-
-    std::cout << "✓ Caching tests passed" << std::endl;
+    EXPECT_EQ(beta.getProbability(0.5), prob4);
+    EXPECT_EQ(beta.getCumulativeProbability(0.5), cdf4);
+    EXPECT_EQ(beta.getLogProbability(0.5), logProb4);
 }
 
-int main() {
-    std::cout << "Running Beta distribution tests..." << std::endl;
-    std::cout << "==================================" << std::endl;
-
-    try {
-        testBasicFunctionality();
-        testProbabilities();
-        testLogProbability();
-        testFitting();
-        testParameterValidation();
-        testStringRepresentation();
-        testCopyMoveSemantics();
-        testInvalidInputHandling();
-        testResetFunctionality();
-        testBetaProperties();
-        testFittingValidation();
-        testStatisticalMoments();
-        testPerformance();
-
-        // Gold Standard Tests
-        testCDFCalculations();
-        testEqualityAndIO();
-        testNumericalStability();
-        testCaching();
-
-        std::cout << "==================================" << std::endl;
-        std::cout << "✅ All Beta distribution tests passed (including Gold Standard)!"
-                  << std::endl;
-        return 0;
-
-    } catch (const std::exception &e) {
-        std::cerr << "❌ Test failed with exception: " << e.what() << std::endl;
-        return 1;
-    } catch (...) {
-        std::cerr << "❌ Test failed with unknown exception" << std::endl;
-        return 1;
-    }
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

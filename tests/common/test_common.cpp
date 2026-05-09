@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
 #include "libhmm/linalg/linalg_types.h"
 #include "libhmm/common/string_tokenizer.h"
+#include "libhmm/math/weighted_stats.h"
 #include <string>
 #include <cmath>
+#include <limits>
 
 using namespace libhmm;
 
@@ -334,6 +336,85 @@ TEST_F(CommonErrorHandlingTest, MatrixVectorEdgeCases) {
     // Zero-size should work
     EXPECT_NO_THROW(Matrix(0, 0));
     EXPECT_NO_THROW(Vector(0));
+}
+
+// =============================================================================
+// WeightedStats tests
+// compute_weighted_stats and compute_weighted_mean are shared helpers used
+// by the weighted fit() paths in 9+ distributions.  Bugs here silently
+// corrupt all weighted fits, so they deserve a direct unit test.
+// =============================================================================
+
+using libhmm::detail::compute_weighted_mean;
+using libhmm::detail::compute_weighted_stats;
+
+TEST(WeightedStatsTest, UniformWeightsKnownValue) {
+    // Uniform weights: result must equal unweighted mean/variance.
+    const std::vector<double> data = {1.0, 2.0, 3.0};
+    const std::vector<double> weights = {1.0, 1.0, 1.0};
+
+    auto r = compute_weighted_stats(data, weights);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_NEAR(r->mean, 2.0, 1e-12);           // (1+2+3)/3
+    EXPECT_NEAR(r->variance, 2.0 / 3.0, 1e-12); // biased: ((1)^2+(0)^2+(1)^2)/3
+}
+
+TEST(WeightedStatsTest, NonUniformWeightsKnownValue) {
+    // data={0,2,4}, weights={1,2,1}: sumW=4, mean=(0+4+4)/4=2,
+    // var=(1*(0-2)^2+2*(2-2)^2+1*(4-2)^2)/4=(4+0+4)/4=2.
+    const std::vector<double> data = {0.0, 2.0, 4.0};
+    const std::vector<double> weights = {1.0, 2.0, 1.0};
+
+    auto r = compute_weighted_stats(data, weights);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_NEAR(r->mean, 2.0, 1e-12);
+    EXPECT_NEAR(r->variance, 2.0, 1e-12);
+}
+
+TEST(WeightedStatsTest, SingleElementVarianceIsZero) {
+    const std::vector<double> data = {5.0};
+    const std::vector<double> weights = {1.0};
+
+    auto r = compute_weighted_stats(data, weights);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_NEAR(r->mean, 5.0, 1e-15);
+    EXPECT_NEAR(r->variance, 0.0, 1e-15);
+}
+
+TEST(WeightedStatsTest, EmptySpansReturnNullopt) {
+    const std::vector<double> empty;
+    auto r = compute_weighted_stats(empty, empty);
+    EXPECT_FALSE(r.has_value());
+
+    auto m = compute_weighted_mean(empty, empty);
+    EXPECT_FALSE(m.has_value());
+}
+
+TEST(WeightedStatsTest, ZeroWeightSumReturnNullopt) {
+    const std::vector<double> data = {1.0, 2.0, 3.0};
+    const std::vector<double> weights = {0.0, 0.0, 0.0};
+
+    EXPECT_FALSE(compute_weighted_stats(data, weights).has_value());
+    EXPECT_FALSE(compute_weighted_mean(data, weights).has_value());
+}
+
+TEST(WeightedStatsTest, NanWeightReturnNullopt) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const std::vector<double> data = {1.0, 2.0};
+    const std::vector<double> weights = {nan, 1.0};
+
+    EXPECT_FALSE(compute_weighted_stats(data, weights).has_value());
+    EXPECT_FALSE(compute_weighted_mean(data, weights).has_value());
+}
+
+TEST(WeightedMeanTest, NonUniformWeightsKnownValue) {
+    // data={1,2,3}, weights={0.5,1.0,0.5}: sumW=2, mean=(0.5+2+1.5)/2=2.
+    const std::vector<double> data = {1.0, 2.0, 3.0};
+    const std::vector<double> weights = {0.5, 1.0, 0.5};
+
+    auto m = compute_weighted_mean(data, weights);
+    ASSERT_TRUE(m.has_value());
+    EXPECT_NEAR(*m, 2.0, 1e-12);
 }
 
 int main(int argc, char **argv) {

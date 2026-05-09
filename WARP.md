@@ -6,7 +6,7 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 
 ## Current Status
 
-**Version**: v3.3.0 — latest tag and published release on `main`.
+**Version**: v3.5.1 — pending release on `fix/gtest-migration`; v3.5.0 is the latest published tag on `main`.
 **Tests**: 37/37 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
 **Active phase**: Complete. All phases through Post-Phase 5 (CI/tooling, benchmarks) are done.
 
