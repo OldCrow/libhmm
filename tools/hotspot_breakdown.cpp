@@ -489,76 +489,80 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::cout << "libhmm Hotspot Breakdown Tool\n";
-    std::cout << "============================\n";
-    std::cout << "Median of " << runs << " timed runs (" << warmup << " warmup).\n\n";
+    try {
+        std::cout << "libhmm Hotspot Breakdown Tool\n";
+        std::cout << "============================\n";
+        std::cout << "Median of " << runs << " timed runs (" << warmup << " warmup).\n\n";
 #if defined(LIBHMM_EXPERIMENT_FB_MAX_REDUCE)
-    std::cout << "Forward-Backward accumulation mode: max-then-reduce (experimental)\n\n";
+        std::cout << "Forward-Backward accumulation mode: max-then-reduce (experimental)\n\n";
 #elif defined(LIBHMM_EXPERIMENT_FB_ADAPTIVE_SELECTOR)
-    std::cout << "Forward-Backward accumulation mode: static adaptive selector (stage-1)\n\n";
+        std::cout << "Forward-Backward accumulation mode: static adaptive selector (stage-1)\n\n";
 #else
-    std::cout << "Forward-Backward accumulation mode: pairwise logSumExp (control)\n\n";
+        std::cout << "Forward-Backward accumulation mode: pairwise logSumExp (control)\n\n";
 #endif
 
-    std::cout << std::fixed << std::setprecision(3);
+        std::cout << std::fixed << std::setprecision(3);
 
-    for (const auto &cfg : configs) {
-        auto hmm = make_hmm(cfg.num_states);
-        auto obs = make_obs(cfg.sequence_length, cfg.num_states);
+        for (const auto &cfg : configs) {
+            auto hmm = make_hmm(cfg.num_states);
+            auto obs = make_obs(cfg.sequence_length, cfg.num_states);
 
-        const auto fb = profile_forward_backward(*hmm, obs, warmup, runs);
-        const auto vt = profile_viterbi(*hmm, obs, warmup, runs);
+            const auto fb = profile_forward_backward(*hmm, obs, warmup, runs);
+            const auto vt = profile_viterbi(*hmm, obs, warmup, runs);
 
-        const double fb_total = fb.transition_ms + fb.obs_copy_ms + fb.emission_ms +
-                                fb.buffer_alloc_ms + fb.forward_ms + fb.backward_ms +
-                                fb.reduction_ms;
-        const double vt_total = vt.transition_ms + vt.emission_ms + vt.emission_relayout_ms +
-                                vt.buffer_alloc_ms + vt.recursion_ms + vt.backtrack_ms;
+            const double fb_total = fb.transition_ms + fb.obs_copy_ms + fb.emission_ms +
+                                    fb.buffer_alloc_ms + fb.forward_ms + fb.backward_ms +
+                                    fb.reduction_ms;
+            const double vt_total = vt.transition_ms + vt.emission_ms + vt.emission_relayout_ms +
+                                    vt.buffer_alloc_ms + vt.recursion_ms + vt.backtrack_ms;
 
-        const std::size_t n = static_cast<std::size_t>(cfg.num_states);
-        const std::size_t t = static_cast<std::size_t>(cfg.sequence_length);
-        const std::uint64_t emission_work = static_cast<std::uint64_t>(n) * t;
-        const std::uint64_t recurrence_work =
-            (t > 0) ? static_cast<std::uint64_t>(n) * n * (t - 1) : 0ULL;
+            const std::size_t n = static_cast<std::size_t>(cfg.num_states);
+            const std::size_t t = static_cast<std::size_t>(cfg.sequence_length);
+            const std::uint64_t emission_work = static_cast<std::uint64_t>(n) * t;
+            const std::uint64_t recurrence_work =
+                (t > 0) ? static_cast<std::uint64_t>(n) * n * (t - 1) : 0ULL;
 
-        std::cout << "Config: N=" << cfg.num_states << ", T=" << cfg.sequence_length << "\n";
-        std::cout << "  Estimated recurrence work per pass: "
-                  << static_cast<double>(recurrence_work) / 1.0e6 << " M (N^2*(T-1))\n";
-        std::cout << "  Emission evaluations per pass:      "
-                  << static_cast<double>(emission_work) / 1.0e6 << " M (N*T)\n";
+            std::cout << "Config: N=" << cfg.num_states << ", T=" << cfg.sequence_length << "\n";
+            std::cout << "  Estimated recurrence work per pass: "
+                      << static_cast<double>(recurrence_work) / 1.0e6 << " M (N^2*(T-1))\n";
+            std::cout << "  Emission evaluations per pass:      "
+                      << static_cast<double>(emission_work) / 1.0e6 << " M (N*T)\n";
 
-        std::cout << "\nForward-Backward phase breakdown:\n";
-        print_phase("Transition log precompute", fb.transition_ms, fb_total);
-        print_phase("Observation copy", fb.obs_copy_ms, fb_total);
-        print_phase("Emission batch eval", fb.emission_ms, fb_total);
-        print_phase("Alpha/Beta buffer alloc", fb.buffer_alloc_ms, fb_total);
-        print_phase("Forward recursion", fb.forward_ms, fb_total);
-        print_phase("Backward recursion", fb.backward_ms, fb_total);
-        print_phase("Final log-sum-exp reduce", fb.reduction_ms, fb_total);
-        std::cout << "  " << std::left << std::setw(28) << "TOTAL" << std::right << std::setw(10)
-                  << fb_total << " ms\n";
+            std::cout << "\nForward-Backward phase breakdown:\n";
+            print_phase("Transition log precompute", fb.transition_ms, fb_total);
+            print_phase("Observation copy", fb.obs_copy_ms, fb_total);
+            print_phase("Emission batch eval", fb.emission_ms, fb_total);
+            print_phase("Alpha/Beta buffer alloc", fb.buffer_alloc_ms, fb_total);
+            print_phase("Forward recursion", fb.forward_ms, fb_total);
+            print_phase("Backward recursion", fb.backward_ms, fb_total);
+            print_phase("Final log-sum-exp reduce", fb.reduction_ms, fb_total);
+            std::cout << "  " << std::left << std::setw(28) << "TOTAL" << std::right
+                      << std::setw(10) << fb_total << " ms\n";
 
-        std::cout << "  Estimated FB working set: "
-                  << bytes_to_mib(estimate_forward_working_set_bytes(n, t)) << " MiB\n";
+            std::cout << "  Estimated FB working set: "
+                      << bytes_to_mib(estimate_forward_working_set_bytes(n, t)) << " MiB\n";
 
-        std::cout << "\nViterbi phase breakdown:\n";
-        print_phase("Transition log precompute", vt.transition_ms, vt_total);
-        print_phase("Emission batch eval", vt.emission_ms, vt_total);
-        print_phase("Emission relayout (T-major)", vt.emission_relayout_ms, vt_total);
-        print_phase("Delta/Psi buffer alloc", vt.buffer_alloc_ms, vt_total);
-        print_phase("Viterbi recursion", vt.recursion_ms, vt_total);
-        print_phase("Backtrack", vt.backtrack_ms, vt_total);
-        std::cout << "  " << std::left << std::setw(28) << "TOTAL" << std::right << std::setw(10)
-                  << vt_total << " ms\n";
+            std::cout << "\nViterbi phase breakdown:\n";
+            print_phase("Transition log precompute", vt.transition_ms, vt_total);
+            print_phase("Emission batch eval", vt.emission_ms, vt_total);
+            print_phase("Emission relayout (T-major)", vt.emission_relayout_ms, vt_total);
+            print_phase("Delta/Psi buffer alloc", vt.buffer_alloc_ms, vt_total);
+            print_phase("Viterbi recursion", vt.recursion_ms, vt_total);
+            print_phase("Backtrack", vt.backtrack_ms, vt_total);
+            std::cout << "  " << std::left << std::setw(28) << "TOTAL" << std::right
+                      << std::setw(10) << vt_total << " ms\n";
 
-        std::cout << "  Estimated Viterbi working set: "
-                  << bytes_to_mib(estimate_viterbi_working_set_bytes(n, t)) << " MiB\n";
-        std::cout << "\n------------------------------------------------------------\n\n";
+            std::cout << "  Estimated Viterbi working set: "
+                      << bytes_to_mib(estimate_viterbi_working_set_bytes(n, t)) << " MiB\n";
+            std::cout << "\n------------------------------------------------------------\n\n";
+        }
+
+        if (g_sink_int == 42) {
+            std::cout << "sink=" << g_sink_double << "\n";
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        return 1;
     }
-
-    if (g_sink_int == 42) {
-        std::cout << "sink=" << g_sink_double << "\n";
-    }
-
     return 0;
 }
