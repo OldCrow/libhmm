@@ -6,6 +6,7 @@
 
 #include "libhmm/distributions/distributions.h"
 #include "libhmm/io/hmm_json.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/linalg/linalg_types.h"
 
 using namespace libhmm;
@@ -313,6 +314,99 @@ TEST(HmmJsonSanitization, DiscretePropsArrayLongerThanNThrows) {
                              "\"distributions\":[{\"type\":\"Discrete\",\"n\":2,"
                              "\"probs\":[0.3,0.4,0.3]}]}";
     EXPECT_THROW(from_json(json), std::runtime_error);
+}
+
+// =============================================================================
+// json::Reader unit tests
+// The reader is a handwritten parser; these tests exercise its error paths
+// directly rather than routing through from_json().
+// =============================================================================
+
+using libhmm::json::Reader;
+
+TEST(JsonReader, ConsumeMatchSucceeds) {
+    Reader r("{ }");
+    EXPECT_NO_THROW(r.consume('{'));
+}
+
+TEST(JsonReader, ConsumeMismatchThrows) {
+    Reader r("[1.0]");
+    // Input starts with '[', consuming '{' must throw.
+    EXPECT_THROW(r.consume('{'), std::runtime_error);
+}
+
+TEST(JsonReader, ConsumeAtEofThrows) {
+    Reader r("");
+    EXPECT_THROW(r.consume('{'), std::runtime_error);
+}
+
+TEST(JsonReader, PeekAtEofThrows) {
+    Reader r("");
+    EXPECT_THROW(r.peek(), std::runtime_error);
+}
+
+TEST(JsonReader, ReadStringValid) {
+    Reader r("\"hello\"");
+    EXPECT_EQ(r.read_string(), "hello");
+}
+
+TEST(JsonReader, ReadStringUnterminatedThrows) {
+    Reader r("\"unterminated");
+    EXPECT_THROW(r.read_string(), std::runtime_error);
+}
+
+TEST(JsonReader, ReadDoubleValid) {
+    Reader r("3.14");
+    EXPECT_NEAR(r.read_double(), 3.14, 1e-15);
+}
+
+TEST(JsonReader, ReadDoubleNonNumericThrows) {
+    Reader r("abc");
+    EXPECT_THROW(r.read_double(), std::runtime_error);
+}
+
+TEST(JsonReader, ReadDoubleAtEofThrows) {
+    Reader r("");
+    EXPECT_THROW(r.read_double(), std::runtime_error);
+}
+
+TEST(JsonReader, ReadDoubleArrayValid) {
+    Reader r("[1.0, 2.0, 3.0]");
+    auto v = r.read_double_array();
+    ASSERT_EQ(v.size(), 3u);
+    EXPECT_NEAR(v[0], 1.0, 1e-15);
+    EXPECT_NEAR(v[1], 2.0, 1e-15);
+    EXPECT_NEAR(v[2], 3.0, 1e-15);
+}
+
+TEST(JsonReader, ReadDoubleArrayEmptyArray) {
+    Reader r("[]");
+    auto v = r.read_double_array();
+    EXPECT_TRUE(v.empty());
+}
+
+TEST(JsonReader, ReadDoubleArraySizeCapThrows) {
+    // Array has 3 elements but max_elements=2.
+    Reader r("[1.0, 2.0, 3.0]");
+    EXPECT_THROW(r.read_double_array(2), std::runtime_error);
+}
+
+TEST(JsonReader, WriteDoubleRoundTrip) {
+    // write_double must produce a string that reads back bit-exact.
+    const double v = 1.0 / 3.0;
+    const std::string s = libhmm::json::write_double(v);
+    Reader r(s);
+    EXPECT_EQ(r.read_double(), v);
+}
+
+TEST(JsonReader, WriteArrayRoundTrip) {
+    const std::vector<double> original = {1.5, 2.5, 3.5};
+    const std::string s = libhmm::json::write_array(original);
+    Reader r(s);
+    auto restored = r.read_double_array();
+    ASSERT_EQ(restored.size(), original.size());
+    for (std::size_t i = 0; i < original.size(); ++i)
+        EXPECT_EQ(restored[i], original[i]) << "element " << i;
 }
 
 // Verify that valid boundary values are accepted.

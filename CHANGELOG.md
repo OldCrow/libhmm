@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.1] - 2026-05-09
+
+Test infrastructure patch. 37 test executables / 37 passing.
+
+### Added
+
+- **GTest migration** of 15 legacy distribution-specific test files
+  (`tests/distributions/test_*_distribution.cpp`): the `assert()`/`main()`
+  pattern replaced with `TEST()`/`EXPECT_*` macros throughout. The old
+  pattern silently produced false-green results in Release builds because
+  `-DNDEBUG` compiles `assert()` to a no-op; tests now fire
+  unconditionally. Closes #10.
+  - Includes the v3.5.0 post-release hotfix (six IO assertions that had
+    contained wrong format strings since v2.7.0, first detected in a
+    non-Release build — commit 56014e2).
+- **`WeightedStats` unit tests** added to `tests/common/test_common.cpp`:
+  direct tests for `detail::compute_weighted_stats` and
+  `detail::compute_weighted_mean`, which underpin the weighted `fit()` path
+  in 9+ distributions but had no unit test of their own. Covers known-value
+  cases (uniform and non-uniform weights), single-element (variance = 0),
+  empty spans, zero-weight sum, and NaN weight (all `nullopt` guard paths).
+- **`json::Reader` unit tests** added to `tests/io/test_hmm_json.cpp`:
+  direct tests for the handwritten JSON parser, exercising error paths
+  (`consume` mismatch, EOF on consume/peek/read_double, unterminated string,
+  non-numeric double, array size-cap throw) not reachable through the
+  HMM-level `from_json()` tests. Also tests `write_double` and `write_array`
+  round-trip at the parser level.
+
 ## [3.5.0] - 2026-05-06
 
 cppcheck quality pass and V2 numerical framework removal. 37/37 tests pass.
