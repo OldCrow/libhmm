@@ -63,11 +63,6 @@ private:
     mutable double kXmPowK_{1.0};
 
     /**
-     * Cached value of -k for efficiency in CDF calculations
-     */
-    mutable double negK_{-1.0};
-
-    /**
      * Cached value of log(x_m) for efficiency in log probability calculations
      */
     mutable double logXm_{0.0};
@@ -78,7 +73,6 @@ private:
         kLogXm_ = k_ * logXm_;
         kPlus1_ = k_ + constants::math::ONE;
         kXmPowK_ = k_ * std::pow(xm_, k_);
-        negK_ = -k_;
         markCacheValid();
     }
 
@@ -96,11 +90,6 @@ private:
             throw std::invalid_argument("Scale parameter xm must be a positive finite number");
         }
     }
-
-    /**
-     * Evaluates the CDF at x using the standard Pareto CDF formula
-     */
-    double CDF(double x) const noexcept;
 
     friend std::istream &operator>>(std::istream &is, libhmm::ParetoDistribution &distribution);
 

@@ -66,19 +66,7 @@ double ParetoDistribution::getCumulativeProbability(double value) const noexcept
 }
 
 /**
- * Evaluates the CDF for the Pareto distribution at x.
- *
- * Formula: F(x) = 1 - (x_m/x)^k for x ≥ x_m
- *
- * @param x The value at which to evaluate the CDF
- * @return Cumulative probability P(X ≤ x)
- */
-double ParetoDistribution::CDF(double x) const noexcept {
-    return getCumulativeProbability(x);
-}
-
-/**
- * Fits the distribution parameters to the given data using maximum likelihood estimation.
+ * Fits the distribution parameters
  *
  * For Pareto distribution, the MLE estimators are:
  * x_m = min(x_i) for all i
