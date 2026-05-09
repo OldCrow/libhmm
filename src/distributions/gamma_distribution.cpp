@@ -81,13 +81,6 @@ double GammaDistribution::getCumulativeProbability(double x) const noexcept {
 }
 
 /**
- * Returns the value of the LOWER INCOMPLETE gamma function given a and x.
- */
-double GammaDistribution::ligamma(double a, double x) noexcept {
-    return std::exp(std::log(gammap(a, x)) + std::lgamma(a));
-}
-
-/**
  * Fits the distribution parameters to the given data using method of moments estimation.
  *
  * Method of moments uses:
