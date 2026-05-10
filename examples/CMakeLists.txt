@@ -80,6 +80,9 @@ add_hmm_example(swarm_coordination_example swarm_coordination_example.cpp)
 # Posterior decoding vs Viterbi (casino HMM)
 add_hmm_example(posterior_decoding_example posterior_decoding_example.cpp)
 
+# MAP-EM Baum-Welch with Dirichlet priors
+add_hmm_example(map_baum_welch_example map_baum_welch_example.cpp)
+
 # Install all examples
 install(TARGETS
     basic_hmm_example
@@ -96,5 +99,6 @@ install(TARGETS
     student_t_hmm_example
     swarm_coordination_example
     posterior_decoding_example
+    map_baum_welch_example
     RUNTIME DESTINATION bin/examples
 )
