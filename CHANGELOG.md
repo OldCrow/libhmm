@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.3] - 2026-05-10
+
+Code quality patch: CPD reduction, STL algorithm improvements. 37/37 tests pass.
+
+### Changed
+
+- **`ForwardBackwardCalculator` pairwise/max-reduce extraction** (completes Tier 2,
+  `src/calculators/forward_backward_calculator.cpp`): the pointer-setup block and
+  outer time-loop were still duplicated between the Pairwise and MaxReduce forward and
+  backward passes. Extracted `compute_forward<Fn>` and `compute_backward<Fn>`
+  anonymous-namespace templates; the four concrete methods are now single-call wrappers
+  passing lambdas for the inner computation. Eliminates the two CPD blocks previously
+  found at lines 136/163 and 206/236.
+- **`BasicMatrix3D` constructor delegation** (`include/libhmm/linalg/basic_matrix3d.h`):
+  the zero-fill constructor now delegates to the init-value constructor in one line,
+  removing duplicated dimension-validation and allocation code.
+- **STL algorithm improvements** (10 distribution files + `src/common/weighted_stats.cpp`):
+  replace unconditional `for (w : weights) sumW += w;` accumulator loops with
+  `const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);` across
+  all weighted `fit()` overloads in binomial, discrete, gamma, log_normal,
+  negative_binomial, pareto, rayleigh, student_t, and weibull distributions, and in
+  `weighted_stats.cpp`. The `const` qualifier is the primary gain. Also replaces
+  the Weibull data-validation loop with `std::any_of`. Adds explicit `#include <numeric>`
+  where previously relying on transitive inclusion.
+
 ## [3.5.2] - 2026-05-09
 
 Code quality patch: dead code removal, tool exception safety, lizard triage. 37/37 tests pass.
