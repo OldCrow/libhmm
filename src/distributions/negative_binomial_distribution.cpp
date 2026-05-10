@@ -94,9 +94,7 @@ void NegativeBinomialDistribution::fit(std::span<const double> data) {
 
 void NegativeBinomialDistribution::fit(std::span<const double> data,
                                        std::span<const double> weights) {
-    double sumW = 0.0;
-    for (const double w : weights)
-        sumW += w;
+    const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
     if (sumW < precision::ZERO || std::isnan(sumW)) {
         reset();
         return;

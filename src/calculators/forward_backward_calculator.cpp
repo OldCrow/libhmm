@@ -24,6 +24,54 @@ void init_log_backward(double *betaData, std::size_t T, std::size_t N) noexcept 
     for (std::size_t i = 0; i < N; ++i)
         finalRow[i] = 0.0;
 }
+
+/// Shared forward-pass loop. Sets up pointers, calls init_log_forward, then
+/// iterates t=1..T-1. The per-j inner computation is delegated to @p inner,
+/// which receives (prevAlphaRow, transCol, N) and returns the log-sum term.
+///
+/// This template is instantiated twice — once for Pairwise, once for
+/// MaxReduce — in the same translation unit, so no explicit instantiation
+/// or header declaration is required.
+template <typename InnerFn>
+void compute_forward(const Hmm &hmm, std::size_t N, const ObservationSet &observations,
+                     const double *logTransT, const double *emitByTime, Matrix &logAlpha,
+                     InnerFn inner) {
+    const Vector &pi = hmm.getPi();
+    const std::size_t T = observations.size();
+    double *alphaData = logAlpha.data();
+    init_log_forward(alphaData, pi, emitByTime, N);
+    for (std::size_t t = 1; t < T; ++t) {
+        const double *prevRow = alphaData + (t - 1) * N;
+        double *row = alphaData + t * N;
+        const double *emitRow = emitByTime + t * N;
+        for (std::size_t j = 0; j < N; ++j)
+            row[j] = emitRow[j] + inner(prevRow, logTransT + j * N, N);
+    }
+}
+
+/// Shared backward-pass loop. Sets up pointers, calls init_log_backward,
+/// then iterates t=T-2..0. The per-i inner computation is delegated to
+/// @p inner, which receives (transRow, emitNextRow, nextBetaRow, N) and
+/// returns the log-sum term.
+template <typename InnerFn>
+void compute_backward(std::size_t N, const ObservationSet &observations, const double *logTrans,
+                      const double *emitByTime, Matrix &logBeta, InnerFn inner) {
+    const std::size_t T = observations.size();
+    double *betaData = logBeta.data();
+    init_log_backward(betaData, T, N);
+    if (T > 1) {
+        for (std::size_t t = T - 2;; --t) {
+            double *betaRow = betaData + t * N;
+            const double *nextBetaRow = betaData + (t + 1) * N;
+            const double *emitNextRow = emitByTime + (t + 1) * N;
+            for (std::size_t i = 0; i < N; ++i)
+                betaRow[i] = inner(logTrans + i * N, emitNextRow, nextBetaRow, N);
+            if (t == 0)
+                break;
+        }
+    }
+}
+
 } // namespace
 
 FbRecurrenceMode
@@ -134,65 +182,27 @@ void ForwardBackwardCalculator::computeLogForward() {
 }
 
 void ForwardBackwardCalculator::computeLogForwardPairwise() {
-    const Hmm &hmm = getHmmRef();
-    const Vector &pi = hmm.getPi();
-    const std::size_t T = observations_.size();
-    const std::size_t N = numStates_;
-    const double *logTransTData = logTransT_.data();
-    const double *emitByTimeData = logEmitByTime_.data();
-    double *alphaData = logAlpha_.data();
-
-    init_log_forward(alphaData, pi, emitByTimeData, N);
-
-    // t > 0.
-    for (std::size_t t = 1; t < T; ++t) {
-        const double *prevAlphaRow = alphaData + (t - 1) * N;
-        double *alphaRow = alphaData + t * N;
-        const double *emitRow = emitByTimeData + t * N;
-        for (std::size_t j = 0; j < N; ++j) {
-            const double *transCol = logTransTData + j * N;
-            double logSum = LOG_ZERO;
-            for (std::size_t i = 0; i < N; ++i) {
-                logSum = logSumExp(logSum, prevAlphaRow[i] + transCol[i]);
-            }
-            alphaRow[j] = emitRow[j] + logSum;
-        }
-    }
+    compute_forward(getHmmRef(), numStates_, observations_, logTransT_.data(),
+                    logEmitByTime_.data(), logAlpha_,
+                    [](const double *prev, const double *transCol, std::size_t n) {
+                        double s = LOG_ZERO;
+                        for (std::size_t i = 0; i < n; ++i)
+                            s = logSumExp(s, prev[i] + transCol[i]);
+                        return s;
+                    });
 }
 
 void ForwardBackwardCalculator::computeLogForwardMaxReduce() {
-    const Hmm &hmm = getHmmRef();
-    const Vector &pi = hmm.getPi();
-    const std::size_t T = observations_.size();
-    const std::size_t N = numStates_;
-    const double *logTransTData = logTransT_.data();
-    const double *emitByTimeData = logEmitByTime_.data();
-    double *alphaData = logAlpha_.data();
-
-    init_log_forward(alphaData, pi, emitByTimeData, N);
-
-    // t > 0.
-    for (std::size_t t = 1; t < T; ++t) {
-        const double *prevAlphaRow = alphaData + (t - 1) * N;
-        double *alphaRow = alphaData + t * N;
-        const double *emitRow = emitByTimeData + t * N;
-        for (std::size_t j = 0; j < N; ++j) {
-            const double *transCol = logTransTData + j * N;
-            const double maxTerm = performance::detail::TranscendentalKernels::reduce_max_sum2(
-                prevAlphaRow, transCol, N);
-
-            double logSum = LOG_ZERO;
-            if (std::isfinite(maxTerm)) {
-                const double scaledSum =
-                    performance::detail::TranscendentalKernels::sum_exp_sum2_minus_max(
-                        prevAlphaRow, transCol, N, maxTerm);
-                if (scaledSum > 0.0) {
-                    logSum = maxTerm + std::log(scaledSum);
-                }
-            }
-            alphaRow[j] = emitRow[j] + logSum;
-        }
-    }
+    using TK = performance::detail::TranscendentalKernels;
+    compute_forward(getHmmRef(), numStates_, observations_, logTransT_.data(),
+                    logEmitByTime_.data(), logAlpha_,
+                    [](const double *prev, const double *transCol, std::size_t n) {
+                        const double m = TK::reduce_max_sum2(prev, transCol, n);
+                        if (!std::isfinite(m))
+                            return LOG_ZERO;
+                        const double s = TK::sum_exp_sum2_minus_max(prev, transCol, n, m);
+                        return (s > 0.0) ? m + std::log(s) : LOG_ZERO;
+                    });
 }
 
 void ForwardBackwardCalculator::computeLogBackward() {
@@ -204,71 +214,27 @@ void ForwardBackwardCalculator::computeLogBackward() {
 }
 
 void ForwardBackwardCalculator::computeLogBackwardPairwise() {
-    const std::size_t T = observations_.size();
-    const std::size_t N = numStates_;
-    const double *logTransData = logTrans_.data();
-    const double *emitByTimeData = logEmitByTime_.data();
-    double *betaData = logBeta_.data();
-
-    init_log_backward(betaData, T, N);
-
-    // t < T - 1.
-    if (T > 1) {
-        for (std::size_t t = T - 2;; --t) {
-            double *betaRow = betaData + t * N;
-            const double *nextBetaRow = betaData + (t + 1) * N;
-            const double *emitNextRow = emitByTimeData + (t + 1) * N;
-            for (std::size_t i = 0; i < N; ++i) {
-                const double *transRow = logTransData + i * N;
-                double logSum = LOG_ZERO;
-                for (std::size_t j = 0; j < N; ++j) {
-                    logSum = logSumExp(logSum, transRow[j] + emitNextRow[j] + nextBetaRow[j]);
-                }
-                betaRow[i] = logSum;
-            }
-            if (t == 0) {
-                break;
-            }
-        }
-    }
+    compute_backward(
+        numStates_, observations_, logTrans_.data(), logEmitByTime_.data(), logBeta_,
+        [](const double *transRow, const double *emitNext, const double *nextBeta, std::size_t n) {
+            double s = LOG_ZERO;
+            for (std::size_t j = 0; j < n; ++j)
+                s = logSumExp(s, transRow[j] + emitNext[j] + nextBeta[j]);
+            return s;
+        });
 }
 
 void ForwardBackwardCalculator::computeLogBackwardMaxReduce() {
-    const std::size_t T = observations_.size();
-    const std::size_t N = numStates_;
-    const double *logTransData = logTrans_.data();
-    const double *emitByTimeData = logEmitByTime_.data();
-    double *betaData = logBeta_.data();
-
-    init_log_backward(betaData, T, N);
-
-    // t < T - 1.
-    if (T > 1) {
-        for (std::size_t t = T - 2;; --t) {
-            double *betaRow = betaData + t * N;
-            const double *nextBetaRow = betaData + (t + 1) * N;
-            const double *emitNextRow = emitByTimeData + (t + 1) * N;
-            for (std::size_t i = 0; i < N; ++i) {
-                const double *transRow = logTransData + i * N;
-                const double maxTerm = performance::detail::TranscendentalKernels::reduce_max_sum3(
-                    transRow, emitNextRow, nextBetaRow, N);
-
-                double logSum = LOG_ZERO;
-                if (std::isfinite(maxTerm)) {
-                    const double scaledSum =
-                        performance::detail::TranscendentalKernels::sum_exp_sum3_minus_max(
-                            transRow, emitNextRow, nextBetaRow, N, maxTerm);
-                    if (scaledSum > 0.0) {
-                        logSum = maxTerm + std::log(scaledSum);
-                    }
-                }
-                betaRow[i] = logSum;
-            }
-            if (t == 0) {
-                break;
-            }
-        }
-    }
+    using TK = performance::detail::TranscendentalKernels;
+    compute_backward(
+        numStates_, observations_, logTrans_.data(), logEmitByTime_.data(), logBeta_,
+        [](const double *transRow, const double *emitNext, const double *nextBeta, std::size_t n) {
+            const double m = TK::reduce_max_sum3(transRow, emitNext, nextBeta, n);
+            if (!std::isfinite(m))
+                return LOG_ZERO;
+            const double s = TK::sum_exp_sum3_minus_max(transRow, emitNext, nextBeta, n, m);
+            return (s > 0.0) ? m + std::log(s) : LOG_ZERO;
+        });
 }
 
 // Numerically stable log(exp(a) + exp(b)).

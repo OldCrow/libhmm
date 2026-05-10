@@ -1,5 +1,6 @@
 #include "libhmm/math/weighted_stats.h"
 #include "libhmm/math/constants.h"
+#include <numeric>
 
 using namespace libhmm::constants;
 
@@ -7,9 +8,7 @@ namespace libhmm::detail {
 
 std::optional<WeightedStats> compute_weighted_stats(std::span<const double> data,
                                                     std::span<const double> weights) noexcept {
-    double sumW = 0.0;
-    for (const double w : weights)
-        sumW += w;
+    const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
     if (sumW < precision::ZERO || std::isnan(sumW))
         return std::nullopt;
 
