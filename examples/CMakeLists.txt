@@ -77,6 +77,9 @@ add_hmm_example(student_t_hmm_example            student_t_hmm_example.cpp)
 # Discrete state example (drone swarm coordination)
 add_hmm_example(swarm_coordination_example swarm_coordination_example.cpp)
 
+# Posterior decoding vs Viterbi (casino HMM)
+add_hmm_example(posterior_decoding_example posterior_decoding_example.cpp)
+
 # Install all examples
 install(TARGETS
     basic_hmm_example
@@ -92,5 +95,6 @@ install(TARGETS
     statistical_process_control_hmm_example
     student_t_hmm_example
     swarm_coordination_example
+    posterior_decoding_example
     RUNTIME DESTINATION bin/examples
 )
