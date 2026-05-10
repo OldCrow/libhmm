@@ -106,6 +106,16 @@ public:
 
     /** @brief Returns true for discrete (PMF) distributions, false for continuous (PDF). */
     [[nodiscard]] virtual bool isDiscrete() const noexcept = 0;
+
+    /**
+     * @brief Number of free parameters in this distribution.
+     *
+     * Used by model-selection utilities (AIC, BIC, AICc) to compute the
+     * total parameter count for an HMM. Each concrete distribution reports
+     * the number of independently estimated scalar parameters; for
+     * DiscreteDistribution with K symbols this is K-1 (simplex constraint).
+     */
+    [[nodiscard]] virtual std::size_t getNumParameters() const noexcept = 0;
 };
 
 } // namespace libhmm

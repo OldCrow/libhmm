@@ -135,6 +135,8 @@ public:
     /** Weighted MOM: location = weighted_mean; ν estimated from weighted variance. */
     void fit(std::span<const double> data, std::span<const double> weights) override;
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+    /// Three free parameters: degrees of freedom, location, scale.
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 3; }
 
     /**
      * Resets the distribution to default parameters (ν = 1.0).

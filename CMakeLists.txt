@@ -548,6 +548,7 @@ set(LIBHMM_SOURCES
     src/io/hmm_json.cpp
     src/io/xml_file_reader.cpp
     src/io/xml_file_writer.cpp
+    src/model_selection.cpp
 )
 
 # ── Library targets ───────────────────────────────────────────────────────────

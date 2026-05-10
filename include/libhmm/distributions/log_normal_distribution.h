@@ -118,6 +118,7 @@ public:
 
     /** Returns false — Log-Normal is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 2; }
 
     /**
      * Resets the distribution to default parameters (μ = 0.0, σ = 1.0).
