@@ -1,5 +1,6 @@
 #include "libhmm/distributions/discrete_distribution.h"
 #include "libhmm/io/json_utils.h"
+#include <numeric>
 #include <span>
 
 using namespace libhmm::constants;
@@ -58,9 +59,7 @@ void DiscreteDistribution::fit(std::span<const double> data) {
 
 void DiscreteDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     // Weighted empirical probabilities: P(X=k) = Σ(w_i for x_i=k) / Σ(w_i)
-    double sumW = 0.0;
-    for (const double w : weights)
-        sumW += w;
+    const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
     if (sumW < precision::ZERO || std::isnan(sumW)) {
         reset();
         return;
