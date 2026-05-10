@@ -134,6 +134,7 @@ public:
     /** Weighted MOM: α = μ*factor, β = (1-μ)*factor where factor = μ(1-μ)/σ² - 1. */
     void fit(std::span<const double> data, std::span<const double> weights) override;
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 2; }
 
     /**
      * Resets the distribution to default parameters (α = 1.0, β = 1.0).

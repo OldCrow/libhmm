@@ -73,6 +73,13 @@
 /// Provides to_json(), from_json(), save_json(), and load_json() free functions.
 #include "libhmm/io/hmm_json.h"
 
+//==============================================================================
+// MODEL SELECTION
+//==============================================================================
+
+/// AIC, BIC, AICc and free-parameter counting for fitted HMMs.
+#include "libhmm/model_selection.h"
+
 /// File I/O utilities and legacy XML serialization (deprecated; retained for
 /// reading existing .xml files).
 #include "libhmm/io/file_io_manager.h"

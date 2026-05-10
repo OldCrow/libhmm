@@ -149,6 +149,7 @@ private:
 public:
     /** Returns false — Gamma is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 2; }
 
     /**
      * Resets the distribution to default parameters (k = 1.0, θ = 1.0).

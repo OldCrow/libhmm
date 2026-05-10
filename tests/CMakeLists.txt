@@ -200,6 +200,7 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_calculator_continuous calculators/test_calculator_continuous.cpp)
     add_hmm_test(test_calculator_edge_cases calculators/test_calculator_edge_cases.cpp)
     add_hmm_test(test_fb_mode_parity        calculators/test_fb_mode_parity.cpp)
+    add_hmm_test(test_posterior_decoding    calculators/test_posterior_decoding.cpp)
 
     # =========================================================================
     # Trainers
@@ -213,10 +214,11 @@ if(GTest_FOUND OR TARGET gtest)
     # =========================================================================
     # IO & Integration
     # =========================================================================
-    add_hmm_test(test_xml_file_io   io/test_xml_file_io.cpp)
-    add_hmm_test(test_hmm_stream_io io/test_hmm_stream_io.cpp)
-    add_hmm_test(test_hmm_json      io/test_hmm_json.cpp)
-    add_hmm_test(test_end_to_end    integration/test_end_to_end.cpp)
+    add_hmm_test(test_xml_file_io       io/test_xml_file_io.cpp)
+    add_hmm_test(test_hmm_stream_io     io/test_hmm_stream_io.cpp)
+    add_hmm_test(test_hmm_json          io/test_hmm_json.cpp)
+    add_hmm_test(test_end_to_end        integration/test_end_to_end.cpp)
+    add_hmm_test(test_model_selection   test_model_selection.cpp)
 
 else()
     message(STATUS "Google Test not found - building basic test suite only")
