@@ -6,9 +6,9 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 
 ## Current Status
 
-**Version**: v3.5.3 — pending merge on `refactor/code-quality-phase7`; v3.5.2 is the latest published tag on `main`.
-**Tests**: 37/37 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
-**Active phase**: Code quality roadmap complete. All lizard warnings triaged; Tier 6 (SIMD boilerplate in `transcendental_kernels.cpp`) is the only deferred structural item.
+**Version**: v3.5.4 — pending merge on `refactor/cpp20-modernisation`; v3.5.3 is the latest published tag on `main`.
+**Tests**: 39/39 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
+**Active phase**: C++20 modernisation patch (string_view, noexcept, STL algorithms, loop preservation comments). Feature branch `feature/v3.6.0-posterior-model-selection` (posterior decoding, AIC/BIC/AICc, `getNumParameters()`) ready for PR after this lands.
 
 ---
 

@@ -165,6 +165,10 @@ public:
 
     /** Returns true — Discrete is a discrete distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return true; }
+    /// K-1 free parameters: K symbol probabilities minus the sum-to-one constraint.
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override {
+        return numSymbols_ > 0 ? numSymbols_ - 1 : 0;
+    }
 
     /**
      * Resets the distribution to uniform probabilities.

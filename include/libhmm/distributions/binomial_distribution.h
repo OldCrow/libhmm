@@ -89,6 +89,7 @@ public:
 
     /** Returns true — Binomial is a discrete distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return true; }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 2; }
 
     void reset() noexcept override;
     std::string toString() const override;

@@ -84,6 +84,7 @@ public:
 
     /** Returns false — Uniform is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 2; }
 
     /**
      * @brief Reset distribution to default parameters [0, 1]

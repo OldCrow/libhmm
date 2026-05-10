@@ -223,6 +223,7 @@ public:
 
     /** Returns false — Gaussian is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 2; }
 
     /**
      * Equality comparison operator

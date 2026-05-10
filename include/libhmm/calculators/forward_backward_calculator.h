@@ -1,6 +1,7 @@
 #pragma once
 
 #include "libhmm/calculators/calculator.h"
+#include "libhmm/linalg/linalg_types.h"
 #include "libhmm/performance/fb_recurrence_policy.h"
 #include <limits>
 #include <optional>
@@ -85,6 +86,20 @@ public:
 
     /** Number of HMM states used by this calculator. */
     [[nodiscard]] std::size_t getNumStates() const noexcept { return numStates_; }
+
+    /**
+     * @brief Posterior (marginal) decoding: most probable state at each time step.
+     *
+     * Returns argmax_i γ_t(i) for each t, where
+     *   γ_t(i) = P(q_t=i | O, λ) ∝ exp(logAlpha_(t,i) + logBeta_(t,i)).
+     *
+     * Unlike Viterbi, this maximises the marginal state probability at each
+     * time step independently rather than the joint sequence probability.
+     * The result is optimal in terms of per-state error rate.
+     *
+     * Requires compute() to have been called first.
+     */
+    [[nodiscard]] StateSequence decodePosterior() const;
 
     /**
      * @brief Force a specific recurrence kernel for subsequent compute() calls.

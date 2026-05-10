@@ -134,6 +134,7 @@ public:
 
     /** Returns false — Pareto is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 2; }
 
     /**
      * Resets the distribution to default parameters (k = 1.0, x_m = 1.0).

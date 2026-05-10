@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <string>
+#include <string_view>
 #include <fstream>
 #include <stdexcept>
 #include <filesystem>
@@ -40,7 +41,7 @@ public:
      * @throws std::invalid_argument if filename is empty
      * @throws std::runtime_error if file cannot be created or written
      */
-    void write(const Hmm &hmm, const std::string &filename);
+    void write(const Hmm &hmm, std::string_view filename);
 
     /**
      * Writes an HMM to an XML file with filesystem path.
