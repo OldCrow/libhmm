@@ -7,7 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.5.3] - 2026-05-10
+## [3.5.4] - 2026-05-10
+
+C++20 modernisation patch: correctness fixes and idiomatic improvements. 39/39 tests pass.
+
+### Fixed
+
+- **`StudentTDistribution::updateCache()` dead `try/catch`** (`src/distributions/student_t_distribution.cpp`):
+  `std::lgamma` is declared `noexcept` since C++17; the surrounding `catch` block was unreachable
+  dead code. Removed; function now correctly marked `noexcept` in both header and implementation.
+- **`StudentTDistribution::getCumulativeProbability()` dead `try/catch`**: the try body contained
+  only arithmetic (`std::sqrt`, `std::erf`, comparisons); none can throw. Removed the unreachable
+  catch with its misleading fallback values. Numerical inaccuracy in the moderate-ν branch is
+  tracked separately in GitHub issue #16.
+
+### Changed
+
+- **`std::string_view` for read-only string parameters**:
+  `XMLFileReader::read(std::string_view)`, `XMLFileWriter::write(const Hmm&, std::string_view)`,
+  and `StringTokenizer(std::string_view, const char*)` replace `const std::string&`. Callers
+  passing `std::string` or string literals are unaffected; callers previously passing `std::string`
+  where a `std::filesystem::path` overload also exists must disambiguate explicitly (two internal
+  call sites updated: `hmm_validator.cpp`, `test_xml_file_io.cpp`).
+- **`std::inner_product` and `std::transform_reduce` in `weighted_stats.cpp`**: the mean
+  computation in `compute_weighted_stats()` is replaced with `std::inner_product`; the variance
+  pass with `std::transform_reduce`. The `compute_weighted_mean()` single-pass loop is
+  retained with an explicit comment (no `std::views::zip` in C++20).
+- **`std::ranges::transform` in `file_io_manager.cpp`**: the case-folding `std::transform` pair
+  in `hasExtension()` is replaced with `std::ranges::transform` where available, with
+  `std::transform` fallback on compilers without ranges support (AppleClang 12 / Catalina).
+  Detection via a `check_cxx_source_compiles` probe in `CMakeLists.txt` that sets
+  `LIBHMM_HAS_STD_RANGES`.
+- **Preservation comments on hot-path loops**: all 9 non-SIMD Tier-1 `getBatchLogProbabilities`
+  overrides plus `DistributionBase::getBatchLogProbabilities` now carry an explicit note
+  explaining why the index-based form is retained (compiler auto-vectorisation boundary;
+  a `std::ranges::transform` lambda would add an indirect call boundary).
+
+### Added
+
+- **GitHub issue #16**: `StudentTDistribution::getCumulativeProbability()` uses an inaccurate
+  rational approximation for 1 < ν < 30. The correct fix requires the regularised incomplete
+  beta function (already implemented in `BetaDistribution::incompleteBeta` but private);
+  deferred to a dedicated accuracy PR.
+
+## [3.5.3]
 
 Code quality patch: CPD reduction, STL algorithm improvements. 37/37 tests pass.
 
