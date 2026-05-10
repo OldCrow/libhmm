@@ -1,7 +1,8 @@
 #include "libhmm/distributions/rayleigh_distribution.h"
 #include "libhmm/io/json_utils.h"
 // Header already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip> via common.h
-#include <limits> // For std::numeric_limits (not in common.h)
+#include <limits>  // For std::numeric_limits (not in common.h)
+#include <numeric> // For std::accumulate
 
 namespace libhmm {
 
@@ -76,9 +77,7 @@ void RayleighDistribution::fit(std::span<const double> data) {
 }
 
 void RayleighDistribution::fit(std::span<const double> data, std::span<const double> weights) {
-    double sumW = 0.0;
-    for (const double w : weights)
-        sumW += w;
+    const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
     if (sumW < constants::precision::ZERO || std::isnan(sumW)) {
         reset();
         return;

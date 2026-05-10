@@ -101,9 +101,10 @@ void WeibullDistribution::fit(std::span<const double> data) {
         reset();
         return;
     }
-    for (const double val : data)
-        if (val < math::ZERO_DOUBLE || std::isnan(val) || std::isinf(val))
-            throw std::invalid_argument("Weibull fitting requires non-negative values");
+    if (std::any_of(data.begin(), data.end(), [](double v) {
+            return v < math::ZERO_DOUBLE || std::isnan(v) || std::isinf(v);
+        }))
+        throw std::invalid_argument("Weibull fitting requires non-negative values");
     const auto n = static_cast<double>(data.size());
     double mean = 0.0, m2 = 0.0;
     std::size_t count = 0;
@@ -117,9 +118,7 @@ void WeibullDistribution::fit(std::span<const double> data) {
 }
 
 void WeibullDistribution::fit(std::span<const double> data, std::span<const double> weights) {
-    double sumW = 0.0;
-    for (const double w : weights)
-        sumW += w;
+    const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
     if (sumW < precision::ZERO || std::isnan(sumW)) {
         reset();
         return;
