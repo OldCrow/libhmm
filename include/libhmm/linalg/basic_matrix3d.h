@@ -28,37 +28,13 @@ private:
     }
 
 public:
-    /// Constructor with dimensions
-    /// @param x First dimension size
-    /// @param y Second dimension size
-    /// @param z Third dimension size
-    /// @throws std::invalid_argument if any dimension is zero
-    BasicMatrix3D(std::size_t x, std::size_t y, std::size_t z)
-        : x_{x}, y_{y}, z_{z}, yz_stride_{y * z} {
-        if (x == 0 || y == 0 || z == 0) {
-            throw std::invalid_argument("BasicMatrix3D dimensions must be greater than zero");
-        }
+    /// Constructor with dimensions; initialises all elements to zero.
+    /// @throws std::invalid_argument if any dimension is zero or the total size overflows.
+    BasicMatrix3D(std::size_t x, std::size_t y, std::size_t z) : BasicMatrix3D(x, y, z, T{0}) {}
 
-        // Check for potential overflow
-        if (yz_stride_ < y || yz_stride_ < z) {
-            throw std::invalid_argument("BasicMatrix3D dimensions too large (overflow)");
-        }
-
-        std::size_t total_size = x * yz_stride_;
-        if (total_size < x || total_size < yz_stride_) {
-            throw std::invalid_argument("BasicMatrix3D total size too large (overflow)");
-        }
-
-        // Initialize contiguous storage with zero-fill
-        data_.resize(total_size, T{0});
-    }
-
-    /// Constructor with dimensions and initial value
-    /// @param x First dimension size
-    /// @param y Second dimension size
-    /// @param z Third dimension size
-    /// @param init_value Initial value for all elements
-    /// @throws std::invalid_argument if any dimension is zero
+    /// Constructor with dimensions and initial value.
+    /// @param init_value Value written to every element.
+    /// @throws std::invalid_argument if any dimension is zero or the total size overflows.
     BasicMatrix3D(std::size_t x, std::size_t y, std::size_t z, const T &init_value)
         : x_{x}, y_{y}, z_{z}, yz_stride_{y * z} {
         if (x == 0 || y == 0 || z == 0) {
