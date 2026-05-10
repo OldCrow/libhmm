@@ -257,15 +257,15 @@ TEST_F(IOTest, XMLFileWriterBasicFunctionality) {
 TEST_F(IOTest, XMLFileWriterStringPath) {
     XMLFileWriter writer;
 
-    // Test with string path
-    EXPECT_NO_THROW(writer.write(*hmm_, xmlFile_.string()));
+    // Test with string path (string_view overload)
+    EXPECT_NO_THROW(writer.write(*hmm_, std::string_view{xmlFile_.string()}));
     EXPECT_TRUE(std::filesystem::exists(xmlFile_));
 }
 
 TEST_F(IOTest, XMLFileWriterEmptyPathThrows) {
     XMLFileWriter writer;
 
-    EXPECT_THROW(writer.write(*hmm_, std::string("")), std::invalid_argument);
+    EXPECT_THROW(writer.write(*hmm_, std::string_view{""}), std::invalid_argument);
     EXPECT_THROW(writer.write(*hmm_, std::filesystem::path{}), std::invalid_argument);
 }
 
@@ -291,11 +291,11 @@ TEST_F(IOTest, XMLFileReaderBasicFunctionality) {
 
 TEST_F(IOTest, XMLFileReaderStringPath) {
     XMLFileWriter writer;
-    writer.write(*hmm_, xmlFile_.string());
+    writer.write(*hmm_, std::string_view{xmlFile_.string()});
 
     XMLFileReader reader;
     Hmm readHmm(1);
-    ASSERT_NO_THROW(readHmm = reader.read(xmlFile_.string()));
+    ASSERT_NO_THROW(readHmm = reader.read(std::string_view{xmlFile_.string()}));
     EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
 }
 
@@ -310,7 +310,7 @@ TEST_F(IOTest, XMLFileReaderEmptyPathThrows) {
     XMLFileReader reader;
     Hmm hmm(1);
 
-    EXPECT_THROW(reader.read(std::string("")), std::invalid_argument);
+    EXPECT_THROW(reader.read(std::string_view{""}), std::invalid_argument);
     EXPECT_THROW(reader.read(std::filesystem::path{}), std::invalid_argument);
 }
 

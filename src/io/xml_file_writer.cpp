@@ -4,7 +4,7 @@
 
 namespace libhmm {
 
-void XMLFileWriter::write(const Hmm &hmm, const std::string &filename) {
+void XMLFileWriter::write(const Hmm &hmm, std::string_view filename) {
     if (filename.empty()) {
         throw std::invalid_argument("Filename cannot be empty");
     }

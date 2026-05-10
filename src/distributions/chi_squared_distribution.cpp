@@ -155,7 +155,8 @@ std::istream &operator>>(std::istream &is, ChiSquaredDistribution &dist) {
 void ChiSquaredDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                       std::span<double> out) const {
     // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native / /arch:AVX512.
+    // terms under -march=native. Index loop preserved: a std::ranges::transform
+    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
     // Tier 2 upgrade requires vectorised lgamma (the log-normalisation constant
     // lgamma(k/2) is precomputed in the cache, but the per-element (k/2-1)*log(x)
     // term needs vectorised log(x)): available via Intel SVML or platform-specific
