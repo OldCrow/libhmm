@@ -85,7 +85,7 @@ private:
      */
     mutable double cached_log_scale_{0.0};
 
-    void updateCache() const;
+    void updateCache() const noexcept;
     static void validateParameters(double degrees_of_freedom);
 
 public:

@@ -208,7 +208,8 @@ std::istream &operator>>(std::istream &is, WeibullDistribution &distribution) {
 void WeibullDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                    std::span<double> out) const {
     // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native / /arch:AVX512.
+    // terms under -march=native. Index loop preserved: a std::ranges::transform
+    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
     // Tier 2 upgrade requires both vectorised log(x) and vectorised pow(x, k):
     // inner loop is log(k) - k*log(λ) + (k-1)*log(x) - (x/λ)^k. Available via
     // Intel SVML (_mm512_log_pd + _mm512_pow_pd), but not portably without a

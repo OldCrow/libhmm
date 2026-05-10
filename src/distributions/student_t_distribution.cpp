@@ -87,32 +87,22 @@ double StudentTDistribution::getCumulativeProbability(double value) const noexce
     const double t_squared = t * t;
 
     // Use incomplete beta function I_x(a,b) where x = t²/(ν + t²), a = 1/2, b = ν/2
+    // Note: This is a simplified approximation. A future improvement would use
+    // the regularised incomplete beta function from DistributionBase::gammap.
     double incomplete_beta_val = 0.0;
-    try {
-        // Note: This is a simplified approximation. For production code,
-        // you would use a proper incomplete beta function implementation
-        if (std::abs(t) < 1e-8) {
-            // For very small |t|, use series expansion: CDF ≈ 1/2 + t/(sqrt(π*ν)) + O(t³)
-            incomplete_beta_val =
-                math::HALF + t / std::sqrt(constants::math::PI * degrees_of_freedom_) / math::TWO;
-        } else {
-            // Simplified approximation using erf for moderate degrees of freedom
-            if (degrees_of_freedom_ >= 30.0) {
-                // For large ν, t-distribution approaches normal distribution
-                incomplete_beta_val =
-                    math::HALF * (math::ONE + std::erf(t / constants::math::SQRT_2));
-            } else {
-                // Use a rational approximation for moderate ν
-                const double sqrt_term =
-                    std::sqrt(degrees_of_freedom_ / (degrees_of_freedom_ + t_squared));
-                incomplete_beta_val =
-                    math::HALF * (math::ONE + (t > math::ZERO_DOUBLE ? math::ONE : -math::ONE) *
-                                                  (math::ONE - sqrt_term));
-            }
-        }
-    } catch (...) {
-        // Fallback for numerical issues
-        incomplete_beta_val = (t >= math::ZERO_DOUBLE) ? 0.9 : 0.1;
+    if (std::abs(t) < 1e-8) {
+        // For very small |t|, use series expansion: CDF ≈ 1/2 + t/(sqrt(π·ν)) + O(t³)
+        incomplete_beta_val =
+            math::HALF + t / std::sqrt(constants::math::PI * degrees_of_freedom_) / math::TWO;
+    } else if (degrees_of_freedom_ >= 30.0) {
+        // For large ν the t-distribution converges to N(0,1)
+        incomplete_beta_val = math::HALF * (math::ONE + std::erf(t / constants::math::SQRT_2));
+    } else {
+        // Rational approximation for moderate ν
+        const double sqrt_term = std::sqrt(degrees_of_freedom_ / (degrees_of_freedom_ + t_squared));
+        incomplete_beta_val =
+            math::HALF * (math::ONE + (t > math::ZERO_DOUBLE ? math::ONE : -math::ONE) *
+                                          (math::ONE - sqrt_term));
     }
 
     // Ensure result is in [0,1]
@@ -285,11 +275,10 @@ void StudentTDistribution::validateParameters(double degrees_of_freedom) {
     }
 }
 
-/**
- * Updates cached values for efficient repeated calculations.
- * This method computes and caches expensive values like log-gamma and normalization constants.
- */
-void StudentTDistribution::updateCache() const {
+/// Updates cached values for efficient repeated calculations.
+/// std::lgamma and all arithmetic here are noexcept (C++17 §26.8),
+/// so this method is correctly marked noexcept.
+void StudentTDistribution::updateCache() const noexcept {
     // Cache frequently used fractional values
     cached_half_nu_ = degrees_of_freedom_ * math::HALF;
     cached_half_nu_plus_one_ = cached_half_nu_ + math::HALF;
@@ -298,19 +287,9 @@ void StudentTDistribution::updateCache() const {
     cached_inv_scale_ = math::ONE / scale_;
     cached_log_scale_ = std::log(scale_);
 
-    // Compute log-gamma values for normalization
-    // For Student's t-distribution:
-    // PDF = Γ((ν+1)/2) / (√(νπ) * Γ(ν/2)) * (1 + t²/ν)^(-(ν+1)/2)
     // log(PDF) = log(Γ((ν+1)/2)) - log(Γ(ν/2)) - (1/2)*log(νπ) - (ν+1)/2 * log(1 + t²/ν)
-
-    try {
-        cached_log_gamma_half_nu_plus_one_ = std::lgamma(cached_half_nu_plus_one_);
-        cached_log_gamma_half_nu_ = std::lgamma(cached_half_nu_);
-    } catch (const std::exception &) {
-        // Fallback for extreme values
-        cached_log_gamma_half_nu_plus_one_ = math::ZERO_DOUBLE;
-        cached_log_gamma_half_nu_ = math::ZERO_DOUBLE;
-    }
+    cached_log_gamma_half_nu_plus_one_ = std::lgamma(cached_half_nu_plus_one_);
+    cached_log_gamma_half_nu_ = std::lgamma(cached_half_nu_);
 
     // Pre-compute the log normalization constant:
     // log_normalization = log(Γ((ν+1)/2)) - log(Γ(ν/2)) - (1/2)*log(νπ) - log(σ)

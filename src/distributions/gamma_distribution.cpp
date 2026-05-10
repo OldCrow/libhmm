@@ -212,7 +212,8 @@ bool GammaDistribution::operator==(const GammaDistribution &other) const {
 void GammaDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                  std::span<double> out) const {
     // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native / /arch:AVX512.
+    // terms under -march=native. Index loop preserved: a std::ranges::transform
+    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
     // Tier 2 upgrade requires vectorised log(x): the inner loop contains
     // (k-1)*log(x) - x/θ, which needs a vectorised log — available via Intel SVML,
     // GNU libmvec, or Apple Accelerate vvlog, but not portably without a

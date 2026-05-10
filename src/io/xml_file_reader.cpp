@@ -4,7 +4,7 @@
 
 namespace libhmm {
 
-Hmm XMLFileReader::read(const std::string &filename) {
+Hmm XMLFileReader::read(std::string_view filename) {
     if (filename.empty()) {
         throw std::invalid_argument("Filename cannot be empty");
     }

@@ -149,7 +149,8 @@ std::istream &operator>>(std::istream &is, RayleighDistribution &distribution) {
 void RayleighDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
     // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native / /arch:AVX512.
+    // terms under -march=native. Index loop preserved: a std::ranges::transform
+    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
     // Tier 2 upgrade requires vectorised log(x): inner loop is
     // log(x) - 2*log(σ) + negHalfInvSigmaSquared_*x² — structurally close to
     // Gaussian tier 2 but with an extra log(x) term. Available via Intel SVML,

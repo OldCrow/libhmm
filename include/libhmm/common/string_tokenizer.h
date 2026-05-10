@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <iostream>
 #include <stdexcept>
 
@@ -12,7 +13,7 @@ public:
     /// Constructor with string and optional delimiter
     /// @param s The string to tokenize
     /// @param delim The delimiter characters (default is whitespace)
-    explicit StringTokenizer(const std::string &s, const char *delim = nullptr)
+    explicit StringTokenizer(std::string_view s, const char *delim = nullptr)
         : str_(s), count_(-1), begin_(0), end_(0) {
 
         if (!delim) {
