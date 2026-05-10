@@ -49,6 +49,9 @@ DistributionBase &DistributionBase::operator=(DistributionBase &&other) noexcept
 void DistributionBase::getBatchLogProbabilities(std::span<const double> observations,
                                                 std::span<double> out) const {
     assert(observations.size() == out.size());
+    // Index loop preserved: getLogProbability() is a virtual call whose target
+    // is unknown here. Wrapping it in a std::ranges::transform lambda does not
+    // remove the virtual dispatch; the explicit form makes that visible.
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = getLogProbability(observations[i]);
     }

@@ -28,7 +28,7 @@
  * For large projects or when compilation time is critical, consider including
  * only the specific headers you need instead of this master header.
  *
- * @version 3.5.3
+ * @version 3.5.4
  * @author libhmm development team
  */
 
@@ -72,6 +72,13 @@
 /// JSON serialization/deserialization — the recommended format for new code.
 /// Provides to_json(), from_json(), save_json(), and load_json() free functions.
 #include "libhmm/io/hmm_json.h"
+
+//==============================================================================
+// MODEL SELECTION
+//==============================================================================
+
+/// AIC, BIC, AICc and free-parameter counting for fitted HMMs.
+#include "libhmm/model_selection.h"
 
 /// File I/O utilities and legacy XML serialization (deprecated; retained for
 /// reading existing .xml files).

@@ -233,7 +233,8 @@ std::istream &operator>>(std::istream &is, libhmm::BinomialDistribution &distrib
 void BinomialDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
     // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native / /arch:AVX512.
+    // terms under -march=native. Index loop preserved: a std::ranges::transform
+    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
     // Tier 2 upgrade requires vectorised log-binomial-coefficient (uses lgamma internally):
     // available via Intel SVML or platform-specific math libraries, but not
     // portably available without a dedicated math-library dependency.

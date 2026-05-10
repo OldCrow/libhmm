@@ -58,7 +58,7 @@ if(APPLE AND NOT CMAKE_CXX_COMPILER)
 endif()
 
 project(libhmm
-    VERSION 3.5.3
+    VERSION 3.5.4
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -548,6 +548,7 @@ set(LIBHMM_SOURCES
     src/io/hmm_json.cpp
     src/io/xml_file_reader.cpp
     src/io/xml_file_writer.cpp
+    src/model_selection.cpp
 )
 
 # ── Library targets ───────────────────────────────────────────────────────────
@@ -565,6 +566,37 @@ add_library(hmm_objects OBJECT ${LIBHMM_SOURCES})
 if(MSVC)
     target_compile_options(hmm_objects PRIVATE
         /W4 /permissive- /external:anglebrackets /external:W0)
+endif()
+
+# =============================================================================
+# Probe for std::ranges support.
+#
+# std::ranges entered libc++ in Xcode 13 (macOS 11+). Catalina (Xcode 12 /
+# AppleClang 12) supports std::span but not std::ranges. All other supported
+# platforms (Linux GCC/Clang, Windows MSVC with /std:c++20, modern macOS)
+# have full ranges support. The probe drives LIBHMM_HAS_STD_RANGES so source
+# files can prefer std::ranges:: algorithms while falling back to std::
+# equivalents when the library is absent.
+# =============================================================================
+set(_libhmm_saved_required_flags "${CMAKE_REQUIRED_FLAGS}")
+if(NOT MSVC)
+    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++20")
+endif()
+check_cxx_source_compiles(
+    "#include <algorithm>
+#include <string>
+int main() {
+    std::string s;
+    std::ranges::transform(s, s.begin(), [](unsigned char c) { return c; });
+}"
+    LIBHMM_HAS_STD_RANGES
+)
+set(CMAKE_REQUIRED_FLAGS "${_libhmm_saved_required_flags}")
+if(LIBHMM_HAS_STD_RANGES)
+    target_compile_definitions(hmm_objects PRIVATE LIBHMM_HAS_STD_RANGES)
+    message(STATUS "C++20 std::ranges: available")
+else()
+    message(STATUS "C++20 std::ranges: not available (std::transform fallback active)")
 endif()
 
 # PIC is required for objects that go into the shared library; harmless for static.

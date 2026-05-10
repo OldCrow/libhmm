@@ -103,6 +103,7 @@ public:
     /** Weighted MOM: k̂ = weighted_mean. */
     void fit(std::span<const double> data, std::span<const double> weights) override;
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 1; }
 
     /**
      * Resets the distribution to default parameters (k = 1.0).

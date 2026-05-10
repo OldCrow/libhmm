@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
             std::cout << "[ OK ] Load from JSON\n";
         } else {
             XMLFileReader reader;
-            hmm = reader.read(hmm_path.string());
+            hmm = reader.read(hmm_path);
             std::cout << "[ OK ] Load from XML (legacy format)\n";
         }
     } catch (const std::exception &e) {

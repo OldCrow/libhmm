@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <string>
+#include <string_view>
 #include <fstream>
 #include <stdexcept>
 #include <filesystem>
@@ -40,7 +41,7 @@ public:
      * @throws std::invalid_argument if filename is empty
      * @throws std::runtime_error if file cannot be read or parsed
      */
-    Hmm read(const std::string &filename);
+    Hmm read(std::string_view filename);
 
     /**
      * Reads an HMM from an XML file with filesystem path.

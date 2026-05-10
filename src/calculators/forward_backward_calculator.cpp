@@ -237,6 +237,24 @@ void ForwardBackwardCalculator::computeLogBackwardMaxReduce() {
         });
 }
 
+StateSequence ForwardBackwardCalculator::decodePosterior() const {
+    const std::size_t T = logAlpha_.size1();
+    StateSequence result(T);
+    for (std::size_t t = 0; t < T; ++t) {
+        std::size_t best = 0;
+        double bestScore = logAlpha_(t, 0) + logBeta_(t, 0);
+        for (std::size_t i = 1; i < numStates_; ++i) {
+            const double score = logAlpha_(t, i) + logBeta_(t, i);
+            if (score > bestScore) {
+                bestScore = score;
+                best = i;
+            }
+        }
+        result(t) = static_cast<StateIndex>(best);
+    }
+    return result;
+}
+
 // Numerically stable log(exp(a) + exp(b)).
 double ForwardBackwardCalculator::logSumExp(double a, double b) noexcept {
     if (a == LOG_ZERO) {

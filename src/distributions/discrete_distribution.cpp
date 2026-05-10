@@ -204,6 +204,8 @@ std::ostream &operator<<(std::ostream &os, const libhmm::DiscreteDistribution &d
 void DiscreteDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
     // Tier 1 — concrete non-virtual loop with O(1) cached-table lookup.
+    // Index loop preserved: a std::ranges::transform lambda would inhibit the
+    // compiler's ability to see through the table-lookup pattern.
     // Tier 2 upgrade: SIMD gather instructions (_mm512_i64gather_pd) could batch
     // the index lookups, but the per-element index-validation branch limits
     // vectorization benefit. The cached log-probability table is already optimal

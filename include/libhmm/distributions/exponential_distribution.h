@@ -121,6 +121,7 @@ public:
 
     /** Returns false — Exponential is a continuous distribution. */
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 1; }
 
     /**
      * Resets the distribution to default parameters (λ = 1.0).
