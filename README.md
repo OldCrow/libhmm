@@ -3,8 +3,8 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-3.5.1-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-37%2F37_Passing-success.svg)](tests/)
+[![Version](https://img.shields.io/badge/Version-3.6.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-40%2F40_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
@@ -18,16 +18,36 @@ canonical log-space algorithms, and compile-time SIMD acceleration.
 ### Training Algorithms
 
 - **Baum-Welch** — canonical log-space EM; works with any `EmissionDistribution` via weighted `fit()`
+- **MAP Baum-Welch** — adds symmetric Dirichlet priors on A, π, and discrete emissions; prevents
+  degenerate zero-probability transitions on sparse data. `c = 0` recovers standard MLE exactly.
+  Use `computeLogPrior()` for the correct convergence criterion (likelihood alone is not monotone
+  when `c > 0`).
 - **Viterbi Training** — hard-assignment with `TrainingConfig` presets (`fast`, `balanced`, `precise`)
 - **Segmental K-Means** — for discrete HMMs; useful as initialiser before EM
 
 ### Inference
 
-- **ForwardBackward** — canonical log-space calculator; returns `probability()` and `getLogProbability()`
-- **Viterbi** — canonical log-space decoder; returns the MAP state sequence
+- **ForwardBackward** — canonical log-space calculator; returns `probability()`, `getLogProbability()`,
+  and `decodePosterior()` (per-step argmax-γ decoding, minimising per-step state error rate)
+- **Viterbi** — canonical log-space decoder; returns the MAP joint state sequence
+
+Use `decodePosterior()` when per-step annotation accuracy matters (e.g. gene prediction).
+Use Viterbi when whole-sequence structural coherence is required (e.g. speech alignment).
 
 Both calculators call `getBatchLogProbabilities()` per state per time step, enabling
 SIMD acceleration directly at the distribution layer.
+
+### Model Selection
+
+- `count_free_parameters(hmm)` — free parameters = N*(N-1) transitions + (N-1) initial + sum of emission params
+- `compute_aic(logL, k)`, `compute_bic(logL, k, n)`, `compute_aicc(logL, k, n)` — lower is better
+- `evaluate_model(hmm, logL, n)` — returns `HmmModelCriteria{aic, bic, aicc}` in one call
+
+```cpp
+ForwardBackwardCalculator fbc(hmm, obs);
+HmmModelCriteria mc = evaluate_model(hmm, fbc.getLogProbability(), obs.size());
+std::cout << "AIC: " << mc.aic << "  BIC: " << mc.bic << "\n";
+```
 
 ### Probability Distributions (15)
 
@@ -116,9 +136,27 @@ trainer.train();
 ForwardBackwardCalculator fbc(hmm, obs[0]);
 double log_p = fbc.getLogProbability();
 
-// Decode
+// Decode - two strategies:
 ViterbiCalculator vc(hmm, obs[0]);
-StateSequence path = vc.decode();
+StateSequence map_path      = vc.decode();           // MAP joint path
+StateSequence marginal_path = fbc.decodePosterior(); // per-step argmax-gamma
+```
+
+### MAP Baum-Welch
+
+```cpp
+// c=1 (Laplace smoothing) prevents zero transitions on sparse data.
+MapBaumWelchTrainer map_trainer(&hmm, obs, /*pseudo_count=*/1.0);
+
+double prev = -std::numeric_limits<double>::infinity();
+for (int i = 0; i < 50; ++i) {
+    map_trainer.train();
+    // Correct MAP convergence criterion: logL + log P(lambda|c)
+    double logL   = ForwardBackwardCalculator(hmm, obs[0]).getLogProbability();
+    double mapObj = logL + map_trainer.computeLogPrior();
+    if (mapObj - prev < 1e-6) break;
+    prev = mapObj;
+}
 ```
 
 ### ViterbiTrainer Presets
@@ -145,11 +183,11 @@ libhmm/
 │   ├── distributions/ # Layer 3: 15 distributions + base
 │   ├── hmm.h          # Core HMM class
 │   ├── calculators/   # Layer 4: ForwardBackward, Viterbi
-│   ├── training/      # Layer 4: BaumWelch, Viterbi, SegmentalKMeans
+│   ├── training/      # Layer 4: BaumWelch, MapBaumWelch, Viterbi, SegmentalKMeans
 │   └── io/            # JSON (hmm_json.h) + legacy XML I/O
 ├── src/               # Implementation (mirrors include/)
-├── tests/             # 37-test GTest suite
-├── examples/          # 12 usage demonstrations
+├── tests/             # 40-test GTest suite
+├── examples/          # 15 usage demonstrations
 ├── tools/             # simd_inspection, batch_performance, hmm_validator (.json/.xml)
 ├── samples/           # Reference HMM files (two_state_gaussian, casino) in JSON and XML
 ├── benchmarks/        # Comparative benchmarks (requires external libraries)
@@ -175,6 +213,8 @@ See [examples/](examples/) for demonstrations:
 | `queuing_theory_hmm_example` | Poisson, Exponential, Gamma | Viterbi |
 | `statistical_process_control_hmm_example` | ChiSquared | Viterbi |
 | `swarm_coordination_example` | Discrete (243 symbols) | — |
+| `posterior_decoding_example` | Discrete | ForwardBackward (`decodePosterior` vs Viterbi) |
+| `map_baum_welch_example` | Discrete | MAP Baum-Welch (c=0 vs c=1, MAP convergence table) |
 
 ## Requirements
 
