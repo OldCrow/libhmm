@@ -210,6 +210,7 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_training_edge_cases    training/test_training_edge_cases.cpp)
     add_hmm_test(test_baum_welch_convergence training/test_baum_welch_convergence.cpp)
     add_hmm_test(test_bw_parity              training/test_bw_parity.cpp)
+    add_hmm_test(test_map_baum_welch         training/test_map_baum_welch.cpp)
 
     # =========================================================================
     # IO & Integration

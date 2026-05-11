@@ -541,6 +541,7 @@ set(LIBHMM_SOURCES
     src/calculators/viterbi_calculator.cpp
     # Canonical trainers (Phase 4)
     src/training/baum_welch_trainer.cpp
+    src/training/map_baum_welch_trainer.cpp
     src/training/viterbi_trainer.cpp
     src/training/segmental_kmeans_trainer.cpp
     src/io/file_io_manager.cpp

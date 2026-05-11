@@ -6,9 +6,9 @@ This file provides guidance to Warp (warp.dev) when working in this repository.
 
 ## Current Status
 
-**Version**: v3.5.4 — pending merge on `refactor/cpp20-modernisation`; v3.5.3 is the latest published tag on `main`.
-**Tests**: 39/39 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
-**Active phase**: C++20 modernisation patch (string_view, noexcept, STL algorithms, loop preservation comments). Feature branch `feature/v3.6.0-posterior-model-selection` (posterior decoding, AIC/BIC/AICc, `getNumParameters()`) ready for PR after this lands.
+**Version**: v3.6.0 — pending merge on `feature/v3.6.0-posterior-model-selection`; v3.5.4 is the latest published tag on `main`.
+**Tests**: 40/40 passing on all four CI platforms (Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC).
+**Active phase**: v3.6.0 feature branch complete: `decodePosterior()`, `getNumParameters()` / model selection (AIC/BIC/AICc), `MapBaumWelchTrainer`. Awaiting rebase onto v3.5.4 main and PR.
 
 ---
 
@@ -32,12 +32,13 @@ include/libhmm/
 │   └── viterbi_calculator.h           # Canonical log-space Viterbi
 ├── training/       # Layer 4 — parameter estimation
 │   ├── baum_welch_trainer.h           # Log-space EM; weighted fit()
+│   ├── map_baum_welch_trainer.h       # MAP-EM with Dirichlet priors; computeLogPrior()
 │   ├── viterbi_trainer.h              # Hard-assignment with TrainingConfig presets
 │   └── segmental_kmeans_trainer.h     # Discrete-state initialisation
 └── io/             # XML I/O
 src/                # Implementation (mirrors include/)
 tests/              # GTest suite — semantic groups (see tests/CMakeLists.txt)
-examples/           # 13 usage demonstrations (all canonical API)
+examples/           # 15 usage demonstrations (all canonical API)
 tools/              # Standalone diagnostic/benchmarking executables
 benchmarks/         # Comparative benchmarks
 │   ├── src/        #   libhmm vs HMMLib / LAMP / JAHMM (Windows+Unix)
