@@ -3,6 +3,7 @@
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <algorithm> // For std::max, std::min (exists in common.h, included for clarity)
 #include <numeric>   // For std::accumulate (not in common.h)
+#include <vector>    // For precomputed log arrays used in MLE Newton iterations
 
 using namespace libhmm::constants;
 
@@ -62,59 +63,130 @@ double WeibullDistribution::getLogProbability(double value) const noexcept {
     return logPdf;
 }
 
-static void weibull_mom_fit(double mean, double var, double &k_out, double &lambda_out) {
-    // MOM approximation using coefficient of variation
+namespace {
+
+/// MoM seed for k (coefficient-of-variation approximation).
+void weibull_mom_init(double mean, double var, double &k_out, double &lambda_out) noexcept {
     const double cv = std::sqrt(var) / mean;
     double k_est;
     if (cv < 0.2)
-        k_est = libhmm::constants::math::ONE / (cv * cv * libhmm::constants::math::TEN * 0.6);
-    else if (cv < libhmm::constants::math::ONE)
+        k_est = 1.0 / (cv * cv * 6.0);
+    else if (cv < 1.0)
         k_est = std::pow(1.2 / cv, 1.086);
     else
-        k_est = libhmm::constants::math::ONE / cv;
-    k_est = std::max(libhmm::constants::thresholds::MIN_DISTRIBUTION_PARAMETER,
-                     std::min(k_est, libhmm::constants::thresholds::MAX_DISTRIBUTION_PARAMETER));
-    const double gamma_term =
-        std::exp(std::lgamma(libhmm::constants::math::ONE + libhmm::constants::math::ONE / k_est));
+        k_est = 1.0 / cv;
+    k_est = std::max(thresholds::MIN_DISTRIBUTION_PARAMETER,
+                     std::min(k_est, thresholds::MAX_DISTRIBUTION_PARAMETER));
     k_out = k_est;
-    lambda_out = mean / gamma_term;
+    lambda_out = mean / std::exp(std::lgamma(1.0 + 1.0 / k_est));
 }
 
-void WeibullDistribution::apply_fit_params(double mean, double var) {
-    if (var <= precision::ZERO || mean <= precision::ZERO) {
-        reset();
-        return;
+/// Weibull MLE via Newton–Raphson on the profile score for k.
+///
+/// Profile score: g(k) = E_k[log x] − 1/k − s̄ = 0,
+///   where E_k[·] weights observations by w_i·x_i^k and s̄ = Σw_i log(x_i)/sumW.
+/// Derivative: g'(k) = Var_k[log x] + 1/k² > 0 (monotone, Newton always converges).
+/// After convergence: λ = (Σw_i x_i^k / sumW)^(1/k).
+///
+/// Inputs (valid positive observations only, precomputed log values):
+///   log_x[i]  = log(x_i),  log_x2[i] = (log x_i)²,  w[i] = weight_i.
+///   If w is empty, unit weights are assumed.
+[[nodiscard]] std::pair<double, double> weibull_mle_solve(std::span<const double> log_x,
+                                                          std::span<const double> log_x2,
+                                                          std::span<const double> w, double sumW,
+                                                          double s_bar, double init_k) noexcept {
+    const std::size_t n = log_x.size();
+    const bool unit_w = w.empty();
+    double k = init_k;
+
+    for (int iter = 0; iter < 100; ++iter) {
+        double s0 = 0.0; // Σ w_i x_i^k
+        double s1 = 0.0; // Σ w_i x_i^k log(x_i)
+        double s2 = 0.0; // Σ w_i x_i^k (log x_i)^2
+        for (std::size_t i = 0; i < n; ++i) {
+            const double wxk = (unit_w ? 1.0 : w[i]) * std::exp(k * log_x[i]);
+            s0 += wxk;
+            s1 += wxk * log_x[i];
+            s2 += wxk * log_x2[i];
+        }
+        if (s0 <= 0.0)
+            break;
+
+        const double c1 = s1 / s0;               // E_k[log x]
+        const double var_k = s2 / s0 - c1 * c1;  // Var_k[log x] ≥ 0
+        const double g = c1 - 1.0 / k - s_bar;   // profile score
+        const double gp = var_k + 1.0 / (k * k); // always > 0
+        if (gp <= 0.0)
+            break;
+
+        const double dk = g / gp;
+        k -= dk;
+        if (k <= 0.0)
+            k = 1e-8;
+        if (std::fabs(dk) < 1e-11 * k)
+            break;
     }
-    double k_est, lambda_est;
-    weibull_mom_fit(mean, var, k_est, lambda_est);
-    if (lambda_est > precision::ZERO && lambda_est < thresholds::MAX_DISTRIBUTION_PARAMETER) {
-        k_ = k_est;
-        lambda_ = lambda_est;
-        invalidateCache();
-    } else {
-        reset();
-    }
+
+    // λ = (Σ w_i x_i^k / sumW)^(1/k)
+    double s0f = 0.0;
+    for (std::size_t i = 0; i < n; ++i)
+        s0f += (unit_w ? 1.0 : w[i]) * std::exp(k * log_x[i]);
+    const double lambda = (s0f > 0.0 && sumW > 0.0) ? std::exp(std::log(s0f / sumW) / k) : 1.0;
+    return {k, lambda};
 }
+
+} // anonymous namespace
 
 void WeibullDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();
         return;
     }
-    if (std::any_of(data.begin(), data.end(), [](double v) {
-            return v < math::ZERO_DOUBLE || std::isnan(v) || std::isinf(v);
-        }))
-        throw std::invalid_argument("Weibull fitting requires non-negative values");
-    const auto n = static_cast<double>(data.size());
-    double mean = 0.0, m2 = 0.0;
+
+    std::vector<double> lx, lx2;
+    lx.reserve(data.size());
+    lx2.reserve(data.size());
+
+    double mean = 0.0, M2 = 0.0, sum_log_x = 0.0;
     std::size_t count = 0;
+
     for (const double val : data) {
+        if (val <= 0.0 || !std::isfinite(val))
+            throw std::invalid_argument("Weibull fitting requires strictly positive values");
         ++count;
         const double delta = val - mean;
         mean += delta / static_cast<double>(count);
-        m2 += delta * (val - mean);
+        M2 += delta * (val - mean);
+        const double l = std::log(val);
+        sum_log_x += l;
+        lx.push_back(l);
+        lx2.push_back(l * l);
     }
-    apply_fit_params(mean, m2 / (n - math::ONE));
+
+    if (count < 2) {
+        reset();
+        return;
+    }
+
+    const double n = static_cast<double>(count);
+    const double variance = M2 / (n - 1.0);
+    const double s_bar = sum_log_x / n;
+
+    double k_init = 1.0, lambda_tmp;
+    if (variance > precision::ZERO && mean > precision::ZERO)
+        weibull_mom_init(mean, variance, k_init, lambda_tmp);
+
+    const auto [k, lambda] = weibull_mle_solve(lx, lx2, {}, n, s_bar, k_init);
+
+    if (std::isfinite(k) && std::isfinite(lambda) && k > precision::ZERO &&
+        lambda > precision::ZERO && k < thresholds::MAX_DISTRIBUTION_PARAMETER &&
+        lambda < thresholds::MAX_DISTRIBUTION_PARAMETER) {
+        k_ = k;
+        lambda_ = lambda;
+        invalidateCache();
+    } else {
+        reset();
+    }
 }
 
 void WeibullDistribution::fit(std::span<const double> data, std::span<const double> weights) {
@@ -123,15 +195,53 @@ void WeibullDistribution::fit(std::span<const double> data, std::span<const doub
     // Calling reset() would destroy valid parameters and cause state collapse in EM.
     if (sumW < precision::ZERO || std::isnan(sumW))
         return;
-    double mean = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i)
-        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
-            mean += (weights[i] / sumW) * data[i];
-    double var = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i)
-        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
-            var += weights[i] * (data[i] - mean) * (data[i] - mean);
-    apply_fit_params(mean, var / sumW);
+
+    std::vector<double> lx, lx2, wt;
+    lx.reserve(data.size());
+    lx2.reserve(data.size());
+    wt.reserve(data.size());
+
+    double sum_wx = 0.0, sum_wx2 = 0.0, sum_wlog_x = 0.0, cumW = 0.0;
+
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        const double val = data[i];
+        const double weight = weights[i];
+        if (val <= 0.0 || !std::isfinite(val) || !std::isfinite(weight) || weight <= 0.0)
+            continue;
+        cumW += weight;
+        sum_wx += weight * val;
+        sum_wx2 += weight * val * val;
+        const double l = std::log(val);
+        sum_wlog_x += weight * l;
+        lx.push_back(l);
+        lx2.push_back(l * l);
+        wt.push_back(weight);
+    }
+
+    if (cumW < precision::ZERO || lx.empty()) {
+        reset();
+        return;
+    }
+
+    const double mean = sum_wx / cumW;
+    const double variance = sum_wx2 / cumW - mean * mean;
+    const double s_bar = sum_wlog_x / cumW;
+
+    double k_init = 1.0, lambda_tmp;
+    if (variance > precision::ZERO && mean > precision::ZERO)
+        weibull_mom_init(mean, variance, k_init, lambda_tmp);
+
+    const auto [k, lambda] = weibull_mle_solve(lx, lx2, wt, cumW, s_bar, k_init);
+
+    if (std::isfinite(k) && std::isfinite(lambda) && k > precision::ZERO &&
+        lambda > precision::ZERO && k < thresholds::MAX_DISTRIBUTION_PARAMETER &&
+        lambda < thresholds::MAX_DISTRIBUTION_PARAMETER) {
+        k_ = k;
+        lambda_ = lambda;
+        invalidateCache();
+    } else {
+        reset();
+    }
 }
 
 void WeibullDistribution::reset() noexcept {

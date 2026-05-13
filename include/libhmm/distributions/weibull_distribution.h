@@ -130,15 +130,12 @@ public:
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
 
-    /** MOM fit using coefficient of variation to estimate k, then λ = mean / Γ(1+1/k). */
+    /// MLE fit: Newton–Raphson on the Weibull profile score for k,
+    /// then λ = (Σx_i^k/n)^(1/k); seeded from MoM. Requires all x > 0.
     void fit(std::span<const double> data) override;
-    /** Weighted MOM: same approach using weighted mean and variance. */
+    /// Weighted MLE: same Newton–Raphson system with weighted sums;
+    /// near-zero-weight observations are skipped; near-zero total weight retains current params.
     void fit(std::span<const double> data, std::span<const double> weights) override;
-
-private:
-    /// Validates mean/var and applies MOM estimates via weibull_mom_fit.
-    /// Calls reset() on any failure; otherwise sets k_, lambda_ and invalidates cache.
-    void apply_fit_params(double mean, double var);
 
 public:
     /** Returns false — Weibull is a continuous distribution. */

@@ -1,6 +1,6 @@
 #include "libhmm/distributions/student_t_distribution.h"
 #include "libhmm/io/json_utils.h"
-#include "libhmm/math/special_functions.h"
+#include "libhmm/math/psi_functions.h"
 #include <algorithm>
 #include <limits>
 #include <numeric>

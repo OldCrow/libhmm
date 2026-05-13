@@ -270,16 +270,9 @@ TEST(WeibullDistributionTest, FittingValidation) {
     std::vector<Observation> nanData = {1.0, 2.0, std::numeric_limits<double>::quiet_NaN(), 3.0};
     EXPECT_THROW(weibull.fit(nanData), std::invalid_argument);
 
-    // Test with valid data including zero
+    // Zero is not in the Weibull MLE support (log(0) is undefined).
     std::vector<Observation> zeroData = {0.0, 1.0, 2.0, 3.0};
-    try {
-        weibull.fit(zeroData);
-        // Should work fine, check that parameters are reasonable
-        EXPECT_GT(weibull.getK(), 0.0);
-        EXPECT_GT(weibull.getLambda(), 0.0);
-    } catch (const std::exception &) {
-        // Also acceptable if implementation has specific constraints
-    }
+    EXPECT_THROW(weibull.fit(zeroData), std::invalid_argument);
 }
 
 /**
@@ -531,7 +524,7 @@ TEST(WeibullDistributionTest, PerformanceCharacteristics) {
     EXPECT_LT(log_pdf_time_per_call, 1.0); // Less than 1 μs per log PDF call
     EXPECT_LT(cdf_time_per_call, 1.0);     // Less than 1 μs per CDF call
     EXPECT_LT(fit_time_per_point,
-              0.1); // Less than 0.1 μs per data point for fitting (Welford's is fast)
+              5.0); // MLE is iterative (Newton–Raphson); allow up to 5 μs/point
 }
 
 /**

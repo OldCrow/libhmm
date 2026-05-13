@@ -130,8 +130,11 @@ public:
      */
     double getCumulativeProbability(double value) const noexcept;
 
+    /// MLE fit: Newton–Raphson on ψ(α)−ψ(α+β)=ḡ and ψ(β)−ψ(α+β)=h̄,
+    /// where ḡ=mean(log x) and h̄=mean(log(1−x)); initialised from MoM.
     void fit(std::span<const double> data) override;
-    /** Weighted MOM: α = μ*factor, β = (1-μ)*factor where factor = μ(1-μ)/σ² - 1. */
+    /// Weighted MLE: same Newton–Raphson system with weighted log-means;
+    /// initialised from weighted MoM. Near-zero total weight retains current params.
     void fit(std::span<const double> data, std::span<const double> weights) override;
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
     [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 2; }

@@ -129,8 +129,11 @@ public:
      */
     [[nodiscard]] double getProbability(double value) const override;
 
-    /** Weighted MOM: p̂ = mean/var, r̂ = mean²/(var-mean). Falls back to reset() if variance ≤ mean. */
+    /// MLE fit: Newton–Raphson on the NB profile score for r; p = r/(r+k̄) closed form.
+    /// Falls back to reset() if variance ≤ mean (under-dispersion → NB not appropriate).
     void fit(std::span<const double> data) override;
+    /// Weighted MLE: same Newton–Raphson system with weighted sums;
+    /// near-zero total weight retains current params.
     void fit(std::span<const double> data, std::span<const double> weights) override;
 
     /** Returns true — Negative Binomial is a discrete distribution. */

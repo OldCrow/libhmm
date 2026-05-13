@@ -3,6 +3,8 @@
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <numeric>   // For std::accumulate (not in common.h)
 #include <algorithm> // For std::for_each (exists in common.h, included for clarity)
+#include <vector>    // For collecting valid k-values and weights
+#include "libhmm/math/psi_functions.h" // digamma/trigamma for MLE Newton solver
 
 using namespace libhmm::constants;
 
@@ -44,52 +46,101 @@ double NegativeBinomialDistribution::getProbability(double value) const {
     return std::min(prob, math::ONE);
 }
 
-/**
- * Fits the distribution parameters to the given data using method of moments.
- *
- * For Negative Binomial distribution, the method of moments estimators are:
- * p̂ = mean / variance (if variance > mean)
- * r̂ = mean² / (variance - mean) (if variance > mean)
- *
- * If variance ≤ mean, the negative binomial model is not appropriate
- * (indicates under-dispersion), so we fall back to default parameters.
- *
- * @param values Vector of observed data points
- */
+namespace {
+
+/// Solve NB MLE: Newton–Raphson on the profile score for r; p = r/(r+k̄) is closed form.
+///
+/// Profile score: f(r) = (1/W) Σ w_i [ψ(k_i+r) − ψ(r)] + log r − log(r + k̄) = 0
+/// Derivative:    f'(r) = (1/W) Σ w_i [ψ'(k_i+r) − ψ'(r)] + k̄/(r(r+k̄))
+///
+/// k_vals[i] = round(data[i]) ≥ 0, stored as double.
+/// weights[i] = w_i; empty span → unit weights (sumW = n).
+/// sumW = Σ w_i.  k_bar = Σ w_i k_vals[i] / sumW.
+[[nodiscard]] std::pair<double, double> nb_mle_solve(std::span<const double> k_vals,
+                                                     std::span<const double> weights, double sumW,
+                                                     double k_bar, double init_r) noexcept {
+    const std::size_t n = k_vals.size();
+    const bool unit_w = weights.empty();
+    double r = init_r;
+
+    for (int iter = 0; iter < 200; ++iter) {
+        const double psi_r = detail::digamma(r);
+        const double tpsi_r = detail::trigamma(r);
+
+        double sum_f = 0.0, sum_fp = 0.0;
+        for (std::size_t i = 0; i < n; ++i) {
+            const double w = unit_w ? 1.0 : weights[i];
+            const double kr = k_vals[i] + r;
+            sum_f += w * (detail::digamma(kr) - psi_r);
+            sum_fp += w * (detail::trigamma(kr) - tpsi_r);
+        }
+
+        const double f = sum_f / sumW + std::log(r) - std::log(r + k_bar);
+        const double fp = sum_fp / sumW + k_bar / (r * (r + k_bar));
+        if (std::fabs(fp) < 1e-15)
+            break;
+
+        const double dr = f / fp;
+        r -= dr;
+        if (r <= 0.0)
+            r = 1e-6;
+        if (std::fabs(dr) < 1e-11 * r)
+            break;
+    }
+
+    return {r, r / (r + k_bar)};
+}
+
+} // anonymous namespace
+
 void NegativeBinomialDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();
         return;
     }
-    double mean = 0.0, m2 = 0.0;
+
+    std::vector<double> k_vals;
+    k_vals.reserve(data.size());
+
+    double mean = 0.0, M2 = 0.0;
     std::size_t count = 0;
+
     for (const double val : data) {
         if (val >= 0.0 && std::isfinite(val)) {
+            const double k = std::round(val);
             ++count;
-            const double delta = val - mean;
+            const double delta = k - mean;
             mean += delta / static_cast<double>(count);
-            m2 += delta * (val - mean);
+            M2 += delta * (k - mean);
+            k_vals.push_back(k);
         }
     }
+
     if (count < 2) {
         reset();
         return;
     }
-    const double var = m2 / static_cast<double>(count - 1);
-    if (var <= mean || mean <= math::ZERO_DOUBLE) {
+
+    const double n = static_cast<double>(count);
+    const double var = M2 / (n - 1.0);
+    const double k_bar = mean;
+
+    if (var <= k_bar || k_bar <= math::ZERO_DOUBLE) {
         reset();
         return;
     }
-    const double pHat = mean / var;
-    const double rHat = (mean * mean) / (var - mean);
-    if (!std::isfinite(pHat) || !std::isfinite(rHat) || pHat <= math::ZERO_DOUBLE ||
-        pHat > math::ONE || rHat <= math::ZERO_DOUBLE) {
+
+    const double r_init = (k_bar * k_bar) / (var - k_bar); // MoM seed
+    const auto [r, p] = nb_mle_solve(k_vals, {}, n, k_bar, r_init);
+
+    if (std::isfinite(r) && std::isfinite(p) && r > precision::ZERO && p > precision::ZERO &&
+        p <= math::ONE) {
+        r_ = r;
+        p_ = p;
+        invalidateCache();
+    } else {
         reset();
-        return;
     }
-    p_ = pHat;
-    r_ = rHat;
-    invalidateCache();
 }
 
 void NegativeBinomialDistribution::fit(std::span<const double> data,
@@ -99,31 +150,50 @@ void NegativeBinomialDistribution::fit(std::span<const double> data,
     // Calling reset() would destroy valid parameters and cause state collapse in EM.
     if (sumW < precision::ZERO || std::isnan(sumW))
         return;
-    double mean = 0.0, cumW = 0.0;
+
+    std::vector<double> k_vals, wt;
+    k_vals.reserve(data.size());
+    wt.reserve(data.size());
+
+    double sum_wk = 0.0, sum_wk2 = 0.0, cumW = 0.0;
+
     for (std::size_t i = 0; i < data.size(); ++i) {
-        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0) {
-            cumW += weights[i];
-            mean += (weights[i] / cumW) * (data[i] - mean);
-        }
+        const double val = data[i];
+        const double weight = weights[i];
+        if (val < 0.0 || !std::isfinite(val) || !std::isfinite(weight) || weight <= 0.0)
+            continue;
+        const double k = std::round(val);
+        cumW += weight;
+        sum_wk += weight * k;
+        sum_wk2 += weight * k * k;
+        k_vals.push_back(k);
+        wt.push_back(weight);
     }
-    double var = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i)
-        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0)
-            var += weights[i] * (data[i] - mean) * (data[i] - mean);
-    var /= sumW;
-    if (var <= mean || mean <= math::ZERO_DOUBLE) {
+
+    if (cumW < precision::ZERO || k_vals.empty()) {
         reset();
         return;
     }
-    const double pHat = mean / var, rHat = (mean * mean) / (var - mean);
-    if (!std::isfinite(pHat) || !std::isfinite(rHat) || pHat <= math::ZERO_DOUBLE ||
-        pHat > math::ONE || rHat <= math::ZERO_DOUBLE) {
+
+    const double k_bar = sum_wk / cumW;
+    const double var = sum_wk2 / cumW - k_bar * k_bar;
+
+    if (var <= k_bar || k_bar <= math::ZERO_DOUBLE) {
         reset();
         return;
     }
-    p_ = pHat;
-    r_ = rHat;
-    invalidateCache();
+
+    const double r_init = (k_bar * k_bar) / (var - k_bar); // MoM seed
+    const auto [r, p] = nb_mle_solve(k_vals, wt, cumW, k_bar, r_init);
+
+    if (std::isfinite(r) && std::isfinite(p) && r > precision::ZERO && p > precision::ZERO &&
+        p <= math::ONE) {
+        r_ = r;
+        p_ = p;
+        invalidateCache();
+    } else {
+        reset();
+    }
 }
 
 /**

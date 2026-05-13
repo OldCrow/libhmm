@@ -1,6 +1,9 @@
 #include "libhmm/distributions/beta_distribution.h"
 #include "libhmm/io/json_utils.h"
+#include "libhmm/math/psi_functions.h"
 #include "libhmm/math/weighted_stats.h"
+#include <algorithm>
+#include <numeric>
 #include <span>
 
 using namespace libhmm::constants;
@@ -131,53 +134,96 @@ double BetaDistribution::getLogProbability(double value) const noexcept {
     return alphaMinus1_ * std::log(value) + betaMinus1_ * std::log(1.0 - value) - logBeta_;
 }
 
+namespace {
+
+[[nodiscard]] std::pair<double, double> beta_mle_solve(double mean_log_x,
+                                                       double mean_log_one_minus_x,
+                                                       double init_alpha,
+                                                       double init_beta) noexcept {
+    double alpha = init_alpha;
+    double beta = init_beta;
+
+    for (int iter = 0; iter < 200; ++iter) {
+        const double psi_sum = detail::digamma(alpha + beta);
+        const double trigamma_sum = detail::trigamma(alpha + beta);
+
+        const double grad_alpha = detail::digamma(alpha) - psi_sum - mean_log_x;
+        const double grad_beta = detail::digamma(beta) - psi_sum - mean_log_one_minus_x;
+        const double h_alpha = detail::trigamma(alpha) - trigamma_sum;
+        const double h_beta = detail::trigamma(beta) - trigamma_sum;
+
+        if (h_alpha <= 0.0 || h_beta <= 0.0)
+            break;
+
+        const double next_alpha = std::max(alpha - grad_alpha / h_alpha, 1e-10);
+        const double next_beta = std::max(beta - grad_beta / h_beta, 1e-10);
+        const double delta = std::fabs(next_alpha - alpha) + std::fabs(next_beta - beta);
+
+        alpha = next_alpha;
+        beta = next_beta;
+
+        if (delta < 1e-10 * (alpha + beta))
+            break;
+    }
+
+    return {alpha, beta};
+}
+
+} // anonymous namespace
+
 void BetaDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();
         return;
     }
-    double mean = 0.0, M2 = 0.0;
+
+    double mean = 0.0;
+    double M2 = 0.0;
+    double sum_log_x = 0.0;
+    double sum_log_one_minus_x = 0.0;
     std::size_t count = 0;
+
     for (const double val : data) {
         if (val < 0.0 || val > 1.0 || std::isnan(val) || std::isinf(val))
             throw std::invalid_argument(
                 "Beta distribution fitting requires all values to be in [0,1]");
+
         ++count;
         const double delta = val - mean;
         mean += delta / static_cast<double>(count);
         M2 += delta * (val - mean);
+
+        const double clamped = std::clamp(val, 1e-15, 1.0 - 1e-15);
+        sum_log_x += std::log(clamped);
+        sum_log_one_minus_x += std::log(1.0 - clamped);
     }
+
     if (count < 2) {
         reset();
         return;
     }
-    const double variance = M2 / static_cast<double>(count - 1);
 
-    // Method of moments estimators with cached constants
-    // α = μ * (μ(1-μ)/σ² - 1), β = (1-μ) * (μ(1-μ)/σ² - 1)
-
-    // Avoid division by zero and ensure valid parameters
+    const double n = static_cast<double>(count);
+    const double variance = M2 / (n - 1.0);
     if (variance <= precision::ZERO || mean <= precision::ZERO || mean >= math::ONE) {
         reset();
         return;
     }
 
-    const double oneMinusMean = math::ONE - mean;
-    const double factor = mean * oneMinusMean / variance - math::ONE;
+    const double factor = mean * (math::ONE - mean) / variance - math::ONE;
     if (factor <= precision::ZERO) {
         reset();
         return;
     }
 
-    const double newAlpha = mean * factor;
-    const double newBeta = oneMinusMean * factor;
+    const auto [new_alpha, new_beta] = beta_mle_solve(sum_log_x / n, sum_log_one_minus_x / n,
+                                                      mean * factor, (math::ONE - mean) * factor);
 
-    // Ensure parameters are positive and reasonable using constants
-    if (newAlpha > precision::ZERO && newBeta > precision::ZERO &&
-        newAlpha < thresholds::MAX_DISTRIBUTION_PARAMETER &&
-        newBeta < thresholds::MAX_DISTRIBUTION_PARAMETER) {
-        alpha_ = newAlpha;
-        beta_ = newBeta;
+    if (std::isfinite(new_alpha) && std::isfinite(new_beta) && new_alpha > precision::ZERO &&
+        new_beta > precision::ZERO && new_alpha < thresholds::MAX_DISTRIBUTION_PARAMETER &&
+        new_beta < thresholds::MAX_DISTRIBUTION_PARAMETER) {
+        alpha_ = new_alpha;
+        beta_ = new_beta;
         invalidateCache();
     } else {
         reset();
@@ -185,26 +231,60 @@ void BetaDistribution::fit(std::span<const double> data) {
 }
 
 void BetaDistribution::fit(std::span<const double> data, std::span<const double> weights) {
-    const auto stats = detail::compute_weighted_stats(data, weights);
-    // Guard: near-zero weight → keep current parameters (not reset).
-    if (!stats)
+    const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
+    // Guard: near-zero total weight → keep current parameters (not reset).
+    if (sumW < precision::ZERO || std::isnan(sumW))
         return;
-    const double mean = stats->mean;
-    const double var = stats->variance;
-    if (var <= precision::ZERO || mean <= precision::ZERO || mean >= math::ONE) {
+
+    double sum_wx = 0.0;
+    double sum_wx2 = 0.0;
+    double sum_wlog_x = 0.0;
+    double sum_wlog_one_minus_x = 0.0;
+    double cumW = 0.0;
+
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        const double value = data[i];
+        const double weight = weights[i];
+        if (!std::isfinite(value) || value < 0.0 || value > 1.0 || !std::isfinite(weight) ||
+            weight <= 0.0) {
+            continue;
+        }
+
+        cumW += weight;
+        sum_wx += weight * value;
+        sum_wx2 += weight * value * value;
+
+        const double clamped = std::clamp(value, 1e-15, 1.0 - 1e-15);
+        sum_wlog_x += weight * std::log(clamped);
+        sum_wlog_one_minus_x += weight * std::log(1.0 - clamped);
+    }
+
+    if (cumW < precision::ZERO) {
         reset();
         return;
     }
-    const double factor = mean * (math::ONE - mean) / var - math::ONE;
+
+    const double mean = sum_wx / cumW;
+    const double variance = sum_wx2 / cumW - mean * mean;
+    if (variance <= precision::ZERO || mean <= precision::ZERO || mean >= math::ONE) {
+        reset();
+        return;
+    }
+
+    const double factor = mean * (math::ONE - mean) / variance - math::ONE;
     if (factor <= precision::ZERO) {
         reset();
         return;
     }
-    const double newAlpha = mean * factor, newBeta = (math::ONE - mean) * factor;
-    if (newAlpha > 0.0 && newBeta > 0.0 && newAlpha < thresholds::MAX_DISTRIBUTION_PARAMETER &&
-        newBeta < thresholds::MAX_DISTRIBUTION_PARAMETER) {
-        alpha_ = newAlpha;
-        beta_ = newBeta;
+
+    const auto [new_alpha, new_beta] = beta_mle_solve(
+        sum_wlog_x / cumW, sum_wlog_one_minus_x / cumW, mean * factor, (math::ONE - mean) * factor);
+
+    if (std::isfinite(new_alpha) && std::isfinite(new_beta) && new_alpha > precision::ZERO &&
+        new_beta > precision::ZERO && new_alpha < thresholds::MAX_DISTRIBUTION_PARAMETER &&
+        new_beta < thresholds::MAX_DISTRIBUTION_PARAMETER) {
+        alpha_ = new_alpha;
+        beta_ = new_beta;
         invalidateCache();
     } else {
         reset();
