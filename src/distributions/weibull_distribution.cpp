@@ -172,9 +172,11 @@ void WeibullDistribution::fit(std::span<const double> data) {
     const double variance = M2 / (n - 1.0);
     const double s_bar = sum_log_x / n;
 
-    double k_init = 1.0, lambda_tmp;
-    if (variance > precision::ZERO && mean > precision::ZERO)
+    double k_init = 1.0;
+    if (variance > precision::ZERO && mean > precision::ZERO) {
+        double lambda_tmp;
         weibull_mom_init(mean, variance, k_init, lambda_tmp);
+    }
 
     const auto [k, lambda] = weibull_mle_solve(lx, lx2, {}, n, s_bar, k_init);
 
@@ -227,9 +229,11 @@ void WeibullDistribution::fit(std::span<const double> data, std::span<const doub
     const double variance = sum_wx2 / cumW - mean * mean;
     const double s_bar = sum_wlog_x / cumW;
 
-    double k_init = 1.0, lambda_tmp;
-    if (variance > precision::ZERO && mean > precision::ZERO)
+    double k_init = 1.0;
+    if (variance > precision::ZERO && mean > precision::ZERO) {
+        double lambda_tmp;
         weibull_mom_init(mean, variance, k_init, lambda_tmp);
+    }
 
     const auto [k, lambda] = weibull_mle_solve(lx, lx2, wt, cumW, s_bar, k_init);
 
