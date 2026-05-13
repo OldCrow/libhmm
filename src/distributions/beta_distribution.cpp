@@ -186,10 +186,9 @@ void BetaDistribution::fit(std::span<const double> data) {
 
 void BetaDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     const auto stats = detail::compute_weighted_stats(data, weights);
-    if (!stats) {
-        reset();
+    // Guard: near-zero weight → keep current parameters (not reset).
+    if (!stats)
         return;
-    }
     const double mean = stats->mean;
     const double var = stats->variance;
     if (var <= precision::ZERO || mean <= precision::ZERO || mean >= math::ONE) {

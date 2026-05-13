@@ -84,10 +84,9 @@ void PoissonDistribution::fit(std::span<const double> data) {
 void PoissonDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     // Weighted MLE: λ = weighted mean
     const auto mean = detail::compute_weighted_mean(data, weights);
-    if (!mean) {
-        reset();
+    // Guard: near-zero weight → keep current parameters (not reset).
+    if (!mean)
         return;
-    }
     lambda_ = std::max(*mean, precision::ZERO);
     invalidateCache();
 }

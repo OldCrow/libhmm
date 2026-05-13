@@ -106,10 +106,9 @@ void ChiSquaredDistribution::fit(std::span<const double> data) {
 
 void ChiSquaredDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     const auto mean = detail::compute_weighted_mean(data, weights);
-    if (!mean) {
-        reset();
+    // Guard: near-zero weight → keep current parameters (not reset).
+    if (!mean)
         return;
-    }
     double est = std::max(MIN_DEGREES_OF_FREEDOM, std::min(MAX_DEGREES_OF_FREEDOM, *mean));
     setDegreesOfFreedom(est);
 }

@@ -117,10 +117,9 @@ void UniformDistribution::fit(std::span<const double> data, std::span<const doub
     // For Uniform(a,b): mean = (a+b)/2, var = (b-a)²/12.
     // Solve: half_range = √(3*var), a = mean - half_range, b = mean + half_range.
     const auto stats = detail::compute_weighted_stats(data, weights);
-    if (!stats) {
-        reset();
+    // Guard: near-zero weight → keep current parameters (not reset).
+    if (!stats)
         return;
-    }
     const double halfRange = std::sqrt(3.0 * stats->variance);
     if (halfRange < thresholds::MIN_DISTRIBUTION_PARAMETER || !std::isfinite(halfRange)) {
         reset();

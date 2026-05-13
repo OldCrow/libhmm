@@ -117,7 +117,10 @@ void ExponentialDistribution::fit(std::span<const double> data) {
 void ExponentialDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     // Weighted MLE: λ = 1 / weighted_mean
     const auto mean = detail::compute_weighted_mean(data, weights);
-    if (!mean || *mean <= 0.0 || !std::isfinite(*mean)) {
+    // Guard: near-zero weight → keep current parameters (not reset).
+    if (!mean)
+        return;
+    if (*mean <= 0.0 || !std::isfinite(*mean)) {
         reset();
         return;
     }
