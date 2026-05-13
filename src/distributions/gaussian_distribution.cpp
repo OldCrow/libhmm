@@ -109,8 +109,8 @@ void GaussianDistribution::fit(std::span<const double> data) {
     }
 
     mean_ = mean;
-    // Sample variance with Bessel's correction (N-1)
-    double sd = std::sqrt(m2 / (static_cast<double>(count) - 1.0));
+    // MLE variance: biased N denominator, not N-1, for true log-likelihood maximisation.
+    double sd = std::sqrt(m2 / static_cast<double>(count));
     if (sd <= 0.0 || std::isnan(sd) || std::isinf(sd) || sd < precision::MIN_STD_DEV) {
         sd = precision::MIN_STD_DEV;
     }

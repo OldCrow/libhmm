@@ -115,7 +115,8 @@ void LogNormalDistribution::fit(std::span<const double> data) {
         invalidateCache();
         return;
     }
-    const double stddev = std::sqrt(M2 / static_cast<double>(count - 1));
+    // MLE variance: biased N denominator, not N-1, for true log-likelihood maximisation.
+    const double stddev = std::sqrt(M2 / static_cast<double>(count));
     if (!std::isfinite(mean) || !std::isfinite(stddev) || stddev <= precision::ZERO) {
         reset();
         return;
