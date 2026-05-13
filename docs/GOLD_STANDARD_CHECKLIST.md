@@ -209,4 +209,4 @@ All numeric literals are replaced with named constants from `libhmm::constants`.
 
 ---
 
-*Last updated: 2026-05-13 (v3.1 — 16 distributions complete, fit quality survey, EM state-collapse fix)*
+*Last updated: 2026-05-13 (libhmm v3.6.0 current; VonMisesDistribution and EM fixes targeting v3.7.0)*

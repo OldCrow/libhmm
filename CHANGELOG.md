@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Planned as **v3.7.0**. 41/41 tests pass.
+
+### Added
+
+- **`VonMisesDistribution`** (`include/libhmm/distributions/von_mises_distribution.h`):
+  16th distribution. Circular/directional data; the canonical emission for turning angles
+  in animal movement HMMs. Weighted MLE via atan2 (μ) and Mardia-Jupp + Newton (κ).
+- **`include/libhmm/math/bessel.h`**: portable `bessel_i0`, `bessel_i1`, `log_bessel_i0`.
+  Tier 1: `std::cyl_bessel_i` (C++17, GCC/MSVC). Tier 2 fallback (AppleClang/Catalina):
+  Abramowitz & Stegun §9.8.1–9.8.4 polynomial approximations.
+- **`LIBHMM_HAS_CXX17_BESSEL` CMake probe** (`check_cxx_source_compiles`).
+- **`examples/elk_movement_example.cpp`**: joint Gamma + von Mises HMM on 4 elk GPS
+  tracks (Morales et al. 2004). Benchmarks vs moveHMM R package: ~290 ms vs ~2000 ms.
+- **`examples/dax_regime_example.cpp`**: 3-state Student-t HMM on DAX log-returns
+  2000–2022. Benchmarks vs fHMM R package: < 2 s vs ~1360 s.
+- **`scripts/prepare_elk_data.R`**, **`scripts/prepare_dax_data.R`**: data prep scripts.
+
+### Fixed
+
+- **EM state collapse in all 16 distributions** (`fit(data, weights)` M-step): near-zero
+  Baum-Welch weight previously triggered `reset()`, destroying parameters and permanently
+  eliminating the state from the model. Now returns early, preserving current params.
+- **`StudentTDistribution::fit(data, weights)`**: `scale_` was never updated (stayed at
+  initial value); ν estimator used `var > 1.0` guard (always false for log-returns). Both
+  fixed: scale from corrected weighted std dev; ν from excess kurtosis of residuals.
+
+### Changed
+
+- Distribution count 15 → 16. `GOLD_STANDARD_CHECKLIST.md` updated with Fit Quality
+  Survey (Tier A/B/C classification for all 16 distributions, five improvement items).
+- Documentation: README use-case framing, CROSS_PLATFORM Catalina build-type constraint,
+  TESTING_STRATEGY test count, examples/README missing entries, BENCHMARKING_RESULTS
+  stale SIMD and performance-context sections.
+
+## [3.6.0] - 2026-05-11
+
+Posterior decoding, model selection, and MAP Baum-Welch. 40/40 tests pass.
+
+### Added
+
+- **`decodePosterior()`** in `ForwardBackwardCalculator`: per-step argmax-γ decoding
+  minimising per-step state error rate. Use when per-step annotation accuracy matters
+  more than whole-sequence coherence (e.g. gene prediction, sequence annotation).
+- **`getNumParameters(hmm)`** free function: counts free parameters—N(N−1) transitions +
+  (N−1) initial + sum of per-state emission parameters.
+- **Model selection** (`include/libhmm/model_selection.h`):
+  `compute_aic(logL, k)`, `compute_bic(logL, k, n)`, `compute_aicc(logL, k, n)`;
+  `evaluate_model(hmm, logL, n)` — returns `HmmModelCriteria{aic, bic, aicc}` in one call.
+- **`MapBaumWelchTrainer`** (`include/libhmm/training/map_baum_welch_trainer.h`):
+  MAP-EM with symmetric Dirichlet priors on A, π, and discrete emissions.
+  `computeLogPrior()` gives the correct MAP convergence criterion; `c = 0` recovers
+  standard MLE exactly.
+- `posterior_decoding_example`, `map_baum_welch_example` (see `examples/`).
+
 ## [3.5.4] - 2026-05-10
 
 C++20 modernisation patch: correctness fixes and idiomatic improvements. 39/39 tests pass.
