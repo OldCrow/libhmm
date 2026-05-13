@@ -28,7 +28,7 @@
  * For large projects or when compilation time is critical, consider including
  * only the specific headers you need instead of this master header.
  *
- * @version 3.5.4
+ * @version 3.7.0
  * @author libhmm development team
  */
 
@@ -98,7 +98,7 @@
  * provided by the Hidden Markov Model library. Key components include:
  *
  * - **Core Classes**: Hmm, ObservationSet, StateSequence
- * - **Distributions**: 15 probability distributions for discrete and continuous data
+ * - **Distributions**: 16 probability distributions for discrete and continuous data
  * - **Calculators**: Forward-Backward and Viterbi algorithms with SIMD optimization
  * - **Trainers**: Baum-Welch, Viterbi, and clustering-based parameter estimation
  * - **I/O**: XML file reading/writing and general file management
