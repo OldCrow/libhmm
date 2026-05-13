@@ -83,6 +83,12 @@ add_hmm_example(posterior_decoding_example posterior_decoding_example.cpp)
 # MAP-EM Baum-Welch with Dirichlet priors
 add_hmm_example(map_baum_welch_example map_baum_welch_example.cpp)
 
+# Real-world ecology benchmark: elk movement vs moveHMM (R)
+add_hmm_example(elk_movement_example elk_movement_example.cpp)
+
+# Real-world finance benchmark: DAX regime detection vs fHMM (R)
+add_hmm_example(dax_regime_example dax_regime_example.cpp)
+
 # Install all examples
 install(TARGETS
     basic_hmm_example
@@ -100,5 +106,7 @@ install(TARGETS
     swarm_coordination_example
     posterior_decoding_example
     map_baum_welch_example
+    elk_movement_example
+    dax_regime_example
     RUNTIME DESTINATION bin/examples
 )

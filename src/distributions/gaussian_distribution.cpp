@@ -128,10 +128,10 @@ void GaussianDistribution::fit(std::span<const double> data, std::span<const dou
         return s;
     }();
 
-    if (sumW < precision::ZERO || std::isnan(sumW)) {
-        reset();
+    // Guard: keep current parameters when effective weight is near zero.
+    // Calling reset() would destroy valid parameters and cause state collapse in EM.
+    if (sumW < precision::ZERO || std::isnan(sumW))
         return;
-    }
 
     // Weighted Welford for numerical stability
     double mean = 0.0;

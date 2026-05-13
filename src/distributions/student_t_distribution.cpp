@@ -159,10 +159,11 @@ void StudentTDistribution::fit(std::span<const double> data) {
 
 void StudentTDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
-    if (sumW < precision::ZERO || std::isnan(sumW)) {
-        reset();
+    // Guard: if the state has negligible effective weight, keep current parameters.
+    // Calling reset() here would destroy valid parameters and cause state collapse.
+    // The EM will naturally reduce the state’s responsibility next iteration.
+    if (sumW < precision::ZERO || std::isnan(sumW))
         return;
-    }
 
     // Pass 1: weighted mean and variance (Welford online)
     double mean = 0.0, m2 = 0.0, cumW = 0.0;
@@ -173,10 +174,10 @@ void StudentTDistribution::fit(std::span<const double> data, std::span<const dou
         m2 += weights[i] * delta * (data[i] - mean);
     }
     const double var = m2 / sumW;
-    if (!std::isfinite(var) || var <= 0.0) {
-        reset();
+    // Guard: degenerate variance (state assigned near-zero responsibility).
+    // Keep current parameters rather than resetting to defaults.
+    if (!std::isfinite(var) || var <= 0.0)
         return;
-    }
 
     location_ = mean;
     // Scale: Var[X] = σ²·ν/(ν-2); correct for current ν estimate.

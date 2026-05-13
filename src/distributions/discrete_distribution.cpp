@@ -60,10 +60,10 @@ void DiscreteDistribution::fit(std::span<const double> data) {
 void DiscreteDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     // Weighted empirical probabilities: P(X=k) = Σ(w_i for x_i=k) / Σ(w_i)
     const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
-    if (sumW < precision::ZERO || std::isnan(sumW)) {
-        reset();
+    // Guard: keep current parameters when effective weight is near zero.
+    // Calling reset() would destroy valid parameters and cause state collapse in EM.
+    if (sumW < precision::ZERO || std::isnan(sumW))
         return;
-    }
 
     std::fill(pdf_.begin(), pdf_.end(), 0.0);
     for (std::size_t i = 0; i < data.size(); ++i) {

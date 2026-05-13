@@ -133,10 +133,10 @@ void GammaDistribution::fit(std::span<const double> data) {
 
 void GammaDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
-    if (sumW < precision::ZERO || std::isnan(sumW)) {
-        reset();
+    // Guard: keep current parameters when effective weight is near zero.
+    // Calling reset() would destroy valid parameters and cause state collapse in EM.
+    if (sumW < precision::ZERO || std::isnan(sumW))
         return;
-    }
     double mean = 0.0, m2 = 0.0, cumW = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
         if (data[i] > 0.0 && std::isfinite(data[i]) && weights[i] > 0.0) {
