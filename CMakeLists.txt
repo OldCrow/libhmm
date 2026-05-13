@@ -488,6 +488,7 @@ set(LIBHMM_SIMD_SOURCES
     src/distributions/student_t_distribution.cpp
     src/distributions/uniform_distribution.cpp
     src/distributions/weibull_distribution.cpp
+    src/distributions/von_mises_distribution.cpp
 )
 
 # Additional TUs that include simd_kernels_internal.h or transcendental_kernels.h
@@ -536,6 +537,7 @@ set(LIBHMM_SOURCES
     src/distributions/negative_binomial_distribution.cpp
     src/distributions/student_t_distribution.cpp
     src/distributions/chi_squared_distribution.cpp
+    src/distributions/von_mises_distribution.cpp
     # Canonical calculators (Phase 3)
     src/calculators/forward_backward_calculator.cpp
     src/calculators/viterbi_calculator.cpp
@@ -598,6 +600,29 @@ if(LIBHMM_HAS_STD_RANGES)
     message(STATUS "C++20 std::ranges: available")
 else()
     message(STATUS "C++20 std::ranges: not available (std::transform fallback active)")
+endif()
+
+# =============================================================================
+# Probe for C++17 std::cyl_bessel_i (modified Bessel function of the first kind).
+#
+# Available on GCC 6.1+ and MSVC 2017 15.5+. NOT available on AppleClang/libc++
+# as of Xcode 15 — Apple's libc++ has not implemented the C++17 special math
+# functions. When absent, VonMisesDistribution falls back to the Abramowitz &
+# Stegun §9.8.1-9.8.4 polynomial approximations in include/libhmm/math/bessel.h.
+# =============================================================================
+check_cxx_source_compiles(
+    "#include <cmath>
+int main() {
+    double r = std::cyl_bessel_i(0.0, 1.0);
+    return r > 0.0 ? 0 : 1;
+}"
+    LIBHMM_HAS_CXX17_BESSEL
+)
+if(LIBHMM_HAS_CXX17_BESSEL)
+    target_compile_definitions(hmm_objects PRIVATE LIBHMM_HAS_CXX17_BESSEL)
+    message(STATUS "C++17 std::cyl_bessel_i: available")
+else()
+    message(STATUS "C++17 std::cyl_bessel_i: not available (A&S polynomial fallback active)")
 endif()
 
 # PIC is required for objects that go into the shared library; harmless for static.

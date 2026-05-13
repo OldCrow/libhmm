@@ -55,6 +55,7 @@ const std::unordered_map<std::string, FactoryFn> kFactory = {
     {"Discrete", &DiscreteDistribution::from_json},
     {"Uniform", &UniformDistribution::from_json},
     {"Rayleigh", &RayleighDistribution::from_json},
+    {"VonMises", &VonMisesDistribution::from_json},
 };
 
 /// Parse one distribution object: reader is positioned before the '{'.

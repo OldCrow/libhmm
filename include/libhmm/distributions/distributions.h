@@ -47,6 +47,7 @@
 #include "libhmm/distributions/rayleigh_distribution.h"
 #include "libhmm/distributions/student_t_distribution.h"
 #include "libhmm/distributions/chi_squared_distribution.h"
+#include "libhmm/distributions/von_mises_distribution.h"
 
 /**
  * @namespace libhmm
@@ -77,13 +78,13 @@
 namespace libhmm {
 namespace detail {
 /// Total number of concrete distribution types (excluding base classes)
-inline constexpr std::size_t DISTRIBUTION_COUNT = 15;
+inline constexpr std::size_t DISTRIBUTION_COUNT = 16;
 
 /// Number of discrete distribution types
 inline constexpr std::size_t DISCRETE_DISTRIBUTION_COUNT = 4;
 
 /// Number of continuous distribution types
-inline constexpr std::size_t CONTINUOUS_DISTRIBUTION_COUNT = 11;
+inline constexpr std::size_t CONTINUOUS_DISTRIBUTION_COUNT = 12;
 
 static_assert(DISCRETE_DISTRIBUTION_COUNT + CONTINUOUS_DISTRIBUTION_COUNT == DISTRIBUTION_COUNT,
               "Distribution counts must be consistent");
