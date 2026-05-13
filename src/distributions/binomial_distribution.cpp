@@ -50,15 +50,18 @@ double BinomialDistribution::getProbability(double value) const {
 }
 
 /**
- * Fits the distribution parameters to the given data using maximum likelihood estimation.
+ * Fits p (exact MLE) and estimates n from data.
  *
- * For Binomial distribution with known n, the MLE of p is:
- * p̂ = sample_mean / n
+ * Given n, the MLE for p is exact: p̂ = k̄ / n.
  *
- * If n is unknown, we estimate it as the maximum observed value, then fit p.
- * This is a common approach when the number of trials is not known a priori.
+ * n cannot be estimated via MLE in closed form when unknown: the joint MLE
+ * for (n, p) is not guaranteed to exist — the profile likelihood in n is
+ * non-decreasing for many datasets, giving no finite maximum. The maximum
+ * observed value is used as a lower bound (the smallest n consistent with
+ * all observations) and keeps p̂ ∈ [0,1]. In EM this is acceptable: n is
+ * effectively fixed between steps and only p is re-estimated.
  *
- * @param values Vector of observed data points
+ * @param data Observed non-negative integer counts.
  */
 void BinomialDistribution::fit(std::span<const double> data) {
     if (data.empty()) {
