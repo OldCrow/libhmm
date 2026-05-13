@@ -114,6 +114,8 @@ void StudentTDistribution::fit(std::span<const double> data) {
         reset();
         return;
     }
+
+    // Pass 1: mean and variance (Welford online)
     double mean = 0.0, M2 = 0.0;
     std::size_t count = 0;
     for (const double val : data) {
@@ -122,26 +124,37 @@ void StudentTDistribution::fit(std::span<const double> data) {
         ++count;
         const double delta = val - mean;
         mean += delta / static_cast<double>(count);
-        double delta2 = val - mean;
-        M2 += delta * delta2;
+        M2 += delta * (val - mean);
+    }
+    const double var = (count > 1) ? M2 / static_cast<double>(count - 1) : 0.0;
+    if (!std::isfinite(var) || var <= 0.0) {
+        reset();
+        return;
     }
 
-    double variance = (count > 1.0) ? M2 / (count - 1.0) : 0.0;
+    location_ = mean;
+    // Scale correction: Var[X] = σ²·ν/(ν-2); use current ν for the first correction.
+    const double dof = degrees_of_freedom_;
+    const double corr = (dof > 2.0) ? std::sqrt((dof - 2.0) / dof) : 1.0;
+    scale_ = std::sqrt(var) * corr;
 
-    // Estimate degrees of freedom using method of moments
-    if (variance > 1.0) {
-        double estimated_df = 2.0 * variance / (variance - 1.0);
-
-        // Clamp to reasonable bounds
-        estimated_df =
+    // Pass 2: excess kurtosis of standardised residuals to estimate ν.
+    // For t(ν): excess kurtosis = 6/(ν−4) (ν>4); ν = 6/κ + 4.
+    double m4 = 0.0;
+    for (const double val : data) {
+        const double z = (val - mean) / scale_;
+        m4 += z * z * z * z;
+    }
+    const double kurt4 = m4 / static_cast<double>(count); // E[z⁴]
+    // Excess kurtosis γ₂ = E[z⁴] − 3 (valid when ν>4; otherwise data is lighter-tailed)
+    if (kurt4 > 3.01) {
+        const double nu_est = 6.0 / (kurt4 - 3.0) + 4.0;
+        degrees_of_freedom_ =
             std::max(constants::thresholds::MIN_DEGREES_OF_FREEDOM,
-                     std::min(constants::thresholds::MAX_DEGREES_OF_FREEDOM, estimated_df));
-
-        setDegreesOfFreedom(estimated_df);
-    } else {
-        // Variance too small for reliable estimation
-        setDegreesOfFreedom(3.0); // Default reasonable value
+                     std::min(constants::thresholds::MAX_DEGREES_OF_FREEDOM, nu_est));
     }
+    // else: lighter than normal tails; keep current ν (high value → near-Gaussian)
+    invalidateCache();
 }
 
 void StudentTDistribution::fit(std::span<const double> data, std::span<const double> weights) {
@@ -150,6 +163,8 @@ void StudentTDistribution::fit(std::span<const double> data, std::span<const dou
         reset();
         return;
     }
+
+    // Pass 1: weighted mean and variance (Welford online)
     double mean = 0.0, m2 = 0.0, cumW = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
         cumW += weights[i];
@@ -157,15 +172,35 @@ void StudentTDistribution::fit(std::span<const double> data, std::span<const dou
         mean += (weights[i] / cumW) * delta;
         m2 += weights[i] * delta * (data[i] - mean);
     }
-    location_ = mean;
     const double var = m2 / sumW;
-    if (var > 1.0) {
-        double est = std::max(MIN_DEGREES_OF_FREEDOM,
-                              std::min(MAX_DEGREES_OF_FREEDOM, 2.0 * var / (var - 1.0)));
-        setDegreesOfFreedom(est);
-    } else {
-        setDegreesOfFreedom(3.0);
+    if (!std::isfinite(var) || var <= 0.0) {
+        reset();
+        return;
     }
+
+    location_ = mean;
+    // Scale: Var[X] = σ²·ν/(ν-2); correct for current ν estimate.
+    const double dof = degrees_of_freedom_;
+    const double corr = (dof > 2.0) ? std::sqrt((dof - 2.0) / dof) : 1.0;
+    const double scale_est = std::sqrt(var) * corr;
+    if (std::isfinite(scale_est) && scale_est > 0.0)
+        scale_ = scale_est;
+
+    // Pass 2: weighted excess kurtosis of standardised residuals → ν estimate.
+    double m4 = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        if (weights[i] > 0.0 && scale_ > 0.0) {
+            const double z = (data[i] - mean) / scale_;
+            m4 += weights[i] * z * z * z * z;
+        }
+    }
+    const double kurt4 = m4 / sumW; // weighted E[z⁴]
+    if (kurt4 > 3.01) {
+        const double nu_est = 6.0 / (kurt4 - 3.0) + 4.0;
+        degrees_of_freedom_ =
+            std::max(MIN_DEGREES_OF_FREEDOM, std::min(MAX_DEGREES_OF_FREEDOM, nu_est));
+    }
+    invalidateCache();
 }
 
 void StudentTDistribution::reset() noexcept {
