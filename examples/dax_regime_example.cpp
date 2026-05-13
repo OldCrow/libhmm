@@ -181,22 +181,60 @@ int main(int argc, char *argv[]) {
     std::cout << std::setprecision(4) << std::fixed;
     std::cout << std::setw(8) << 0 << std::setw(16) << prev_ll << "  (initial)\n";
 
+    // Snapshot/restore helpers for best-LL tracking.
+    struct HmmSnapshot {
+        std::array<double, 3> nu, mu, sigma;
+        Matrix A;
+        Vector pi;
+    };
+    auto take_snapshot = [&]() {
+        HmmSnapshot s;
+        s.A = hmm.getTrans();
+        s.pi = hmm.getPi();
+        for (int i = 0; i < 3; ++i) {
+            const auto &d = std_t(hmm, i);
+            s.nu[i] = d.getDegreesOfFreedom();
+            s.mu[i] = d.getLocation();
+            s.sigma[i] = d.getScale();
+        }
+        return s;
+    };
+    auto apply_snapshot = [&](const HmmSnapshot &s) {
+        hmm.setTrans(s.A);
+        hmm.setPi(s.pi);
+        for (int i = 0; i < 3; ++i)
+            hmm.setDistribution(
+                i, std::make_unique<StudentTDistribution>(s.nu[i], s.mu[i], s.sigma[i]));
+    };
+
+    HmmSnapshot best_snapshot = take_snapshot();
+    double best_ll = prev_ll;
+
     int converged_at = -1;
     for (int iter = 1; iter <= 200; ++iter) {
         trainer.train();
         const double ll = total_loglik(hmm, obs);
         const double delta = ll - prev_ll;
+        if (ll > best_ll) {
+            best_ll = ll;
+            best_snapshot = take_snapshot();
+        }
         std::cout << std::setw(8) << iter << std::setw(16) << ll << std::setw(12) << delta;
-        if (iter > 1 && std::fabs(delta) < 1e-4) {
+        // Convergence requires a small non-negative delta: EM must be monotone.
+        if (iter > 1 && delta >= -1e-8 && delta < 1e-4) {
             std::cout << "  <- converged";
             if (converged_at < 0)
                 converged_at = iter;
+        } else if (delta < -1e-6) {
+            std::cout << "  [LL decreased \u2014 non-monotone M-step]";
         }
         std::cout << "\n";
         if (converged_at > 0 && iter >= converged_at + 2)
             break;
         prev_ll = ll;
     }
+    // Restore best parameters found during training.
+    apply_snapshot(best_snapshot);
 
     const double wall_s =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - t_start).count();

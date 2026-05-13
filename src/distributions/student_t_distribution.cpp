@@ -1,5 +1,6 @@
 #include "libhmm/distributions/student_t_distribution.h"
 #include "libhmm/io/json_utils.h"
+#include "libhmm/math/special_functions.h"
 #include <algorithm>
 #include <limits>
 #include <numeric>
@@ -115,92 +116,147 @@ void StudentTDistribution::fit(std::span<const double> data) {
         return;
     }
 
-    // Pass 1: mean and variance (Welford online)
-    double mean = 0.0, M2 = 0.0;
-    std::size_t count = 0;
+    const double nu = degrees_of_freedom_;
+    const double mu = location_;
+    const double sig = scale_;
+    const double n = static_cast<double>(data.size());
+
+    // ECME E-step: e_i = (ν+1) / (ν + z_i²) with current (μ, σ, ν).
+    // Sufficient statistics for all three CM-steps — one pass.
+    //
+    // For the ν CM-step we need mean[E[log U_i]] where U_i|x_i ~ Gamma((ν+1)/2, (ν+z_i²)/2):
+    //   E[log U_i] = ψ((ν+1)/2) − log((ν+z_i²)/2)
+    // We accumulate sum_logz = Σ log((ν+z_i²)/2); the ψ term is constant over i.
+    // NOTE: log(e_i) ≠ E[log U_i] — Jensen's inequality makes log(E[U]) ≥ E[log U],
+    // so using log(e_i) drives ν → ∞ unconditionally.
+    double sum_e = 0.0, sum_ex = 0.0, sum_exx = 0.0, sum_logz = 0.0;
     for (const double val : data) {
         if (!std::isfinite(val))
             throw std::invalid_argument("Observations contain non-finite values");
-        ++count;
-        const double delta = val - mean;
-        mean += delta / static_cast<double>(count);
-        M2 += delta * (val - mean);
+        const double z = (val - mu) / sig;
+        const double zz = z * z;
+        const double e = (nu + 1.0) / (nu + zz);
+        sum_e += e;
+        sum_ex += e * val;
+        sum_exx += e * val * val;
+        sum_logz += std::log(0.5 * (nu + zz)); // log((ν+z²)/2)
     }
-    const double var = (count > 1) ? M2 / static_cast<double>(count - 1) : 0.0;
-    if (!std::isfinite(var) || var <= 0.0) {
+    if (sum_e < precision::ZERO) {
         reset();
         return;
     }
 
-    location_ = mean;
-    // Scale correction: Var[X] = σ²·ν/(ν-2); use current ν for the first correction.
-    const double dof = degrees_of_freedom_;
-    const double corr = (dof > 2.0) ? std::sqrt((dof - 2.0) / dof) : 1.0;
-    scale_ = std::sqrt(var) * corr;
+    // CM-step 1: μ (WLS with weights e_i)
+    const double mu_new = sum_ex / sum_e;
 
-    // Pass 2: excess kurtosis of standardised residuals to estimate ν.
-    // For t(ν): excess kurtosis = 6/(ν−4) (ν>4); ν = 6/κ + 4.
-    double m4 = 0.0;
-    for (const double val : data) {
-        const double z = (val - mean) / scale_;
-        m4 += z * z * z * z;
+    // CM-step 2: σ (König–Huygens; denominator is n not sum_e)
+    const double sig2_new = (sum_exx - sum_ex * sum_ex / sum_e) / n;
+    if (!std::isfinite(sig2_new) || sig2_new <= 0.0) {
+        reset();
+        return;
     }
-    const double kurt4 = m4 / static_cast<double>(count); // E[z⁴]
-    // Excess kurtosis γ₂ = E[z⁴] − 3 (valid when ν>4; otherwise data is lighter-tailed)
-    if (kurt4 > 3.01) {
-        const double nu_est = 6.0 / (kurt4 - 3.0) + 4.0;
-        degrees_of_freedom_ =
-            std::max(constants::thresholds::MIN_DEGREES_OF_FREEDOM,
-                     std::min(constants::thresholds::MAX_DEGREES_OF_FREEDOM, nu_est));
+    const double sig_new = std::sqrt(sig2_new);
+
+    // CM-step 3: ν via Newton–Raphson on the ECM score equation:
+    // f(ν) = log(ν/2) + 1 − ψ(ν/2) + c = 0
+    // c = mean[E[log U_i]] − mean[e_i]
+    //   = ψ((ν_old+1)/2) − mean[log((ν_old+z_i²)/2)] − mean[e_i]
+    // f'(ν) = 1/ν − (1/2) ψ'(ν/2)
+    const double c = detail::digamma(0.5 * (nu + 1.0)) - sum_logz / n - sum_e / n;
+    double nu_new = nu;
+    for (int i = 0; i < 30; ++i) {
+        const double half_nu = 0.5 * nu_new;
+        const double f = std::log(half_nu) + 1.0 - detail::digamma(half_nu) + c;
+        const double fp = 1.0 / nu_new - 0.5 * detail::trigamma(half_nu);
+        if (std::fabs(fp) < 1e-15)
+            break;
+        const double dnu = f / fp;
+        nu_new -= dnu;
+        if (nu_new <= 0.0)
+            nu_new = 0.1;
+        if (std::fabs(dnu) < 1e-10 * nu_new)
+            break;
     }
-    // else: lighter than normal tails; keep current ν (high value → near-Gaussian)
+    nu_new = std::clamp(nu_new, constants::thresholds::MIN_DEGREES_OF_FREEDOM,
+                        constants::thresholds::MAX_DEGREES_OF_FREEDOM);
+
+    location_ = mu_new;
+    scale_ = sig_new;
+    degrees_of_freedom_ = nu_new;
     invalidateCache();
 }
 
 void StudentTDistribution::fit(std::span<const double> data, std::span<const double> weights) {
     const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
-    // Guard: if the state has negligible effective weight, keep current parameters.
-    // Calling reset() here would destroy valid parameters and cause state collapse.
-    // The EM will naturally reduce the state’s responsibility next iteration.
+    // Guard: keep current parameters when effective weight is near zero.
+    // Resetting would destroy valid parameters and cause state collapse in EM.
     if (sumW < precision::ZERO || std::isnan(sumW))
         return;
 
-    // Pass 1: weighted mean and variance (Welford online)
-    double mean = 0.0, m2 = 0.0, cumW = 0.0;
+    const double nu = degrees_of_freedom_;
+    const double mu = location_;
+    const double sig = scale_;
+
+    // ECME E-step: e_i = (ν+1) / (ν + z_i²) with current (μ, σ, ν).
+    // Sufficient statistics for all three CM-steps — one pass.
+    //
+    // For the ν CM-step we need mean_w[E[log U_i]] where U_i|x_i ~ Gamma((ν+1)/2, (ν+z_i²)/2):
+    //   E[log U_i] = ψ((ν+1)/2) − log((ν+z_i²)/2)
+    // We accumulate sum_wlogz = Σ w_i·log((ν+z_i²)/2); the ψ term is constant over i.
+    // NOTE: log(e_i) ≠ E[log U_i] — Jensen's inequality makes log(E[U]) ≥ E[log U],
+    // so using log(e_i) would make c ≤ −1 always, driving ν → ∞ unconditionally.
+    double sum_we = 0.0, sum_wex = 0.0, sum_wexx = 0.0, sum_wlogz = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
-        cumW += weights[i];
-        const double delta = data[i] - mean;
-        mean += (weights[i] / cumW) * delta;
-        m2 += weights[i] * delta * (data[i] - mean);
+        const double w = weights[i];
+        if (w <= 0.0 || !std::isfinite(data[i]))
+            continue;
+        const double z = (data[i] - mu) / sig;
+        const double zz = z * z;
+        const double e = (nu + 1.0) / (nu + zz);
+        const double we = w * e;
+        sum_we += we;
+        sum_wex += we * data[i];
+        sum_wexx += we * data[i] * data[i];
+        sum_wlogz += w * std::log(0.5 * (nu + zz)); // log((ν+z²)/2)
     }
-    const double var = m2 / sumW;
-    // Guard: degenerate variance (state assigned near-zero responsibility).
-    // Keep current parameters rather than resetting to defaults.
-    if (!std::isfinite(var) || var <= 0.0)
+    if (sum_we < precision::ZERO)
         return;
 
-    location_ = mean;
-    // Scale: Var[X] = σ²·ν/(ν-2); correct for current ν estimate.
-    const double dof = degrees_of_freedom_;
-    const double corr = (dof > 2.0) ? std::sqrt((dof - 2.0) / dof) : 1.0;
-    const double scale_est = std::sqrt(var) * corr;
-    if (std::isfinite(scale_est) && scale_est > 0.0)
-        scale_ = scale_est;
+    // CM-step 1: μ (WLS with combined weights w_i · e_i)
+    const double mu_new = sum_wex / sum_we;
 
-    // Pass 2: weighted excess kurtosis of standardised residuals → ν estimate.
-    double m4 = 0.0;
-    for (std::size_t i = 0; i < data.size(); ++i) {
-        if (weights[i] > 0.0 && scale_ > 0.0) {
-            const double z = (data[i] - mean) / scale_;
-            m4 += weights[i] * z * z * z * z;
-        }
+    // CM-step 2: σ (König–Huygens; denominator is sumW not sum_we)
+    const double sig2_new = (sum_wexx - sum_wex * sum_wex / sum_we) / sumW;
+    if (!std::isfinite(sig2_new) || sig2_new <= 0.0)
+        return;
+    const double sig_new = std::sqrt(sig2_new);
+
+    // CM-step 3: ν via Newton–Raphson on the ECM score equation:
+    // f(ν) = log(ν/2) + 1 − ψ(ν/2) + c = 0
+    // c = mean_w[E[log U_i]] − mean_w[e_i]
+    //   = ψ((ν_old+1)/2) − mean_w[log((ν_old+z_i²)/2)] − mean_w[e_i]
+    // f'(ν) = 1/ν − (1/2) ψ'(ν/2)
+    const double c = detail::digamma(0.5 * (nu + 1.0)) - sum_wlogz / sumW - sum_we / sumW;
+    double nu_new = nu;
+    for (int i = 0; i < 30; ++i) {
+        const double half_nu = 0.5 * nu_new;
+        const double f = std::log(half_nu) + 1.0 - detail::digamma(half_nu) + c;
+        const double fp = 1.0 / nu_new - 0.5 * detail::trigamma(half_nu);
+        if (std::fabs(fp) < 1e-15)
+            break;
+        const double dnu = f / fp;
+        nu_new -= dnu;
+        if (nu_new <= 0.0)
+            nu_new = 0.1;
+        if (std::fabs(dnu) < 1e-10 * nu_new)
+            break;
     }
-    const double kurt4 = m4 / sumW; // weighted E[z⁴]
-    if (kurt4 > 3.01) {
-        const double nu_est = 6.0 / (kurt4 - 3.0) + 4.0;
-        degrees_of_freedom_ =
-            std::max(MIN_DEGREES_OF_FREEDOM, std::min(MAX_DEGREES_OF_FREEDOM, nu_est));
-    }
+    nu_new = std::clamp(nu_new, constants::thresholds::MIN_DEGREES_OF_FREEDOM,
+                        constants::thresholds::MAX_DEGREES_OF_FREEDOM);
+
+    location_ = mu_new;
+    scale_ = sig_new;
+    degrees_of_freedom_ = nu_new;
     invalidateCache();
 }
 

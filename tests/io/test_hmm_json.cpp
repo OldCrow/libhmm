@@ -342,7 +342,7 @@ TEST(JsonReader, ConsumeAtEofThrows) {
 
 TEST(JsonReader, PeekAtEofThrows) {
     Reader r("");
-    EXPECT_THROW(r.peek(), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(r.peek()), std::runtime_error);
 }
 
 TEST(JsonReader, ReadStringValid) {
@@ -352,7 +352,7 @@ TEST(JsonReader, ReadStringValid) {
 
 TEST(JsonReader, ReadStringUnterminatedThrows) {
     Reader r("\"unterminated");
-    EXPECT_THROW(r.read_string(), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(r.read_string()), std::runtime_error);
 }
 
 TEST(JsonReader, ReadDoubleValid) {
@@ -362,12 +362,12 @@ TEST(JsonReader, ReadDoubleValid) {
 
 TEST(JsonReader, ReadDoubleNonNumericThrows) {
     Reader r("abc");
-    EXPECT_THROW(r.read_double(), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(r.read_double()), std::runtime_error);
 }
 
 TEST(JsonReader, ReadDoubleAtEofThrows) {
     Reader r("");
-    EXPECT_THROW(r.read_double(), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(r.read_double()), std::runtime_error);
 }
 
 TEST(JsonReader, ReadDoubleArrayValid) {
@@ -388,7 +388,7 @@ TEST(JsonReader, ReadDoubleArrayEmptyArray) {
 TEST(JsonReader, ReadDoubleArraySizeCapThrows) {
     // Array has 3 elements but max_elements=2.
     Reader r("[1.0, 2.0, 3.0]");
-    EXPECT_THROW(r.read_double_array(2), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(r.read_double_array(2)), std::runtime_error);
 }
 
 TEST(JsonReader, WriteDoubleRoundTrip) {
