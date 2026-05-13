@@ -1,6 +1,6 @@
 # libhmm Examples
 
-This directory contains 13 comprehensive examples demonstrating real-world applications of Hidden Markov Models using the libhmm library. Each example showcases different probability distributions and modeling scenarios, covering major application domains from finance to manufacturing.
+This directory contains 15 examples demonstrating real-world applications of Hidden Markov Models using the libhmm library. Each example showcases different probability distributions and modeling scenarios, covering major application domains from ecology to robotics.
 
 ## Building Examples
 
@@ -22,6 +22,8 @@ cmake --build build --config Release
 ./build/examples/Release/queuing_theory_hmm_example
 ./build/examples/Release/statistical_process_control_hmm_example
 ./build/examples/Release/swarm_coordination_example
+./build/examples/Release/posterior_decoding_example
+./build/examples/Release/map_baum_welch_example
 ```
 
 ## Example Overview
@@ -36,7 +38,35 @@ cmake --build build --config Release
 - Classic "Occasionally Dishonest Casino" example
 - Multiple distribution demonstrations
 - Forward-backward algorithm comparisons
-- Modern C++17 coding patterns
+- Modern C++20 coding patterns
+
+---
+
+### 📈 [baum_welch_example.cpp](baum_welch_example.cpp)
+**Topic**: Baum-Welch EM training
+**Distributions**: Gaussian
+**Concepts**: EM iterations, log-likelihood monotonic improvement, parameter recovery
+**Use Case**: Learning the primary HMM training algorithm
+
+**Key Features:**
+- Trains a 2-state Gaussian HMM on synthetic two-cluster data with deliberately offset initial parameters
+- Prints log-likelihood at each iteration, verifying EM's monotonic improvement guarantee
+- Parameter recovery: learned means converge toward true values of 0 and 5
+- Direct comparison with Viterbi training on the same data and same initial model
+
+---
+
+### ⚙️ [viterbi_trainer_example.cpp](viterbi_trainer_example.cpp)
+**Topic**: ViterbiTrainer with TrainingConfig presets
+**Distributions**: Gaussian, Discrete
+**Concepts**: Hard-assignment EM, `fast`/`balanced`/`precise` presets, custom `TrainingConfig`
+**Use Case**: When hard-assignment training is preferred over soft-assignment Baum-Welch
+
+**Key Features:**
+- Demonstrates all three built-in presets side-by-side on the same 3-state model
+- Custom `TrainingConfig` with tight tolerance and large iteration budget
+- Convergence and max-iterations flags reported after each run
+- Brief introduction to `SegmentalKMeansTrainer` as a discrete HMM initialiser
 
 ---
 
@@ -216,6 +246,55 @@ cmake --build build --config Release
 - Categorical quality attribute analysis
 - Process capability studies
 - Six Sigma quality improvement projects
+
+---
+
+### 🔍 [posterior_decoding_example.cpp](posterior_decoding_example.cpp)
+**Topic**: Posterior decoding vs Viterbi
+**Distributions**: Discrete (casino HMM)
+**Concepts**: `decodePosterior()` vs `decode()`, per-step vs joint optimality, model selection
+**Use Case**: Choosing the right decoding strategy for your application
+
+**Key Features:**
+- Side-by-side comparison of posterior and Viterbi decoding on the dishonest casino sequence
+- Annotates time steps where the two strategies disagree and explains why
+- `evaluate_model()` computes AIC / BIC / AICc in one call after forward-backward
+
+**When to use each:**
+- `decodePosterior()` — minimises per-step error rate; use for gene prediction, sequence annotation
+- `ViterbiCalculator::decode()` — globally coherent path; use for speech alignment, segmentation
+
+---
+
+### 🎲 [map_baum_welch_example.cpp](map_baum_welch_example.cpp)
+**Topic**: MAP Baum-Welch with Dirichlet priors
+**Distributions**: Discrete (casino HMM)
+**Concepts**: Laplace smoothing, MAP objective, convergence with priors
+**Use Case**: Training on sparse data where MLE produces zero-probability transitions
+
+**Key Features:**
+- Contrasts `c = 0` (standard MLE, identical to `BaumWelchTrainer`) with `c = 1` (Laplace smoothing)
+- Prints log-likelihood, log-prior, and full MAP objective at each iteration
+- Demonstrates that with `c > 0`, log-likelihood alone is *not* monotone — use `logL + computeLogPrior()` as the convergence criterion
+- Dirichlet priors apply to transitions, π, and discrete emissions; continuous distributions always use MLE
+
+---
+
+### 🤖 [swarm_coordination_example.cpp](swarm_coordination_example.cpp)
+**Topic**: Autonomous drone swarm coordination
+**Distributions**: Discrete (243 symbols)
+**Concepts**: Encoding multi-dimensional observations into a single discrete symbol, 8-state mission model
+**Use Case**: Robotics, autonomous systems, multi-agent mission state management
+
+**Key Features:**
+- 8-state formation model (STANDBY → TAKEOFF → CRUISE → FORMATION_TIGHT → SEARCH_PATTERN → EVASIVE → RTB → EMERGENCY)
+- Encodes five sensor channels (altitude, speed, threat level, formation quality, comms) into 243-symbol observation space
+- Domain-informed transition matrix design with mission-logical probabilities
+
+**Applications:**
+- Autonomous drone swarm coordination
+- Multi-robot formation control
+- Mission state management and fault detection
 
 ---
 
