@@ -5,3 +5,4 @@
 #include "libhmm/training/map_baum_welch_trainer.h"
 #include "libhmm/training/viterbi_trainer.h"
 #include "libhmm/training/segmental_kmeans_trainer.h"
+#include "libhmm/training/model_selection.h"

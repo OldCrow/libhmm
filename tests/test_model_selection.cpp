@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "libhmm/model_selection.h"
+#include "libhmm/training/model_selection.h"
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/discrete_distribution.h"
 #include "libhmm/distributions/gaussian_distribution.h"

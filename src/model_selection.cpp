@@ -1,4 +1,4 @@
-#include "libhmm/model_selection.h"
+#include "libhmm/training/model_selection.h"
 #include <cmath>
 #include <limits>
 
