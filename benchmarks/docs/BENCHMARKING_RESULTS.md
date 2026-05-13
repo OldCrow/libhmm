@@ -272,23 +272,34 @@ All libraries successfully processed sequences up to 1,000,000 observations with
 
 ### Performance Context
 
-libhmm's performance should be evaluated in context:
+libhmm's performance should be evaluated in context. The figures below are from the
+historical benchmark snapshot; the April 2026 consolidated table shows materially
+higher throughput (~7,000–14,000 obs/ms for libhmm depending on target) following
+codebase modernisation and benchmark harness updates.
 
-- **1,045 observations/ms** means processing 1 million observations in ~1 second
+- **Historical baseline**: ~1,045 observations/ms
+- **April 2026 baseline**: ~7,000–14,000 observations/ms (see consolidated table)
 - For most practical applications, this performance is more than adequate
-- The ~20x speed difference with top performers matters primarily for:
+- The speed gap with top performers matters primarily for:
   - High-frequency real-time applications
   - Massive batch processing workflows
   - Training on extremely large datasets
 
 ### Future Development
 
-The benchmarking reveals optimization opportunities for libhmm:
+SIMD acceleration was substantially completed in v3: tier-2 explicit intrinsics
+cover Gaussian, Exponential, LogNormal, and Pareto distributions; transcendental
+recurrence kernels (FB max-reduce, BW xi) use AVX-512 → AVX2 → SSE2 → NEON cascades;
+remaining distributions use auto-vectorization-friendly loops. The primary remaining
+optimization opportunity is:
 
-1. **SIMD optimizations**: Further vectorization could improve performance
-2. **Memory layout**: Cache-friendly data structures could reduce overhead
-3. **Algorithm variants**: Additional specialized calculators could be beneficial
-4. **Parallel processing**: Multi-threading support for very large sequences
+1. **Parallel processing**: Baum-Welch M-step accumulation across multiple training
+   sequences is embarrassingly parallel; a threading model would require an explicit
+   determinism story and per-kernel scoping (see `performance/PERFORMANCE_ARCHITECTURE.md`)
+2. **Multi-dimensional emissions**: libhmm currently supports univariate distributions
+   only; multivariate Gaussian would open HTK-class use cases
+3. **Memory layout**: Cache-line-aligned per-state emission buffers in the FB inner
+   loop could reduce strided-access overhead for large state counts
 
 ## Technical Notes
 
