@@ -5,9 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.7.0] - 2026-05-13
 
-Planned as **v3.7.0**. 41/41 tests pass.
+Emission distribution MLE overhaul. 41/41 tests pass.
 
 ### Added
 
@@ -30,8 +30,28 @@ Planned as **v3.7.0**. 41/41 tests pass.
   Baum-Welch weight previously triggered `reset()`, destroying parameters and permanently
   eliminating the state from the model. Now returns early, preserving current params.
 - **`StudentTDistribution::fit(data, weights)`**: `scale_` was never updated (stayed at
-  initial value); ν estimator used `var > 1.0` guard (always false for log-returns). Both
-  fixed: scale from corrected weighted std dev; ν from excess kurtosis of residuals.
+  initial value); ν estimator used `var > 1.0` guard (always false for log-returns). Fixed:
+  scale from corrected weighted standard deviation; ν from ECME (weighted kurtosis of
+  scale-normalised residuals via digamma/trigamma Newton iterations). Restores monotone
+  log-likelihood on the DAX example.
+- **`GammaDistribution::fit()`**: MoM → exact weighted MLE. Newton–Raphson solves
+  `log k − ψ(k) = log x̄ − Ē[log x]` for k (Cheng & Feast 1979 initialisation);
+  θ = x̄/k in closed form. Both weighted and unweighted overloads updated.
+- **`VonMisesDistribution` κ estimation**: Newton–Raphson iteration replaces the
+  Mardia-Jupp ratio approximation, fixing convergence for near-uniform (small κ)
+  and highly concentrated (large κ) data.
+- **`BetaDistribution::fit()`**: MoM → MLE via Newton–Raphson on `ψ(α)−ψ(α+β)=ḡ`
+  and `ψ(β)−ψ(α+β)=h̄` (weighted log-means), MoM-seeded. Both overloads updated.
+- **`WeibullDistribution::fit()`**: MoM → profile MLE. Newton–Raphson on
+  `g(k) = E_k[log x] − 1/k − s̄ = 0`; λ = (Σwᵢxᵢᵏ/W)^(1/k) closed form. Requires
+  strictly positive data (throws `std::invalid_argument` for x ≤ 0).
+  Removes `apply_fit_params()` private helper.
+- **`NegativeBinomialDistribution::fit()`**: MoM → profile MLE. Newton–Raphson on
+  `(1/W)Σwᵢ[ψ(kᵢ+r) − ψ(r)] + log r − log(r + k̄) = 0`; p = r/(r + k̄) closed form.
+- **`GaussianDistribution::fit(data)`** and **`LogNormalDistribution::fit(data)`**:
+  sample variance (N−1 denominator) replaced with MLE variance (N denominator),
+  making both unweighted overloads consistent with their weighted counterparts and
+  correct for Baum-Welch monotonicity.
 
 ### Changed
 
@@ -40,6 +60,14 @@ Planned as **v3.7.0**. 41/41 tests pass.
 - Documentation: README use-case framing, CROSS_PLATFORM Catalina build-type constraint,
   TESTING_STRATEGY test count, examples/README missing entries, BENCHMARKING_RESULTS
   stale SIMD and performance-context sections.
+- `include/libhmm/math/special_functions.h` renamed to `psi_functions.h`; content
+  restricted to digamma (ψ) and trigamma (ψ') functions. `bessel.h` remains separate.
+- **`BinomialDistribution::fit()`** docstring: removes misleading "MLE" label. p̂ = k̄/n
+  is exact MLE (given n); n is not estimable via MLE in closed form — the profile
+  likelihood in n is non-decreasing for many datasets. Max-observed lower bound preserved.
+- Weibull fit test: `FittingValidation` zero-data case now `EXPECT_THROW` (log(0) is
+  undefined for MLE); `PerformanceCharacteristics` fit timing threshold relaxed from 0.1
+  to 5.0 µs/point for iterative Newton–Raphson.
 
 ## [3.6.0] - 2026-05-11
 

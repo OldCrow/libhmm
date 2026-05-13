@@ -3,8 +3,8 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-3.6.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-40%2F40_Passing-success.svg)](tests/)
+[![Version](https://img.shields.io/badge/Version-3.7.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-41%2F41_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
@@ -63,13 +63,13 @@ HmmModelCriteria mc = evaluate_model(hmm, fbc.getLogProbability(), obs.size());
 std::cout << "AIC: " << mc.aic << "  BIC: " << mc.bic << "\n";
 ```
 
-### Probability Distributions (15)
+### Probability Distributions (16)
 
 **Discrete:** `DiscreteDistribution`, `BinomialDistribution`, `NegativeBinomialDistribution`, `PoissonDistribution`
 
 **Continuous:** `GaussianDistribution`, `ExponentialDistribution`, `GammaDistribution`, `LogNormalDistribution`,
 `BetaDistribution`, `UniformDistribution`, `WeibullDistribution`, `ParetoDistribution`,
-`RayleighDistribution`, `StudentTDistribution`, `ChiSquaredDistribution`
+`RayleighDistribution`, `StudentTDistribution`, `ChiSquaredDistribution`, `VonMisesDistribution`
 
 All distributions implement `getBatchLogProbabilities()` for SIMD-accelerated batch evaluation.
 `GaussianDistribution` and `ExponentialDistribution` have explicit AVX-512/AVX2/SSE2/NEON intrinsics (tier 2);
@@ -194,14 +194,14 @@ libhmm/
 │   ├── platform/      # Layer 0: SIMD detection
 │   ├── math/          # Layer 1: constants, log-space, numerics
 │   ├── linalg/        # Layer 2: Matrix, Vector types
-│   ├── distributions/ # Layer 3: 15 distributions + base
+│   ├── distributions/ # Layer 3: 16 distributions + base
 │   ├── hmm.h          # Core HMM class
 │   ├── calculators/   # Layer 4: ForwardBackward, Viterbi
 │   ├── training/      # Layer 4: BaumWelch, MapBaumWelch, Viterbi, SegmentalKMeans
 │   └── io/            # JSON (hmm_json.h) + legacy XML I/O
 ├── src/               # Implementation (mirrors include/)
-├── tests/             # 40-test GTest suite
-├── examples/          # 15 usage demonstrations
+├── tests/             # 41-test GTest suite
+├── examples/          # 17 usage demonstrations
 ├── tools/             # simd_inspection, batch_performance, hmm_validator (.json/.xml)
 ├── samples/           # Reference HMM files (two_state_gaussian, casino) in JSON and XML
 ├── benchmarks/        # Comparative benchmarks (requires external libraries)
@@ -229,6 +229,8 @@ See [examples/](examples/) for demonstrations:
 | `swarm_coordination_example` | Discrete (243 symbols) | — |
 | `posterior_decoding_example` | Discrete | ForwardBackward (`decodePosterior` vs Viterbi) |
 | `map_baum_welch_example` | Discrete | MAP Baum-Welch (c=0 vs c=1, MAP convergence table) |
+| `elk_movement_example` | Gamma, VonMises | BaumWelch (step length + turning angle) |
+| `dax_regime_example` | StudentT | BaumWelch (DAX log-returns 2000–2022) |
 
 ## Requirements
 
