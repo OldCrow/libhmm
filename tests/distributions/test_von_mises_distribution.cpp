@@ -195,13 +195,17 @@ TEST(VonMisesDistribution, FitEmptyDataResetsToDefault) {
     EXPECT_DOUBLE_EQ(d.getKappa(), 1.0);
 }
 
-TEST(VonMisesDistribution, FitZeroWeightsResetsToDefault) {
+TEST(VonMisesDistribution, FitZeroWeightsKeepsCurrentParams) {
+    // When all weights are zero (state has no responsibility), current parameters
+    // must be preserved. Resetting to defaults would cause state collapse in EM:
+    // the state gets default params, attracts no observations next iteration,
+    // and never recovers.
     VonMisesDistribution d(1.5, 5.0);
     std::vector<double> data = {0.0, 1.0};
     std::vector<double> weights = {0.0, 0.0};
     d.fit(data, weights);
-    EXPECT_DOUBLE_EQ(d.getMu(), 0.0);
-    EXPECT_DOUBLE_EQ(d.getKappa(), 1.0);
+    EXPECT_DOUBLE_EQ(d.getMu(), 1.5);
+    EXPECT_DOUBLE_EQ(d.getKappa(), 5.0);
 }
 
 // ============================================================================
