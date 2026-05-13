@@ -1,4 +1,4 @@
-# libhmm — Modern C++20 Hidden Markov Model Library
+# libhmm — C++20 Hidden Markov Model Library
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
@@ -8,10 +8,24 @@
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
-A modern, high-performance C++20 implementation of Hidden Markov Models with 15 emission distributions,
-canonical log-space algorithms, and compile-time SIMD acceleration.
+Fit Hidden Markov Models with Baum-Welch EM, decode sequences with Viterbi or posterior decoding,
+and run exact probabilistic inference at native C++ speed — no external runtime required.
 
 **Zero external dependencies** — C++20 standard library only.
+
+## Use cases
+
+HMMs model systems where discrete latent states drive observable outputs. libhmm fits naturally when you need to:
+
+- **Movement ecology** — classify behavioral states (foraging, travelling, resting) from GPS step lengths and turning angles using Gamma, Rayleigh, or Weibull emissions
+- **Financial regime detection** — identify bull/bear/volatile market states from return series with Gaussian or Student-t emissions
+- **Sensor analysis** — decode activity states from accelerometer or IMU data in embedded or real-time C++ systems
+- **Bioinformatics** — fit discrete-emission HMMs to biological sequences (CpG islands, gene prediction, splice sites)
+- **Any C++ application** — embed HMM inference without pulling in an R or Python runtime as a dependency
+
+If you are doing exploratory analysis, R packages (`moveHMM`, `depmixS4`) or Python libraries
+(`hmmlearn`, `pomegranate`) may be more ergonomic. libhmm is the right choice when the model
+needs to run *inside* a C++ application or pipeline.
 
 ## Features
 
@@ -225,7 +239,6 @@ No external dependencies. GTest is fetched automatically via CMake `FetchContent
 
 ## Documentation
 
-- [WARP.md](WARP.md) — session guide for Warp AI agent
 - [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) — build options, library output, CI matrix
 - [docs/GOLD_STANDARD_CHECKLIST.md](docs/GOLD_STANDARD_CHECKLIST.md) — distribution implementation requirements
 - [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) — coding conventions

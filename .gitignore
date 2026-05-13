@@ -98,6 +98,8 @@ GITHUB_SETUP.md
 
 # Internal development documentation
 .dev-docs/
+WARP.md
+benchmark-analysis/
 
 # Benchmarks directory - ignore third-party libraries and build artifacts but track our code
 benchmarks/GHMM/
