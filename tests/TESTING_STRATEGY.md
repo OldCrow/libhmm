@@ -28,7 +28,8 @@ tests/
 │   └── test_baum_welch_convergence.cpp
 ├── io/                         # Level 7: IO
 │   ├── test_xml_file_io.cpp
-│   └── test_hmm_stream_io.cpp
+│   ├── test_hmm_stream_io.cpp
+│   └── test_hmm_json.cpp
 ├── integration/                # Level 7: End-to-end
 │   └── test_end_to_end.cpp
 ├── CMakeLists.txt
@@ -38,7 +39,7 @@ tests/
 ## Running Tests
 
 ```bash
-# Standard run -- all 37 tests (mirrors CI)
+# Standard run -- all 40 tests (mirrors CI)
 ctest --test-dir build -C Release --output-on-failure
 
 # cmake custom targets
@@ -71,10 +72,6 @@ cmake --build build --config Release --target test_canonical_calculators
 Tests compile at the same warning level as the library
 (MSVC /W4 /permissive-, GCC/Clang -Wall -Wextra -Wpedantic).
 
-The 15 standalone distribution test files use assert() for validation.
-In Release builds assert() is a no-op, making variables appear unreferenced.
-A platform-guarded pragma at the top of each file suppresses this diagnostic.
-
 ## Performance Tools
 
 Performance tools live in tools/, not tests/:
@@ -85,4 +82,4 @@ Performance tools live in tools/, not tests/:
 
 ---
 
-37/37 tests pass on all platforms (Linux/GCC, Linux/Clang, macOS, Windows/MSVC).
+40/40 tests pass on all platforms (Linux/GCC, Linux/Clang, macOS, Windows/MSVC).

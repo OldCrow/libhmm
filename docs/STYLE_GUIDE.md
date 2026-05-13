@@ -56,7 +56,7 @@ include/libhmm/
 ├── hmm.h            # Core HMM class
 ├── calculators/     # Layer 4: ForwardBackward, Viterbi
 ├── training/        # Layer 4: BaumWelch, Viterbi, SegmentalKMeans
-├── io/              # XML I/O
+├── io/              # JSON (hmm_json.h) + legacy XML I/O
 └── common/          # Shared types and serialization helpers
 ```
 

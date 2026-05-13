@@ -22,7 +22,6 @@ ctest --test-dir build -C Release --parallel 4
 Notes:
 - Do NOT call `vcvars64.bat` before cmake; the VS generator handles it
 - SIMD: `check_cxx_source_runs` selects `/arch:AVX512`, `/arch:AVX2`, or `/arch:AVX` by running a test binary to verify CPU support — prevents ILLEGAL INSTRUCTION crashes on cloud VMs that accept the flag but can't execute it
-- See `WARP.md` for full Windows session setup
 
 ### macOS (AppleClang)
 
@@ -47,6 +46,20 @@ toolchain:
 ./scripts/configure_catalina.sh build
 cmake --build build --config Release
 ctest --test-dir build
+```
+
+The script pins AppleClang via `xcrun`, sanitizes toolchain-related environment
+variables, and sets `CMAKE_OSX_DEPLOYMENT_TARGET=10.15`. This matches the CI
+Catalina guard job configuration.
+
+**Build type: Release or RelWithDebInfo only.** Do not use `Debug` (`-O0`) on
+Catalina. AppleClang inserts `VZEROUPPER` in the prologue of large-frame AVX
+functions *before* saving `__m256d` arguments to the stack, silently zeroing
+the upper lanes. At `-O2` and above the SIMD helpers inline and this cannot
+occur. Use `RelWithDebInfo` (`-O2 -g`) for debuggable builds:
+
+```bash
+./scripts/configure_catalina.sh build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 
 If CMake detects Homebrew LLVM/libc++ contamination on Catalina, configure
@@ -107,4 +120,4 @@ OBJECT library and link into both targets — no double compilation overhead.
 ## CI Matrix
 
 See `.github/workflows/ci.yml`. Four build jobs (Linux/GCC, Linux/Clang, macOS/AppleClang,
-Windows/MSVC) plus a lint job (clang-format + cppcheck). All 36 tests pass on every platform.
+Windows/MSVC) plus a lint job (clang-format + cppcheck). All 40 tests pass on every platform.
