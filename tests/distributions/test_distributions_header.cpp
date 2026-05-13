@@ -41,6 +41,8 @@ TEST_F(DistributionsHeaderTest, ContinuousDistributionsAvailable) {
         WeibullDistribution weibull(2.0, 1.0);
         StudentTDistribution studentt(5.0);
         ChiSquaredDistribution chisquared(3.0);
+        RayleighDistribution rayleigh(1.0);
+        VonMisesDistribution vonmises(0.0, 1.0);
 
         // Basic functionality test (using values in valid domains)
         EXPECT_GT(gaussian.getProbability(0.0), 0.0);
@@ -53,6 +55,8 @@ TEST_F(DistributionsHeaderTest, ContinuousDistributionsAvailable) {
         EXPECT_GT(weibull.getProbability(1.0), 0.0);
         EXPECT_GT(studentt.getProbability(0.0), 0.0);
         EXPECT_GT(chisquared.getProbability(2.0), 0.0);
+        EXPECT_GT(rayleigh.getProbability(1.0), 0.0);
+        EXPECT_GT(vonmises.getProbability(0.0), 0.0);
     });
 }
 
@@ -73,9 +77,9 @@ TEST_F(DistributionsHeaderTest, CompileTimeConstants) {
     using namespace libhmm::detail;
 
     // Test that our constants are correctly defined
-    EXPECT_EQ(DISTRIBUTION_COUNT, 15);
+    EXPECT_EQ(DISTRIBUTION_COUNT, 16);
     EXPECT_EQ(DISCRETE_DISTRIBUTION_COUNT, 4);
-    EXPECT_EQ(CONTINUOUS_DISTRIBUTION_COUNT, 11);
+    EXPECT_EQ(CONTINUOUS_DISTRIBUTION_COUNT, 12);
     EXPECT_EQ(DISCRETE_DISTRIBUTION_COUNT + CONTINUOUS_DISTRIBUTION_COUNT, DISTRIBUTION_COUNT);
 }
 
