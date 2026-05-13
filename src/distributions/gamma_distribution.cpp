@@ -1,5 +1,6 @@
 #include "libhmm/distributions/gamma_distribution.h"
 #include "libhmm/io/json_utils.h"
+#include "libhmm/math/special_functions.h"
 #include <numeric>
 #include <span>
 
@@ -81,54 +82,66 @@ double GammaDistribution::getCumulativeProbability(double x) const noexcept {
     return i;
 }
 
-/**
- * Fits the distribution parameters to the given data using method of moments estimation.
- *
- * Method of moments uses:
- * sample_mean = k*θ
- * sample_variance = k*θ²
- *
- * Solving: θ = sample_variance/sample_mean, k = sample_mean²/sample_variance
- *
- * This is more numerically stable than MLE approximations for the Gamma distribution.
- *
- * @param values Vector of observed data points
- */
-void GammaDistribution::apply_fit_params(double mean, double var) {
-    if (mean <= precision::ZERO || var <= precision::ZERO) {
-        reset();
-        return;
+namespace {
+
+/// Solve log(k) − ψ(k) = s for k > 0 via Newton–Raphson.
+/// s = log(x̄) − Ē[log x] is the Gamma MLE sufficient-statistic contrast
+/// (always > 0 for positive Gamma data; Jensen: log concave ⇒ E[log X] < log E[X]).
+/// Initial estimate: Cheng & Feast (1979), converges in ≤ 10 iterations typically.
+/// Returns (k, θ) with θ = x̄/k.
+[[nodiscard]] std::pair<double, double> gamma_mle_solve(double mean_x, double mean_log_x) noexcept {
+    const double s = std::log(mean_x) - mean_log_x;
+    if (s <= 0.0)
+        return {1.0, mean_x}; // degenerate input — return sensible fallback
+
+    // Cheng & Feast (1979) starting estimate for k
+    double k = (3.0 - s + std::sqrt((s - 3.0) * (s - 3.0) + 24.0 * s)) / (12.0 * s);
+
+    // Newton–Raphson: f(k) = log k − ψ(k) − s = 0,  f'(k) = 1/k − ψ'(k)
+    for (int i = 0; i < 20; ++i) {
+        const double f = std::log(k) - detail::digamma(k) - s;
+        const double fp = 1.0 / k - detail::trigamma(k);
+        if (std::fabs(fp) < 1e-15)
+            break;
+        const double dk = f / fp;
+        k -= dk;
+        if (k <= 0.0)
+            k = 1e-10;
+        if (std::fabs(dk) < 1e-11 * k)
+            break;
     }
-    const double newTheta = var / mean, newK = (mean * mean) / var;
-    if (!std::isfinite(newK) || !std::isfinite(newTheta) || newK <= 0.0 || newTheta <= 0.0) {
-        reset();
-        return;
-    }
-    theta_ = newTheta;
-    k_ = newK;
-    invalidateCache();
+    return {k, mean_x / k};
 }
+
+} // anonymous namespace
 
 void GammaDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();
         return;
     }
-    double mean = 0.0, m2 = 0.0;
+    double sum_x = 0.0, sum_log_x = 0.0;
     std::size_t count = 0;
     for (const double val : data) {
         if (val > 0.0 && std::isfinite(val)) {
             ++count;
-            const double delta = val - mean;
-            mean += delta / static_cast<double>(count);
-            m2 += delta * (val - mean);
+            sum_x += val;
+            sum_log_x += std::log(val);
         }
     }
     if (count < 2) {
         reset();
         return;
     }
-    apply_fit_params(mean, m2 / (static_cast<double>(count) - 1.0));
+    const double n = static_cast<double>(count);
+    auto [k, theta] = gamma_mle_solve(sum_x / n, sum_log_x / n);
+    if (!std::isfinite(k) || !std::isfinite(theta) || k <= 0.0 || theta <= 0.0) {
+        reset();
+        return;
+    }
+    k_ = k;
+    theta_ = theta;
+    invalidateCache();
 }
 
 void GammaDistribution::fit(std::span<const double> data, std::span<const double> weights) {
@@ -137,20 +150,26 @@ void GammaDistribution::fit(std::span<const double> data, std::span<const double
     // Calling reset() would destroy valid parameters and cause state collapse in EM.
     if (sumW < precision::ZERO || std::isnan(sumW))
         return;
-    double mean = 0.0, m2 = 0.0, cumW = 0.0;
+    double sum_wx = 0.0, sum_wlx = 0.0, cumW = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
         if (data[i] > 0.0 && std::isfinite(data[i]) && weights[i] > 0.0) {
             cumW += weights[i];
-            const double delta = data[i] - mean;
-            mean += (weights[i] / cumW) * delta;
-            m2 += weights[i] * delta * (data[i] - mean);
+            sum_wx += weights[i] * data[i];
+            sum_wlx += weights[i] * std::log(data[i]);
         }
     }
     if (cumW < precision::ZERO) {
         reset();
         return;
     }
-    apply_fit_params(mean, m2 / cumW);
+    auto [k, theta] = gamma_mle_solve(sum_wx / cumW, sum_wlx / cumW);
+    if (!std::isfinite(k) || !std::isfinite(theta) || k <= 0.0 || theta <= 0.0) {
+        reset();
+        return;
+    }
+    k_ = k;
+    theta_ = theta;
+    invalidateCache();
 }
 
 /**

@@ -43,20 +43,27 @@ namespace {
     if (kappa < 0.0)
         kappa = 0.0; // guard against rounding near edges
 
-    // One Newton step to tighten the approximation.
-    // A(κ) = I₁(κ)/I₀(κ); A'(κ) = 1 − A(κ)² − A(κ)/κ
-    // Newton: κ ← κ − (A(κ) − R̄) / A'(κ)
-    if (kappa > 0.0) {
+    // Newton–Raphson to convergence: solve A(κ) = I₁(κ)/I₀(κ) = R̄.
+    // A'(κ) = 1 − A(κ)² − A(κ)/κ   (derivative of the mean resultant length).
+    // The Mardia–Jupp approximation is already close; typically 3–5 iterations
+    // suffice to reach |dk| < 1e-12.
+    for (int iter = 0; iter < 20 && kappa > 0.0; ++iter) {
         const double i0 = detail::bessel_i0(kappa);
         const double i1 = detail::bessel_i1(kappa);
-        if (i0 > 0.0) {
-            const double A = i1 / i0;
-            const double Ap = 1.0 - A * A - A / kappa;
-            if (std::fabs(Ap) > 1e-12)
-                kappa -= (A - R_bar) / Ap;
-            if (kappa < 0.0)
-                kappa = 0.0;
+        if (i0 <= 0.0)
+            break;
+        const double A = i1 / i0;
+        const double Ap = 1.0 - A * A - A / kappa;
+        if (std::fabs(Ap) < 1e-15)
+            break;
+        const double dk = (A - R_bar) / Ap;
+        kappa -= dk;
+        if (kappa < 0.0) {
+            kappa = 0.0;
+            break;
         }
+        if (std::fabs(dk) < 1e-12 * (1.0 + kappa))
+            break;
     }
     return kappa;
 }

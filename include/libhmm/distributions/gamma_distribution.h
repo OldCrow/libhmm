@@ -138,13 +138,8 @@ public:
     [[nodiscard]] double getCumulativeProbability(double x) const noexcept;
 
     void fit(std::span<const double> data) override;
-    /** Weighted MOM: θ = weighted_var / weighted_mean, k = weighted_mean² / weighted_var. */
+    /** Weighted MLE via Newton–Raphson on the shape parameter (Cheng & Feast 1979). */
     void fit(std::span<const double> data, std::span<const double> weights) override;
-
-private:
-    /// Validates mean/var and applies the MOM estimates. Calls reset() on any
-    /// failure; otherwise assigns theta_, k_ and invalidates the cache.
-    void apply_fit_params(double mean, double var);
 
 public:
     /** Returns false — Gamma is a continuous distribution. */

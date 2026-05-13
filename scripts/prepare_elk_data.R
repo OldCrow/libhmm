@@ -1,15 +1,16 @@
 #!/usr/bin/env Rscript
 #
-# prepare_elk_data.R — Export elk GPS step lengths for elk_movement_example
+# prepare_elk_data.R — Export elk GPS step lengths and turning angles for elk_movement_example
 #
-# Extracts per-animal step lengths from the moveHMM R package elk_data dataset
-# and writes one CSV per animal to ELK_DATA_DIR (default: /tmp).
+# Extracts per-animal step lengths and turning angles from the moveHMM R package
+# elk_data dataset and writes one CSV per animal to ELK_DATA_DIR (default: /tmp).
 #
 # Usage:
 #   Rscript scripts/prepare_elk_data.R [output_dir]
 #
 # Output files:
-#   elk_115_steps.csv, elk_163_steps.csv, elk_287_steps.csv, elk_363_steps.csv
+#   elk_115_obs.csv, elk_163_obs.csv, elk_287_obs.csv, elk_363_obs.csv
+#   Each file has two columns: step, angle
 #
 # Then build and run the C++ example:
 #   cmake --build build --config Release --target elk_movement_example
@@ -39,11 +40,11 @@ ids <- unique(elk$ID)
 cat("Exporting step lengths to", out_dir, "\n")
 
 for (id in ids) {
-    sub <- elk[elk$ID == id & !is.na(elk$step) & elk$step > 0, ]
+    sub <- elk[elk$ID == id & !is.na(elk$step) & elk$step > 0 & !is.na(elk$angle), ]
     safe_id <- gsub("-", "_", id)
-    fname <- file.path(out_dir, paste0(safe_id, "_steps.csv"))
-    write.csv(data.frame(step = sub$step), fname, row.names = FALSE)
-    cat("  ", id, "->", fname, "(", nrow(sub), "steps )\n")
+    fname <- file.path(out_dir, paste0(safe_id, "_obs.csv"))
+    write.csv(data.frame(step = sub$step, angle = sub$angle), fname, row.names = FALSE)
+    cat("  ", id, "->", fname, "(", nrow(sub), "obs )\n")
 }
 
 cat("\nDone. Run elk_movement_example", out_dir, "\n")

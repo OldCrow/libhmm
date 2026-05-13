@@ -116,7 +116,6 @@ struct JointHMM {
                 all_angles.push_back(x);
         }
 
-        std::size_t obs_offset = 0;
         for (const auto &seq : seqs) {
             const std::size_t T = seq.size();
 
@@ -172,7 +171,6 @@ struct JointHMM {
                     }
                 }
             }
-            obs_offset += T;
         }
 
         // M-step: transition
@@ -247,21 +245,36 @@ int main(int argc, char *argv[]) {
     std::cout << std::fixed << std::setprecision(4);
     std::cout << std::setw(8) << 0 << std::setw(16) << prev_ll << "  (initial)\n";
 
+    // Track best solution seen during training (guards against non-monotone EM).
+    JointHMM best_model = model;
+    double best_ll = prev_ll;
+
     int conv = -1;
     for (int iter = 1; iter <= 200; ++iter) {
         const double ll = model.train_once(seqs);
         const double d = ll - prev_ll;
+        // Update best if this E-step LL (under previous params) improved.
+        if (ll > best_ll) {
+            best_ll = ll;
+            best_model = model;
+        }
         std::cout << std::setw(8) << iter << std::setw(16) << ll << std::setw(12) << d;
-        if (iter > 1 && std::fabs(d) < 1e-4) {
+        // Convergence requires a small non-negative delta: EM must be monotone.
+        // A negative delta signals a non-exact M-step; flag it but keep going.
+        if (iter > 1 && d >= -1e-8 && d < 1e-4) {
             std::cout << "  <- converged";
             if (conv < 0)
                 conv = iter;
+        } else if (d < -1e-6) {
+            std::cout << "  [LL decreased — non-monotone M-step]";
         }
         std::cout << "\n";
         if (conv > 0 && iter >= conv + 2)
             break;
         prev_ll = ll;
     }
+    // Restore best parameters if training drifted past the optimum.
+    model = best_model;
 
     const double wall_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
