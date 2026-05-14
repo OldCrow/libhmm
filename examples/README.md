@@ -123,13 +123,23 @@ Fits bearish / neutral / bullish market regimes using StudentTDistribution
 with ECME (scale-mixture EM for ν, μ, σ). Direct comparison to the `fHMM`
 R package reference fit.
 
-| | libhmm | fHMM |
-|---|---|---|
-| Bearish σ | 0.02628 | 0.02629 |
-| Bearish ν | 11.14 | 11.16 |
-| Bullish ν | 5.35 | 5.316 |
-| Log-likelihood | **17487.2** | 17485.7 |
-| Wall time | **~2 s** | ~1360 s |
+| State | Param | libhmm | fHMM |
+|---|---|---|---|
+| Bearish | μ | −0.001793 | −0.001803 |
+| | σ | 0.02628 | 0.02629 |
+| | ν | 11.14 | 11.16 |
+| Neutral | μ | −0.000281 | −0.000310 |
+| | σ | 0.01305 | 0.01330 |
+| | ν | 36.1† | 91.2† |
+| Bullish | μ | +0.001258 | +0.001257 |
+| | σ | 0.00599 | 0.00600 |
+| | ν | 5.35 | 5.316 |
+| — | Log-likelihood | **17487.2** | 17485.7 |
+| — | Wall time | **~2 s** | ~1360 s |
+
+†Neutral ν diverges: both models correctly identify this state as near-Gaussian,
+but ECME converges slowly for large ν on light-tailed data. fHMM's gradient
+optimizer (nlm) reaches a higher value faster. See source for analysis.
 
 **Data:** `Rscript scripts/prepare_dax_data.R`
 **Reference:** Oelschläger et al. (2024), *J. Statistical Software*
