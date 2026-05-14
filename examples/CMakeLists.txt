@@ -89,6 +89,15 @@ add_hmm_example(elk_movement_example elk_movement_example.cpp)
 # Real-world finance benchmark: DAX regime detection vs fHMM (R)
 add_hmm_example(dax_regime_example dax_regime_example.cpp)
 
+# Cross-market: S&P 500 regime detection (same model as DAX)
+add_hmm_example(sp500_regime_example sp500_regime_example.cpp)
+
+# Seismicity: Poisson HMM on annual earthquake counts (Zucchini & MacDonald)
+add_hmm_example(earthquake_example earthquake_example.cpp)
+
+# Meteorology: wind direction regimes via VonMisesDistribution (NOAA ISD)
+add_hmm_example(wind_direction_example wind_direction_example.cpp)
+
 # Install all examples
 install(TARGETS
     basic_hmm_example
@@ -108,5 +117,8 @@ install(TARGETS
     map_baum_welch_example
     elk_movement_example
     dax_regime_example
+    sp500_regime_example
+    earthquake_example
+    wind_direction_example
     RUNTIME DESTINATION bin/examples
 )

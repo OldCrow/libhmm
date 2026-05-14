@@ -64,4 +64,21 @@ write.csv(data.frame(logreturn = dax$logreturn),
 cat("\nExported:\n")
 cat("  ", file.path(out_dir, "dax_logreturns.csv"), "(", nrow(dax), "rows )\n")
 cat("  ", file.path(out_dir, "dax_2000_2022.csv"), "(full data)\n")
+# Also export S&P 500 for sp500_regime_example
+cat("\nDownloading ^GSPC (S&P 500, 2000-2022)...\n")
+suppressWarnings(
+    getSymbols("^GSPC", from = "2000-01-01", to = "2022-12-31",
+               auto.assign = TRUE, warnings = FALSE)
+)
+sp  <- as.data.frame(GSPC)
+sp$Date  <- as.Date(rownames(sp))
+sp       <- sp[!is.na(sp$GSPC.Close), ]
+sp       <- sp[order(sp$Date), ]
+sp$logreturn <- c(NA, diff(log(sp$GSPC.Close)))
+sp           <- sp[!is.na(sp$logreturn), ]
+sp_path <- file.path(out_dir, "sp500_logreturns.csv")
+write.csv(data.frame(logreturn = sp$logreturn), sp_path, row.names = FALSE)
+cat("Exported", nrow(sp), "S&P 500 log-returns ->", sp_path, "\n")
+
 cat("\nDone. Run: dax_regime_example", out_dir, "\n")
+cat("       or: sp500_regime_example", out_dir, "\n")
