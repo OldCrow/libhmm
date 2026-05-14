@@ -1,349 +1,236 @@
 # libhmm Examples
 
-This directory contains 15 examples demonstrating real-world applications of Hidden Markov Models using the libhmm library. Each example showcases different probability distributions and modeling scenarios, covering major application domains from ecology to robotics.
+20 examples in two categories: algorithm and distribution demonstrations using
+synthetic data, and real-world benchmarks against published datasets and
+established R packages.
 
-## Building Examples
+---
+
+## Building
 
 ```bash
 cmake -B build -DBUILD_EXAMPLES=ON
 cmake --build build --config Release
 
-# Run a specific example
-./build/examples/Release/basic_hmm_example
-./build/examples/Release/baum_welch_example
-./build/examples/Release/viterbi_trainer_example
-./build/examples/Release/segmental_kmeans_example
-./build/examples/Release/student_t_hmm_example
-./build/examples/Release/poisson_hmm_example
-./build/examples/Release/financial_hmm_example
-./build/examples/Release/reliability_hmm_example
-./build/examples/Release/quality_control_hmm_example
-./build/examples/Release/economics_hmm_example
-./build/examples/Release/queuing_theory_hmm_example
-./build/examples/Release/statistical_process_control_hmm_example
-./build/examples/Release/swarm_coordination_example
-./build/examples/Release/posterior_decoding_example
-./build/examples/Release/map_baum_welch_example
+# Run any example
+./build/examples/basic_hmm_example
+./build/examples/elk_movement_example /tmp    # data-dependent examples need a data dir
+./build/examples/earthquake_example           # data is embedded — no download needed
 ```
 
-## Example Overview
+Data preparation scripts for the benchmark examples are in `scripts/`:
 
-### 🎲 [basic_hmm_example.cpp](basic_hmm_example.cpp)
-**Topic**: Fundamental HMM operations and distribution testing
-**Distributions**: Gaussian, Gamma, Log-Normal, Exponential, Poisson
-**Concepts**: Basic HMM construction, probability calculations, Viterbi training
-**Use Case**: Learning HMM fundamentals and distribution behavior
-
-**Key Features:**
-- Classic "Occasionally Dishonest Casino" example
-- Multiple distribution demonstrations
-- Forward-backward algorithm comparisons
-- Modern C++20 coding patterns
+```bash
+Rscript scripts/prepare_elk_data.R      # elk movement   → /tmp/elk_*_obs.csv
+Rscript scripts/prepare_dax_data.R      # DAX + S&P 500  → /tmp/dax_logreturns.csv, sp500_logreturns.csv
+Rscript scripts/prepare_wind_data.R     # NOAA wind data → /tmp/ohare_wind_2015.csv
+```
 
 ---
 
-### 📈 [baum_welch_example.cpp](baum_welch_example.cpp)
-**Topic**: Baum-Welch EM training
-**Distributions**: Gaussian
-**Concepts**: EM iterations, log-likelihood monotonic improvement, parameter recovery
-**Use Case**: Learning the primary HMM training algorithm
+## Part I — Algorithm and Distribution Demonstrations
 
-**Key Features:**
-- Trains a 2-state Gaussian HMM on synthetic two-cluster data with deliberately offset initial parameters
-- Prints log-likelihood at each iteration, verifying EM's monotonic improvement guarantee
-- Parameter recovery: learned means converge toward true values of 0 and 5
-- Direct comparison with Viterbi training on the same data and same initial model
+Synthetic or illustrative data. Start here to learn the library.
 
----
+### Training algorithms
 
-### ⚙️ [viterbi_trainer_example.cpp](viterbi_trainer_example.cpp)
-**Topic**: ViterbiTrainer with TrainingConfig presets
-**Distributions**: Gaussian, Discrete
-**Concepts**: Hard-assignment EM, `fast`/`balanced`/`precise` presets, custom `TrainingConfig`
-**Use Case**: When hard-assignment training is preferred over soft-assignment Baum-Welch
+#### [basic_hmm_example.cpp](basic_hmm_example.cpp)
+Classic "Occasionally Dishonest Casino" HMM. Covers construction, probability
+calculations, and Viterbi training. Entry point for learning the API.
+**Distributions:** Gaussian, Gamma, Log-Normal, Exponential, Poisson
 
-**Key Features:**
-- Demonstrates all three built-in presets side-by-side on the same 3-state model
-- Custom `TrainingConfig` with tight tolerance and large iteration budget
-- Convergence and max-iterations flags reported after each run
-- Brief introduction to `SegmentalKMeansTrainer` as a discrete HMM initialiser
+#### [baum_welch_example.cpp](baum_welch_example.cpp)
+Baum-Welch EM on synthetic two-cluster data. Prints log-likelihood at each
+iteration, verifies monotonic improvement, and contrasts with Viterbi training.
+**Distributions:** Gaussian
 
----
+#### [viterbi_trainer_example.cpp](viterbi_trainer_example.cpp)
+Hard-assignment training with `TrainingConfig` presets (`fast`, `balanced`,
+`precise`) and a custom config. Reports convergence and max-iteration flags.
+**Distributions:** Gaussian, Discrete
 
-### 🎯 [segmental_kmeans_example.cpp](segmental_kmeans_example.cpp)
-**Topic**: Hard-assignment training for discrete-emission HMMs
-**Distributions**: Discrete
-**Concepts**: K-means style training, Baum-Welch warm-start pattern, discrete-only constraint
-**Use Case**: Fast initialisation of discrete HMMs before EM refinement
+#### [segmental_kmeans_example.cpp](segmental_kmeans_example.cpp)
+`SegmentalKMeansTrainer` standalone and as a Baum-Welch warm-start.
+Demonstrates the discrete-only constraint.
+**Distributions:** Discrete
 
-**Key Features:**
-- Path A: SegmentalKMeansTrainer used standalone on a 2-state biased-die HMM
-- Path B: segmental k-means warm-start followed by Baum-Welch refinement
-- Constraint demonstration: trainer rejects non-discrete distributions with `std::runtime_error`
-- Log-likelihood comparison across the two training paths
+#### [posterior_decoding_example.cpp](posterior_decoding_example.cpp)
+`decodePosterior()` vs `ViterbiCalculator::decode()` on the casino HMM.
+Shows time steps where the strategies diverge. Also demonstrates
+`evaluate_model()` for AIC / BIC / AICc.
+**Distributions:** Discrete
+- Use `decodePosterior()` when per-step annotation accuracy matters (gene prediction)
+- Use Viterbi when whole-sequence coherence is required (speech alignment)
 
----
-
-### 📊 [poisson_hmm_example.cpp](poisson_hmm_example.cpp)
-**Topic**: Count data modeling and event frequency analysis
-**Distributions**: Poisson
-**Concepts**: Discrete count modeling, state inference, parameter estimation
-**Use Case**: Website traffic analysis, call center modeling, rare event detection
-
-**Key Features:**
-- Website traffic state detection (normal vs. high traffic)
-- Real-world observation sequences
-- Training with synthetic count data
-- Comprehensive application examples
-
-**Applications:**
-- Web traffic analysis and anomaly detection
-- Call center volume modeling
-- Network packet arrival modeling
-- Quality control (defect counting)
+#### [map_baum_welch_example.cpp](map_baum_welch_example.cpp)
+MAP-EM Baum-Welch with Dirichlet priors. Contrasts `c = 0` (MLE) with
+`c = 1` (Laplace smoothing). Shows that `logL + computeLogPrior()` is the
+correct convergence criterion when `c > 0`.
+**Distributions:** Discrete
 
 ---
 
-### 💰 [financial_hmm_example.cpp](financial_hmm_example.cpp)
-**Topic**: Financial market regime detection and volatility modeling
-**Distributions**: Beta, Log-Normal
-**Concepts**: Market state transitions, volatility regimes, returns modeling
-**Use Case**: Algorithmic trading, risk management, market analysis
+### Domain applications (synthetic data)
 
-**Key Features:**
-- Volatility modeling with Beta distribution (bounded [0,1])
-- Returns modeling with Log-Normal distribution (always positive)
-- Bull/bear market detection
-- Regime persistence analysis
-
-**Applications:**
-- Market regime detection (bull/bear identification)
-- Volatility forecasting and risk management
-- Portfolio optimization under uncertainty
-- Options pricing with stochastic volatility
+| Example | Distributions | Domain |
+|---|---|---|
+| [poisson_hmm_example.cpp](poisson_hmm_example.cpp) | Poisson | Website traffic, call centers, rare events |
+| [financial_hmm_example.cpp](financial_hmm_example.cpp) | Beta, Log-Normal | Volatility regimes, options pricing |
+| [student_t_hmm_example.cpp](student_t_hmm_example.cpp) | Student-t | Heavy-tailed returns, financial crises |
+| [reliability_hmm_example.cpp](reliability_hmm_example.cpp) | Weibull, Exponential | Predictive maintenance, failure analysis |
+| [quality_control_hmm_example.cpp](quality_control_hmm_example.cpp) | Binomial, Uniform | SPC, defect counting, tolerance analysis |
+| [economics_hmm_example.cpp](economics_hmm_example.cpp) | Negative Binomial, Pareto | Overdispersion, power-law phenomena |
+| [queuing_theory_hmm_example.cpp](queuing_theory_hmm_example.cpp) | Poisson, Exponential, Gamma | M/M/1 and M/G/1 queues, 24-hour patterns |
+| [statistical_process_control_hmm_example.cpp](statistical_process_control_hmm_example.cpp) | Chi-squared | Goodness-of-fit, Six Sigma |
+| [swarm_coordination_example.cpp](swarm_coordination_example.cpp) | Discrete (243 symbols) | Drone formation control, mission states |
 
 ---
 
-### 🔧 [reliability_hmm_example.cpp](reliability_hmm_example.cpp)
-**Topic**: System reliability and failure analysis
-**Distributions**: Weibull, Exponential
-**Concepts**: Hazard rates, lifetime modeling, degradation processes
-**Use Case**: Predictive maintenance, quality control, safety analysis
+## Part II — Real-World Benchmarks
 
-**Key Features:**
-- Component lifetime modeling with Weibull distribution
-- Failure rate analysis with Exponential distribution
-- Three-state degradation model (Normal → Degraded → Critical)
-- Hazard rate interpretation (β parameter analysis)
+Published datasets with known results. Each example fits libhmm against an
+established R reference package on the same data, reporting parameter
+estimates, log-likelihood, and wall time.
 
-**Applications:**
-- Predictive maintenance scheduling
-- System health monitoring and diagnostics
-- Warranty analysis and cost estimation
-- Infrastructure asset management
+### Ecology
 
----
+#### [elk_movement_example.cpp](elk_movement_example.cpp)
+**Joint Gamma + von Mises HMM on elk GPS tracks**
 
-### 🏭 [quality_control_hmm_example.cpp](quality_control_hmm_example.cpp)
-**Topic**: Manufacturing quality control and statistical process control
-**Distributions**: Binomial, Uniform
-**Concepts**: Defect counting, tolerance analysis, process monitoring
-**Use Case**: Manufacturing quality assurance, process control
+Fits behavioral states (encamped / travelling) to step lengths and turning
+angles from 4 elk (Morales et al. 2004), the canonical dataset for the
+`moveHMM` R package. Uses a custom joint Baum-Welch EM with conditional
+independence of step length and angle given state.
 
-**Key Features:**
-- Defect count modeling with Binomial distribution
-- Measurement tolerance analysis with Uniform distribution
-- Statistical process control (SPC) concepts
-- Control chart limit calculations
+| | libhmm | moveHMM |
+|---|---|---|
+| Encamped step mean | 377 m | 374 m |
+| Travelling step mean | 3189 m | 3247 m |
+| Encamped angle κ | 0.595 | 0.592 |
+| Wall time | **99 ms** | ~2000 ms |
 
-**Applications:**
-- Manufacturing process monitoring
-- Automated quality inspection systems
-- Statistical process control (SPC)
-- Supply chain quality assessment
+**Data:** `Rscript scripts/prepare_elk_data.R`
+**Reference:** Michelot et al. (2016), *Methods in Ecology and Evolution*
 
 ---
 
-### 📈 [economics_hmm_example.cpp](economics_hmm_example.cpp)
-**Topic**: Economic and social science modeling
-**Distributions**: Negative Binomial, Pareto
-**Concepts**: Overdispersed count data, power-law phenomena, inequality analysis
-**Use Case**: Customer behavior analysis, economic regime detection, social science research
+### Finance
 
-**Key Features:**
-- Customer purchase behavior with Negative Binomial distribution (overdispersed counts)
-- Income distribution modeling with Pareto distribution (power-law, inequality)
-- Economic regime detection (normal vs. crisis economics)
-- Statistical insights into distribution properties
+#### [dax_regime_example.cpp](dax_regime_example.cpp)
+**3-state Student-t HMM on DAX daily log-returns, 2000–2022**
 
-**Applications:**
-- Customer lifetime value modeling
-- Income inequality measurement and monitoring
-- Social media engagement analysis
-- Economic crisis detection and response
+Fits bearish / neutral / bullish market regimes using StudentTDistribution
+with ECME (scale-mixture EM for ν, μ, σ). Direct comparison to the `fHMM`
+R package reference fit.
 
----
+| | libhmm | fHMM |
+|---|---|---|
+| Bearish σ | 0.02628 | 0.02629 |
+| Bearish ν | 11.14 | 11.16 |
+| Bullish ν | 5.35 | 5.316 |
+| Log-likelihood | **17487.2** | 17485.7 |
+| Wall time | **~2 s** | ~1360 s |
 
-### ⏱️ [queuing_theory_hmm_example.cpp](queuing_theory_hmm_example.cpp)
-**Topic**: Service systems and queuing theory analysis
-**Distributions**: Poisson, Exponential, Gamma
-**Concepts**: Service load modeling, arrival processes, performance metrics
-**Use Case**: Call center optimization, system performance analysis, service design
-
-**Key Features:**
-- Customer arrival modeling with Poisson distribution (load states)
-- Service time analysis with Exponential distribution (M/M/1 queues)
-- Advanced service modeling with Gamma distribution (M/G/1 queues)
-- Performance metrics calculation (traffic intensity, queue length)
-- 24-hour service pattern analysis
-
-**Applications:**
-- Call center staffing and performance optimization
-- Computer system performance modeling
-- Hospital emergency department management
-- Network traffic analysis and capacity planning
+**Data:** `Rscript scripts/prepare_dax_data.R`
+**Reference:** Oelschläger et al. (2024), *J. Statistical Software*
 
 ---
 
-### 💪 [student_t_hmm_example.cpp](student_t_hmm_example.cpp)
-**Topic**: Heavy-tailed financial modeling and outlier-robust analysis
-**Distributions**: Student's t-distribution
-**Concepts**: Heavy tails, robust statistics, financial outliers, location-scale modeling
-**Use Case**: Robust financial modeling, risk management with extreme events
+#### [sp500_regime_example.cpp](sp500_regime_example.cpp)
+**Same 3-state Student-t model on S&P 500, 2000–2022**
 
-**Key Features:**
-- Student's t-distribution for heavy-tailed financial returns
-- Location (μ), scale (σ), and degrees of freedom (ν) parameter interpretation
-- Outlier-robust modeling compared to Gaussian distributions
-- Financial crisis and normal market regime detection
-- Fat tail analysis and extreme event modeling
+Cross-market comparison using the identical model. S&P 500 shows lower
+bearish σ (0.023 vs DAX 0.026) and lighter tails in the bearish state
+(ν ≈ 6 vs DAX ν ≈ 11), reflecting structural differences in US vs German
+equity risk and liquidity.
 
-**Applications:**
-- Robust portfolio optimization under heavy-tailed returns
-- Financial risk management with extreme events
-- Credit risk modeling with default clustering
-- Commodity price modeling with supply shocks
-- Insurance claims modeling with catastrophic events
+**Data:** generated by `prepare_dax_data.R` alongside the DAX file.
 
 ---
 
-### 🔬 [statistical_process_control_hmm_example.cpp](statistical_process_control_hmm_example.cpp)
-**Topic**: Advanced statistical process control and quality monitoring
-**Distributions**: Chi-squared distribution
-**Concepts**: Goodness-of-fit testing, categorical analysis, process variation monitoring
-**Use Case**: Advanced quality control, hypothesis testing, process capability analysis
+### Earth science
 
-**Key Features:**
-- Chi-squared distribution for goodness-of-fit testing
-- Degrees of freedom parameter interpretation
-- Statistical hypothesis testing integration
-- Process capability monitoring
-- Categorical data analysis for quality attributes
+#### [earthquake_example.cpp](earthquake_example.cpp)
+**2-state Poisson HMM on annual major earthquake counts, 1900–2006**
 
-**Applications:**
-- Advanced statistical process control (SPC)
-- Hypothesis testing in manufacturing
-- Categorical quality attribute analysis
-- Process capability studies
-- Six Sigma quality improvement projects
+The canonical running example from Zucchini & MacDonald (2009), used
+throughout chapters 3–7 of their textbook. The 107 annual counts are
+embedded in the source — no download required. Results match the
+`HiddenMarkov` R package to four significant figures.
 
----
+| | libhmm | HiddenMarkov |
+|---|---|---|
+| λ low (quiet) | 15.419 | 15.418 |
+| λ high (active) | 26.015 | 26.013 |
+| Log-likelihood | −341.879 | −341.879 |
+| Wall time | **4 ms** | ~20 ms |
 
-### 🔍 [posterior_decoding_example.cpp](posterior_decoding_example.cpp)
-**Topic**: Posterior decoding vs Viterbi
-**Distributions**: Discrete (casino HMM)
-**Concepts**: `decodePosterior()` vs `decode()`, per-step vs joint optimality, model selection
-**Use Case**: Choosing the right decoding strategy for your application
-
-**Key Features:**
-- Side-by-side comparison of posterior and Viterbi decoding on the dishonest casino sequence
-- Annotates time steps where the two strategies disagree and explains why
-- `evaluate_model()` computes AIC / BIC / AICc in one call after forward-backward
-
-**When to use each:**
-- `decodePosterior()` — minimises per-step error rate; use for gene prediction, sequence annotation
-- `ViterbiCalculator::decode()` — globally coherent path; use for speech alignment, segmentation
+**Data:** embedded in source (no download needed)
+**Reference:** Zucchini & MacDonald (2009), *Hidden Markov Models for Time Series*
 
 ---
 
-### 🎲 [map_baum_welch_example.cpp](map_baum_welch_example.cpp)
-**Topic**: MAP Baum-Welch with Dirichlet priors
-**Distributions**: Discrete (casino HMM)
-**Concepts**: Laplace smoothing, MAP objective, convergence with priors
-**Use Case**: Training on sparse data where MLE produces zero-probability transitions
+#### [wind_direction_example.cpp](wind_direction_example.cpp)
+**2-state VonMisesDistribution HMM on hourly wind directions, O'Hare 2015**
 
-**Key Features:**
-- Contrasts `c = 0` (standard MLE, identical to `BaumWelchTrainer`) with `c = 1` (Laplace smoothing)
-- Prints log-likelihood, log-prior, and full MAP objective at each iteration
-- Demonstrates that with `c > 0`, log-likelihood alone is *not* monotone — use `logL + computeLogPrior()` as the convergence criterion
-- Dirichlet priors apply to transitions, π, and discrete emissions; continuous distributions always use MLE
+Demonstrates why VonMisesDistribution is the correct distribution for
+circular data. The `HiddenMarkov` R package uses a Normal approximation that
+fails at the 0°/360° boundary. This example runs both models and quantifies
+the error empirically.
 
----
+**Measured disagreement between Normal and VonMises models on 11,894 hours:**
 
-### 🤖 [swarm_coordination_example.cpp](swarm_coordination_example.cpp)
-**Topic**: Autonomous drone swarm coordination
-**Distributions**: Discrete (243 symbols)
-**Concepts**: Encoding multi-dimensional observations into a single discrete symbol, 8-state mission model
-**Use Case**: Robotics, autonomous systems, multi-agent mission state management
+| Direction bin | Disagreement rate |
+|---|---|
+| 0°–300° (all directions) | 0% |
+| 300°–330° (NNW) | 31% |
+| **330°–360° (NNW/N)** | **100%** |
 
-**Key Features:**
-- 8-state formation model (STANDBY → TAKEOFF → CRUISE → FORMATION_TIGHT → SEARCH_PATTERN → EVASIVE → RTB → EMERGENCY)
-- Encodes five sensor channels (altitude, speed, threat level, formation quality, comms) into 243-symbol observation space
-- Domain-informed transition matrix design with mission-logical probabilities
+990 NNW-to-N wind hours are misclassified 100% of the time by the Normal
+model. A direction 19° from the NNE state mean is 11.2 standard deviations
+away under Normal (log-likelihood = −61.9, effectively zero probability).
+VonMisesDistribution evaluates cos(−19°) = 0.75 — and assigns all 990
+correctly.
 
-**Applications:**
-- Autonomous drone swarm coordination
-- Multi-robot formation control
-- Mission state management and fault detection
+**Data:** `Rscript scripts/prepare_wind_data.R`
+**Reference:** NOAA NCEI Integrated Surface Database; Zucchini et al. (2017),
+*Hidden Markov Models for Time Series, 2nd ed.* (Ch. 10: Wind direction)
 
 ---
-
-## Common Patterns
-
-All examples follow consistent patterns:
-
-1. **HMM Configuration**: State setup, transition matrices, initial probabilities
-2. **Distribution Assignment**: Appropriate distributions for each state
-3. **Probability Demonstrations**: Calculate and display probabilities for different observations
-4. **Viterbi Decoding**: Find most likely state sequences for observation data
-5. **Training Examples**: Learn parameters from synthetic or real data
-6. **Real-World Applications**: Practical use cases and interpretations
-
-## Mathematical Insights
-
-Each example includes:
-- **Parameter Interpretation**: What distribution parameters mean in context
-- **Statistical Analysis**: Control limits, confidence intervals, significance tests
-- **Domain Knowledge**: Industry-specific insights and best practices
-- **Decision Rules**: When to take action based on state inference
 
 ## Getting Started
 
-1. **Start with `basic_hmm_example.cpp`** to understand fundamental concepts
-2. **Choose domain-specific examples** based on your application:
-   - Count data → `poisson_hmm_example.cpp`
-   - Financial data → `financial_hmm_example.cpp` or `student_t_hmm_example.cpp`
-   - Reliability data → `reliability_hmm_example.cpp`
-   - Quality data → `quality_control_hmm_example.cpp` or `statistical_process_control_hmm_example.cpp`
-   - Economics → `economics_hmm_example.cpp`
-   - Service systems → `queuing_theory_hmm_example.cpp`
-3. **Adapt examples** to your specific data and requirements
-4. **Combine concepts** from multiple examples as needed
+**Learning the API:** `basic_hmm_example` → `baum_welch_example`
 
-## Distribution Selection Guide
+**Choosing a distribution:**
 
-| Data Type | Distribution | Example |
-|-----------|-------------|---------|
-| Count data (0, 1, 2, ...) | Poisson, Binomial | Website hits, defects |
-| Continuous positive | Exponential, Weibull, Gamma | Lifetimes, waiting times |
-| Bounded [0,1] | Beta, Uniform | Probabilities, proportions |
-| Unbounded continuous | Gaussian, Log-Normal | Measurements, returns |
-| Categorical | Discrete | Symbols, classes |
+| Data type | Distribution | Example |
+|---|---|---|
+| Count data (0, 1, 2 …) | Poisson, Binomial | `poisson_hmm_example`, `earthquake_example` |
+| Continuous positive | Gamma, Weibull, Exponential, Rayleigh | `reliability_hmm_example`, `elk_movement_example` |
+| Bounded [0, 1] | Beta, Uniform | `financial_hmm_example` |
+| Unbounded continuous | Gaussian, Log-Normal, Student-t | `baum_welch_example`, `dax_regime_example` |
+| **Circular / directional** | **VonMises** | **`wind_direction_example`**, `elk_movement_example` |
+| Categorical | Discrete | `basic_hmm_example`, `swarm_coordination_example` |
 
-## Next Steps
+**Choosing a trainer:**
 
-- Modify examples with your own data
-- Experiment with different state numbers
-- Try other distributions from the library
-- Combine multiple observation types
-- Implement custom training algorithms
+| Situation | Trainer |
+|---|---|
+| Standard fitting | `BaumWelchTrainer` |
+| Sparse data / prevent zero transitions | `MapBaumWelchTrainer` |
+| Fast convergence, well-separated states | `ViterbiTrainer` |
+| Discrete HMM initialisation | `SegmentalKMeansTrainer` |
+
+**Choosing a decoder:**
+
+| Goal | Method |
+|---|---|
+| Minimise per-step error (annotation) | `ForwardBackwardCalculator::decodePosterior()` |
+| Globally coherent path (segmentation) | `ViterbiCalculator::decode()` |
+
+**Adapting benchmark examples to your own data:**
+- Movement / GPS tracks → adapt `elk_movement_example`
+- Financial time series → adapt `dax_regime_example` (any index via `prepare_dax_data.R`)
+- Count time series → adapt `earthquake_example` (data is embedded; swap the array)
+- Circular / directional data → adapt `wind_direction_example`
