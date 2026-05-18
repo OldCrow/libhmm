@@ -9,7 +9,7 @@ tags:
   - financial time series
   - circular statistics
 authors:
-  - name: [Author Name]
+  - name: Gary Wolfman
     orcid: [0000-0000-0000-0000]
     affiliation: 1
 affiliations:
@@ -114,6 +114,11 @@ A layered architecture (platform → math → linear algebra → distributions �
 core → calculators → trainers → I/O) enforces dependency order and allows
 distributions to be used independently of the HMM machinery. JSON serialization
 and legacy XML I/O are provided for model persistence.
+
+**Python bindings.** The companion package `pylibhmm` (v0.4.0) wraps the full
+C++ API using `nanobind` and `scikit-build-core`, providing access to all 16
+distributions, all training algorithms, posterior decoding, model selection, and
+JSON/XML I/O from NumPy-based Python code [@pylibhmm].
 
 # Research Impact Statement
 
