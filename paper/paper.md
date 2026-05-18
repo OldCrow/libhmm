@@ -10,11 +10,11 @@ tags:
   - circular statistics
 authors:
   - name: Gary Wolfman
-    orcid: [0000-0000-0000-0000]
+    orcid: 0009-0009-6077-1337
     affiliation: 1
 affiliations:
   - index: 1
-    name: [Institution, Country]
+    name: Canadian Armed Forces, Canada
 date: [DD Month YYYY]
 bibliography: paper.bib
 ---
