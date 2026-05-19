@@ -141,6 +141,8 @@ state parameters to 4 significant figures, achieves a log-likelihood of 17487.2
 versus fHMM's 17485.7, and completes in approximately 2 s versus approximately
 1360 s for fHMM on the same hardware.
 
+![ECME log-likelihood convergence on 5,838 DAX daily log-returns (2000–2022). The kurtosis MOM reference (libhmm v3.6.0) and fHMM 1.2.0 reference are shown as dashed lines. ECME surpasses fHMM at iteration 5 and converges 152 nats above the MOM solution.](figures/figure2_convergence.png){width=100%}
+
 **Seismicity.** A 2-state Poisson HMM on the annual major earthquake count
 series from @Zucchini2009 matches the `HiddenMarkov` R package to 4 significant
 figures ($\hat{\lambda}_\text{low} = 15.419$ versus 15.418) in 4 ms versus
@@ -154,6 +156,10 @@ in `HiddenMarkov` — misclassifies 990 northerly wind hours (330°–360°) wit
 deviations away under a Normal model (log-likelihood $= -61.9$), while
 `VonMisesDistribution` evaluates $\cos(-19°) = 0.75$ and assigns all 990
 correctly.
+
+![VonMisesDistribution vs Normal approximation for circular wind direction data (Chicago O'Hare, 2015, N=11,894). Left: wind rose coloured by VonMises state. Right: per-bin disagreement rate; the 330°–360° bin shows 100% misclassification under the Normal model.](figures/figure3_wind_boundary.png){width=100%}
+
+![Wall-time comparison across three published benchmarks. Speedup factors are conservative: libhmm was run on a Ryzen 9 with AVX-512; the fHMM reference was measured on Intel Ivy Bridge.](figures/figure1_speedup.png){width=80%}
 
 # AI Usage Disclosure
 
