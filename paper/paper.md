@@ -31,6 +31,10 @@ decoding), and model selection (AIC/BIC/AICc) for sixteen probability
 distributions. All algorithms operate in log-space to avoid numerical underflow.
 The library has zero external dependencies and is designed to be embedded
 directly in C++ research pipelines without requiring an R or Python runtime.
+`libhmm` originated as a C++ port of the JAHMM library [@JAHMM], developed
+during the author's graduate research on HMM-based characterization of HTTP
+reverse tunnels. The codebase has since been redesigned from first principles
+with no remaining code lineage to the original port.
 
 # Statement of Need
 
@@ -167,6 +171,10 @@ beyond copy-editing assistance.
 
 # Acknowledgements
 
-[Acknowledgements if applicable]
+The author thanks the Computer Security Lab at the Royal Military College of
+Canada, where this work originated. The JAHMM library [@JAHMM] provided the
+initial foundation for the first version of this software. The author also
+thanks Kevin Forest, whose YASWIN research first demonstrated the viability
+of HMM-based covert channel detection and inspired this work.
 
 # References
