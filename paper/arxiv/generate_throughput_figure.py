@@ -5,7 +5,7 @@ generate_throughput_figure.py — Figure 4 for libhmm arXiv paper.
 Plots forward-backward throughput (observations/ms) vs sequence length T
 for libhmm, HMMLib, and StochHMM on discrete HMMs (Dishonest Casino, 2-state).
 
-Data source: benchmark-analysis/ logs (adaptive SIMD build, Windows Ryzen 9,
+Data source: benchmark-analysis/ logs (adaptive SIMD build, Windows Ryzen 7,
 MSVC Release). HMMLib uses scaled forward-backward; libhmm uses log-space.
 StochHMM uses unscaled recursive computation.
 
@@ -25,7 +25,7 @@ OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 # ---------------------------------------------------------------------------
 # Benchmark data — from benchmark-analysis/adaptive_libhmm_vs_hmmlib.log
 # and benchmark-analysis/adaptive_libhmm_vs_stochhmm.log
-# Hardware: Windows Ryzen 9, AVX-512, MSVC Release
+# Hardware: Windows Ryzen 7, AVX-512, MSVC Release
 # Model: Dishonest Casino (2-state, 2-symbol discrete HMM)
 # Metric: forward-backward throughput (observations / ms)
 # Note: HMMLib uses scaled FB; libhmm uses full log-space FB;
@@ -83,7 +83,7 @@ ax.semilogx(T_vals, stochhmm, color=RED,    marker="^",  ms=4,
 ax.set_xlabel("Sequence length $T$")
 ax.set_ylabel("Throughput (observations / ms)")
 ax.set_title("Figure 4  Forward-backward throughput: libhmm vs HMMLib vs StochHMM\n"
-             "(Dishonest Casino, 2-state discrete HMM, Windows Ryzen 9 / AVX-512 / MSVC)")
+             "(Dishonest Casino, 2-state discrete HMM, Windows Ryzen 7 / AVX-512 / MSVC)")
 
 ax.xaxis.set_major_formatter(ticker.FuncFormatter(
     lambda x, _: f"{int(x):,}"

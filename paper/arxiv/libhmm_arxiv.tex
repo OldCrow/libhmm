@@ -607,7 +607,7 @@ this requires recompilation.
 We measured forward-backward throughput on the Dishonest Casino
 (2-state, 2-symbol discrete HMM) and Weather Model (3-state)
 problems across sequence lengths $T \in \{10^2, 5\times10^2, \ldots, 10^6\}$.
-Hardware: Windows Ryzen~9, AVX-512, MSVC Release build.
+Hardware: Windows Ryzen~7, AVX-512, MSVC Release build.
 
 Table~\ref{tab:synthetic} summarises average throughput and
 Figure~\ref{fig:throughput} shows the full throughput curves.
@@ -650,7 +650,7 @@ inner loop --- this gap is not relevant to practical performance.
 \centering
 \includegraphics[width=0.9\linewidth]{figure4_throughput.pdf}
 \caption{Forward-backward throughput: \texttt{libhmm} vs.\ HMMLib vs.\ StochHMM
-(Dishonest Casino, 2-state discrete HMM, Windows Ryzen~9 / AVX-512 / MSVC).
+(Dishonest Casino, 2-state discrete HMM, Windows Ryzen~7 / AVX-512 / MSVC).
 HMMLib uses scaled forward-backward; libhmm uses log-space; StochHMM uses
 unscaled recursion. The throughput gap between HMMLib and libhmm is primarily
 due to the log-space vs.\ scaled algorithm choice.}
@@ -683,7 +683,7 @@ S\&P 500       & 5,786 obs., 3 states  & 0.7 s & --- & --- \\
 \end{table}
 
 \paragraph{Hardware note.}
-\texttt{libhmm} timings were measured on a Windows system with a Ryzen~9
+\texttt{libhmm} timings were measured on a Windows system with a Ryzen~7
 processor (AVX-512, MSVC Release build).
 The \texttt{fHMM} reference was measured on an Intel Ivy Bridge machine
 reported in \citet{Oelschlager2024}; the $\approx$680$\times$ speedup for

@@ -159,7 +159,7 @@ correctly.
 
 ![VonMisesDistribution vs Normal approximation for circular wind direction data (Chicago O'Hare, 2015, N=11,894). Left: wind rose coloured by VonMises state. Right: per-bin disagreement rate; the 330°–360° bin shows 100% misclassification under the Normal model.](figures/figure3_wind_boundary.png){width=100%}
 
-![Wall-time comparison across three published benchmarks. Speedup factors are conservative: libhmm was run on a Ryzen 9 with AVX-512; the fHMM reference was measured on Intel Ivy Bridge.](figures/figure1_speedup.png){width=80%}
+![Wall-time comparison across three published benchmarks. Speedup factors are conservative: libhmm was run on a Ryzen 7 with AVX-512; the fHMM reference was measured on Intel Ivy Bridge.](figures/figure1_speedup.png){width=80%}
 
 # AI Usage Disclosure
 
