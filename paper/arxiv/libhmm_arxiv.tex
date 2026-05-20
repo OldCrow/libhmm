@@ -636,9 +636,12 @@ against underflow on unusual inputs.
 At $T = 10^5$ the throughput ratio is approximately 2.8$\times$;
 libhmm's log-space overhead is consistent and predictable.
 
-GHMM was benchmarked on a separate macOS system (macOS Catalina 10.15,
-Intel Core i7-3820QM, AppleClang, AVX --- the highest SIMD tier on that
-machine) to obtain a same-hardware comparison.
+GHMM requires autotools, libxml2, and GSL, which are unavailable in
+the primary Windows build environment; it was therefore benchmarked on
+a macOS system where a pre-built installation was available (macOS
+Catalina 10.15, Intel Core i7-3820QM, AppleClang, AVX --- the highest
+SIMD tier on that machine), with \texttt{libhmm} built on the same
+machine to obtain a same-hardware comparison.
 On this platform, GHMM 0.9-rc3 achieves approximately $9.2\times$ the
 forward-backward throughput of \texttt{libhmm} on the same hardware
 (20,545 vs.\ 2,235~obs/ms, averaged over $T \in \{10^3, \ldots, 10^6\}$,
