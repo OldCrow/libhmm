@@ -636,15 +636,21 @@ against underflow on unusual inputs.
 At $T = 10^5$ the throughput ratio is approximately 2.8$\times$;
 libhmm's log-space overhead is consistent and predictable.
 
-Direct comparison with GHMM was not performed in this environment:
-GHMM requires autotools, libxml2, and GSL, which are not available in
-the Windows build context used here.
-Based on its C implementation with flat array layout and no virtual
-dispatch, GHMM is expected to match or exceed HMMLib on discrete
-forward-backward throughput.
+GHMM was benchmarked on a separate macOS system (macOS Catalina 10.15,
+Intel Core i7-3820QM, AppleClang, AVX --- the highest SIMD tier on that
+machine) to obtain a same-hardware comparison.
+On this platform, GHMM 0.9-rc3 achieves approximately $9.2\times$ the
+forward-backward throughput of \texttt{libhmm} on the same hardware
+(20,545 vs.\ 2,235~obs/ms, averaged over $T \in \{10^3, \ldots, 10^6\}$,
+Dishonest Casino and Weather problems).
+The larger ratio relative to HMMLib on the primary platform (9.2$\times$
+vs.\ 3.2$\times$) reflects the weaker SIMD tier: the macOS machine
+has AVX only, not AVX2 or AVX-512, so \texttt{libhmm}'s log-space
+compute is less amortised by vectorisation.
+On the Ryzen~7 with AVX-512, the GHMM:libhmm ratio would be smaller.
 For \texttt{libhmm}'s target applications --- continuous emission
-distributions where the emission evaluation cost dominates the FB
-inner loop --- this gap is not relevant to practical performance.
+distributions where emission evaluation dominates the FB inner loop ---
+this throughput gap narrows substantially.
 
 \begin{figure}[h]
 \centering
