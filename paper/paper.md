@@ -9,12 +9,12 @@ tags:
   - financial time series
   - circular statistics
 authors:
-  - name: Gary Wolfman
+  - name: Gary Wolfman, P.Eng.
     orcid: 0009-0009-6077-1337
     affiliation: 1
 affiliations:
   - index: 1
-    name: Canadian Armed Forces, Canada
+    name: Independent Researcher
 date: [DD Month YYYY]
 bibliography: paper.bib
 ---
