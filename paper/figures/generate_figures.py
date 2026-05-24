@@ -86,8 +86,8 @@ GREEN  = "#2ca02c"
 
 benchmarks = [
     # label,              libhmm_ms,  r_ms,     r_package
-    ("Earthquake\n(N=107)", 4,        20,       "HiddenMarkov"),
-    ("Elk movement\n(N=14,394)", 99,  2_000,    "moveHMM"),
+    ("Earthquake\n(N=107)", 2,        20,       "HiddenMarkov"),
+    ("Elk movement\n(N=725)", 55,     1_270,    "moveHMM"),
     ("DAX regimes\n(N=5,838)", 2_000, 1_360_000, "fHMM"),
 ]
 

@@ -133,7 +133,7 @@ reproducible reference materials.
 **Animal movement ecology.** A joint Gamma and `VonMisesDistribution` HMM on 4
 elk GPS tracks [@Morales2004] — the canonical `moveHMM` dataset — recovers
 step-length and turning-angle parameters within 2% of the `moveHMM` reference
-fit at 99 ms versus approximately 2000 ms.
+fit at 55 ms versus approximately 1270 ms.
 
 **Financial time series.** A 3-state Student-t HMM on DAX log-returns
 (2000–2022), the `fHMM` benchmark dataset, matches published bearish and bullish
@@ -145,7 +145,7 @@ versus fHMM's 17485.7, and completes in approximately 2 s versus approximately
 
 **Seismicity.** A 2-state Poisson HMM on the annual major earthquake count
 series from @Zucchini2009 matches the `HiddenMarkov` R package to 4 significant
-figures ($\hat{\lambda}_\text{low} = 15.419$ versus 15.418) in 4 ms versus
+figures ($\hat{\lambda}_\text{low} = 15.419$ versus 15.418) in 2 ms versus
 approximately 20 ms.
 
 **Circular data.** A 2-state `VonMisesDistribution` HMM on 11,894 hourly wind
@@ -159,7 +159,7 @@ correctly.
 
 ![VonMisesDistribution vs Normal approximation for circular wind direction data (Chicago O'Hare, 2015, N=11,894). Left: wind rose coloured by VonMises state. Right: per-bin disagreement rate; the 330°–360° bin shows 100% misclassification under the Normal model.](figures/figure3_wind_boundary.png){width=100%}
 
-![Wall-time comparison across three published benchmarks. Speedup factors are conservative: libhmm was run on a Ryzen 7 with AVX-512; the fHMM reference was measured on Intel Ivy Bridge.](figures/figure1_speedup.png){width=80%}
+![Wall-time comparison across three published benchmarks. Elk and earthquake timings are same-machine (Ryzen 7 / AVX-512 / Windows); DAX speedup is conservative as the fHMM reference was measured on Intel Ivy Bridge.](figures/figure1_speedup.png){width=80%}
 
 # AI Usage Disclosure
 

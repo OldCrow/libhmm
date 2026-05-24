@@ -677,28 +677,24 @@ Full parameter tables follow.
 \begin{table}[h]
 \centering
 \caption{Wall-time comparison: \texttt{libhmm} v3.7.0 vs.\ R reference packages.
-Dagger (\dag) denotes timings from macOS Catalina (Intel i7-3820QM, AppleClang,
-AVX) pending re-verification on the primary Windows platform.}
+All \texttt{libhmm} timings on Windows (AMD Ryzen~7 7745, AVX-512, MSVC Release).}
 \label{tab:timing}
 \begin{tabular}{llrrl}
 \toprule
 Benchmark & Dataset & \texttt{libhmm} & R package & Speedup \\
 \midrule
-Elk movement$^\dag$  & 14,394 obs., 2 states & 99 ms   & $\approx$2{,}000 ms & $\approx$20$\times$ \\
+Elk movement         & 725 obs., 2 states    & 55 ms   & $\approx$1{,}270 ms & $\approx$23$\times$ \\
 DAX regimes          & 5,838 obs., 3 states  & 2 s     & $\approx$1{,}360 s  & $\approx$680$\times$ \\
 S\&P 500             & 5,786 obs., 3 states  & 0.7 s   & ---                 & ---                 \\
-Earthquake$^\dag$    & 107 obs., 2 states    & 4 ms    & $\approx$20 ms      & $\approx$5$\times$ \\
+Earthquake           & 107 obs., 2 states    & 2 ms    & $\approx$20 ms      & $\approx$10$\times$ \\
 Wind direction       & 11,894 obs., 2 states & 71 ms   & $\approx$240 ms     & $\approx$3$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Hardware note.}
-DAX, S\&P~500, and wind direction timings were measured on Windows
+All \texttt{libhmm} timings were measured on Windows
 (AMD Ryzen~7 7745, AVX-512, MSVC Release build).
-Elk and earthquake timings are from macOS Catalina (Intel Core i7-3820QM,
-AppleClang, AVX) and are marked with $\dag$ pending re-run on the primary
-platform; parameter recovery results are hardware-independent.
 The \texttt{fHMM} reference was measured on an Intel Ivy Bridge machine
 reported in \citet{Oelschlager2024}; the $\approx$680$\times$ speedup for
 the DAX benchmark is therefore conservative.
@@ -706,11 +702,9 @@ the DAX benchmark is therefore conservative.
 \subsubsection{Animal movement ecology: elk GPS tracks}
 \label{sec:elk}
 
-\citet{Morales2004} fit a 2-state HMM to four elk GPS tracks
-(14,394 step-length and turning-angle observations) using
-Gamma (step) and von Mises (angle) joint emissions.
-This is the canonical benchmark dataset for \texttt{moveHMM}
-\citep{Michelot2016}.
+We fit a 2-state Gamma + von Mises HMM to the \texttt{moveHMM::elk\_data}
+bundled dataset \citep{Michelot2016} (4 elk GPS tracks from \citet{Morales2004};
+725 step-length and turning-angle observations after preprocessing).
 
 \begin{table}[h]
 \centering
@@ -721,11 +715,11 @@ This is the canonical benchmark dataset for \texttt{moveHMM}
 Parameter & \texttt{libhmm} & \texttt{moveHMM} & Difference \\
 \midrule
 Encamped step mean (m)   & 377  & 374  & $<$1\% \\
-Encamped step SD (m)     & 401  & 403  & $<$1\% \\
-Travelling step mean (m) & 1741 & 1751 & $<$1\% \\
-Travelling step SD (m)   & 1519 & 1527 & $<$1\% \\
-Encamped $\kappa$        & 0.595 & 0.592 & 0.5\% \\
-Travelling $\kappa$      & 0.782 & 0.780 & 0.3\% \\
+Encamped step SD (m)     & 401  & 399  & $<$1\% \\
+Travelling step mean (m) & 3189 & 3247 & $<$2\% \\
+Travelling step SD (m)   & 4392 & 4394 & $<$1\% \\
+Encamped $\kappa$        & 0.595 & 0.592 & $<$1\% \\
+Travelling $\kappa$      & 0.204 & 0.208 & $<$2\% \\
 \bottomrule
 \end{tabular}
 \end{table}
