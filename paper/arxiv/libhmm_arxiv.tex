@@ -639,18 +639,17 @@ libhmm's log-space overhead is consistent and predictable.
 GHMM requires autotools, libxml2, and GSL, which are unavailable in
 the primary Windows build environment; it was therefore benchmarked on
 a macOS system where a pre-built installation was available (macOS
-Catalina 10.15, Intel Core i7-3820QM, AppleClang, AVX --- the highest
-SIMD tier on that machine), with \texttt{libhmm} built on the same
-machine to obtain a same-hardware comparison.
-On this platform, GHMM 0.9-rc3 achieves approximately $9.2\times$ the
+13.7.8 Ventura, Intel Core i7-7820HQ, AppleClang, AVX2), with
+\texttt{libhmm} built on the same machine to obtain a same-hardware
+comparison.
+On this platform, GHMM 0.9-rc3 achieves approximately $4.9\times$ the
 forward-backward throughput of \texttt{libhmm} on the same hardware
-(20,545 vs.\ 2,235~obs/ms, averaged over $T \in \{10^3, \ldots, 10^6\}$,
+(20,775 vs.\ 4,277~obs/ms, averaged over $T \in \{10^3, \ldots, 10^6\}$,
 Dishonest Casino and Weather problems).
-The larger ratio relative to HMMLib on the primary platform (9.2$\times$
-vs.\ 3.2$\times$) reflects the weaker SIMD tier: the macOS machine
-has AVX only, not AVX2 or AVX-512, so \texttt{libhmm}'s log-space
-compute is less amortised by vectorisation.
-On the Ryzen~7 with AVX-512, the GHMM:libhmm ratio would be smaller.
+This advantage reflects GHMM's flat C array layout with no virtual
+dispatch and its use of scaled forward-backward rather than log-space ---
+the same factors that account for HMMLib's advantage on discrete models
+(Section~\ref{sec:logspace}).
 For \texttt{libhmm}'s target applications --- continuous emission
 distributions where emission evaluation dominates the FB inner loop ---
 this throughput gap narrows substantially.
