@@ -1,0 +1,54 @@
+This is BibTeX, Version 0.99d (TeX Live 2025)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: libhmm_arxiv.aux
+The style file: plainnat.bst
+Database file #1: libhmm_arxiv.bib
+Warning--entry type for "JAHMM" isn't style-file defined
+--line 169 of file libhmm_arxiv.bib
+Warning--entry type for "pylibhmm" isn't style-file defined
+--line 175 of file libhmm_arxiv.bib
+Warning--entry type for "nanobind" isn't style-file defined
+--line 202 of file libhmm_arxiv.bib
+Warning--empty year in JAHMM
+You've used 19 entries,
+            2773 wiz_defined-function locations,
+            738 strings with 8435 characters,
+and the built_in function-call counts, 8213 in all, are:
+= -- 746
+> -- 431
+< -- 11
++ -- 149
+- -- 129
+* -- 674
+:= -- 1287
+add.period$ -- 72
+call.type$ -- 19
+change.case$ -- 95
+chr.to.int$ -- 18
+cite$ -- 39
+duplicate$ -- 371
+empty$ -- 695
+format.name$ -- 156
+if$ -- 1698
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 18
+newline$ -- 118
+num.names$ -- 77
+pop$ -- 188
+preamble$ -- 1
+purify$ -- 81
+quote$ -- 0
+skip$ -- 276
+stack$ -- 0
+substring$ -- 294
+swap$ -- 22
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 189
+warning$ -- 1
+while$ -- 77
+width$ -- 0
+write$ -- 278
+(There were 4 warnings)

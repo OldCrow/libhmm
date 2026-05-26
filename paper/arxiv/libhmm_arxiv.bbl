@@ -1,0 +1,141 @@
+\begin{thebibliography}{19}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Abramowitz and Stegun(1964)]{AbramowitzStegun1964}
+Milton Abramowitz and Irene~A. Stegun, editors.
+\newblock \emph{Handbook of Mathematical Functions}.
+\newblock National Bureau of Standards, Washington, DC, 1964.
+
+\bibitem[Baum et~al.(1970)Baum, Petrie, Soules, and Weiss]{Baum1970}
+Leonard~E. Baum, Ted Petrie, George Soules, and Norman Weiss.
+\newblock A maximization technique occurring in the statistical analysis of
+  probabilistic functions of {M}arkov chains.
+\newblock \emph{The Annals of Mathematical Statistics}, 41\penalty0
+  (1):\penalty0 164--171, 1970.
+\newblock \doi{10.1214/aoms/1177697196}.
+
+\bibitem[Dempster et~al.(1977)Dempster, Laird, and Rubin]{Dempster1977}
+Arthur~P. Dempster, Nan~M. Laird, and Donald~B. Rubin.
+\newblock Maximum likelihood from incomplete data via the {EM} algorithm.
+\newblock \emph{Journal of the Royal Statistical Society, Series B},
+  39\penalty0 (1):\penalty0 1--38, 1977.
+\newblock \doi{10.1111/j.2517-6161.1977.tb01600.x}.
+
+\bibitem[Durbin et~al.(1998)Durbin, Eddy, Krogh, and Mitchison]{Durbin1998}
+Richard Durbin, Sean~R. Eddy, Anders Krogh, and Graeme Mitchison.
+\newblock \emph{Biological Sequence Analysis: Probabilistic Models of Proteins
+  and Nucleic Acids}.
+\newblock Cambridge University Press, Cambridge, 1998.
+\newblock \doi{10.1017/CBO9780511790492}.
+
+\bibitem[Fran{\c{c}}ois()]{JAHMM}
+Jean-Marc Fran{\c{c}}ois.
+\newblock {JAHMM}: An implementation of {HMM} in {Java}.
+\newblock URL \url{https://code.google.com/archive/p/jahmm/}.
+
+\bibitem[Harte(2025)]{Harte2025}
+David Harte.
+\newblock \emph{{HiddenMarkov}: Hidden {M}arkov Models}, 2025.
+\newblock URL \url{https://www.statsresearch.co.nz/dsh/sslib/}.
+\newblock R package version 1.8-14.
+
+\bibitem[Jakob(2022)]{nanobind}
+Wenzel Jakob.
+\newblock nanobind: Tiny and efficient {C++/Python} bindings, 2022.
+\newblock URL \url{https://github.com/wjakob/nanobind}.
+
+\bibitem[Liu and Rubin(1994)]{Liu1994}
+Chuanhai Liu and Donald~B. Rubin.
+\newblock The {ECME} algorithm: A simple extension of {EM} and {ECM} with
+  faster monotone convergence.
+\newblock \emph{Biometrika}, 81\penalty0 (4):\penalty0 633--648, 1994.
+\newblock \doi{10.2307/2337067}.
+
+\bibitem[McClintock and Michelot(2018)]{McClintock2018}
+Brett~T. McClintock and Th{\'e}o Michelot.
+\newblock {momentuHMM}: {R} package for generalised hidden {M}arkov models of
+  animal movement.
+\newblock \emph{Methods in Ecology and Evolution}, 9\penalty0 (6):\penalty0
+  1518--1530, 2018.
+\newblock \doi{10.1111/2041-210X.12995}.
+
+\bibitem[Michelot et~al.(2016)Michelot, Langrock, and Patterson]{Michelot2016}
+Th{\'e}o Michelot, Roland Langrock, and Toby~A. Patterson.
+\newblock {moveHMM}: An {R} package for the statistical modelling of animal
+  movement data using hidden {M}arkov models.
+\newblock \emph{Methods in Ecology and Evolution}, 7\penalty0 (11):\penalty0
+  1308--1315, 2016.
+\newblock \doi{10.1111/2041-210X.12578}.
+
+\bibitem[Morales et~al.(2004)Morales, Haydon, Frair, Holsinger, and
+  Fryxell]{Morales2004}
+Juan~M. Morales, Daniel~T. Haydon, Jacqueline Frair, Kent~E. Holsinger, and
+  John~M. Fryxell.
+\newblock Extracting more out of relocation data: Building movement models as
+  mixtures of random walks.
+\newblock \emph{Ecology}, 85\penalty0 (9):\penalty0 2436--2445, 2004.
+\newblock \doi{10.1890/03-0269}.
+
+\bibitem[Oelschl{\"a}ger et~al.(2024)Oelschl{\"a}ger, Adam, and
+  Michels]{Oelschlager2024}
+Lennart Oelschl{\"a}ger, Timo Adam, and Rouven Michels.
+\newblock {fHMM}: Hidden {M}arkov models for financial time series in {R}.
+\newblock \emph{Journal of Statistical Software}, 109\penalty0 (9):\penalty0
+  1--37, 2024.
+\newblock \doi{10.18637/jss.v109.i09}.
+
+\bibitem[Rabiner(1989)]{Rabiner1989}
+Lawrence~R. Rabiner.
+\newblock A tutorial on hidden {M}arkov models and selected applications in
+  speech recognition.
+\newblock \emph{Proceedings of the IEEE}, 77\penalty0 (2):\penalty0 257--286,
+  1989.
+\newblock \doi{10.1109/5.18626}.
+
+\bibitem[Schliep et~al.(2003)Schliep, Sch{\"o}nhuth, and
+  Steinhoff]{Schliep2003}
+Alexander Schliep, Alexander Sch{\"o}nhuth, and Christine Steinhoff.
+\newblock Using hidden {M}arkov models to analyze gene expression time course
+  data.
+\newblock \emph{Bioinformatics}, 19\penalty0 (suppl\_1):\penalty0 i255--i263,
+  2003.
+\newblock \doi{10.1093/bioinformatics/btg1036}.
+
+\bibitem[Viterbi(1967)]{Viterbi1967}
+Andrew~J. Viterbi.
+\newblock Error bounds for convolutional codes and an asymptotically optimum
+  decoding algorithm.
+\newblock \emph{IEEE Transactions on Information Theory}, 13\penalty0
+  (2):\penalty0 260--269, 1967.
+\newblock \doi{10.1109/TIT.1967.1054010}.
+
+\bibitem[Wolfman(2026{\natexlab{a}})]{libhmm_joss}
+Gary Wolfman.
+\newblock libhmm: A modern {C++20} library for hidden {M}arkov model analysis.
+\newblock \emph{Journal of Open Source Software}, 2026{\natexlab{a}}.
+\newblock URL \url{https://github.com/OldCrow/libhmm}.
+\newblock DOI to be assigned at publication.
+
+\bibitem[Wolfman(2026{\natexlab{b}})]{pylibhmm}
+Gary Wolfman.
+\newblock pylibhmm: {Python} bindings for libhmm, 2026{\natexlab{b}}.
+\newblock URL \url{https://github.com/OldCrow/pylibhmm}.
+
+\bibitem[Zucchini and MacDonald(2009)]{Zucchini2009}
+Walter Zucchini and Iain~L. MacDonald.
+\newblock \emph{Hidden {M}arkov Models for Time Series: An Introduction Using
+  {R}}.
+\newblock CRC Press, Boca Raton, FL, 2009.
+
+\bibitem[Zucchini et~al.(2017)Zucchini, MacDonald, and Langrock]{Zucchini2017}
+Walter Zucchini, Iain~L. MacDonald, and Roland Langrock.
+\newblock \emph{Hidden {M}arkov Models for Time Series: An Introduction Using
+  {R}, 2nd edition}.
+\newblock CRC Press, Boca Raton, FL, 2017.
+\newblock \doi{10.1201/b20790}.
+
+\end{thebibliography}
