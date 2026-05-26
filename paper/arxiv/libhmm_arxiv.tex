@@ -3,7 +3,7 @@
 \usepackage{amsmath, amssymb, amsthm}
 \usepackage{booktabs}
 \usepackage{graphicx}
-\usepackage{hyperref}
+\usepackage[bookmarks=false]{hyperref}
 \usepackage[round]{natbib}
 \usepackage{microtype}
 \usepackage{xcolor}
@@ -786,7 +786,7 @@ with MOM and \texttt{fHMM} reference lines.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\linewidth]{../figures/figure2_convergence.pdf}
+\includegraphics[width=\linewidth]{figure2_convergence.pdf}
 \caption{ECME log-likelihood convergence on 5,838 DAX log-returns (2000--2022).
 The kurtosis MOM reference (\texttt{libhmm} v3.6.0) and \texttt{fHMM} 1.2.0
 reference are shown as dashed lines.
@@ -900,7 +900,7 @@ Figure~\ref{fig:wind} shows the wind rose and per-bin disagreement rate.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\linewidth]{../figures/figure3_wind_boundary.pdf}
+\includegraphics[width=\linewidth]{figure3_wind_boundary.pdf}
 \caption{VonMisesDistribution vs.\ Normal approximation for circular wind
 direction data (Chicago O'Hare, 2015, $N=11{,}894$).
 Left: wind rose coloured by VonMises state.
@@ -1003,3 +1003,4 @@ Python bindings are available via \texttt{pylibhmm} \citep{pylibhmm}.
 \bibliography{libhmm_arxiv}
 
 \end{document}
+\typeout{get arXiv to do 4 passes: Label(s) may have changed. Rerun}
