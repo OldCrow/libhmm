@@ -9,7 +9,9 @@ tags:
   - financial time series
   - circular statistics
 authors:
-  - name: Gary Wolfman, P.Eng.
+  - given-names: Gary
+    surname: Wolfman
+    suffix: P.Eng.
     orcid: 0009-0009-6077-1337
     affiliation: 1
 affiliations:
@@ -165,24 +167,26 @@ correctly.
 
 # AI Usage Disclosure
 
-The Oz AI agent (Anthropic Claude, accessed via Warp terminal) assisted with
+The Warp Oz AI agent (powered by Anthropic Claude; specific model version
+resolved dynamically by the Warp platform at time of use) assisted with
 implementation of distribution fitting methods, test scaffolding, benchmark
-example code, and documentation throughout development. The human author
-directed all core design decisions — log-space architecture, selection of ECME
-for the Student-t M-step, Newton–Raphson for other distributions, the
+example code, and documentation throughout development. For the paper itself,
+the same agent provided copy-editing assistance only. The human author directed
+all core design decisions — log-space architecture, selection of ECME for the
+Student-t M-step, Newton–Raphson for other distributions, the
 `VonMisesDistribution` implementation including the Abramowitz & Stegun
 fallback, and the choice of benchmark datasets and reference packages. All
-AI-assisted code was reviewed by the human author, tested against published
-reference values, and validated prior to inclusion. AI was not used for
-architectural decisions, result interpretation, or any aspect of this paper
-beyond copy-editing assistance.
+AI-assisted code and text was reviewed, validated, and approved by the human
+author prior to inclusion. AI was not used for architectural decisions, result
+interpretation, or algorithmic design choices.
 
 # Acknowledgements
 
-The author thanks the Computer Security Lab at the Royal Military College of
-Canada, where this work originated. The JAHMM library [@JAHMM] provided the
-initial foundation for the first version of this software. The author also
-thanks Kevin Forest, whose YASWIN research first demonstrated the viability
-of HMM-based covert channel detection and inspired this work.
+The author received no specific funding for this work. The author thanks the
+Computer Security Lab at the Royal Military College of Canada, where this work
+originated. The JAHMM library [@JAHMM] provided the initial foundation for the
+first version of this software. The author also thanks Kevin Forest, whose
+YASWIN research first suggested the viability of HMM-based covert channel
+detection and inspired this work.
 
 # References
