@@ -3,13 +3,18 @@
 \usepackage{amsmath, amssymb, amsthm}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{array}
 \usepackage[bookmarks=false]{hyperref}
 \usepackage[round]{natbib}
 \usepackage{microtype}
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{geometry}
+\usepackage{placeins}
+\usepackage{caption}
 \geometry{margin=1in}
+\captionsetup[table]{width=.80\linewidth}
+\captionsetup[figure]{width=.92\linewidth}
 
 % Draft markers
 \newcommand{\TODO}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
@@ -90,7 +95,7 @@ kurtosis estimation can converge to a substantially different fixed point
 than the ECME algorithm \citep{Liu1994}, particularly for states with
 near-Gaussian tails or sparse posterior support.
 
-\texttt{libhmm} was originally developed during the first author's graduate
+\texttt{libhmm} was originally developed during the author's graduate
 research on HMM-based characterisation of HTTP reverse tunnels, beginning
 as a C++ port of the JAHMM library \citep{JAHMM}.
 The codebase has since been redesigned from first principles with no
@@ -144,19 +149,22 @@ parameter recovery for sparse states.
 Table~\ref{tab:cpp_comparison} summarises the C and C++ HMM libraries
 most relevant to \texttt{libhmm}.
 
-\begin{table}[h]
+\begin{table}[!ht]
 \centering
-\small
+\footnotesize
 \caption{C/C++ HMM library comparison.}
 \label{tab:cpp_comparison}
-\begin{tabular}{lllllll}
+\begin{tabular}{ll
+  >{\raggedright\arraybackslash}p{2.4cm}
+  >{\raggedright\arraybackslash}p{3.2cm}
+  l l l}
 \toprule
 Library & Lang & SIMD & Distributions & Dependencies & Maintained & Standard \\
 \midrule
 GHMM    & C    & No   & Discrete, Gaussian/GMM & libxml2, GSL & No (2012) & C89/C99 \\
-HMMLib  & C++  & SSE  & Discrete only  & Boost       & No         & C++11   \\
-StochHMM & C++ & No  & Discrete only  & None        & No         & C++11   \\
-\texttt{libhmm} & C++ & AVX-512/AVX2/SSE2/NEON & 16 continuous+discrete & None & Yes & C++20 \\
+HMMLib  & C++  & SSE  & Discrete only  & Boost        & No         & C++11   \\
+StochHMM & C++ & No  & Discrete only  & None         & No         & C++11   \\
+\texttt{libhmm} & C++ & AVX-512/AVX2/\newline SSE2/NEON & 16 continuous+discrete & None & Yes & C++20 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -596,6 +604,7 @@ User-defined distributions can be added by subclassing
 \texttt{Distribution} and registering with the JSON serialiser;
 this requires recompilation.
 
+\FloatBarrier
 %=============================================================================
 \section{Benchmarks}
 \label{sec:benchmarks}
@@ -612,7 +621,7 @@ Hardware: Windows Ryzen~7, AVX-512, MSVC Release build.
 Table~\ref{tab:synthetic} summarises average throughput and
 Figure~\ref{fig:throughput} shows the full throughput curves.
 
-\begin{table}[h]
+\begin{table}[!ht]
 \centering
 \caption{Synthetic forward-backward throughput, 2-state discrete HMM.
 Average over $T \in \{10^3, \ldots, 10^6\}$.}
@@ -654,7 +663,7 @@ For \texttt{libhmm}'s target applications --- continuous emission
 distributions where emission evaluation dominates the FB inner loop ---
 this throughput gap narrows substantially.
 
-\begin{figure}[h]
+\begin{figure}[!ht]
 \centering
 \includegraphics[width=0.9\linewidth]{figure4_throughput.pdf}
 \caption{Forward-backward throughput: \texttt{libhmm} vs.\ HMMLib vs.\ StochHMM
@@ -673,7 +682,7 @@ R reference packages on the same data.
 Table~\ref{tab:timing} summarises wall times.
 Full parameter tables follow.
 
-\begin{table}[h]
+\begin{table}[!ht]
 \centering
 \caption{Wall-time comparison: \texttt{libhmm} v3.7.0 vs.\ R reference packages.
 All timings on Windows (AMD Ryzen~7 7745, AVX-512, MSVC Release).
@@ -709,7 +718,7 @@ We fit a 2-state Gamma + von Mises HMM to the \texttt{moveHMM::elk\_data}
 bundled dataset \citep{Michelot2016} (4 elk GPS tracks from \citet{Morales2004};
 725 step-length and turning-angle observations after preprocessing).
 
-\begin{table}[h]
+\begin{table}[!ht]
 \centering
 \caption{Elk movement: fitted parameters vs.\ \texttt{moveHMM} reference.}
 \label{tab:elk}
@@ -735,7 +744,7 @@ Travelling $\kappa$      & 0.204 & 0.208 & $<$2\% \\
 \texttt{fHMM} uses a gradient-based numerical optimiser (\texttt{nlm})
 rather than direct EM.
 
-\begin{table}[h]
+\begin{table}[!ht]
 \centering
 \caption{DAX regimes: fitted parameters vs.\ \texttt{fHMM} reference.
 States sorted by $\sigma$ descending.}
@@ -784,7 +793,7 @@ measurement reported here.
 Figure~\ref{fig:ecme_convergence} shows the ECME log-likelihood trajectory
 with MOM and \texttt{fHMM} reference lines.
 
-\begin{figure}[h]
+\begin{figure}[!ht]
 \centering
 \includegraphics[width=\linewidth]{figure2_convergence.pdf}
 \caption{ECME log-likelihood convergence on 5,838 DAX log-returns (2000--2022).
@@ -806,7 +815,7 @@ is recovered independently for two major indices over the same period.
 The model converged in 141 iterations at log-likelihood 18,668.71
 (wall time: 0.7~s).
 
-\begin{table}[h]
+\begin{table}[!ht]
 \centering
 \caption{S\&P~500 regimes: fitted parameters and cross-market comparison with DAX.
 States sorted by $\sigma$ descending.}
@@ -848,7 +857,7 @@ annual major earthquake counts (1900--2006; $T = 107$ observations).
 The dataset is embedded in the example source; no external data file is
 required.
 
-\begin{table}[h]
+\begin{table}[!ht]
 \centering
 \caption{Earthquake: fitted parameters vs.\ \texttt{HiddenMarkov} reference.}
 \label{tab:earthquake}
@@ -871,7 +880,7 @@ at Chicago O'Hare (NOAA ISD, 2015).
 The HiddenMarkov R package approximates circular distributions with a
 Normal, which fails at the $0^\circ/360^\circ$ boundary.
 
-\begin{table}[h]
+\begin{table}[!ht]
 \centering
 \caption{Wind direction: fitted parameters and boundary analysis.}
 \label{tab:wind}
@@ -898,7 +907,7 @@ prevailing mean (log-likelihood $= -61.9$) and misassigns it.
 
 Figure~\ref{fig:wind} shows the wind rose and per-bin disagreement rate.
 
-\begin{figure}[h]
+\begin{figure}[!ht]
 \centering
 \includegraphics[width=\linewidth]{figure3_wind_boundary.pdf}
 \caption{VonMisesDistribution vs.\ Normal approximation for circular wind
