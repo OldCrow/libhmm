@@ -106,9 +106,8 @@ that would otherwise require thousands of EM iterations to converge for
 near-Gaussian states. For `VonMisesDistribution` [@Mardia2000], the mean
 direction is estimated via the closed-form circular mean and the concentration
 parameter via Newton–Raphson, using the Abramowitz & Stegun polynomial
-approximations for the modified Bessel functions required on platforms where
-the C++17 `std::cyl_bessel_i` function is unavailable (such as AppleClang on
-macOS Catalina).
+approximations for the modified Bessel functions, since Apple's libc++ does
+not implement the C++17 mathematical special functions on any macOS version.
 
 **Zero external dependencies.** The library uses only the C++20 standard
 library. This simplifies integration into research pipelines that must control
@@ -155,10 +154,10 @@ approximately 20 ms.
 **Circular data.** A 2-state `VonMisesDistribution` HMM on 11,894 hourly wind
 directions (NOAA ISD, Chicago O'Hare, 2015 [@NOAA2001]) demonstrates
 empirically that using a Normal distribution for circular data — the only option
-in `HiddenMarkov` — misclassifies 990 northerly wind hours (330°–360°) with
+in `HiddenMarkov` — misclassifies 730 northerly wind hours (330°–360°) with
 100% error rate. A direction 19° from the NNE state mean is 11.2 standard
 deviations away under a Normal model (log-likelihood $= -61.9$), while
-`VonMisesDistribution` evaluates $\cos(-19°) = 0.75$ and assigns all 990
+`VonMisesDistribution` evaluates $\cos(-19°) = 0.75$ and assigns all 730
 correctly.
 
 ![VonMisesDistribution vs Normal approximation for circular wind direction data (Chicago O'Hare, 2015, N=11,894). Left: wind rose coloured by VonMises state. Right: per-bin disagreement rate; the 330°–360° bin shows 100% misclassification under the Normal model.](figures/figure3_wind_boundary.png){width=100%}

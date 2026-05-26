@@ -421,8 +421,9 @@ The modified Bessel functions $I_0$ and $I_1$ are evaluated using the
 polynomial approximations of \citet{AbramowitzStegun1964} (formulas 9.8.1
 and 9.8.3), which are accurate to $10^{-7}$ for all $\kappa \geq 0$.
 These approximations are used because \texttt{std::cyl\_bessel\_i} from
-the C++17 standard library is not available on all target platforms
-(notably AppleClang on macOS Catalina).
+the C++17 standard library is unavailable on all Apple platforms:
+Apple's libc++ has not implemented the C++17 mathematical special functions
+on any macOS version (absent as of Xcode~15~/~macOS~14).
 MOM seed: $\hat{\kappa}^{(0)} = \bar{R}(2 - \bar{R}^2)/(1 - \bar{R}^2)$.
 
 \paragraph{Negative binomial.}
