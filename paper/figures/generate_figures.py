@@ -80,15 +80,15 @@ GREEN  = "#2ca02c"
 # Figure 1 — Wall-time comparison: libhmm vs R packages
 # ===========================================================================
 # Benchmark data from examples/README.md and dax_regime_example.cpp
-# All times are median wall-clock on comparable hardware.
-# DAX times: libhmm on Windows Ryzen (AVX-512); fHMM on Intel Ivy Bridge.
-# Ratios are conservative (different hardware; fHMM hardware is faster).
+# All times are wall-clock on Windows Ryzen 7 7745 (AVX-512, MSVC Release).
+# DAX fHMM time: fHMM 1.4.3, 10 restarts, same machine as libhmm.
+# Oelschlager2024 reports ~1,360,000 ms for fHMM 1.2.0 on Intel Ivy Bridge.
 
 benchmarks = [
     # label,              libhmm_ms,  r_ms,     r_package
     ("Earthquake\n(N=107)", 2,        20,       "HiddenMarkov"),
     ("Elk movement\n(N=725)", 55,     1_270,    "moveHMM"),
-    ("DAX regimes\n(N=5,838)", 2_000, 1_360_000, "fHMM"),
+    ("DAX regimes\n(N=5,838)", 1_100, 13_000,   "fHMM 1.4.3"),
 ]
 
 fig1, ax1 = plt.subplots(figsize=(5.5, 3.0))

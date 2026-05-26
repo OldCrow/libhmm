@@ -676,14 +676,16 @@ Full parameter tables follow.
 \begin{table}[h]
 \centering
 \caption{Wall-time comparison: \texttt{libhmm} v3.7.0 vs.\ R reference packages.
-All \texttt{libhmm} timings on Windows (AMD Ryzen~7 7745, AVX-512, MSVC Release).}
+All timings on Windows (AMD Ryzen~7 7745, AVX-512, MSVC Release).
+Dagger ($\dag$): \texttt{fHMM} 1.4.3, 10 restarts, same machine;
+slash shows single-run result.}
 \label{tab:timing}
 \begin{tabular}{llrrl}
 \toprule
 Benchmark & Dataset & \texttt{libhmm} & R package & Speedup \\
 \midrule
 Elk movement         & 725 obs., 2 states    & 55 ms   & $\approx$1{,}270 ms & $\approx$23$\times$ \\
-DAX regimes          & 5,838 obs., 3 states  & 2 s     & $\approx$1{,}360 s  & $\approx$680$\times$ \\
+DAX regimes          & 5,838 obs., 3 states  & 1.1 s   & 5.5 s / 13 s$^\dag$ & $\approx$5$\times$ / $\approx$12$\times$ \\
 S\&P 500             & 5,786 obs., 3 states  & 0.7 s   & ---                 & ---                 \\
 Earthquake           & 107 obs., 2 states    & 2 ms    & $\approx$20 ms      & $\approx$10$\times$ \\
 Wind direction       & 11,894 obs., 2 states & 71 ms   & $\approx$240 ms     & $\approx$3$\times$ \\
@@ -694,9 +696,11 @@ Wind direction       & 11,894 obs., 2 states & 71 ms   & $\approx$240 ms     & $
 \paragraph{Hardware note.}
 All \texttt{libhmm} timings were measured on Windows
 (AMD Ryzen~7 7745, AVX-512, MSVC Release build).
-The \texttt{fHMM} reference was measured on an Intel Ivy Bridge machine
-reported in \citet{Oelschlager2024}; the $\approx$680$\times$ speedup for
-the DAX benchmark is therefore conservative.
+The \texttt{fHMM} 1.4.3 DAX timing used the same machine.
+\citet{Oelschlager2024} report $\approx$1{,}360~s for \texttt{fHMM} 1.2.0
+on Intel Ivy Bridge; the reduction to 5.5--13~s on the current version suggests
+that \texttt{fHMM} has been substantially optimised between v1.2.0 and v1.4.3,
+so the published figure is not directly comparable to the same-machine measurement.
 
 \subsubsection{Animal movement ecology: elk GPS tracks}
 \label{sec:elk}
@@ -763,6 +767,19 @@ The overall log-likelihood achieved by \texttt{libhmm} (17,487.2) exceeds
 \texttt{fHMM}'s (17,485.7), confirming that the lower neutral $\nu$ is not
 a local-optimum failure but a slow-convergence phenomenon at an equivalent
 or better solution.
+
+\paragraph{Wall-time comparison.}
+On the primary benchmark platform (Windows Ryzen~7 7745, AVX-512, MSVC Release),
+\texttt{libhmm} completes the DAX fit in 1.1~s.
+\texttt{fHMM} 1.4.3 on the same machine completes in 5.5~s (single run)
+and 13~s for 10 restarts, giving speedups of $\approx$5$\times$ and
+$\approx$12$\times$ respectively.
+\citet{Oelschlager2024} report $\approx$1{,}360~s for \texttt{fHMM} 1.2.0
+on Intel Ivy Bridge; the reduction from $\approx$1{,}360~s to 13~s (10 restarts)
+suggests that \texttt{fHMM} has been substantially optimised between
+v1.2.0 and v1.4.3.
+The published figure is therefore not directly comparable to the same-machine
+measurement reported here.
 
 Figure~\ref{fig:ecme_convergence} shows the ECME log-likelihood trajectory
 with MOM and \texttt{fHMM} reference lines.

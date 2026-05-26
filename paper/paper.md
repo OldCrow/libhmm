@@ -15,7 +15,7 @@ authors:
 affiliations:
   - index: 1
     name: Independent Researcher
-date: [DD Month YYYY]
+date: 26 May 2026
 bibliography: paper.bib
 ---
 
@@ -138,8 +138,10 @@ fit at 55 ms versus approximately 1270 ms.
 **Financial time series.** A 3-state Student-t HMM on DAX log-returns
 (2000–2022), the `fHMM` benchmark dataset, matches published bearish and bullish
 state parameters to 4 significant figures, achieves a log-likelihood of 17487.2
-versus fHMM's 17485.7, and completes in approximately 2 s versus approximately
-1360 s for fHMM on the same hardware.
+versus fHMM's 17485.7, and completes in approximately 1.1 s versus 13 s for
+fHMM 1.4.3 (10 restarts) on the same hardware (~12× speedup; single run: 5.5 s,
+~5×). The @Oelschlager2024 benchmark reports ~1360 s for fHMM 1.2.0 on Intel
+Ivy Bridge; fHMM appears to have improved substantially between versions.
 
 ![ECME log-likelihood convergence on 5,838 DAX daily log-returns (2000–2022). The kurtosis MOM reference (libhmm v3.6.0) and fHMM 1.2.0 reference are shown as dashed lines. ECME surpasses fHMM at iteration 5 and converges 152 nats above the MOM solution.](figures/figure2_convergence.png){width=100%}
 
@@ -159,7 +161,7 @@ correctly.
 
 ![VonMisesDistribution vs Normal approximation for circular wind direction data (Chicago O'Hare, 2015, N=11,894). Left: wind rose coloured by VonMises state. Right: per-bin disagreement rate; the 330°–360° bin shows 100% misclassification under the Normal model.](figures/figure3_wind_boundary.png){width=100%}
 
-![Wall-time comparison across three published benchmarks. Elk and earthquake timings are same-machine (Ryzen 7 / AVX-512 / Windows); DAX speedup is conservative as the fHMM reference was measured on Intel Ivy Bridge.](figures/figure1_speedup.png){width=80%}
+![Wall-time comparison across three published benchmarks. All timings same-machine (Ryzen 7 / AVX-512 / Windows). DAX uses fHMM 1.4.3 (10 restarts); the @Oelschlager2024 benchmark reports ~1360 s for fHMM 1.2.0 on Intel Ivy Bridge.](figures/figure1_speedup.png){width=80%}
 
 # AI Usage Disclosure
 
