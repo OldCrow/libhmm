@@ -84,6 +84,11 @@ double ExponentialDistribution::getCumulativeProbability(double x) const noexcep
  *
  * @param values Vector of observed data points
  */
+double ExponentialDistribution::sample(std::mt19937_64& rng) const {
+    std::exponential_distribution<double> dist(lambda_);
+    return dist(rng);
+}
+
 void ExponentialDistribution::fit(std::span<const double> data) {
     if (data.size() <= 1) {
         reset();

@@ -171,6 +171,17 @@ namespace {
 
 } // anonymous namespace
 
+double BetaDistribution::sample(std::mt19937_64& rng) const {
+    // Beta(alpha, beta) via the Gamma-ratio method:
+    // X ~ Gamma(alpha, 1), Y ~ Gamma(beta, 1),  result = X / (X + Y).
+    std::gamma_distribution<double> gx(alpha_, 1.0);
+    std::gamma_distribution<double> gy(beta_,  1.0);
+    const double x = gx(rng);
+    const double y = gy(rng);
+    const double s = x + y;
+    return (s > 0.0) ? x / s : 0.5;
+}
+
 void BetaDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();

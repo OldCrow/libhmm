@@ -154,6 +154,7 @@ public:
      */
     [[nodiscard]] double getProbability(double x) const override;
 
+    [[nodiscard]] double sample(std::mt19937_64& rng) const override;
     /** Empirical probabilities: P(X=k) = count(k) / N. */
     void fit(std::span<const double> data) override;
 

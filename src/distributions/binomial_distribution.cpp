@@ -63,6 +63,11 @@ double BinomialDistribution::getProbability(double value) const {
  *
  * @param data Observed non-negative integer counts.
  */
+double BinomialDistribution::sample(std::mt19937_64& rng) const {
+    std::binomial_distribution<int> dist(n_, p_);
+    return static_cast<double>(dist(rng));
+}
+
 void BinomialDistribution::fit(std::span<const double> data) {
     if (data.empty()) {
         reset();

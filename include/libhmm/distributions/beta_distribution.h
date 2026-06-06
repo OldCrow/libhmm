@@ -112,6 +112,7 @@ public:
     /// Precondition: observations.size() == out.size()
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
+    [[nodiscard]] double sample(std::mt19937_64& rng) const override;
 
     /**
      * Computes the cumulative distribution function for the Beta distribution.

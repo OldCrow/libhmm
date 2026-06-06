@@ -105,6 +105,7 @@ public:
      */
     [[nodiscard]] double getProbability(double value) const override;
 
+    [[nodiscard]] double sample(std::mt19937_64& rng) const override;
     /** Fit λ = sample_mean (unweighted MLE). */
     void fit(std::span<const double> data) override;
 

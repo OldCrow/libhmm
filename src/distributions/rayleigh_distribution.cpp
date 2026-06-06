@@ -61,6 +61,14 @@ double RayleighDistribution::getCumulativeProbability(double value) const noexce
  *
  * @param values Vector of observed data
  */
+double RayleighDistribution::sample(std::mt19937_64& rng) const {
+    // Inverse-CDF method: F(x) = 1 - exp(-x^2 / (2*sigma^2))
+    // => x = sigma * sqrt(-2 * log(U)), U ~ U(0,1).
+    std::uniform_real_distribution<double> dist(
+        std::numeric_limits<double>::min(), 1.0);
+    return sigma_ * std::sqrt(-2.0 * std::log(dist(rng)));
+}
+
 void RayleighDistribution::fit(std::span<const double> data) {
     if (data.empty()) {
         reset();

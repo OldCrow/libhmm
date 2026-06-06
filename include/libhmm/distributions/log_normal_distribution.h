@@ -109,6 +109,7 @@ public:
     /// Precondition: observations.size() == out.size()
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
+    [[nodiscard]] double sample(std::mt19937_64& rng) const override;
     [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     /** MLE: μ̂ = mean(ln(x_i)), σ̂ = std_dev(ln(x_i)). */

@@ -94,6 +94,13 @@ double StudentTDistribution::getCumulativeProbability(double value) const noexce
     return t > math::ZERO_DOUBLE ? math::ONE - math::HALF * ib : math::HALF * ib;
 }
 
+double StudentTDistribution::sample(std::mt19937_64& rng) const {
+    // std::student_t_distribution gives a standard t(nu, 0, 1);
+    // apply location and scale manually.
+    std::student_t_distribution<double> dist(degrees_of_freedom_);
+    return location_ + scale_ * dist(rng);
+}
+
 void StudentTDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();

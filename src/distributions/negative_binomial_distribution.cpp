@@ -93,6 +93,15 @@ namespace {
 
 } // anonymous namespace
 
+double NegativeBinomialDistribution::sample(std::mt19937_64& rng) const {
+    // NegBin(r, p) via Gamma-Poisson mixture; supports real-valued r.
+    // lambda ~ Gamma(r, (1-p)/p)  then  k ~ Poisson(lambda).
+    std::gamma_distribution<double> gamma_dist(r_, (1.0 - p_) / p_);
+    const double lambda = gamma_dist(rng);
+    std::poisson_distribution<int> poisson_dist(lambda);
+    return static_cast<double>(poisson_dist(rng));
+}
+
 void NegativeBinomialDistribution::fit(std::span<const double> data) {
     if (data.size() < 2) {
         reset();

@@ -89,6 +89,11 @@ double ChiSquaredDistribution::getCumulativeProbability(double x) const noexcept
     return gammap(half_k, half_x);
 }
 
+double ChiSquaredDistribution::sample(std::mt19937_64& rng) const {
+    std::chi_squared_distribution<double> dist(degrees_of_freedom_);
+    return dist(rng);
+}
+
 void ChiSquaredDistribution::fit(std::span<const double> data) {
     if (data.empty())
         throw std::invalid_argument("Cannot fit distribution to empty data");
