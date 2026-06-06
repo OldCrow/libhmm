@@ -47,9 +47,6 @@ function(add_hmm_example target_name source_file)
     # Ensure C++20 standard
     set_property(TARGET ${target_name} PROPERTY CXX_STANDARD 20)
     set_property(TARGET ${target_name} PROPERTY CXX_STANDARD_REQUIRED ON)
-    if(LIBHMM_LEGACY_WARNING_SUPPRESSIONS)
-        target_compile_options(${target_name} PRIVATE ${LIBHMM_LEGACY_WARNING_SUPPRESSIONS})
-    endif()
 endfunction()
 
 # Basic HMM example (casino problem, distributions, Viterbi training, file I/O)

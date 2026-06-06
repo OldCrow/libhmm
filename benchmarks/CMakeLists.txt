@@ -146,9 +146,6 @@ function(add_libhmm_benchmark target_name source_file)
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/../include
     )
-    if(LIBHMM_LEGACY_WARNING_SUPPRESSIONS)
-        target_compile_options(${target_name} PRIVATE ${LIBHMM_LEGACY_WARNING_SUPPRESSIONS})
-    endif()
     target_link_libraries(${target_name} PRIVATE ${LIBHMM_LINK_TARGET})
     if(NOT APPLE AND NOT MSVC)
         target_link_libraries(${target_name} PRIVATE m)
