@@ -33,7 +33,7 @@ namespace libhmm {
  * - Materials science (fiber strength)
  * - Communications (fading channel modeling)
  */
-class RayleighDistribution : public DistributionBase {
+class RayleighDistribution : public DistributionBase<RayleighDistribution> {
 private:
     /**
      * Scale parameter σ (sigma) - must be positive

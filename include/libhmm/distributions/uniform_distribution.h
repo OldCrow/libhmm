@@ -24,7 +24,7 @@ namespace libhmm {
  * - Variance: σ² = (b - a)² / 12
  * - Support: x ∈ [a, b]
  */
-class UniformDistribution : public DistributionBase {
+class UniformDistribution : public DistributionBase<UniformDistribution> {
 private:
     double a_; ///< Lower bound
     double b_; ///< Upper bound

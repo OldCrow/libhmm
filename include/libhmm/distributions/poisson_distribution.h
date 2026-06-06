@@ -17,7 +17,7 @@ namespace libhmm {
  * PMF: P(X = k) = (λ^k * e^(-λ)) / k!  for k = 0, 1, 2, ...
  * where λ (lambda) is the rate parameter (mean number of events per interval)
  */
-class PoissonDistribution : public DistributionBase {
+class PoissonDistribution : public DistributionBase<PoissonDistribution> {
 private:
     /**
      * Rate parameter λ (lambda) - average number of events per interval.

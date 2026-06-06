@@ -17,7 +17,7 @@ namespace libhmm {
  *   - fit() accepts std::span<const double> (no copies, no Observation alias)
  *   - Weighted fit() added for Baum-Welch M-step
  */
-class GaussianDistribution : public DistributionBase {
+class GaussianDistribution : public DistributionBase<GaussianDistribution> {
 private:
     /**
      * Mean parameter μ - can be any finite real number

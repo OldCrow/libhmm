@@ -29,7 +29,7 @@ namespace libhmm {
  * - Model selection criteria (AIC, BIC)
  * - Likelihood ratio tests
  */
-class ChiSquaredDistribution : public DistributionBase {
+class ChiSquaredDistribution : public DistributionBase<ChiSquaredDistribution> {
 private:
     /**
      * Degrees of freedom parameter k - must be positive

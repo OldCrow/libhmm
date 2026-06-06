@@ -1,69 +1,18 @@
 #include "libhmm/distributions/distribution_base.h"
 #include "libhmm/math/constants.h"
-#include <cassert>
 #include <cmath>
-#include <iostream>
 #include <limits>
 
 namespace libhmm {
 
 // =============================================================================
-// Rule of Five
-// std::atomic<bool> is not copyable or movable, so we must load/store
-// explicitly in copy/move operations.
+// DistributionMathHelper — shared math utilities for all emission distributions.
+//
+// Rule of Five and getBatchLogProbabilities() are now inline in the
+// DistributionBase<Derived, Obs> template header.
 // =============================================================================
 
-DistributionBase::DistributionBase() : cacheValid_{false} {}
-
-DistributionBase::DistributionBase(const DistributionBase &other)
-    : cacheValid_{other.cacheValid_.load(std::memory_order_acquire)} {}
-
-DistributionBase &DistributionBase::operator=(const DistributionBase &other) {
-    if (this != &other) {
-        cacheValid_.store(other.cacheValid_.load(std::memory_order_acquire),
-                          std::memory_order_release);
-    }
-    return *this;
-}
-
-DistributionBase::DistributionBase(DistributionBase &&other) noexcept
-    : cacheValid_{other.cacheValid_.load(std::memory_order_acquire)} {
-    // Leave other in a determinate (invalid cache) state
-    other.cacheValid_.store(false, std::memory_order_relaxed);
-}
-
-DistributionBase &DistributionBase::operator=(DistributionBase &&other) noexcept {
-    if (this != &other) {
-        cacheValid_.store(other.cacheValid_.load(std::memory_order_acquire),
-                          std::memory_order_release);
-        other.cacheValid_.store(false, std::memory_order_relaxed);
-    }
-    return *this;
-}
-
-// =============================================================================
-// Default batch log-probability (scalar loop)
-// Concrete distributions override this for SIMD vectorization.
-// =============================================================================
-
-void DistributionBase::getBatchLogProbabilities(std::span<const double> observations,
-                                                std::span<double> out) const {
-    assert(observations.size() == out.size());
-    // Index loop preserved: getLogProbability() is a virtual call whose target
-    // is unknown here. Wrapping it in a std::ranges::transform lambda does not
-    // remove the virtual dispatch; the explicit form makes that visible.
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        out[i] = getLogProbability(observations[i]);
-    }
-}
-
-// =============================================================================
-// Math helpers
-// Moved from ProbabilityDistribution. Kept as static to avoid polluting the
-// derived-class interface; accessed through DistributionBase.
-// =============================================================================
-
-double DistributionBase::gammap(double a, double x) noexcept {
+double DistributionMathHelper::gammap(double a, double x) noexcept {
     using namespace libhmm::constants;
     if (x < math::ZERO_DOUBLE || a <= math::ZERO_DOUBLE) {
         return math::ZERO_DOUBLE;
@@ -80,7 +29,7 @@ double DistributionBase::gammap(double a, double x) noexcept {
     }
 }
 
-void DistributionBase::gcf(double &gammcf, double a, double x, double &gln) noexcept {
+void DistributionMathHelper::gcf(double& gammcf, double a, double x, double& gln) noexcept {
     using namespace libhmm::constants;
 
     gln = std::lgamma(a);
@@ -108,7 +57,7 @@ void DistributionBase::gcf(double &gammcf, double a, double x, double &gln) noex
     gammcf = std::exp(-x + a * std::log(x) - gln) * h;
 }
 
-void DistributionBase::gser(double &gamser, double a, double x, double &gln) noexcept {
+void DistributionMathHelper::gser(double& gamser, double a, double x, double& gln) noexcept {
     using namespace libhmm::constants;
 
     gln = std::lgamma(a);
@@ -135,7 +84,7 @@ void DistributionBase::gser(double &gamser, double a, double x, double &gln) noe
     gamser = sum * std::exp(-x + a * std::log(x) - gln);
 }
 
-double DistributionBase::errorf_inv(double y) noexcept {
+double DistributionMathHelper::errorf_inv(double y) noexcept {
     using namespace libhmm::constants;
 
     if (y == math::ZERO_DOUBLE)

@@ -22,11 +22,15 @@
  *       distribution headers you need in performance-critical applications.
  */
 
-// Base distribution interface
+// v4 parameterised interface and C++20 concepts (canonical)
+#include "libhmm/distributions/basic_emission_distribution.h"
+#include "libhmm/distributions/emission_concepts.h"
+
+// v3 compatibility alias and concrete base
 #include "libhmm/distributions/emission_distribution.h"
 #include "libhmm/distributions/distribution_base.h"
 
-// Distribution type traits and metaprogramming utilities
+// Distribution type traits (retained for backward compatibility; see emission_concepts.h)
 #include "libhmm/distributions/distribution_traits.h"
 
 // Discrete distributions

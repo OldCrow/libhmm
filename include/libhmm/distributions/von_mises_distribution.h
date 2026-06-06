@@ -37,7 +37,7 @@ namespace libhmm {
  * - Robotics heading estimation
  * - Speech / audio phase modelling
  */
-class VonMisesDistribution : public DistributionBase {
+class VonMisesDistribution : public DistributionBase<VonMisesDistribution> {
 private:
     /**
      * Mean direction μ — maintained in (−π, π].

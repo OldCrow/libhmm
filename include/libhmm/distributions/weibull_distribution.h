@@ -29,7 +29,7 @@ namespace libhmm {
  * - Weather modeling (wind speeds)
  * - Materials science (strength of materials)
  */
-class WeibullDistribution : public DistributionBase {
+class WeibullDistribution : public DistributionBase<WeibullDistribution> {
 private:
     /**
      * Shape parameter k - must be positive
