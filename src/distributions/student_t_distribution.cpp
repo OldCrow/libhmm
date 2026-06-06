@@ -79,35 +79,19 @@ double StudentTDistribution::getCumulativeProbability(double value) const noexce
         updateCache();
     const double t = (value - location_) * cached_inv_scale_;
 
-    // For standard t-distribution, use the relationship with incomplete beta function:
-    // CDF(t) = 1/2 + (t/sqrt(ν)) * B(1/2, ν/2) / B(1/2, ν/2) * hypergeometric_function
+    // Exact CDF via regularised incomplete beta:
     //
-    // More practical implementation using the identity:
-    // If X ~ t_ν, then X² / (ν + X²) ~ Beta(1/2, ν/2)
+    //   P(T ≤ t; ν) = 1 − ½·I_{x_b}(ν/2, 1/2)   for t > 0
+    //   P(T ≤ t; ν) =     ½·I_{x_b}(ν/2, 1/2)   for t < 0
+    //
+    // where x_b = ν / (ν + t²) and I_x is the regularised incomplete beta.
+    // The formula holds for all ν > 0 without special-casing moderate vs large ν.
+    if (std::abs(t) < 1e-15)
+        return math::HALF;
 
-    const double t_squared = t * t;
-
-    // Use incomplete beta function I_x(a,b) where x = t²/(ν + t²), a = 1/2, b = ν/2
-    // Note: This is a simplified approximation. A future improvement would use
-    // the regularised incomplete beta function from DistributionBase::gammap.
-    double incomplete_beta_val = 0.0;
-    if (std::abs(t) < 1e-8) {
-        // For very small |t|, use series expansion: CDF ≈ 1/2 + t/(sqrt(π·ν)) + O(t³)
-        incomplete_beta_val =
-            math::HALF + t / std::sqrt(constants::math::PI * degrees_of_freedom_) / math::TWO;
-    } else if (degrees_of_freedom_ >= 30.0) {
-        // For large ν the t-distribution converges to N(0,1)
-        incomplete_beta_val = math::HALF * (math::ONE + std::erf(t / constants::math::SQRT_2));
-    } else {
-        // Rational approximation for moderate ν
-        const double sqrt_term = std::sqrt(degrees_of_freedom_ / (degrees_of_freedom_ + t_squared));
-        incomplete_beta_val =
-            math::HALF * (math::ONE + (t > math::ZERO_DOUBLE ? math::ONE : -math::ONE) *
-                                          (math::ONE - sqrt_term));
-    }
-
-    // Ensure result is in [0,1]
-    return std::max(math::ZERO_DOUBLE, std::min(math::ONE, incomplete_beta_val));
+    const double x_b = degrees_of_freedom_ / (degrees_of_freedom_ + t * t);
+    const double ib  = incompleteBeta(x_b, math::HALF * degrees_of_freedom_, math::HALF);
+    return t > math::ZERO_DOUBLE ? math::ONE - math::HALF * ib : math::HALF * ib;
 }
 
 void StudentTDistribution::fit(std::span<const double> data) {

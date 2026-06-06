@@ -63,13 +63,6 @@ private:
     }
 
     /**
-     * Computes the regularized incomplete beta function I_x(a,b)
-     * using continued fraction expansion for numerical accuracy.
-     * This is essential for the Beta distribution CDF.
-     */
-    double incompleteBeta(double x, double a, double b) const noexcept;
-
-    /**
      * Validates parameters for the Beta distribution
      * @param alpha Alpha parameter (must be positive and finite)
      * @param beta Beta parameter (must be positive and finite)

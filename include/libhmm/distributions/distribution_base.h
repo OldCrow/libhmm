@@ -73,6 +73,16 @@ protected:
     /** Regularized incomplete gamma P(a, x). */
     static double gammap(double a, double x) noexcept;
 
+    /**
+     * @brief Regularized incomplete beta function I_x(a, b).
+     *
+     * Uses a continued-fraction algorithm with symmetry relation for
+     * numerical stability across the full (0,1) domain.  Used by
+     * BetaDistribution::getCumulativeProbability() and
+     * StudentTDistribution::getCumulativeProbability().
+     */
+    static double incompleteBeta(double x, double a, double b) noexcept;
+
     /** Inverse error function erfinv(y). */
     static double errorf_inv(double y) noexcept;
 

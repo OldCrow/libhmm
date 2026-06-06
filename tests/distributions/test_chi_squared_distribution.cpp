@@ -470,6 +470,58 @@ TEST(ChiSquaredDistributionTest, Performance) {
 }
 
 /**
+ * Accuracy tests for ChiSquaredDistribution::getCumulativeProbability().
+ *
+ * Chi-squared(df) ~ Gamma(df/2, 2), so CDF(x; df) = P(df/2, x/2).
+ * This is a second independent call path into DistributionBase::gammap().
+ *
+ * For even df the CDF has an exact exponential form; for df=1 it reduces
+ * to std::erf (independently correct), linking chi-squared to the normal.
+ */
+TEST(ChiSquaredDistributionTest, CDFAccuracy) {
+    // gammap uses BW_TOLERANCE = 3e-7; max observed error ~3e-8, so 1e-6 confirms
+    // correctness across integer and half-integer parameter cases.
+    constexpr double kTol = 1e-6;
+
+    // df=2: CDF(x) = 1 − e^(−x/2)
+    {
+        ChiSquaredDistribution d(2.0);
+        EXPECT_NEAR(d.getCumulativeProbability(2.0), 1.0 - std::exp(-1.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(4.0), 1.0 - std::exp(-2.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(1.0), 1.0 - std::exp(-0.5), kTol);
+    }
+
+    // df=4: CDF(x) = 1 − e^(−x/2) · (1 + x/2)
+    {
+        ChiSquaredDistribution d(4.0);
+        auto exact = [](double x) {
+            return 1.0 - std::exp(-0.5 * x) * (1.0 + 0.5 * x);
+        };
+        EXPECT_NEAR(d.getCumulativeProbability(2.0), exact(2.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(4.0), exact(4.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(6.0), exact(6.0), kTol);
+    }
+
+    // df=1: CDF(x) = erf(√(x/2)).
+    // P(|Z| ≤ z) = CDF_χ²(z²; 1), so this cross-checks against std::erf.
+    // gammap(0.5, x/2) = erf(√(x/2)) is the non-trivial half-integer case.
+    {
+        ChiSquaredDistribution d(1.0);
+        EXPECT_NEAR(d.getCumulativeProbability(1.0), std::erf(std::sqrt(0.5)), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(4.0), std::erf(std::sqrt(2.0)), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(9.0), std::erf(std::sqrt(4.5)), kTol);
+    }
+
+    // Boundary conditions
+    {
+        ChiSquaredDistribution d(3.0);
+        EXPECT_EQ(d.getCumulativeProbability(0.0),  0.0);
+        EXPECT_EQ(d.getCumulativeProbability(-1.0), 0.0);
+        EXPECT_GT(d.getCumulativeProbability(1e6),  1.0 - 1e-9);
+    }
+}
+
+/**
  * Main test function
  */
 int main(int argc, char **argv) {

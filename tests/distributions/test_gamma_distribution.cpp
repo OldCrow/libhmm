@@ -609,6 +609,69 @@ TEST(GammaDistributionTest, Performance) {
               << " points)" << std::endl;
 }
 
+/**
+ * Accuracy tests for GammaDistribution::getCumulativeProbability().
+ *
+ * Exercises DistributionBase::gammap() (and its internal gcf/gser helpers)
+ * against exact closed-form CDFs.  For integer shape parameter k the
+ * regularised incomplete gamma has a Poisson-series exact form:
+ *
+ *   P(k, x) = 1 − e^(−x) · ∑_{j=0}^{k-1} x^j / j!
+ *
+ * These reference values are computed from std::exp only — no special
+ * functions are needed — so any discrepancy isolates a bug in gammap.
+ */
+TEST(GammaDistributionTest, CDFAccuracy) {
+    // gammap uses BW_TOLERANCE = 3e-7 as convergence criterion; max observed
+    // error is ~3e-8, so 1e-6 is a safe bound that confirms correctness without
+    // demanding sub-tolerance precision.
+    constexpr double kTol = 1e-6;
+
+    // k=1 (Exponential distribution): CDF(x) = 1 − e^(−x)
+    {
+        GammaDistribution d(1.0, 1.0);
+        EXPECT_NEAR(d.getCumulativeProbability(0.5), 1.0 - std::exp(-0.5), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(1.0), 1.0 - std::exp(-1.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(2.0), 1.0 - std::exp(-2.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(5.0), 1.0 - std::exp(-5.0), kTol);
+    }
+
+    // k=2: CDF(x) = 1 − e^(−x) · (1 + x)
+    {
+        GammaDistribution d(2.0, 1.0);
+        auto exact = [](double x) { return 1.0 - std::exp(-x) * (1.0 + x); };
+        EXPECT_NEAR(d.getCumulativeProbability(1.0), exact(1.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(2.0), exact(2.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(3.0), exact(3.0), kTol);
+    }
+
+    // k=3: CDF(x) = 1 − e^(−x) · (1 + x + x²/2)
+    {
+        GammaDistribution d(3.0, 1.0);
+        auto exact = [](double x) {
+            return 1.0 - std::exp(-x) * (1.0 + x + 0.5 * x * x);
+        };
+        EXPECT_NEAR(d.getCumulativeProbability(1.0), exact(1.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(2.0), exact(2.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(4.0), exact(4.0), kTol);
+    }
+
+    // Scale parameter: Gamma(1, θ=2) = Exp(λ=0.5), CDF(x) = 1 − e^(−x/2)
+    {
+        GammaDistribution d(1.0, 2.0);
+        EXPECT_NEAR(d.getCumulativeProbability(2.0), 1.0 - std::exp(-1.0), kTol);
+        EXPECT_NEAR(d.getCumulativeProbability(4.0), 1.0 - std::exp(-2.0), kTol);
+    }
+
+    // Boundary conditions
+    {
+        GammaDistribution d(2.0, 1.0);
+        EXPECT_EQ(d.getCumulativeProbability(0.0),  0.0);
+        EXPECT_EQ(d.getCumulativeProbability(-1.0), 0.0);
+        EXPECT_GT(d.getCumulativeProbability(1e6),  1.0 - 1e-9);
+    }
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
