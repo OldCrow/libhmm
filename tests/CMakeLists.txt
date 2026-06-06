@@ -1,15 +1,8 @@
 # Test configuration for libhmm
 cmake_minimum_required(VERSION 3.20)
 
-set(LIBHMM_FORCE_FETCH_GTEST OFF)
-if(APPLE AND DEFINED LIBHMM_IS_CATALINA AND LIBHMM_IS_CATALINA)
-    set(LIBHMM_FORCE_FETCH_GTEST ON)
-    message(STATUS "macOS Catalina detected - forcing FetchContent GTest to avoid Homebrew libc++ mismatch")
-endif()
-
 # Find required packages with architecture-aware paths
-if(APPLE AND NOT LIBHMM_FORCE_FETCH_GTEST)
-    # Use the same architecture detection as the main CMakeLists.txt
+if(APPLE)
     execute_process(
         COMMAND uname -m
         OUTPUT_VARIABLE APPLE_ARCH
@@ -26,11 +19,7 @@ if(APPLE AND NOT LIBHMM_FORCE_FETCH_GTEST)
     set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
 endif()
 
-if(NOT LIBHMM_FORCE_FETCH_GTEST)
-    find_package(GTest QUIET)
-else()
-    set(GTest_FOUND OFF)
-endif()
+find_package(GTest QUIET)
 find_package(Threads REQUIRED)
 
 # FetchContent fallback: pull GTest from source when not found locally.
@@ -50,27 +39,6 @@ if(NOT GTest_FOUND AND NOT TARGET gtest)
     FetchContent_MakeAvailable(googletest)
 endif()
 
-# Detect if using LLVM compiler and set appropriate linking flags
-# NOTE: LLVM-specific linking temporarily commented out due to runtime issues
-#       on macOS 10.15 (2012 MacBook Pro). Using system libc++ for stability.
-# if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER MATCHES "llvm")
-#     message(STATUS "Detected LLVM Clang compiler - configuring libc++ linking")
-#     set(LIBCXX_LINK_FLAGS "-stdlib=libc++")
-#     # Add explicit path to LLVM's libc++ if needed
-#     get_filename_component(LLVM_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
-#     get_filename_component(LLVM_ROOT_DIR ${LLVM_BIN_DIR} DIRECTORY)
-#     set(LLVM_LIBCXX_PATH "${LLVM_ROOT_DIR}/lib/c++")
-#     if(EXISTS "${LLVM_LIBCXX_PATH}")
-#         set(LIBCXX_LINK_FLAGS "${LIBCXX_LINK_FLAGS} -L${LLVM_LIBCXX_PATH} -Wl,-rpath,${LLVM_LIBCXX_PATH}")
-#         message(STATUS "Using LLVM libc++ from: ${LLVM_LIBCXX_PATH}")
-#     endif()
-# else()
-#     set(LIBCXX_LINK_FLAGS "")
-# endif()
-
-# Use system libc++ for stability
-set(LIBCXX_LINK_FLAGS "")
-
 # Check if Google Test is available
 if(GTest_FOUND OR TARGET gtest)
     message(STATUS "Google Test found - building comprehensive test suite")
@@ -89,10 +57,6 @@ if(GTest_FOUND OR TARGET gtest)
     else()
         set(TEST_LIBRARIES ${GTEST_MAIN_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads hmm_static)
         message(STATUS "Using GTest library variables")
-    endif()
-
-    if(LIBCXX_LINK_FLAGS)
-        list(APPEND TEST_LIBRARIES "${LIBCXX_LINK_FLAGS}")
     endif()
 
     # =========================================================================
@@ -119,10 +83,6 @@ if(GTest_FOUND OR TARGET gtest)
         elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wpedantic)
         endif()
-        if(LIBCXX_LINK_FLAGS)
-            set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "${LIBCXX_LINK_FLAGS}")
-        endif()
-
         add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
         set_tests_properties(${TARGET_NAME} PROPERTIES
             TIMEOUT 300

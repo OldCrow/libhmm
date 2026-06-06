@@ -114,13 +114,6 @@ cmake --build build --config Release --parallel 4
 ctest --test-dir build -C Release --parallel 4
 ```
 
-On macOS Catalina (10.15), use the guarded configure path:
-```bash
-./scripts/configure_catalina.sh build
-cmake --build build --config Release
-ctest --test-dir build
-```
-
 ### Basic Usage
 
 ```cpp

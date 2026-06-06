@@ -5,7 +5,7 @@ All four platforms are verified by CI on every push.
 
 ## Requirements
 
-- **C++20** compiler: GCC 11+, Clang 14+, MSVC 2019 16.11+ (Visual Studio 2022 recommended)
+- **C++20** compiler: GCC 12+, Clang 14+, Apple Clang 14+ (Xcode 14, macOS 13+), MSVC 2022 17.x
 - **CMake 3.20+**
 - **Zero external dependencies** at runtime — GTest is fetched automatically via FetchContent
 
@@ -35,40 +35,6 @@ Notes:
 - Homebrew prefix: `/opt/homebrew` (Apple Silicon) or `/usr/local` (Intel)
 - CMake detects the architecture automatically via `uname -m`
 - SIMD: `-march=native` — selects NEON on AArch64, AVX/AVX2 on Intel Macs
-
-#### macOS Catalina (10.15) runtime guard
-
-On Catalina, Homebrew LLVM/libc++ paths can produce runtime segfaults. Use the
-helper script to configure with a sanitized environment and pinned AppleClang
-toolchain:
-
-```bash
-./scripts/configure_catalina.sh build
-cmake --build build --config Release
-ctest --test-dir build
-```
-
-The script pins AppleClang via `xcrun`, sanitizes toolchain-related environment
-variables, and sets `CMAKE_OSX_DEPLOYMENT_TARGET=10.15`. This matches the CI
-Catalina guard job configuration.
-
-**Build type: Release or RelWithDebInfo only.** Do not use `Debug` (`-O0`) on
-Catalina. AppleClang inserts `VZEROUPPER` in the prologue of large-frame AVX
-functions *before* saving `__m256d` arguments to the stack, silently zeroing
-the upper lanes. At `-O2` and above the SIMD helpers inline and this cannot
-occur. Use `RelWithDebInfo` (`-O2 -g`) for debuggable builds:
-
-```bash
-./scripts/configure_catalina.sh build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-```
-
-If CMake detects Homebrew LLVM/libc++ contamination on Catalina, configure
-fails fast with an error describing the detected sources and remediation. A
-temporary escape hatch is available:
-
-```bash
--DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON
-```
 
 ### Linux (GCC)
 
@@ -120,4 +86,4 @@ OBJECT library and link into both targets — no double compilation overhead.
 ## CI Matrix
 
 See `.github/workflows/ci.yml`. Four build jobs (Linux/GCC, Linux/Clang, macOS/AppleClang,
-Windows/MSVC) plus a lint job (clang-format + cppcheck). All 40 tests pass on every platform.
+Windows/MSVC) plus a lint job (clang-format + cppcheck). All 41 tests pass on every platform.

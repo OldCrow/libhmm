@@ -7,31 +7,33 @@
   },
   "configurePresets": [
     {
-      "name": "catalina-safe",
-      "displayName": "Catalina-safe (AppleClang + system libc++)",
-      "description": "Sanitized Catalina configure path that avoids Homebrew LLVM/libc++ contamination.",
+      "name": "release",
+      "displayName": "Release",
+      "description": "Optimised release build.",
       "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/build-catalina-safe",
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "/usr/bin/clang",
-        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-        "CMAKE_OSX_SYSROOT": "macosx",
-        "CMAKE_OSX_DEPLOYMENT_TARGET": "10.15"
-      },
-      "environment": {
-        "CC": "",
-        "CXX": "",
-        "CFLAGS": "",
-        "CXXFLAGS": "",
-        "CPPFLAGS": "",
-        "LDFLAGS": "",
-        "SDKROOT": "",
-        "MACOSX_DEPLOYMENT_TARGET": "",
-        "CPATH": "",
-        "CPLUS_INCLUDE_PATH": "",
-        "LIBRARY_PATH": "",
-        "DYLD_LIBRARY_PATH": "",
-        "PKG_CONFIG_PATH": ""
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "description": "Debug build with full symbols.",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "rel-with-debug",
+      "displayName": "Release with Debug Info",
+      "description": "Optimised build with debug symbols \u2014 preferred for profiling.",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     }
   ]
