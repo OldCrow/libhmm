@@ -74,11 +74,10 @@ double ParetoDistribution::getCumulativeProbability(double value) const noexcept
  *
  * @param values Vector of observed data
  */
-double ParetoDistribution::sample(std::mt19937_64& rng) const {
+double ParetoDistribution::sample(std::mt19937_64 &rng) const {
     // Inverse-CDF method: F(x) = 1 - (xm/x)^k => x = xm * U^(-1/k), U ~ U(0,1).
     // Avoid U=0 by using the half-open interval (min, 1).
-    std::uniform_real_distribution<double> dist(
-        std::numeric_limits<double>::min(), 1.0);
+    std::uniform_real_distribution<double> dist(std::numeric_limits<double>::min(), 1.0);
     return xm_ * std::pow(dist(rng), -1.0 / k_);
 }
 

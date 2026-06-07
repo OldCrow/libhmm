@@ -37,17 +37,16 @@ using namespace libhmm;
  *   std  = sqrt(0.75) ≈ 0.86602540378
  */
 namespace {
-const std::vector<double> kGaussianData = {
-    1.5, 2.0, 2.5, 2.5, 3.0, 3.0, 3.5, 3.5, 4.0, 4.5};
+const std::vector<double> kGaussianData = {1.5, 2.0, 2.5, 2.5, 3.0, 3.0, 3.5, 3.5, 4.0, 4.5};
 constexpr double kGaussianMean = 3.0;
-constexpr double kGaussianStd  = 0.8660254037844386;  // sqrt(0.75)
-}
+constexpr double kGaussianStd = 0.8660254037844386; // sqrt(0.75)
+} // namespace
 
 TEST(GaussianFitTest, UnweightedRecovery) {
     GaussianDistribution d;
     d.fit(kGaussianData);
-    EXPECT_NEAR(d.getMean(),              kGaussianMean, 1e-9);
-    EXPECT_NEAR(d.getStandardDeviation(), kGaussianStd,  1e-9);
+    EXPECT_NEAR(d.getMean(), kGaussianMean, 1e-9);
+    EXPECT_NEAR(d.getStandardDeviation(), kGaussianStd, 1e-9);
 }
 
 TEST(GaussianFitTest, WeightedUniformEqualsUnweighted) {
@@ -56,7 +55,7 @@ TEST(GaussianFitTest, WeightedUniformEqualsUnweighted) {
     dU.fit(kGaussianData);
     const std::vector<double> w(kGaussianData.size(), 1.0);
     dW.fit(kGaussianData, w);
-    EXPECT_NEAR(dW.getMean(),              dU.getMean(),              1e-9);
+    EXPECT_NEAR(dW.getMean(), dU.getMean(), 1e-9);
     EXPECT_NEAR(dW.getStandardDeviation(), dU.getStandardDeviation(), 1e-9);
 }
 
@@ -64,14 +63,14 @@ TEST(GaussianFitTest, WeightedConcentratedOnLowValues) {
     // Data spans [1.0, 5.0]; heavy weights on the 1.0-valued points.
     // Unweighted mean = (3*1 + 7*5) / 10 = 3.8.
     // Weighted mean must be substantially less than 3.8.
-    const std::vector<double> data    = {1.0, 1.0, 1.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0};
+    const std::vector<double> data = {1.0, 1.0, 1.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0};
     const std::vector<double> weights = {4.0, 4.0, 4.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
     // Weighted mean = (12*1 + 7*5) / (12+7) = 47 / 19 ≈ 2.47
 
     GaussianDistribution dU, dW;
     dU.fit(data);
     dW.fit(data, weights);
-    EXPECT_LT(dW.getMean(), dU.getMean());   // weights push mean down
+    EXPECT_LT(dW.getMean(), dU.getMean()); // weights push mean down
     EXPECT_NEAR(dW.getMean(), 47.0 / 19.0, 1e-9);
 }
 
@@ -88,10 +87,9 @@ TEST(GaussianFitTest, WeightedConcentratedOnLowValues) {
  *   MLE  λ̂ = 1 / mean = 2.0
  */
 namespace {
-const std::vector<double> kExpData = {
-    0.1, 0.2, 0.3, 0.3, 0.4, 0.5, 0.5, 0.7, 0.9, 1.1};
+const std::vector<double> kExpData = {0.1, 0.2, 0.3, 0.3, 0.4, 0.5, 0.5, 0.7, 0.9, 1.1};
 constexpr double kExpLambda = 2.0;
-}
+} // namespace
 
 TEST(ExponentialFitTest, UnweightedRecovery) {
     ExponentialDistribution d;
@@ -109,7 +107,7 @@ TEST(ExponentialFitTest, WeightedUniformEqualsUnweighted) {
 
 TEST(ExponentialFitTest, WeightedConcentratedOnHighValues) {
     // Small data vs large data; heavy weights on large → smaller λ̂ (larger mean).
-    const std::vector<double> data    = {0.1, 0.1, 2.0, 2.0};
+    const std::vector<double> data = {0.1, 0.1, 2.0, 2.0};
     const std::vector<double> weights = {0.01, 0.01, 5.0, 5.0};
     // Weighted mean ≈ (0.02*0.1 + 10.0*2.0) / (0.02+10.0) = 20.002/10.02 ≈ 1.996
     // Unweighted mean = (0.2 + 4.0) / 4 = 1.05
@@ -117,7 +115,7 @@ TEST(ExponentialFitTest, WeightedConcentratedOnHighValues) {
     ExponentialDistribution dU, dW;
     dU.fit(data);
     dW.fit(data, weights);
-    EXPECT_LT(dW.getLambda(), dU.getLambda());  // higher mean → smaller lambda
+    EXPECT_LT(dW.getLambda(), dU.getLambda()); // higher mean → smaller lambda
 }
 
 // ============================================================================
@@ -135,7 +133,7 @@ TEST(ExponentialFitTest, WeightedConcentratedOnHighValues) {
 namespace {
 const std::vector<double> kPoissonData = {1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0, 4.0, 4.0, 5.0};
 constexpr double kPoissonLambda = 3.0;
-}
+} // namespace
 
 TEST(PoissonFitTest, UnweightedRecovery) {
     PoissonDistribution d;
@@ -146,14 +144,14 @@ TEST(PoissonFitTest, UnweightedRecovery) {
 TEST(PoissonFitTest, WeightedUniformEqualsUnweighted) {
     PoissonDistribution dU, dW;
     dU.fit(kPoissonData);
-    const std::vector<double> w(kPoissonData.size(), 2.5);  // any uniform value
+    const std::vector<double> w(kPoissonData.size(), 2.5); // any uniform value
     dW.fit(kPoissonData, w);
     EXPECT_NEAR(dW.getLambda(), dU.getLambda(), 1e-9);
 }
 
 TEST(PoissonFitTest, WeightedConcentratedOnLargeValues) {
     // {1, 5} with heavy weight on 5 → λ̂ substantially larger than unweighted mean.
-    const std::vector<double> data    = {1.0, 5.0};
+    const std::vector<double> data = {1.0, 5.0};
     const std::vector<double> weights = {0.1, 9.9};
     // Weighted mean = (0.1*1 + 9.9*5) / 10.0 = (0.1+49.5)/10 = 4.96
     // Unweighted mean = 3.0
@@ -179,15 +177,14 @@ TEST(PoissonFitTest, WeightedConcentratedOnLargeValues) {
  *   Fitted k and theta should satisfy k > 0, theta > 0, k*theta ≈ mean.
  */
 namespace {
-const std::vector<double> kGammaData = {
-    0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 7.5};
+const std::vector<double> kGammaData = {0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 7.5};
 constexpr double kGammaMean = 3.0;
-}
+} // namespace
 
 TEST(GammaFitTest, UnweightedConvergence) {
     GammaDistribution d;
     d.fit(kGammaData);
-    EXPECT_GT(d.getK(),     0.0);
+    EXPECT_GT(d.getK(), 0.0);
     EXPECT_GT(d.getTheta(), 0.0);
     // k * theta = fitted mean; must match sample mean within MLE error
     EXPECT_NEAR(d.getK() * d.getTheta(), kGammaMean, 0.15);
@@ -200,13 +197,13 @@ TEST(GammaFitTest, WeightedUniformEqualsUnweighted) {
     dU.fit(kGammaData);
     const std::vector<double> w(kGammaData.size(), 3.0);
     dW.fit(kGammaData, w);
-    EXPECT_NEAR(dW.getK(),     dU.getK(),     1e-6);
+    EXPECT_NEAR(dW.getK(), dU.getK(), 1e-6);
     EXPECT_NEAR(dW.getTheta(), dU.getTheta(), 1e-6);
 }
 
 TEST(GammaFitTest, WeightedConcentratedOnSmallValues) {
     // Heavy weights on small values → smaller fitted mean = k*theta.
-    const std::vector<double> data    = {0.5, 0.5, 10.0, 10.0};
+    const std::vector<double> data = {0.5, 0.5, 10.0, 10.0};
     const std::vector<double> weights = {8.0, 8.0, 0.5, 0.5};
     // Weighted mean = (16*0.5 + 1*10) / (16+1) = 18/17 ≈ 1.059
     // Unweighted mean = (1 + 20) / 4 = 5.25
@@ -231,8 +228,7 @@ TEST(GammaFitTest, WeightedConcentratedOnSmallValues) {
  *   P(3) = 2/10 = 0.2
  */
 namespace {
-const std::vector<double> kDiscreteData = {
-    0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 3.0};
+const std::vector<double> kDiscreteData = {0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 3.0};
 }
 
 TEST(DiscreteFitTest, UnweightedExactCounts) {
@@ -258,7 +254,7 @@ TEST(DiscreteFitTest, WeightedUniformEqualsUnweighted) {
 
 TEST(DiscreteFitTest, WeightedConcentratedOnSymbol2) {
     // Weight symbol 2 very heavily → P(2) should dominate.
-    const std::vector<double> data    = {0.0, 1.0, 2.0, 3.0};
+    const std::vector<double> data = {0.0, 1.0, 2.0, 3.0};
     const std::vector<double> weights = {0.1, 0.1, 9.7, 0.1};
     // Weighted: P(2) = 9.7 / 10.0 = 0.97; others ≈ 0.01 each.
 
@@ -266,7 +262,7 @@ TEST(DiscreteFitTest, WeightedConcentratedOnSymbol2) {
     dU.fit(data);
     dW.fit(data, weights);
     EXPECT_GT(dW.getSymbolProbability(2), dU.getSymbolProbability(2));
-    EXPECT_GT(dW.getSymbolProbability(2), 0.9);  // clearly dominant
+    EXPECT_GT(dW.getSymbolProbability(2), 0.9); // clearly dominant
 }
 
 // ============================================================================
@@ -276,10 +272,14 @@ TEST(DiscreteFitTest, WeightedConcentratedOnSymbol2) {
 TEST(FitEdgeCasesTest, SinglePointReset) {
     // fit() on a single-point dataset should not crash and should leave
     // the distribution in a valid (reset) state.
-    GaussianDistribution    g;  g.fit(std::vector<double>{2.0});
-    ExponentialDistribution e;  e.fit(std::vector<double>{0.5});
-    GammaDistribution       gm; gm.fit(std::vector<double>{1.0});
-    PoissonDistribution     p;  p.fit(std::vector<double>{3.0});
+    GaussianDistribution g;
+    g.fit(std::vector<double>{2.0});
+    ExponentialDistribution e;
+    e.fit(std::vector<double>{0.5});
+    GammaDistribution gm;
+    gm.fit(std::vector<double>{1.0});
+    PoissonDistribution p;
+    p.fit(std::vector<double>{3.0});
 
     EXPECT_TRUE(std::isfinite(g.getMean()));
     EXPECT_TRUE(std::isfinite(e.getLambda()));
@@ -290,14 +290,14 @@ TEST(FitEdgeCasesTest, SinglePointReset) {
 TEST(FitEdgeCasesTest, NearZeroWeightsDoNotCrash) {
     // Near-zero total weight should not crash; implementation keeps current params.
     GaussianDistribution g(5.0, 1.0);
-    const std::vector<double> data    = {1.0, 2.0, 3.0};
+    const std::vector<double> data = {1.0, 2.0, 3.0};
     const std::vector<double> weights = {1e-35, 1e-35, 1e-35};
     EXPECT_NO_THROW(g.fit(data, weights));
     EXPECT_TRUE(std::isfinite(g.getMean()));
     EXPECT_TRUE(std::isfinite(g.getStandardDeviation()));
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

@@ -320,7 +320,7 @@ void gaussian_logpdf_batch(const double *obs, double *out, std::size_t n, double
 
 } // namespace detail
 
-double GaussianDistribution::sample(std::mt19937_64& rng) const {
+double GaussianDistribution::sample(std::mt19937_64 &rng) const {
     std::normal_distribution<double> dist(mean_, standardDeviation_);
     return dist(rng);
 }

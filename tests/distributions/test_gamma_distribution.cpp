@@ -639,7 +639,9 @@ TEST(GammaDistributionTest, CDFAccuracy) {
     // k=2: CDF(x) = 1 − e^(−x) · (1 + x)
     {
         GammaDistribution d(2.0, 1.0);
-        auto exact = [](double x) { return 1.0 - std::exp(-x) * (1.0 + x); };
+        auto exact = [](double x) {
+            return 1.0 - std::exp(-x) * (1.0 + x);
+        };
         EXPECT_NEAR(d.getCumulativeProbability(1.0), exact(1.0), kTol);
         EXPECT_NEAR(d.getCumulativeProbability(2.0), exact(2.0), kTol);
         EXPECT_NEAR(d.getCumulativeProbability(3.0), exact(3.0), kTol);
@@ -666,9 +668,9 @@ TEST(GammaDistributionTest, CDFAccuracy) {
     // Boundary conditions
     {
         GammaDistribution d(2.0, 1.0);
-        EXPECT_EQ(d.getCumulativeProbability(0.0),  0.0);
+        EXPECT_EQ(d.getCumulativeProbability(0.0), 0.0);
         EXPECT_EQ(d.getCumulativeProbability(-1.0), 0.0);
-        EXPECT_GT(d.getCumulativeProbability(1e6),  1.0 - 1e-9);
+        EXPECT_GT(d.getCumulativeProbability(1e6), 1.0 - 1e-9);
     }
 }
 

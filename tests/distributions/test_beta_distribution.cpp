@@ -583,7 +583,9 @@ TEST(BetaDistributionTest, CDFAccuracy) {
     // Beta(1,2): CDF(x) = 2x − x²
     {
         BetaDistribution d(1.0, 2.0);
-        auto exact = [](double x) { return 2.0 * x - x * x; };
+        auto exact = [](double x) {
+            return 2.0 * x - x * x;
+        };
         for (double x : {0.2, 0.5, 0.8}) {
             EXPECT_NEAR(d.getCumulativeProbability(x), exact(x), 1e-10);
         }
@@ -592,19 +594,22 @@ TEST(BetaDistributionTest, CDFAccuracy) {
     // Beta(2,2): CDF(x) = 3x² − 2x³; symmetric so CDF(0.5) = 0.5 exactly.
     {
         BetaDistribution d(2.0, 2.0);
-        auto exact = [](double x) { return 3.0 * x * x - 2.0 * x * x * x; };
-        EXPECT_NEAR(d.getCumulativeProbability(0.5), 0.5,        1e-10);
+        auto exact = [](double x) {
+            return 3.0 * x * x - 2.0 * x * x * x;
+        };
+        EXPECT_NEAR(d.getCumulativeProbability(0.5), 0.5, 1e-10);
         EXPECT_NEAR(d.getCumulativeProbability(0.3), exact(0.3), 1e-10);
         EXPECT_NEAR(d.getCumulativeProbability(0.7), exact(0.7), 1e-10);
         // Symmetry I_x(a,a) + I_{1-x}(a,a) = 1
-        EXPECT_NEAR(d.getCumulativeProbability(0.3) + d.getCumulativeProbability(0.7),
-                    1.0, 1e-10);
+        EXPECT_NEAR(d.getCumulativeProbability(0.3) + d.getCumulativeProbability(0.7), 1.0, 1e-10);
     }
 
     // Beta(3,2): CDF(x) = 4x³ − 3x⁴ (exercises symmetry swap in continued fraction)
     {
         BetaDistribution d(3.0, 2.0);
-        auto exact = [](double x) { return 4.0 * x * x * x - 3.0 * x * x * x * x; };
+        auto exact = [](double x) {
+            return 4.0 * x * x * x - 3.0 * x * x * x * x;
+        };
         EXPECT_NEAR(d.getCumulativeProbability(0.4), exact(0.4), 1e-10);
         EXPECT_NEAR(d.getCumulativeProbability(0.6), exact(0.6), 1e-10);
         EXPECT_NEAR(d.getCumulativeProbability(0.8), exact(0.8), 1e-10);
@@ -613,10 +618,10 @@ TEST(BetaDistributionTest, CDFAccuracy) {
     // Boundary conditions
     {
         BetaDistribution d(2.0, 3.0);
-        EXPECT_EQ(d.getCumulativeProbability(0.0),  0.0);
-        EXPECT_EQ(d.getCumulativeProbability(1.0),  1.0);
+        EXPECT_EQ(d.getCumulativeProbability(0.0), 0.0);
+        EXPECT_EQ(d.getCumulativeProbability(1.0), 1.0);
         EXPECT_EQ(d.getCumulativeProbability(-0.1), 0.0);
-        EXPECT_EQ(d.getCumulativeProbability(1.1),  1.0);
+        EXPECT_EQ(d.getCumulativeProbability(1.1), 1.0);
     }
 }
 

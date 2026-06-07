@@ -1746,7 +1746,7 @@ TEST_F(CommonDistributionTest, ResetFunctionality) {
  * itself, which is assumed correct.
  */
 TEST_F(CommonDistributionTest, SampleProducesFiniteValues) {
-    std::mt19937_64 rng(42);  // fixed seed — reproducible test
+    std::mt19937_64 rng(42); // fixed seed — reproducible test
     constexpr int kN = 100;
 
     for (auto &dist : distributions_) {
@@ -1760,8 +1760,7 @@ TEST_F(CommonDistributionTest, SampleProducesFiniteValues) {
                               << " from: " << dist->toString();
         }
         EXPECT_EQ(finite_count, kN)
-            << "All " << kN << " samples should be finite for: "
-            << dist->toString();
+            << "All " << kN << " samples should be finite for: " << dist->toString();
     }
 }
 
@@ -1770,15 +1769,14 @@ TEST_F(CommonDistributionTest, SampleDiscreteReturnsIntegers) {
     constexpr int kN = 200;
 
     for (auto &dist : distributions_) {
-        if (!dist->isDiscrete()) continue;
+        if (!dist->isDiscrete())
+            continue;
         for (int i = 0; i < kN; ++i) {
             const double v = dist->sample(rng);
-            EXPECT_EQ(v, std::floor(v))
-                << "Discrete distribution sample " << v
-                << " is not an integer: " << dist->toString();
-            EXPECT_GE(v, 0.0)
-                << "Discrete distribution sample " << v
-                << " is negative: " << dist->toString();
+            EXPECT_EQ(v, std::floor(v)) << "Discrete distribution sample " << v
+                                        << " is not an integer: " << dist->toString();
+            EXPECT_GE(v, 0.0) << "Discrete distribution sample " << v
+                              << " is negative: " << dist->toString();
         }
     }
 }
@@ -1794,7 +1792,8 @@ TEST_F(CommonDistributionTest, SampleMeanConverges) {
     {
         GaussianDistribution g(2.0, 1.5);
         double sum = 0.0;
-        for (int i = 0; i < kN; ++i) sum += g.sample(rng);
+        for (int i = 0; i < kN; ++i)
+            sum += g.sample(rng);
         // CLT: std of sample mean = 1.5/sqrt(2000) ≈ 0.034; 4-sigma ≈ 0.14
         EXPECT_NEAR(sum / kN, 2.0, 0.15);
     }
@@ -1803,7 +1802,8 @@ TEST_F(CommonDistributionTest, SampleMeanConverges) {
     {
         ExponentialDistribution e(2.0);
         double sum = 0.0;
-        for (int i = 0; i < kN; ++i) sum += e.sample(rng);
+        for (int i = 0; i < kN; ++i)
+            sum += e.sample(rng);
         EXPECT_NEAR(sum / kN, 0.5, 0.1);
     }
 
@@ -1811,7 +1811,8 @@ TEST_F(CommonDistributionTest, SampleMeanConverges) {
     {
         PoissonDistribution p(4.0);
         double sum = 0.0;
-        for (int i = 0; i < kN; ++i) sum += p.sample(rng);
+        for (int i = 0; i < kN; ++i)
+            sum += p.sample(rng);
         EXPECT_NEAR(sum / kN, 4.0, 0.3);
     }
 
@@ -1819,7 +1820,8 @@ TEST_F(CommonDistributionTest, SampleMeanConverges) {
     {
         UniformDistribution u(1.0, 3.0);
         double sum = 0.0;
-        for (int i = 0; i < kN; ++i) sum += u.sample(rng);
+        for (int i = 0; i < kN; ++i)
+            sum += u.sample(rng);
         EXPECT_NEAR(sum / kN, 2.0, 0.1);
     }
 
@@ -1827,7 +1829,8 @@ TEST_F(CommonDistributionTest, SampleMeanConverges) {
     {
         BetaDistribution b(2.0, 5.0);
         double sum = 0.0;
-        for (int i = 0; i < kN; ++i) sum += b.sample(rng);
+        for (int i = 0; i < kN; ++i)
+            sum += b.sample(rng);
         EXPECT_NEAR(sum / kN, 2.0 / 7.0, 0.05);
     }
 

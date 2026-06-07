@@ -79,7 +79,7 @@ double UniformDistribution::CDF(double x) const {
     }
 }
 
-double UniformDistribution::sample(std::mt19937_64& rng) const {
+double UniformDistribution::sample(std::mt19937_64 &rng) const {
     std::uniform_real_distribution<double> dist(a_, b_);
     return dist(rng);
 }

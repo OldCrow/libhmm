@@ -515,9 +515,9 @@ TEST(ChiSquaredDistributionTest, CDFAccuracy) {
     // Boundary conditions
     {
         ChiSquaredDistribution d(3.0);
-        EXPECT_EQ(d.getCumulativeProbability(0.0),  0.0);
+        EXPECT_EQ(d.getCumulativeProbability(0.0), 0.0);
         EXPECT_EQ(d.getCumulativeProbability(-1.0), 0.0);
-        EXPECT_GT(d.getCumulativeProbability(1e6),  1.0 - 1e-9);
+        EXPECT_GT(d.getCumulativeProbability(1e6), 1.0 - 1e-9);
     }
 }
 

@@ -156,14 +156,13 @@ void VonMisesDistribution::getBatchLogProbabilities(std::span<const double> obse
 // Generative sampling
 // ---------------------------------------------------------------------------
 
-double VonMisesDistribution::sample(std::mt19937_64& rng) const {
+double VonMisesDistribution::sample(std::mt19937_64 &rng) const {
     if (!isCacheValid())
         updateCache();
 
     // Near-uniform case (kappa ≈ 0): sample uniformly on the circle.
     if (kappa_ < 1e-9) {
-        std::uniform_real_distribution<double> u(
-            -constants::math::PI, constants::math::PI);
+        std::uniform_real_distribution<double> u(-constants::math::PI, constants::math::PI);
         return u(rng);
     }
 
@@ -177,26 +176,26 @@ double VonMisesDistribution::sample(std::mt19937_64& rng) const {
     // The sampled angle is added to mu_ and wrapped to (-pi, pi].
     const double tau = 1.0 + std::sqrt(1.0 + 4.0 * kappa_ * kappa_);
     const double rho = (tau - std::sqrt(2.0 * tau)) / (2.0 * kappa_);
-    const double r   = (1.0 + rho * rho) / (2.0 * rho);
+    const double r = (1.0 + rho * rho) / (2.0 * rho);
 
     std::uniform_real_distribution<double> u01(0.0, 1.0);
 
     for (;;) {
         const double u1 = u01(rng);
-        const double z  = std::cos(constants::math::PI * u1);
-        const double f  = (1.0 + r * z) / (r + z);
-        const double c  = kappa_ * (r - f);
+        const double z = std::cos(constants::math::PI * u1);
+        const double f = (1.0 + r * z) / (r + z);
+        const double c = kappa_ * (r - f);
         const double u2 = u01(rng);
 
         bool accept = false;
         if (c * (2.0 - c) > u2) {
-            accept = true;              // quick polynomial accept
-        } else if (c > 0.0) {          // guard log(c) against c=0
+            accept = true;    // quick polynomial accept
+        } else if (c > 0.0) { // guard log(c) against c=0
             accept = (std::log(c / u2) + 1.0 - c >= 0.0);
         }
 
         if (accept) {
-            const double u3    = u01(rng);
+            const double u3 = u01(rng);
             const double angle = (u3 > 0.5) ? std::acos(f) : -std::acos(f);
             return wrap_angle(mu_ + angle);
         }

@@ -74,7 +74,7 @@ public:
     ~BinomialDistribution() override = default;
 
     [[nodiscard]] double getProbability(double value) const override;
-    [[nodiscard]] double sample(std::mt19937_64& rng) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
     /// Concrete non-virtual batch log-PMF. Eliminates per-element virtual dispatch.

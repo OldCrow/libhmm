@@ -30,7 +30,7 @@ double DiscreteDistribution::getProbability(double x) const {
  *
  * @param values Vector of observed discrete values
  */
-double DiscreteDistribution::sample(std::mt19937_64& rng) const {
+double DiscreteDistribution::sample(std::mt19937_64 &rng) const {
     // Build from the cached log-probs-free pdf_ vector.
     // std::discrete_distribution normalises internally, so un-normalised
     // pdfs (not yet summing to 1.0 after partial setProbability calls) still work.

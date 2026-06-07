@@ -137,7 +137,7 @@ void weibull_mom_init(double mean, double var, double &k_out, double &lambda_out
 
 } // anonymous namespace
 
-double WeibullDistribution::sample(std::mt19937_64& rng) const {
+double WeibullDistribution::sample(std::mt19937_64 &rng) const {
     // std::weibull_distribution<double>(a, b): a = shape k, b = scale lambda.
     std::weibull_distribution<double> dist(k_, lambda_);
     return dist(rng);

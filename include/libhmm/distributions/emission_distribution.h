@@ -107,7 +107,7 @@ public:
      * @return     A sampled observation encoded as `double` (consistent with
      *             the rest of the emission interface).
      */
-    [[nodiscard]] virtual double sample(std::mt19937_64& rng) const = 0;
+    [[nodiscard]] virtual double sample(std::mt19937_64 &rng) const = 0;
 
     // =========================================================================
     // Metadata

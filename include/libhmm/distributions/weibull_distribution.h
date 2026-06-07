@@ -123,7 +123,7 @@ public:
      * @return Probability density, or 0.0 if value is negative
      */
     [[nodiscard]] double getProbability(double x) const override;
-    [[nodiscard]] double sample(std::mt19937_64& rng) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.

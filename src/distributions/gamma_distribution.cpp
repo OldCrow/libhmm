@@ -115,7 +115,7 @@ namespace {
 
 } // anonymous namespace
 
-double GammaDistribution::sample(std::mt19937_64& rng) const {
+double GammaDistribution::sample(std::mt19937_64 &rng) const {
     // std::gamma_distribution<double>(alpha, beta) with alpha=shape, beta=scale.
     std::gamma_distribution<double> dist(k_, theta_);
     return dist(rng);

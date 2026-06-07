@@ -90,11 +90,11 @@ double StudentTDistribution::getCumulativeProbability(double value) const noexce
         return math::HALF;
 
     const double x_b = degrees_of_freedom_ / (degrees_of_freedom_ + t * t);
-    const double ib  = incompleteBeta(x_b, math::HALF * degrees_of_freedom_, math::HALF);
+    const double ib = incompleteBeta(x_b, math::HALF * degrees_of_freedom_, math::HALF);
     return t > math::ZERO_DOUBLE ? math::ONE - math::HALF * ib : math::HALF * ib;
 }
 
-double StudentTDistribution::sample(std::mt19937_64& rng) const {
+double StudentTDistribution::sample(std::mt19937_64 &rng) const {
     // std::student_t_distribution gives a standard t(nu, 0, 1);
     // apply location and scale manually.
     std::student_t_distribution<double> dist(degrees_of_freedom_);
