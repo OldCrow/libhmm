@@ -8,8 +8,10 @@
 // not expose or store linalg types in their public signatures.
 //
 // Include this header from any file that uses Matrix, Vector, ObservationSet,
-// ObservationLists, StateSequence, or the clear_* helpers.
+// ObservationLists, StateSequence, MultiObservationLists, or the clear_* helpers.
 
+#include <cstddef>
+#include <span>
 #include <vector>
 
 #include "libhmm/common/common.h" // Observation, StateIndex, STL headers
@@ -36,5 +38,34 @@ typedef std::vector<ObservationSet> ObservationLists;
 void clear_matrix(Matrix &m);
 void clear_vector(Vector &v);
 void clear_vector(StateSequence &v);
+
+// ===========================================================================
+// Multivariate observation types (Phase E)
+//
+// These extend the scalar path (Obs = double) to D-dimensional observations.
+// ObservationMatrix stores an entire sequence as a row-major T×D matrix;
+// ObservationVectorView is a lightweight non-owning view of one row, used as
+// the Obs template parameter for BasicHmm<ObservationVectorView> = HmmMV.
+// ===========================================================================
+
+/// Non-owning view of one D-dimensional observation (one row of an
+/// ObservationMatrix).  As a std::span it is zero-cost: one pointer + one
+/// size_t.  The viewed data must outlive the span.
+using ObservationVectorView = std::span<const double>;
+
+/// Row-major sequence matrix: row t is the D-dimensional observation at time t.
+///   size1() = T (sequence length)
+///   size2() = D (observation dimensionality)
+using ObservationMatrix = BasicMatrix<double>;
+
+/// One ObservationMatrix per training sequence.
+using MultiObservationLists = std::vector<ObservationMatrix>;
+
+/// Return a non-owning view of row t of an ObservationMatrix.
+/// The returned span is valid as long as mat is alive.
+[[nodiscard]] inline ObservationVectorView
+row_view(const ObservationMatrix& mat, std::size_t t) noexcept {
+    return ObservationVectorView(mat.data() + t * mat.cols(), mat.cols());
+}
 
 } // namespace libhmm
