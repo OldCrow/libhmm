@@ -109,6 +109,11 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_common           common/test_common.cpp)
 
     # =========================================================================
+    # Linalg helpers
+    # =========================================================================
+    add_hmm_test(test_cholesky linalg/test_cholesky.cpp)
+
+    # =========================================================================
     # Performance Primitives
     # Cross-cutting SIMD kernels consumed by both calculators and trainers.
     # Compiled with LIBHMM_BEST_SIMD_FLAGS so the active SIMD path matches

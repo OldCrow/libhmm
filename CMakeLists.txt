@@ -332,6 +332,8 @@ set(LIBHMM_SOURCES
     src/io/xml_file_reader.cpp
     src/io/xml_file_writer.cpp
     src/model_selection.cpp
+    # Linalg helpers (Phase F+)
+    src/linalg/cholesky.cpp
 )
 
 # ── Library targets ───────────────────────────────────────────────────────────
