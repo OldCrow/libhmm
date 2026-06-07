@@ -126,6 +126,7 @@ public:
     /// Precondition: observations.size() == out.size()
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /**
      * Evaluates the CDF at x using the incomplete gamma function

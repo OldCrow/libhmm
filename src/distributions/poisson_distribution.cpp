@@ -66,6 +66,11 @@ double PoissonDistribution::getProbability(double value) const {
  * For Poisson, MLE of λ is simply the sample mean: λ̂ = (1/n) * Σ(x_i)
  * Uses single-pass algorithm for efficiency.
  */
+double PoissonDistribution::sample(std::mt19937_64 &rng) const {
+    std::poisson_distribution<int> dist(lambda_);
+    return static_cast<double>(dist(rng));
+}
+
 void PoissonDistribution::fit(std::span<const double> data) {
     if (data.empty()) {
         reset();

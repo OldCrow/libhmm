@@ -63,13 +63,6 @@ private:
     }
 
     /**
-     * Computes the regularized incomplete beta function I_x(a,b)
-     * using continued fraction expansion for numerical accuracy.
-     * This is essential for the Beta distribution CDF.
-     */
-    double incompleteBeta(double x, double a, double b) const noexcept;
-
-    /**
      * Validates parameters for the Beta distribution
      * @param alpha Alpha parameter (must be positive and finite)
      * @param beta Beta parameter (must be positive and finite)
@@ -119,6 +112,7 @@ public:
     /// Precondition: observations.size() == out.size()
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /**
      * Computes the cumulative distribution function for the Beta distribution.

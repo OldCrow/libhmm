@@ -3,8 +3,8 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-3.7.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-41%2F41_Passing-success.svg)](tests/)
+[![Version](https://img.shields.io/badge/Version-3.8.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-42%2F42_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
@@ -12,6 +12,11 @@ Fit Hidden Markov Models with Baum-Welch EM, decode sequences with Viterbi or po
 and run exact probabilistic inference at native C++ speed — no external runtime required.
 
 **Zero external dependencies** — C++20 standard library only.
+
+> **Roadmap:** v3.8.0 is the final v3.x release. v4.0.0 will raise the minimum
+> platform floor to macOS 13+, GCC 12+, Apple Clang 14+, and MSVC 2022 17.x to
+> enable full C++20 (`<concepts>`, `<ranges>`) and introduce multivariate emission
+> distributions. Existing v3.x source code will recompile unchanged under v4.
 
 ## Use cases
 

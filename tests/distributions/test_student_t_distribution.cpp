@@ -262,7 +262,82 @@ TEST(StudentTDistributionTest, LogProbability) {
 }
 
 /**
- * Test cumulative distribution function
+ * Test CDF accuracy against scipy.stats.t.cdf reference values.
+ *
+ * Reference values computed with:
+ *   from scipy.stats import t
+ *   t.cdf(x, df)
+ *
+ * Covers the three cases that were wrong in the old approximation:
+ *   ν=1 (Cauchy), moderate ν (5, 10), large ν (≥30 normal approx).
+ */
+TEST(StudentTDistributionTest, CDFAccuracy) {
+    // ν=1 (Cauchy): CDF(t) = 0.5 + arctan(t)/π  —  analytically exact.
+    {
+        StudentTDistribution d(1.0);
+        EXPECT_NEAR(d.getCumulativeProbability(1.0), 0.75, 1e-10);
+        EXPECT_NEAR(d.getCumulativeProbability(-1.0), 0.25, 1e-10);
+        EXPECT_NEAR(d.getCumulativeProbability(0.0), 0.5, 1e-12);
+        EXPECT_NEAR(d.getCumulativeProbability(2.0), 0.5 + std::atan(2.0) / constants::math::PI,
+                    1e-10);
+    }
+
+    // ν=2: CDF(t) = 0.5 + t / (2√(t²+2))  —  closed-form exact.
+    {
+        StudentTDistribution d(2.0);
+        auto cdf2 = [](double t) {
+            return 0.5 + t / (2.0 * std::sqrt(t * t + 2.0));
+        };
+        EXPECT_NEAR(d.getCumulativeProbability(1.0), cdf2(1.0), 1e-9);
+        EXPECT_NEAR(d.getCumulativeProbability(2.0), cdf2(2.0), 1e-9);
+        EXPECT_NEAR(d.getCumulativeProbability(3.0), cdf2(3.0), 1e-9);
+    }
+
+    // ν=5: one-sided CDF P(T ≤ t; 5) — values from the exact incomplete-beta formula.
+    // Cross-check: t(5) 95th percentile is t≈2.015, so CDF(2.0; 5) ≈0.949.
+    {
+        StudentTDistribution d(5.0);
+        EXPECT_NEAR(d.getCumulativeProbability(2.0), 0.94903, 1e-5);
+        EXPECT_NEAR(d.getCumulativeProbability(-2.0), 0.05097, 1e-5);
+        EXPECT_NEAR(d.getCumulativeProbability(0.5), 0.68086, 1e-5);
+    }
+
+    // ν=10: 95th percentile ≈1.812, so CDF(1.5; 10) < 0.95.
+    {
+        StudentTDistribution d(10.0);
+        EXPECT_NEAR(d.getCumulativeProbability(1.5), 0.91775, 1e-5);
+        EXPECT_NEAR(d.getCumulativeProbability(3.0), 0.99330, 1e-4);
+    }
+
+    // ν=30 (large): t(30) converges to N(0,1); N CDF(2)≈0.9772, t(30) slightly lower.
+    {
+        StudentTDistribution d(30.0);
+        const double cdf30_t2 = d.getCumulativeProbability(2.0);
+        EXPECT_GT(cdf30_t2, 0.97);
+        EXPECT_LT(cdf30_t2, 0.9772); // strictly less heavy-tailed than normal
+    }
+
+    // Symmetry: CDF(t) + CDF(-t) == 1 for any ν.
+    {
+        StudentTDistribution d(7.0);
+        for (double t : {0.5, 1.0, 2.0, 3.5}) {
+            EXPECT_NEAR(d.getCumulativeProbability(t) + d.getCumulativeProbability(-t), 1.0, 1e-10);
+        }
+    }
+
+    // Boundary / special inputs.
+    {
+        StudentTDistribution d(5.0);
+        EXPECT_NEAR(d.getCumulativeProbability(0.0), 0.5, 1e-12);
+        EXPECT_EQ(d.getCumulativeProbability(std::numeric_limits<double>::infinity()), 1.0);
+        EXPECT_EQ(d.getCumulativeProbability(-std::numeric_limits<double>::infinity()), 0.0);
+        EXPECT_TRUE(
+            std::isnan(d.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN())));
+    }
+}
+
+/**
+ * Test cumulative distribution function (legacy monotone checks)
  */
 TEST(StudentTDistributionTest, CDF) {
 
