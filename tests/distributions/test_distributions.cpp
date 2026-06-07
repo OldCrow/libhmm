@@ -1732,6 +1732,122 @@ TEST_F(CommonDistributionTest, ResetFunctionality) {
     }
 }
 
+/**
+ * Test that sample() produces finite, non-NaN values for every distribution.
+ *
+ * Uses a fixed seed for reproducibility. Draws 100 samples per distribution
+ * and verifies:
+ *   - All samples are finite (no NaN, no Inf)
+ *   - Discrete distributions return integer-valued doubles
+ *   - The sample mean is within 3 sigma of the analytic mean where known
+ *
+ * This is an integration test: it exercises the full sample() code path
+ * for all 16 distributions without testing the engine (std::mt19937_64)
+ * itself, which is assumed correct.
+ */
+TEST_F(CommonDistributionTest, SampleProducesFiniteValues) {
+    std::mt19937_64 rng(42); // fixed seed — reproducible test
+    constexpr int kN = 100;
+
+    for (auto &dist : distributions_) {
+        int finite_count = 0;
+        for (int i = 0; i < kN; ++i) {
+            const double v = dist->sample(rng);
+            if (std::isfinite(v))
+                ++finite_count;
+            else
+                ADD_FAILURE() << "sample() returned non-finite value " << v
+                              << " from: " << dist->toString();
+        }
+        EXPECT_EQ(finite_count, kN)
+            << "All " << kN << " samples should be finite for: " << dist->toString();
+    }
+}
+
+TEST_F(CommonDistributionTest, SampleDiscreteReturnsIntegers) {
+    std::mt19937_64 rng(123);
+    constexpr int kN = 200;
+
+    for (auto &dist : distributions_) {
+        if (!dist->isDiscrete())
+            continue;
+        for (int i = 0; i < kN; ++i) {
+            const double v = dist->sample(rng);
+            EXPECT_EQ(v, std::floor(v)) << "Discrete distribution sample " << v
+                                        << " is not an integer: " << dist->toString();
+            EXPECT_GE(v, 0.0) << "Discrete distribution sample " << v
+                              << " is negative: " << dist->toString();
+        }
+    }
+}
+
+TEST_F(CommonDistributionTest, SampleMeanConverges) {
+    // Statistical test: sample mean should be close to analytic mean.
+    // Uses 2000 samples and 4-sigma tolerance (Gaussian, Poisson, Exponential).
+    // Other distributions have wider tolerances or are skipped if mean is undefined.
+    std::mt19937_64 rng(999);
+    constexpr int kN = 2000;
+
+    // Gaussian N(2, 1.5): mean = 2
+    {
+        GaussianDistribution g(2.0, 1.5);
+        double sum = 0.0;
+        for (int i = 0; i < kN; ++i)
+            sum += g.sample(rng);
+        // CLT: std of sample mean = 1.5/sqrt(2000) ≈ 0.034; 4-sigma ≈ 0.14
+        EXPECT_NEAR(sum / kN, 2.0, 0.15);
+    }
+
+    // Exponential(lambda=2): mean = 0.5
+    {
+        ExponentialDistribution e(2.0);
+        double sum = 0.0;
+        for (int i = 0; i < kN; ++i)
+            sum += e.sample(rng);
+        EXPECT_NEAR(sum / kN, 0.5, 0.1);
+    }
+
+    // Poisson(lambda=4): mean = 4
+    {
+        PoissonDistribution p(4.0);
+        double sum = 0.0;
+        for (int i = 0; i < kN; ++i)
+            sum += p.sample(rng);
+        EXPECT_NEAR(sum / kN, 4.0, 0.3);
+    }
+
+    // Uniform(1, 3): mean = 2
+    {
+        UniformDistribution u(1.0, 3.0);
+        double sum = 0.0;
+        for (int i = 0; i < kN; ++i)
+            sum += u.sample(rng);
+        EXPECT_NEAR(sum / kN, 2.0, 0.1);
+    }
+
+    // Beta(2, 5): mean = 2/7 ≈ 0.2857
+    {
+        BetaDistribution b(2.0, 5.0);
+        double sum = 0.0;
+        for (int i = 0; i < kN; ++i)
+            sum += b.sample(rng);
+        EXPECT_NEAR(sum / kN, 2.0 / 7.0, 0.05);
+    }
+
+    // VonMises(mu=0, kappa=2): circular mean should be near 0
+    {
+        VonMisesDistribution vm(0.0, 2.0);
+        double sum_sin = 0.0, sum_cos = 0.0;
+        for (int i = 0; i < kN; ++i) {
+            const double v = vm.sample(rng);
+            sum_sin += std::sin(v);
+            sum_cos += std::cos(v);
+        }
+        // Circular mean direction ≈ 0 when mu=0
+        EXPECT_NEAR(std::atan2(sum_sin / kN, sum_cos / kN), 0.0, 0.1);
+    }
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

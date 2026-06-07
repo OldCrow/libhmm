@@ -109,6 +109,7 @@ public:
     /// Precondition: observations.size() == out.size()
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /** Fit λ = 1 / sample_mean (unweighted MLE). */
     void fit(std::span<const double> data) override;

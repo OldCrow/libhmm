@@ -128,6 +128,7 @@ public:
      * @return Probability mass
      */
     [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /// MLE fit: Newton–Raphson on the NB profile score for r; p = r/(r+k̄) closed form.
     /// Falls back to reset() if variance ≤ mean (under-dispersion → NB not appropriate).

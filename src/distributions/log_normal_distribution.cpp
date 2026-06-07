@@ -89,6 +89,12 @@ double LogNormalDistribution::getCumulativeProbability(double value) const noexc
  *
  * @param values Vector of observed data points
  */
+double LogNormalDistribution::sample(std::mt19937_64 &rng) const {
+    // std::lognormal_distribution<double>(m, s): m = log-mean, s = log-stddev.
+    std::lognormal_distribution<double> dist(mean_, standardDeviation_);
+    return dist(rng);
+}
+
 void LogNormalDistribution::fit(std::span<const double> data) {
     if (data.empty()) {
         reset();

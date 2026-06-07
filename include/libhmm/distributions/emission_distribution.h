@@ -1,5 +1,6 @@
 #pragma once
 
+#include <random>
 #include <span>
 #include <string>
 
@@ -87,6 +88,26 @@ public:
      * @brief Reset parameters to distribution-specific defaults.
      */
     virtual void reset() noexcept = 0;
+
+    // =========================================================================
+    // Generative sampling
+    // =========================================================================
+
+    /**
+     * @brief Draw one random observation from this distribution.
+     *
+     * The engine type is concrete (`std::mt19937_64`) because virtual templates
+     * are not permitted in C++.  On 64-bit platforms `mt19937_64` has better
+     * statistical properties than `mt19937` at the same cost.
+     *
+     * Each concrete distribution constructs its `<random>` adapter on each call.
+     * Adapters are cheap to construct; there is no need to cache them.
+     *
+     * @param rng  A seeded `std::mt19937_64` engine (mutated in place).
+     * @return     A sampled observation encoded as `double` (consistent with
+     *             the rest of the emission interface).
+     */
+    [[nodiscard]] virtual double sample(std::mt19937_64 &rng) const = 0;
 
     // =========================================================================
     // Metadata

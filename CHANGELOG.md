@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - 2026-06-07
+
+Final v3.x release before v4.0.0. 42/42 tests pass.
+
+### Added
+
+- **`sample(std::mt19937_64& rng)`** pure virtual on `EmissionDistribution`,
+  implemented for all 16 distributions (closes #22). The generative direction was
+  previously missing; callers holding an `EmissionDistribution&` can now draw
+  samples without casting to a concrete type. Implementations use stdlib `<random>`
+  adapters; `NegativeBinomialDistribution` uses the Gamma-Poisson mixture to support
+  real-valued r; `BetaDistribution` uses the Gamma-ratio method; `ParetoDistribution`
+  and `RayleighDistribution` use inverse-CDF; `VonMisesDistribution` uses the Best
+  (1979) wrapped-Cauchy rejection sampler (exact, ~1.06–1.32 iterations expected).
+- **Distribution fitting validation tests**
+  (`tests/distributions/test_distribution_fitting.cpp`, closes #21). 17 test cases
+  across Gaussian, Exponential, Poisson, Gamma, and Discrete distributions. Unweighted
+  tests verify exact MLE recovery from data with analytically known sample statistics
+  (tolerances documented in test comments). Weighted tests verify both that uniform
+  weights reproduce unweighted results and that concentrated weights steer parameters.
+- **Math helper accuracy tests** for `gammap` and `incompleteBeta` added to
+  `test_gamma_distribution.cpp`, `test_chi_squared_distribution.cpp`, and
+  `test_beta_distribution.cpp`. References are exact closed-form CDFs computable from
+  `std::exp` and `std::erf` only — no external special-function library required.
+
+### Fixed
+
+- **`StudentTDistribution::getCumulativeProbability()` wrong for 1 < ν < 30**
+  (fixes #16). The moderate-ν branch used an incorrect rational approximation,
+  producing errors up to 0.06 in the CDF. Replaced with the exact regularised
+  incomplete beta formula valid for all ν > 0:
+  `P(T ≤ t; ν) = 1 − ½·I_{ν/(ν+t²)}(ν/2, ½)`. The Cauchy case (ν=1) and
+  the ν=2 closed form are verified to 1e-9; ν=5 and ν=10 to 1e-5.
+- **`BetaDistribution::incompleteBeta`** promoted to a `protected static` on
+  `DistributionBase` alongside `gammap`, available to all distributions.
+  `StudentTDistribution` uses it for the CDF fix; `BetaDistribution` delegates
+  to the shared implementation.
+
 ## [3.7.0] - 2026-05-13
 
 Emission distribution MLE overhaul. 41/41 tests pass.
