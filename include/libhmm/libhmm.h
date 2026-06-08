@@ -48,7 +48,8 @@
 // PROBABILITY DISTRIBUTIONS
 //==============================================================================
 
-/// All probability distributions (discrete and continuous) with type traits
+/// All probability distributions: 16 scalar (discrete + continuous) and
+/// 3 multivariate (Phase G) — see distributions/distributions.h for the list.
 #include "libhmm/distributions/distributions.h"
 
 //==============================================================================
@@ -90,8 +91,8 @@
  * The libhmm namespace contains all classes, functions, and utilities
  * provided by the Hidden Markov Model library. Key components include:
  *
- * - **Core Classes**: Hmm, ObservationSet, StateSequence
- * - **Distributions**: 16 probability distributions for discrete and continuous data
+ * - **Core Classes**: Hmm (scalar), HmmMV (multivariate), ObservationSet, ObservationMatrix
+ * - **Distributions**: 16 scalar + 3 multivariate emission distributions (v4)
  * - **Calculators**: Forward-Backward and Viterbi algorithms with SIMD optimization
  * - **Trainers**: Baum-Welch, Viterbi, and clustering-based parameter estimation
  * - **I/O**: XML file reading/writing and general file management

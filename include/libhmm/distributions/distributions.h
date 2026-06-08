@@ -2,20 +2,22 @@
 
 /**
  * @file distributions.h
- * @brief Convenience header that includes all libhmm probability distributions
+ * @brief Convenience header that includes all libhmm probability distributions.
  *
- * This header provides a single include point for all probability distributions
- * available in libhmm. It follows the standard library convention of providing
- * umbrella headers for related functionality.
+ * Includes 16 scalar (Obs=double) distributions and 3 multivariate
+ * (Obs=ObservationVectorView) distributions introduced in v4.
  *
  * Usage:
  * @code
  * #include "libhmm/distributions/distributions.h"
  *
- * // All distributions are now available:
+ * // Scalar distributions (v3-compatible)
  * GaussianDistribution gauss(0.0, 1.0);
- * PoissonDistribution poisson(2.5);
- * DiscreteDistribution discrete(6);
+ * PoissonDistribution  poisson(2.5);
+ *
+ * // Multivariate distributions (v4)
+ * DiagonalGaussianDistribution  diag(3);      // 3-dimensional diagonal Gaussian
+ * FullCovarianceGaussianDistribution full(3); // 3-dimensional full-covariance Gaussian
  * @endcode
  *
  * @note For better compilation times, consider including only the specific
@@ -39,6 +41,12 @@
 #include "libhmm/distributions/negative_binomial_distribution.h"
 #include "libhmm/distributions/poisson_distribution.h"
 
+// Multivariate distributions (Phase G)
+// Obs = ObservationVectorView = std::span<const double>
+#include "libhmm/distributions/independent_components_distribution.h"
+#include "libhmm/distributions/diagonal_gaussian_distribution.h"
+#include "libhmm/distributions/full_covariance_gaussian_distribution.h"
+
 // Continuous distributions
 #include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/distributions/exponential_distribution.h"
@@ -59,13 +67,13 @@
  *
  * After including this header, all distribution classes are available:
  *
- * **Discrete Distributions:**
+ * **Discrete Distributions (Obs=double):**
  * - DiscreteDistribution: General discrete distribution
  * - BinomialDistribution: Binomial distribution B(n,p)
  * - NegativeBinomialDistribution: Negative binomial distribution
  * - PoissonDistribution: Poisson distribution P(λ)
  *
- * **Continuous Distributions:**
+ * **Continuous Distributions (Obs=double):**
  * - GaussianDistribution: Normal distribution N(μ,σ²)
  * - ExponentialDistribution: Exponential distribution Exp(λ)
  * - GammaDistribution: Gamma distribution Γ(k,θ)
@@ -76,21 +84,34 @@
  * - WeibullDistribution: Weibull distribution
  * - StudentTDistribution: Student's t-distribution
  * - ChiSquaredDistribution: Chi-squared distribution χ²(k)
+ * - VonMisesDistribution: Von Mises circular distribution
+ * - RayleighDistribution: Rayleigh distribution
+ *
+ * **Multivariate Distributions (Obs=ObservationVectorView, v4):**
+ * - IndependentComponentsDistribution: D independent scalar emission components
+ * - DiagonalGaussianDistribution: Multivariate Gaussian with diagonal covariance
+ * - FullCovarianceGaussianDistribution: Multivariate Gaussian with full covariance
  */
 
 // Distribution count for compile-time verification
 namespace libhmm {
 namespace detail {
-/// Total number of concrete distribution types (excluding base classes)
-inline constexpr std::size_t DISTRIBUTION_COUNT = 16;
+/// Total concrete distribution types (16 scalar + 3 multivariate)
+inline constexpr std::size_t DISTRIBUTION_COUNT = 19;
 
-/// Number of discrete distribution types
+/// Number of scalar discrete distribution types
 inline constexpr std::size_t DISCRETE_DISTRIBUTION_COUNT = 4;
 
-/// Number of continuous distribution types
+/// Number of scalar continuous distribution types
 inline constexpr std::size_t CONTINUOUS_DISTRIBUTION_COUNT = 12;
 
-static_assert(DISCRETE_DISTRIBUTION_COUNT + CONTINUOUS_DISTRIBUTION_COUNT == DISTRIBUTION_COUNT,
-              "Distribution counts must be consistent");
+/// Number of multivariate distribution types (Obs = ObservationVectorView, v4)
+inline constexpr std::size_t MULTIVARIATE_DISTRIBUTION_COUNT = 3;
+
+static_assert(
+    DISCRETE_DISTRIBUTION_COUNT +
+    CONTINUOUS_DISTRIBUTION_COUNT +
+    MULTIVARIATE_DISTRIBUTION_COUNT == DISTRIBUTION_COUNT,
+    "Distribution counts must be consistent");
 } // namespace detail
 } // namespace libhmm

@@ -112,7 +112,7 @@ public:
     // CRTP clone()
     //
     // Returns a heap-allocated copy of the concrete distribution.
-    // Requires Derived to be copy-constructible (all 16 distributions are).
+    // Requires Derived to be copy-constructible (all concrete distributions are).
     // =========================================================================
 
     [[nodiscard]] std::unique_ptr<BasicEmissionDistribution<Obs>>

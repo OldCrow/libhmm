@@ -76,11 +76,36 @@ TEST_F(DistributionsHeaderTest, BaseDistributionInterfaceAvailable) {
 TEST_F(DistributionsHeaderTest, CompileTimeConstants) {
     using namespace libhmm::detail;
 
-    // Test that our constants are correctly defined
-    EXPECT_EQ(DISTRIBUTION_COUNT, 16);
-    EXPECT_EQ(DISCRETE_DISTRIBUTION_COUNT, 4);
-    EXPECT_EQ(CONTINUOUS_DISTRIBUTION_COUNT, 12);
-    EXPECT_EQ(DISCRETE_DISTRIBUTION_COUNT + CONTINUOUS_DISTRIBUTION_COUNT, DISTRIBUTION_COUNT);
+    EXPECT_EQ(DISCRETE_DISTRIBUTION_COUNT,    4u);
+    EXPECT_EQ(CONTINUOUS_DISTRIBUTION_COUNT,  12u);
+    EXPECT_EQ(MULTIVARIATE_DISTRIBUTION_COUNT, 3u);
+    EXPECT_EQ(DISTRIBUTION_COUNT,             19u);
+    EXPECT_EQ(DISCRETE_DISTRIBUTION_COUNT +
+              CONTINUOUS_DISTRIBUTION_COUNT +
+              MULTIVARIATE_DISTRIBUTION_COUNT,
+              DISTRIBUTION_COUNT);
+}
+
+// Test that multivariate distributions are available via the convenience header
+TEST_F(DistributionsHeaderTest, MultivariateDistributionsAvailable) {
+    // IndependentComponents
+    {
+        libhmm::IndependentComponentsDistribution d(2);
+        EXPECT_EQ(d.getDimension(), 2u);
+        EXPECT_FALSE(d.isDiscrete());
+    }
+    // DiagonalGaussian
+    {
+        libhmm::DiagonalGaussianDistribution d(2);
+        EXPECT_EQ(d.getDimension(), 2u);
+        EXPECT_EQ(d.getNumParameters(), 4u); // 2*D
+    }
+    // FullCovarianceGaussian
+    {
+        libhmm::FullCovarianceGaussianDistribution d(2);
+        EXPECT_EQ(d.getDimension(), 2u);
+        EXPECT_EQ(d.getNumParameters(), 5u); // D + D*(D+1)/2 = 2+3
+    }
 }
 
 // Test that we can use all distributions in template contexts

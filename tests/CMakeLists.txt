@@ -150,6 +150,7 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_weibull_distribution           distributions/test_weibull_distribution.cpp)
     add_hmm_test(test_von_mises_distribution         distributions/test_von_mises_distribution.cpp)
     add_hmm_test(test_distribution_fitting           distributions/test_distribution_fitting.cpp)
+    add_hmm_test(test_multivariate_distributions     distributions/test_multivariate_distributions.cpp)
 
     # =========================================================================
     # Core HMM

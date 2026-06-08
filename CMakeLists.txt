@@ -334,6 +334,10 @@ set(LIBHMM_SOURCES
     src/model_selection.cpp
     # Linalg helpers (Phase F+)
     src/linalg/cholesky.cpp
+    # Multivariate distributions (Phase G)
+    src/distributions/independent_components_distribution.cpp
+    src/distributions/diagonal_gaussian_distribution.cpp
+    src/distributions/full_covariance_gaussian_distribution.cpp
 )
 
 # ── Library targets ───────────────────────────────────────────────────────────
