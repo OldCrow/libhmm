@@ -18,7 +18,7 @@ BaumWelchTrainer::BaumWelchTrainer(Hmm &hmm, const ObservationLists &obsLists)
     : Trainer(hmm, obsLists) {}
 
 BaumWelchTrainer::BaumWelchTrainer(Hmm *hmm, const ObservationLists &obsLists)
-    : Trainer(hmm, obsLists) {}
+    : Trainer(hmm ? *hmm : throw std::invalid_argument("HMM pointer cannot be null"), obsLists) {}
 
 // ---------------------------------------------------------------------------
 // Private helpers
@@ -115,7 +115,7 @@ void BaumWelchTrainer::train() {
     Hmm &hmm = hmm_ref_.get();
     const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
     std::size_t totalExpectedLength = 0;
-    for (const auto &obs : obsLists_) {
+    for (const auto &obs : getObservationLists()) {
         totalExpectedLength += obs.size();
     }
 
@@ -154,7 +154,7 @@ void BaumWelchTrainer::train() {
 
     std::size_t validSeqs = 0;
 
-    for (const auto &obs : obsLists_) {
+    for (const auto &obs : getObservationLists()) {
         const std::size_t T = obs.size();
         if (T == 0)
             continue;

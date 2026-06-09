@@ -34,7 +34,8 @@ ViterbiTrainer::ViterbiTrainer(Hmm &hmm, const ObservationLists &obsLists,
 
 ViterbiTrainer::ViterbiTrainer(Hmm *hmm, const ObservationLists &obsLists,
                                const TrainingConfig &config)
-    : Trainer(hmm, obsLists), config_(config) {}
+    : Trainer(hmm ? *hmm : throw std::invalid_argument("HMM pointer cannot be null"), obsLists),
+      config_(config) {}
 
 // ---------------------------------------------------------------------------
 // train()
@@ -153,7 +154,7 @@ double ViterbiTrainer::runIteration() {
     double totalLogProb = 0.0;
     std::size_t validSeqs = 0;
 
-    for (const auto &obs : obsLists_) {
+    for (const auto &obs : getObservationLists()) {
         if (obs.size() == 0)
             continue;
         const double lp = accum_sequence(hmm, obs, pi, trans, emisData);

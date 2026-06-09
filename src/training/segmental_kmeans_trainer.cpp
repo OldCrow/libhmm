@@ -98,7 +98,7 @@ void SegmentalKMeansTrainer::validateDiscreteDistributions() const {
 }
 
 void SegmentalKMeansTrainer::train() {
-    ObservationSet observations = flattenObservationLists(obsLists_);
+    ObservationSet observations = flattenObservationLists(getObservationLists());
     const auto numStates = static_cast<std::size_t>(hmm_ref_.get().getNumStates());
     clusters_ = Clusters(numStates, observations);
 
@@ -125,7 +125,7 @@ void SegmentalKMeansTrainer::learnPi() {
 
     clear_vector(pi);
 
-    for (const auto &obsList : obsLists_) {
+    for (const auto &obsList : getObservationLists()) {
         if (!obsList.empty()) {
             const auto firstObs = static_cast<std::size_t>(obsList(0));
             const auto clusterNum = clusters_.clusterNumber(firstObs);
@@ -133,7 +133,7 @@ void SegmentalKMeansTrainer::learnPi() {
         }
     }
 
-    const auto totalLists = static_cast<double>(obsLists_.size());
+    const auto totalLists = static_cast<double>(getObservationLists().size());
     for (std::size_t j = 0; j < numStates; ++j) {
         pi(j) = pi(j) / totalLists;
     }
@@ -151,7 +151,7 @@ void SegmentalKMeansTrainer::learnTrans() {
 
     clear_matrix(trans);
 
-    for (const auto &obsList : obsLists_) {
+    for (const auto &obsList : getObservationLists()) {
         if (obsList.size() < 2)
             continue;
 
@@ -226,7 +226,7 @@ void SegmentalKMeansTrainer::learnEmis() {
 bool SegmentalKMeansTrainer::optimizeCluster() {
     bool modified = false;
 
-    for (const auto &obsList : obsLists_) {
+    for (const auto &obsList : getObservationLists()) {
         ViterbiCalculator vc(hmm_ref_.get(), obsList);
         StateSequence states = vc.decode();
 

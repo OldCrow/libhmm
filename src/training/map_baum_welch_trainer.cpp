@@ -162,7 +162,7 @@ void MapBaumWelchTrainer::train() {
     const double c = pseudo_count_;
 
     std::size_t totalExpectedLength = 0;
-    for (const auto &obs : obsLists_)
+    for (const auto &obs : getObservationLists())
         totalExpectedLength += obs.size();
 
     // Accumulators (linear space, summed across all sequences)
@@ -196,7 +196,7 @@ void MapBaumWelchTrainer::train() {
 
     std::size_t validSeqs = 0;
 
-    for (const auto &obs : obsLists_) {
+    for (const auto &obs : getObservationLists()) {
         const std::size_t T = obs.size();
         if (T == 0)
             continue;

@@ -68,4 +68,33 @@ row_view(const ObservationMatrix& mat, std::size_t t) noexcept {
     return ObservationVectorView(mat.data() + t * mat.cols(), mat.cols());
 }
 
+// ===========================================================================
+// ObsSeqTraits<Obs>
+//
+// Maps an observation type to its sequence and list container types, and
+// provides sequence_length() for uniform length extraction.
+// Two specialisations: Obs=double (scalar) and Obs=ObservationVectorView (MV).
+// ===========================================================================
+
+template<typename Obs>
+struct ObsSeqTraits;  ///< Primary; only the two specialisations below are valid.
+
+template<>
+struct ObsSeqTraits<double> {
+    using SeqType  = ObservationSet;    ///< BasicVector<double>
+    using ListType = ObservationLists;  ///< vector<ObservationSet>
+
+    /// Length of a single observation sequence.
+    static std::size_t sequence_length(const SeqType& s) noexcept { return s.size(); }
+};
+
+template<>
+struct ObsSeqTraits<ObservationVectorView> {
+    using SeqType  = ObservationMatrix;          ///< BasicMatrix<double>, T rows x D cols
+    using ListType = MultiObservationLists;      ///< vector<ObservationMatrix>
+
+    /// Length of a single observation sequence (number of time steps = rows).
+    static std::size_t sequence_length(const SeqType& s) noexcept { return s.size1(); }
+};
+
 } // namespace libhmm
