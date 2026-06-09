@@ -34,7 +34,8 @@ ViterbiCalculator::ViterbiCalculator(Hmm *hmm, const ObservationSet &observation
 // ---------------------------------------------------------------------------
 
 StateSequence ViterbiCalculator::decode() {
-    const std::size_t T = observations_.size();
+    const ObservationSet &obs = getObservations();
+    const std::size_t T = obs.size();
     if (T == 0) {
         logProbability_ = LOG_ZERO;
         sequence_.resize(0);
@@ -44,7 +45,7 @@ StateSequence ViterbiCalculator::decode() {
     // Fill log-emission buffer: logEmitBuf_[i * T + t] = log b_i(O_t)
     logEmitBuf_.resize(T * numStates_);
     const Hmm &hmm = getHmmRef();
-    const std::span<const double> obsSpan(observations_.data(), T);
+    const std::span<const double> obsSpan(obs.data(), T);
 
     for (std::size_t i = 0; i < numStates_; ++i) {
         hmm.getDistribution(i).getBatchLogProbabilities(
@@ -75,7 +76,7 @@ void ViterbiCalculator::precomputeLogTransitions() {
 void ViterbiCalculator::runViterbi() {
     const Hmm &hmm = getHmmRef();
     const Vector &pi = hmm.getPi();
-    const std::size_t T = observations_.size();
+    const std::size_t T = getObservations().size();
 
     logDelta_.resize(T, numStates_);
     psi_.assign(T * numStates_, 0);
@@ -130,7 +131,7 @@ void ViterbiCalculator::runViterbi() {
 }
 
 void ViterbiCalculator::backtrack() {
-    const std::size_t T = observations_.size();
+    const std::size_t T = getObservations().size();
     if (T <= 1)
         return;
     const std::size_t N = numStates_;

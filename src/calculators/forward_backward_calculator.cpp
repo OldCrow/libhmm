@@ -117,12 +117,13 @@ ForwardBackwardCalculator::ForwardBackwardCalculator(Hmm *hmm, const Observation
 // ---------------------------------------------------------------------------
 
 void ForwardBackwardCalculator::compute(const ObservationSet &observations) {
-    observations_ = observations;
+    setObservations(observations);  // rebind reference
     compute();
 }
 
 void ForwardBackwardCalculator::compute() {
-    const std::size_t T = observations_.size();
+    const ObservationSet &obs = getObservations();
+    const std::size_t T = obs.size();
     if (T == 0) {
         logProbability_ = LOG_ZERO;
         return;
@@ -136,7 +137,7 @@ void ForwardBackwardCalculator::compute() {
     // Then derive shared time-major layout: logEmitByTime_[t * N + i] = log b_i(O_t).
     logEmitBuf_.resize(T * numStates_);
     logEmitByTime_.resize(T * numStates_);
-    const std::span<const double> obsSpan(observations_.data(), T);
+    const std::span<const double> obsSpan(obs.data(), T);
 
     const Hmm &hmm = getHmmRef();
     for (std::size_t i = 0; i < numStates_; ++i) {
@@ -182,7 +183,7 @@ void ForwardBackwardCalculator::computeLogForward() {
 }
 
 void ForwardBackwardCalculator::computeLogForwardPairwise() {
-    compute_forward(getHmmRef(), numStates_, observations_, logTransT_.data(),
+    compute_forward(getHmmRef(), numStates_, getObservations(), logTransT_.data(),
                     logEmitByTime_.data(), logAlpha_,
                     [](const double *prev, const double *transCol, std::size_t n) {
                         double s = LOG_ZERO;
@@ -194,7 +195,7 @@ void ForwardBackwardCalculator::computeLogForwardPairwise() {
 
 void ForwardBackwardCalculator::computeLogForwardMaxReduce() {
     using TK = performance::detail::TranscendentalKernels;
-    compute_forward(getHmmRef(), numStates_, observations_, logTransT_.data(),
+    compute_forward(getHmmRef(), numStates_, getObservations(), logTransT_.data(),
                     logEmitByTime_.data(), logAlpha_,
                     [](const double *prev, const double *transCol, std::size_t n) {
                         const double m = TK::reduce_max_sum2(prev, transCol, n);
@@ -215,7 +216,7 @@ void ForwardBackwardCalculator::computeLogBackward() {
 
 void ForwardBackwardCalculator::computeLogBackwardPairwise() {
     compute_backward(
-        numStates_, observations_, logTrans_.data(), logEmitByTime_.data(), logBeta_,
+        numStates_, getObservations(), logTrans_.data(), logEmitByTime_.data(), logBeta_,
         [](const double *transRow, const double *emitNext, const double *nextBeta, std::size_t n) {
             double s = LOG_ZERO;
             for (std::size_t j = 0; j < n; ++j)
@@ -227,7 +228,7 @@ void ForwardBackwardCalculator::computeLogBackwardPairwise() {
 void ForwardBackwardCalculator::computeLogBackwardMaxReduce() {
     using TK = performance::detail::TranscendentalKernels;
     compute_backward(
-        numStates_, observations_, logTrans_.data(), logEmitByTime_.data(), logBeta_,
+        numStates_, getObservations(), logTrans_.data(), logEmitByTime_.data(), logBeta_,
         [](const double *transRow, const double *emitNext, const double *nextBeta, std::size_t n) {
             const double m = TK::reduce_max_sum3(transRow, emitNext, nextBeta, n);
             if (!std::isfinite(m))

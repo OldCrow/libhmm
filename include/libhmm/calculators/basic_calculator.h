@@ -29,10 +29,11 @@ public:
 
 protected:
     std::reference_wrapper<const HmmType> hmm_ref_;
-    SeqType observations_;
+    std::reference_wrapper<const SeqType> obsRef_;
 
+    /// Primary constructor (lvalue const-ref — preferred).
     BasicCalculator(const HmmType& hmm, const SeqType& observations)
-        : hmm_ref_{hmm}, observations_{observations} {}
+        : hmm_ref_{hmm}, obsRef_{observations} {}
 
     BasicCalculator() = delete;
     virtual ~BasicCalculator() = default;
@@ -42,9 +43,15 @@ protected:
     BasicCalculator(BasicCalculator&&) = default;
     BasicCalculator& operator=(BasicCalculator&&) = default;
 
-    [[nodiscard]] const HmmType& getHmmRef() const noexcept { return hmm_ref_.get(); }
-    [[nodiscard]] const SeqType& getObservations() const noexcept { return observations_; }
-    void setObservations(const SeqType& obs) { observations_ = obs; }
+    /// Deleted rvalue overload: passing a temporary sequence is UB (dangling reference).
+    /// Store the observation sequence in a named variable with sufficient lifetime.
+    BasicCalculator(const HmmType&, SeqType&&) = delete;
+
+    [[nodiscard]] const HmmType& getHmmRef()     const noexcept { return hmm_ref_.get(); }
+    [[nodiscard]] const SeqType& getObservations() const noexcept { return obsRef_.get(); }
+
+    /// Rebind to a new observation sequence (caller must ensure lifetime).
+    void setObservations(const SeqType& obs) noexcept { obsRef_ = std::cref(obs); }
 
     /// Precompute log-transition matrix logTrans[i,j] = log a_{ij} and its
     /// transpose logTransT[j,i] = log a_{ij}.  Common to all calculators.
