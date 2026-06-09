@@ -1,12 +1,21 @@
 # AGENTS.md
 
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
+This file provides project-scoped guidance to AI agents and contributors working in this repository.
 
 ## Project overview
 
 C++20 Hidden Markov Model library. Zero external dependencies (C++20 standard library only). GTest is fetched via `FetchContent` only for the test suite. Produces both a shared (`hmm`) and static (`hmm_static`) library from a single OBJECT target.
 
-Current development branch: `feature/v4-multivariate-emissions` (v4.0.0). v4 adds `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates; `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility.
+`main` contains the stable v3 API. Current development branch: `feature/v4-multivariate-emissions` (v4.0.0), which adds multivariate HMM support via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
+
+## Session start
+
+**Compiler prerequisites:**
+- **macOS:** Xcode Command Line Tools (`xcode-select --install`) provides AppleClang. Full Xcode is not required for the library build.
+- **Linux:** GCC ≥ 12 (`apt install g++-12`) or Clang ≥ 14 (`apt install clang-14`) for C++20 support. CMake ≥ 3.20 (`apt install cmake` or from cmake.org).
+- **Windows:** Visual Studio 2022 (Build Tools or full IDE) with the C++ workload. See the Windows section under Build commands.
+
+On first use on a new machine, run `cmake --preset release && cmake --build build`, then verify the detected SIMD tier with `./build/tools/system_inspector` (if built with `BUILD_TOOLS=ON`). SIMD flag selection (`-march=native` on GCC/Clang, CPU-probed `/arch:` on MSVC) is automatic at compile time.
 
 ## Build commands
 
@@ -26,6 +35,41 @@ cmake --preset rel-with-debug && cmake --build build-relwithdebinfo
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
+
+### Windows (MSVC 2022)
+
+> **Windows tool paths vary** by installation method (direct installer, `winget`, `chocolatey`, Microsoft Store, etc.). The paths below are common defaults — adjust for your installation.
+
+Activate the MSVC toolchain once per PowerShell session before building:
+
+```powershell
+# Default path for VS 2022 Build Tools:
+$vcvars = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+# For full VS (Community/Professional/Enterprise), use instead:
+# $vcvars = "C:\Program Files\Microsoft Visual Studio\2022\{edition}\VC\Auxiliary\Build\vcvars64.bat"
+# Auto-detect any edition:
+# $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+# $vcvars = "$vsPath\VC\Auxiliary\Build\vcvars64.bat"
+$envVars = cmd /c "`"$vcvars`" > nul && set"
+foreach ($line in $envVars) {
+    if ($line -match "^([^=]+)=(.*)$") {
+        [System.Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
+    }
+}
+
+# Then build as normal:
+cmake --preset release
+cmake --build build
+```
+
+VS 2022 Build Tools or full VS is sufficient. Install from https://aka.ms/vs/17/release/vs_buildtools.exe, or `winget install Microsoft.VisualStudio.2022.BuildTools`, or `choco install visualstudio2022buildtools`. GTest is fetched automatically via `FetchContent`; no vcpkg needed.
+
+### macOS Catalina (10.15)
+
+libhmm has no dedicated Catalina build script. The standard `cmake --preset release` command applies, but note:
+- Avoid Homebrew LLVM/libc++ on Catalina unless specifically troubleshooting; use the system AppleClang toolchain.
+- To bypass the Homebrew libc++ compatibility guard for troubleshooting only, pass `-DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON`.
+- Background on the ABI issue: see `../libstats/docs/BUILD_SYSTEM_GUIDE.md` (available only if the sibling `libstats` repo is checked out alongside `libhmm`).
 
 Build options: `BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS` (all `ON` by default), `BUILD_BENCHMARKS` (`OFF`), `ENABLE_CLANG_TIDY` (`OFF`).
 
@@ -50,6 +94,14 @@ cmake --build build --target check_timing
 ```
 
 Tests use the `known_broken` label for pre-existing failures and `benchmark` for on-demand-only tests; both are excluded from the standard CI run via `-LE "known_broken|benchmark"`.
+
+## Tool prerequisites
+
+The linting and pre-commit tools must be installed before use:
+- **clang-format**: part of LLVM (`brew install llvm`, `apt install clang-format`, `choco install llvm`)
+- **cmake-format**: `pip install cmake-format`
+- **pre-commit**: `pip install pre-commit`
+- **cppcheck**: OS-package-managed (`brew install cppcheck`, `apt install cppcheck`, `choco install cppcheck`)
 
 ## Linting and formatting
 
