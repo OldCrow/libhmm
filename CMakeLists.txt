@@ -282,6 +282,9 @@ list(APPEND LIBHMM_SIMD_SOURCES
     src/calculators/forward_backward_calculator_mv.cpp
     src/training/baum_welch_trainer.cpp
     src/training/baum_welch_trainer_mv.cpp
+    # MapBaumWelchTrainer calls accumulate_exp_sum2_bias — needs SIMD flags.
+    src/training/map_baum_welch_trainer.cpp
+    src/training/map_baum_welch_trainer_mv.cpp
 )
 
 if(LIBHMM_BEST_SIMD_FLAGS)
@@ -326,12 +329,16 @@ set(LIBHMM_SOURCES
     src/calculators/forward_backward_calculator.cpp
     src/calculators/forward_backward_calculator_mv.cpp
     src/calculators/viterbi_calculator.cpp
+    src/calculators/viterbi_calculator_mv.cpp
     # Canonical trainers (Phase H: scalar + MV explicit instantiations)
     src/training/baum_welch_trainer.cpp
     src/training/baum_welch_trainer_mv.cpp
     src/training/map_baum_welch_trainer.cpp
+    src/training/map_baum_welch_trainer_mv.cpp
     src/training/viterbi_trainer.cpp
+    src/training/viterbi_trainer_mv.cpp
     src/training/segmental_kmeans_trainer.cpp
+    src/training/kmeans_init.cpp
     src/io/file_io_manager.cpp
     src/io/json_utils.cpp
     src/io/hmm_json.cpp
