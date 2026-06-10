@@ -153,6 +153,11 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_multivariate_distributions     distributions/test_multivariate_distributions.cpp)
 
     # =========================================================================
+    # Multivariate calculators (Phase K)
+    # =========================================================================
+    add_hmm_test(test_mv_calculator calculators/test_mv_calculator.cpp)
+
+    # =========================================================================
     # Core HMM
     # =========================================================================
     add_hmm_test(test_hmm_core test_hmm_core.cpp)
@@ -177,11 +182,17 @@ if(GTest_FOUND OR TARGET gtest)
     add_hmm_test(test_map_baum_welch         training/test_map_baum_welch.cpp)
 
     # =========================================================================
+    # Multivariate training and kmeans_init (Phase K)
+    # =========================================================================
+    add_hmm_test(test_mv_training training/test_mv_training.cpp)
+
+    # =========================================================================
     # IO & Integration
     # =========================================================================
     add_hmm_test(test_xml_file_io       io/test_xml_file_io.cpp)
     add_hmm_test(test_hmm_stream_io     io/test_hmm_stream_io.cpp)
     add_hmm_test(test_hmm_json          io/test_hmm_json.cpp)
+    add_hmm_test(test_hmm_json_mv       io/test_hmm_json_mv.cpp)
     add_hmm_test(test_end_to_end        integration/test_end_to_end.cpp)
     add_hmm_test(test_model_selection   test_model_selection.cpp)
 

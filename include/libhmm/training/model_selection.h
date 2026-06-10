@@ -1,5 +1,6 @@
 #pragma once
 
+#include "libhmm/basic_hmm.h"
 #include "libhmm/hmm.h"
 #include <cstddef>
 #include <limits>
@@ -29,10 +30,25 @@ struct HmmModelCriteria {
  *                 + (N-1)    (initial distribution simplex)
  *                 + Σ dist_i.getNumParameters()  (one emission per state)
  *
+ * The template overload works for both scalar (Hmm) and multivariate (HmmMV)
+ * HMMs; the formula is identical since transitions and pi have the same shape.
+ *
  * @param hmm  The HMM to inspect.
  * @return Total free parameter count.
  */
-[[nodiscard]] std::size_t count_free_parameters(const Hmm &hmm);
+template<typename Obs>
+[[nodiscard]] std::size_t count_free_parameters(const BasicHmm<Obs>& hmm) {
+    const std::size_t N = hmm.getNumStatesModern();
+    std::size_t k = N * (N - 1) + (N - 1);  // transition rows + pi simplex
+    for (std::size_t i = 0; i < N; ++i)
+        k += hmm.getDistribution(i).getNumParameters();
+    return k;
+}
+
+/// @brief Scalar specialisation — delegates to the template.
+[[nodiscard]] inline std::size_t count_free_parameters(const Hmm& hmm) {
+    return count_free_parameters<double>(hmm);
+}
 
 /**
  * @brief AIC = 2k − 2 logL.
