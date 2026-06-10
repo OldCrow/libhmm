@@ -101,7 +101,7 @@ private:
      * @brief Run the E-step for one sequence (same logic as BaumWelchTrainer).
      * @return true if the sequence contributed; false if skipped.
      */
-    static bool accum_one_sequence(const HmmType& hmm, const SeqType& obs,
+    [[nodiscard]] static bool accum_one_sequence(const HmmType& hmm, const SeqType& obs,
                                     std::size_t N,
                                     const std::vector<double>& logTransT,
                                     bool hasZeroTransitions,
@@ -115,8 +115,8 @@ private:
      * @brief Dirichlet-smoothed log-prior over discrete emission distributions.
      * Only compiled and called for the scalar specialisation.
      */
-    static double discrete_emission_log_prior(const HmmType& hmm,
-                                               std::size_t N, double c);
+    [[nodiscard]] static double discrete_emission_log_prior(const HmmType& hmm,
+                                                             std::size_t N, double c);
 
     /**
      * @brief Apply Dirichlet smoothing to a discrete emission distribution

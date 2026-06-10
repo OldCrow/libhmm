@@ -93,8 +93,12 @@ private:
 
     void precomputeLogTransitions();
 
-    /// Fill logEmitBuf_ and logEmitByTime_ — same scalar/MV dispatch as FBC.
-    void fill_log_emissions(const SeqType& obs, std::size_t T);
+    /**
+     * @brief Fill logEmitBuf_ (state-major) and logEmitByTime_ (time-major) for @p obs.
+     * Scalar path: getBatchLogProbabilities() per state (potentially SIMD-accelerated).
+     * MV path:     getLogProbability(row_view(obs, t)) per (state, timestep) pair.
+     */
+    void fillLogEmissions(const SeqType& obs, std::size_t T);
 
     /// Viterbi DP forward pass; sets logDelta_, psi_, sequence_(T-1), logProbability_.
     void runViterbi(std::size_t T);
@@ -140,14 +144,14 @@ StateSequence BasicViterbiCalculator<Obs>::decode() {
     logEmitBuf_.resize(T * numStates_);
     logEmitByTime_.resize(T * numStates_);
 
-    fill_log_emissions(obs, T);
+    fillLogEmissions(obs, T);
     runViterbi(T);
     backtrack(T);
     return sequence_;
 }
 
 template<typename Obs>
-void BasicViterbiCalculator<Obs>::fill_log_emissions(
+void BasicViterbiCalculator<Obs>::fillLogEmissions(
         const SeqType& obs, std::size_t T)
 {
     const HmmType& hmm = this->getHmmRef();

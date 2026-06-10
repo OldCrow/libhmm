@@ -158,10 +158,12 @@ private:
 
     void precomputeLogTransitions();
 
-    /// Fill logEmitBuf_ (state-major) and logEmitByTime_ (time-major) for @p obs.
-    /// Scalar path: getBatchLogProbabilities() per state (potentially SIMD-accelerated).
-    /// MV path:     getLogProbability(row_view(obs, t)) per (state, timestep) pair.
-    void fill_log_emissions(const SeqType& obs, std::size_t T);
+    /**
+     * @brief Fill logEmitBuf_ (state-major) and logEmitByTime_ (time-major) for @p obs.
+     * Scalar path: getBatchLogProbabilities() per state (potentially SIMD-accelerated).
+     * MV path:     getLogProbability(row_view(obs, t)) per (state, timestep) pair.
+     */
+    void fillLogEmissions(const SeqType& obs, std::size_t T);
 
     void computeLogForward(std::size_t T);
     void computeLogBackward(std::size_t T);
@@ -246,7 +248,7 @@ void BasicForwardBackwardCalculator<Obs>::compute() {
     logEmitBuf_.resize(T * numStates_);
     logEmitByTime_.resize(T * numStates_);
 
-    fill_log_emissions(obs, T);
+    fillLogEmissions(obs, T);
 
     currentMode_ = resolveRecurrenceMode(numStates_, T);
     computeLogForward(T);
@@ -261,7 +263,7 @@ void BasicForwardBackwardCalculator<Obs>::compute() {
 }
 
 template<typename Obs>
-void BasicForwardBackwardCalculator<Obs>::fill_log_emissions(
+void BasicForwardBackwardCalculator<Obs>::fillLogEmissions(
         const SeqType& obs, std::size_t T)
 {
     const HmmType& hmm = this->getHmmRef();

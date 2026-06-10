@@ -21,10 +21,10 @@ namespace libhmm {
  * convergenceWindow consecutive iterations.
  */
 struct TrainingConfig {
-    double      convergenceTolerance{1e-6};
-    std::size_t maxIterations{500};
-    std::size_t convergenceWindow{3};
-    bool        enableProgressReporting{false};
+    double      convergenceTolerance{1e-6};   ///< Max |ΔlogP| between iterations to declare convergence.
+    std::size_t maxIterations{500};           ///< Hard cap on iterations even when not converged.
+    std::size_t convergenceWindow{3};         ///< Consecutive stable iterations required for convergence.
+    bool        enableProgressReporting{false}; ///< Reserved for future progress callbacks.
 };
 
 /// Named preset configurations for common training scenarios.
@@ -84,7 +84,9 @@ public:
     /** @return Total log-probability from the final iteration. */
     [[nodiscard]] double getLastLogProbability() const noexcept { return lastLogProb_; }
 
+    /** @brief Read current training configuration. */
     [[nodiscard]] const TrainingConfig& getConfig() const noexcept { return config_; }
+    /** @brief Replace the training configuration (takes effect from the next train() call). */
     void setConfig(const TrainingConfig& config) { config_ = config; }
 
 private:
@@ -106,9 +108,9 @@ private:
      *
      * @return log-probability of the decoded path; -∞ if the sequence is invalid.
      */
-    static double process_one_sequence(const HmmType& hmm, const SeqType& obs,
-                                        Vector& pi, Matrix& trans,
-                                        EmisAccumType& emisAccum) noexcept;
+    [[nodiscard]] static double process_one_sequence(const HmmType& hmm, const SeqType& obs,
+                                                       Vector& pi, Matrix& trans,
+                                                       EmisAccumType& emisAccum) noexcept;
 
     /// Run one Viterbi pass. Returns total log-probability; -∞ on failure.
     double runIteration();

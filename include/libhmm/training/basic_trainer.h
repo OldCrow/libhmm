@@ -71,15 +71,15 @@ public:
 
 protected:
 
-    // =========================================================================
-    // precompute_log_trans_flat
-    //
-    // Builds a column-major flat log-transition vector from the current HMM:
-    //   logTransT[j * N + i] = log a_{ij}
-    //
-    // Column-major layout matches the contiguous read pattern in the xi inner
-    // loop.  Sets @p hasZeroTransitions if any entry is zero (sparse model).
-    // =========================================================================
+    /**
+     * @brief Build a column-major flat log-transition vector from the current HMM.
+     *
+     * logTransT[j * N + i] = log a_{ij}.  Column-major layout matches the
+     * contiguous read pattern in the xi inner loop.
+     *
+     * @param[out] logTransT         Flat vector sized N*N (pre-allocated by caller).
+     * @param[out] hasZeroTransitions Set to true if any A(i,j) = 0 (sparse model).
+     */
     static void precompute_log_trans_flat(const HmmType& hmm, std::size_t N,
                                            std::vector<double>& logTransT,
                                            bool& hasZeroTransitions) noexcept {

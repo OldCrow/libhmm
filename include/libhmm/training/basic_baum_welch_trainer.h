@@ -87,7 +87,7 @@ private:
      * @return true if the sequence contributed (finite log-probability);
      *         false if the sequence was skipped (empty or zero probability).
      */
-    static bool accum_one_sequence(const HmmType& hmm, const SeqType& obs,
+    [[nodiscard]] static bool accum_one_sequence(const HmmType& hmm, const SeqType& obs,
                                     std::size_t N,
                                     const std::vector<double>& logTransT,
                                     bool hasZeroTransitions,
