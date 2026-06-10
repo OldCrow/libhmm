@@ -149,6 +149,17 @@ public:
     [[nodiscard]] virtual bool isDiscrete() const noexcept = 0;
 
     /**
+     * @brief Observation dimensionality.
+     *
+     * Returns 1 for all scalar (Obs=double) distributions.  Multivariate
+     * distributions (Obs=ObservationVectorView) override this to return D,
+     * the number of dimensions in each observation vector.
+     *
+     * Used by the JSON serializer to embed the dimensionality in HmmMV files.
+     */
+    [[nodiscard]] virtual std::size_t getDimension() const noexcept { return 1; }
+
+    /**
      * @brief Number of free parameters in this distribution.
      *
      * Used by model-selection utilities (AIC, BIC, AICc) to compute the

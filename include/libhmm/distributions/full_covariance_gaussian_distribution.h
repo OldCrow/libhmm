@@ -7,6 +7,7 @@
 
 #include "libhmm/common/common.h"
 #include "libhmm/distributions/distribution_base.h"
+#include "libhmm/io/json_utils.h"
 #include "libhmm/linalg/cholesky.h"
 #include "libhmm/linalg/linalg_types.h"
 
@@ -142,9 +143,17 @@ public:
     // Accessors
     // =========================================================================
 
-    [[nodiscard]] std::size_t getDimension() const noexcept { return dim_; }
+    [[nodiscard]] std::size_t getDimension() const noexcept override { return dim_; }
     [[nodiscard]] const std::vector<double>&  getMean()       const noexcept { return mean_; }
     [[nodiscard]] const BasicMatrix<double>&  getCovariance() const noexcept { return cov_;  }
+
+    /**
+     * @brief Deserialize from JSON.  Reader must be positioned immediately
+     * after the opening '{' and the "type" value have been consumed.
+     * Reads remaining fields and the closing '}'.
+     */
+    [[nodiscard]] static std::unique_ptr<BasicEmissionDistribution<ObservationVectorView>>
+    from_json(json::Reader& r);
 
     /** @brief Cached Cholesky factor L; valid after a successful fit/construction. */
     [[nodiscard]] const BasicMatrix<double>& getCholeskyFactor() const noexcept {

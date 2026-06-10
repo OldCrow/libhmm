@@ -115,7 +115,7 @@ public:
     // Accessors
     // =========================================================================
 
-    [[nodiscard]] std::size_t getDimension() const noexcept { return dim_; }
+    [[nodiscard]] std::size_t getDimension() const noexcept override { return dim_; }
 
     /** @brief Read-only access to component d. */
     [[nodiscard]] const EmissionDistribution& getComponent(std::size_t d) const {

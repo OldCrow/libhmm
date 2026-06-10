@@ -4,8 +4,9 @@
 #include <cmath>
 #include <numeric>
 #include <random>
-#include <sstream>
 #include <stdexcept>
+
+#include "libhmm/io/json_utils.h"
 
 namespace libhmm {
 
@@ -152,9 +153,48 @@ std::vector<double> DiagonalGaussianDistribution::sample_mv(
 
 std::string DiagonalGaussianDistribution::to_json() const
 {
-    std::ostringstream oss;
-    oss << "{\"type\":\"DiagonalGaussian\",\"dim\":" << dim_ << "}";
-    return oss.str();
+    std::string s;
+    s.reserve(64 + dim_ * 40);
+    s += "{\"type\":\"DiagonalGaussian\"";
+    s += ",\"dim\":";
+    s += json::write_double(static_cast<double>(dim_));
+    s += ",\"mean\":";
+    s += json::write_array(std::span<const double>(mean_.data(), dim_));
+    s += ",\"var\":";
+    s += json::write_array(std::span<const double>(var_.data(), dim_));
+    s += '}';
+    return s;
+}
+
+std::unique_ptr<BasicEmissionDistribution<ObservationVectorView>>
+DiagonalGaussianDistribution::from_json(json::Reader& r)
+{
+    // Reader is positioned after '{' and "type":"DiagonalGaussian" have been consumed.
+    r.read_key(); // "dim"
+    const auto dim_raw = r.read_double();
+    if (!std::isfinite(dim_raw) || dim_raw < 1.0)
+        throw std::runtime_error("DiagonalGaussian JSON: invalid dim");
+    const std::size_t D = static_cast<std::size_t>(dim_raw);
+
+    r.read_key(); // "mean"
+    const auto mean_data = r.read_double_array(D);
+    if (mean_data.size() != D)
+        throw std::runtime_error("DiagonalGaussian JSON: mean size mismatch");
+
+    r.read_key(); // "var"
+    const auto var_data = r.read_double_array(D);
+    if (var_data.size() != D)
+        throw std::runtime_error("DiagonalGaussian JSON: var size mismatch");
+
+    r.consume('}');
+
+    auto dist = std::make_unique<DiagonalGaussianDistribution>(D);
+    for (std::size_t d = 0; d < D; ++d) {
+        dist->mean_[d] = mean_data[d];
+        dist->var_[d]  = std::max(var_data[d], kMinVar);
+    }
+    dist->invalidateCache();
+    return dist;
 }
 
 std::string DiagonalGaussianDistribution::toString() const

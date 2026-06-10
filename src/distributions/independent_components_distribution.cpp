@@ -158,11 +158,19 @@ std::size_t IndependentComponentsDistribution::getNumParameters() const noexcept
 
 std::string IndependentComponentsDistribution::to_json() const
 {
-    // Phase I will define the full multivariate JSON schema.
-    // For now emit a minimal JSON object that round-trips the type tag.
-    std::ostringstream oss;
-    oss << "{\"type\":\"IndependentComponents\",\"dim\":" << dim_ << "}";
-    return oss.str();
+    std::string s;
+    s.reserve(64 + dim_ * 80);
+    s += "{\"type\":\"IndependentComponents\"";
+    s += ",\"dim\":";
+    // Use std::to_string for integral dim (avoids floating-point formatting).
+    s += std::to_string(dim_);
+    s += ",\"components\":[";
+    for (std::size_t d = 0; d < dim_; ++d) {
+        if (d) s += ',';
+        s += components_[d]->to_json();
+    }
+    s += "]}"; // close components array, then outer object
+    return s;
 }
 
 std::string IndependentComponentsDistribution::toString() const
