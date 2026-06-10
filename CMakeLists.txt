@@ -274,10 +274,14 @@ set(LIBHMM_SIMD_SOURCES
 # Additional TUs that include simd_kernels_internal.h or transcendental_kernels.h
 # and therefore need LIBHMM_BEST_SIMD_FLAGS to activate the #if LIBHMM_HAS_* cascade.
 # (log_normal and pareto are already in LIBHMM_SIMD_SOURCES above.)
+# Both scalar and MV explicit-instantiation TUs are compiled with SIMD flags so the
+# shared transition recurrence and xi accumulation kernel benefit from vectorisation.
 list(APPEND LIBHMM_SIMD_SOURCES
     src/performance/transcendental_kernels.cpp
     src/calculators/forward_backward_calculator.cpp
+    src/calculators/forward_backward_calculator_mv.cpp
     src/training/baum_welch_trainer.cpp
+    src/training/baum_welch_trainer_mv.cpp
 )
 
 if(LIBHMM_BEST_SIMD_FLAGS)
@@ -318,11 +322,13 @@ set(LIBHMM_SOURCES
     src/distributions/student_t_distribution.cpp
     src/distributions/chi_squared_distribution.cpp
     src/distributions/von_mises_distribution.cpp
-    # Canonical calculators (Phase 3)
+    # Canonical calculators (Phase H: scalar + MV explicit instantiations)
     src/calculators/forward_backward_calculator.cpp
+    src/calculators/forward_backward_calculator_mv.cpp
     src/calculators/viterbi_calculator.cpp
-    # Canonical trainers (Phase 4)
+    # Canonical trainers (Phase H: scalar + MV explicit instantiations)
     src/training/baum_welch_trainer.cpp
+    src/training/baum_welch_trainer_mv.cpp
     src/training/map_baum_welch_trainer.cpp
     src/training/viterbi_trainer.cpp
     src/training/segmental_kmeans_trainer.cpp
