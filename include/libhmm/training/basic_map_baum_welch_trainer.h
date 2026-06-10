@@ -92,7 +92,40 @@ private:
 
     static constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
 
-    /// Expected transition counts (xi) for one sequence — same as BaumWelchTrainer.
+    // Same type-adapting accumulator pattern as BasicBaumWelchTrainer.
+    using EmisElem = std::conditional_t<std::is_same_v<Obs, double>,
+                                         double, ObservationVectorView>;
+    using EmisAccumType = std::vector<std::vector<EmisElem>>;
+
+    /**
+     * @brief Run the E-step for one sequence (same logic as BaumWelchTrainer).
+     * @return true if the sequence contributed; false if skipped.
+     */
+    static bool accum_one_sequence(const HmmType& hmm, const SeqType& obs,
+                                    std::size_t N,
+                                    const std::vector<double>& logTransT,
+                                    bool hasZeroTransitions,
+                                    EmisAccumType& emisAccum,
+                                    std::vector<std::vector<double>>& emisWts,
+                                    std::vector<double>& piNum,
+                                    std::vector<double>& transDen,
+                                    std::vector<double>& transNumT);
+
+    /**
+     * @brief Dirichlet-smoothed log-prior over discrete emission distributions.
+     * Only compiled and called for the scalar specialisation.
+     */
+    static double discrete_emission_log_prior(const HmmType& hmm,
+                                               std::size_t N, double c);
+
+    /**
+     * @brief Apply Dirichlet smoothing to a discrete emission distribution
+     * after MLE fitting.  Only called for the scalar specialisation.
+     */
+    static void apply_discrete_smoothing(HmmType& hmm, std::size_t state,
+                                          const std::vector<double>& wts, double c);
+
+    /// Expected transition counts (xi) for one sequence.
     static void accumulate_xi(const double* logAlphaData, const double* logBetaData,
                                const std::vector<double>& logEmitByTime,
                                const std::vector<double>& logTransT,
@@ -145,6 +178,30 @@ void BasicMapBaumWelchTrainer<Obs>::setPseudoCount(double c) {
 // ---------------------------------------------------------------------------
 
 template<typename Obs>
+double BasicMapBaumWelchTrainer<Obs>::discrete_emission_log_prior(
+        const HmmType& hmm, std::size_t N, double c)
+{
+    // DiscreteDistribution only exists on the scalar path; MV emissions are
+    // always continuous.  The if constexpr keeps the downcast from being
+    // instantiated for Obs=ObservationVectorView.
+    if constexpr (std::is_same_v<Obs, double>) {
+        double lp = 0.0;
+        for (std::size_t i = 0; i < N; ++i) {
+            const auto& dist = hmm.getDistribution(i);
+            if (!dist.isDiscrete()) continue;
+            const auto& dd = static_cast<const DiscreteDistribution&>(dist);
+            const std::size_t K = dd.getNumSymbols();
+            for (std::size_t k = 0; k < K; ++k) {
+                const double bk = dd.getSymbolProbability(k);
+                lp += c * (bk > 0.0 ? std::log(bk) : LOG_ZERO);
+            }
+        }
+        return lp;
+    }
+    return 0.0;
+}
+
+template<typename Obs>
 double BasicMapBaumWelchTrainer<Obs>::computeLogPrior() const {
     if (pseudo_count_ == 0.0) return 0.0;
 
@@ -162,19 +219,10 @@ double BasicMapBaumWelchTrainer<Obs>::computeLogPrior() const {
     for (std::size_t i = 0; i < N; ++i)
         lp += c * (pi(i) > 0.0 ? std::log(pi(i)) : LOG_ZERO);
 
-    // Discrete emission prior — scalar path only (MV emissions are never discrete).
-    if constexpr (std::is_same_v<Obs, double>) {
-        for (std::size_t i = 0; i < N; ++i) {
-            const auto& dist = hmm.getDistribution(i);
-            if (!dist.isDiscrete()) continue;
-            const auto& dd = static_cast<const DiscreteDistribution&>(dist);
-            const std::size_t K = dd.getNumSymbols();
-            for (std::size_t k = 0; k < K; ++k) {
-                const double bk = dd.getSymbolProbability(k);
-                lp += c * (bk > 0.0 ? std::log(bk) : LOG_ZERO);
-            }
-        }
-    }
+    // Discrete emission prior is only applicable on the scalar path.
+    if constexpr (std::is_same_v<Obs, double>)
+        lp += discrete_emission_log_prior(hmm, N, c);
+
     return lp;
 }
 
@@ -183,159 +231,115 @@ double BasicMapBaumWelchTrainer<Obs>::computeLogPrior() const {
 // ---------------------------------------------------------------------------
 
 template<typename Obs>
+void BasicMapBaumWelchTrainer<Obs>::apply_discrete_smoothing(
+        HmmType& hmm, std::size_t state,
+        const std::vector<double>& wts, double c)
+{
+    if constexpr (std::is_same_v<Obs, double>) {
+        if (c <= 0.0) return;  // no smoothing when pseudo-count is zero
+        auto& dist = hmm.getDistribution(state);
+        if (!dist.isDiscrete()) return;
+        auto& dd = static_cast<DiscreteDistribution&>(dist);
+        const std::size_t K = dd.getNumSymbols();
+        const double sumW = std::accumulate(wts.begin(), wts.end(), 0.0);
+        if (sumW <= 0.0) return;
+        const double denom = sumW + static_cast<double>(K) * c;
+        for (std::size_t k = 0; k < K; ++k) {
+            dd.setProbability(static_cast<double>(k),
+                              (dd.getSymbolProbability(k) * sumW + c) / denom);
+        }
+    }
+}
+
+template<typename Obs>
+bool BasicMapBaumWelchTrainer<Obs>::accum_one_sequence(
+        const HmmType& hmm, const SeqType& obs, std::size_t N,
+        const std::vector<double>& logTransT, bool hasZeroTransitions,
+        EmisAccumType& emisAccum,
+        std::vector<std::vector<double>>& emisWts,
+        std::vector<double>& piNum,
+        std::vector<double>& transDen,
+        std::vector<double>& transNumT)
+{
+    const std::size_t T = ObsSeqTraits<Obs>::sequence_length(obs);
+    if (T == 0) return false;
+    BasicForwardBackwardCalculator<Obs> fbc(hmm, obs);
+    const double logP = fbc.getLogProbability();
+    if (!std::isfinite(logP)) return false;
+    const double* alphaData = fbc.getLogForwardVariables().data();
+    const double* betaData  = fbc.getLogBackwardVariables().data();
+    for (std::size_t t = 0; t < T; ++t) {
+        const double* aRow = alphaData + t * N;
+        const double* bRow = betaData  + t * N;
+        const EmisElem obs_t = [&]() -> EmisElem {
+            if constexpr (std::is_same_v<Obs, double>) return obs(t);
+            else return row_view(obs, t);
+        }();
+        for (std::size_t i = 0; i < N; ++i) {
+            const double g = std::exp(aRow[i] + bRow[i] - logP);
+            emisAccum[i].push_back(obs_t);
+            emisWts[i].push_back(g);
+            if (t == 0)    piNum[i]    += g;
+            if (t < T - 1) transDen[i] += g;
+        }
+    }
+    accumulate_xi(alphaData, betaData, fbc.getLogEmitByTime(), logTransT,
+                  logP, T, N, hasZeroTransitions, transNumT);
+    return true;
+}
+
+template<typename Obs>
 void BasicMapBaumWelchTrainer<Obs>::train() {
     HmmType& hmm = this->getHmmRef();
     const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
     const double c = pseudo_count_;
 
-    const Matrix& curTrans = hmm.getTrans();
     std::vector<double> logTransT(N * N);
     bool hasZeroTransitions = false;
-    for (std::size_t i = 0; i < N; ++i) {
-        for (std::size_t j = 0; j < N; ++j) {
-            const double a = curTrans(i, j);
-            logTransT[j * N + i] = (a > 0.0) ? std::log(a) : LOG_ZERO;
-            if (a <= 0.0) hasZeroTransitions = true;
-        }
-    }
+    this->precompute_log_trans_flat(hmm, N, logTransT, hasZeroTransitions);
 
     std::vector<double> piNum(N, 0.0);
     std::vector<double> transDen(N, 0.0);
     std::vector<double> transNumT(N * N, 0.0);
-    std::size_t validSeqs = 0;
+    EmisAccumType       emisAccum(N);
+    std::vector<std::vector<double>> emisWts(N);
 
     if constexpr (std::is_same_v<Obs, double>) {
-        // ----------------------------------------------------------------
-        // Scalar path
-        // ----------------------------------------------------------------
         std::size_t totalLen = 0;
         for (const auto& obs : this->getObservationLists()) totalLen += obs.size();
-
-        std::vector<std::vector<double>> emisData(N);
-        std::vector<std::vector<double>> emisWts(N);
         for (std::size_t i = 0; i < N; ++i) {
-            emisData[i].reserve(totalLen);
+            emisAccum[i].reserve(totalLen);
             emisWts[i].reserve(totalLen);
         }
+    }
 
-        for (const auto& obs : this->getObservationLists()) {
-            const std::size_t T = obs.size();
-            if (T == 0) continue;
-
-            BasicForwardBackwardCalculator<double> fbc(hmm, obs);
-            const double logP = fbc.getLogProbability();
-            if (!std::isfinite(logP)) continue;
-
-            const Matrix& logAlpha = fbc.getLogForwardVariables();
-            const Matrix& logBeta  = fbc.getLogBackwardVariables();
-            const double* alphaData = logAlpha.data();
-            const double* betaData  = logBeta.data();
-
-            for (std::size_t t = 0; t < T; ++t) {
-                const double* aRow = alphaData + t * N;
-                const double* bRow = betaData  + t * N;
-                const double  oval = obs(t);
-                for (std::size_t i = 0; i < N; ++i) {
-                    const double g = std::exp(aRow[i] + bRow[i] - logP);
-                    emisData[i].push_back(oval);
-                    emisWts[i].push_back(g);
-                    if (t == 0)     piNum[i]    += g;
-                    if (t < T - 1)  transDen[i] += g;
-                }
-            }
-
-            accumulate_xi(alphaData, betaData, fbc.getLogEmitByTime(), logTransT,
-                          logP, T, N, hasZeroTransitions, transNumT);
+    std::size_t validSeqs = 0;
+    for (const auto& obs : this->getObservationLists()) {
+        if (accum_one_sequence(hmm, obs, N, logTransT, hasZeroTransitions,
+                               emisAccum, emisWts, piNum, transDen, transNumT))
             ++validSeqs;
-        }
+    }
 
-        if (validSeqs == 0) {
-            throw std::runtime_error(
-                "MapBaumWelchTrainer: no valid observation sequences "
-                "(all had zero probability under the current model)");
-        }
+    if (validSeqs == 0) {
+        throw std::runtime_error(
+            "MapBaumWelchTrainer: no valid observation sequences "
+            "(all had zero probability under the current model)");
+    }
 
-        m_step_pi_map(hmm, N, piNum, c);
-        m_step_transitions_map(hmm, N, transNumT, transDen, c);
+    m_step_pi_map(hmm, N, piNum, c);
+    m_step_transitions_map(hmm, N, transNumT, transDen, c);
 
-        // Emission M-step — MLE fit for all, then Dirichlet smoothing for discrete.
-        for (std::size_t i = 0; i < N; ++i) {
-            const std::size_t M = emisData[i].size();
-            auto& dist = hmm.getDistribution(i);
-            if (M == 0) { dist.reset(); continue; }
-            dist.fit(std::span<const double>(emisData[i].data(), M),
-                     std::span<const double>(emisWts[i].data(), M));
-            // Dirichlet smoothing for discrete distributions.
-            if (c > 0.0 && dist.isDiscrete()) {
-                auto& dd = static_cast<DiscreteDistribution&>(dist);
-                const std::size_t K = dd.getNumSymbols();
-                const double sumW = std::accumulate(emisWts[i].begin(), emisWts[i].end(), 0.0);
-                if (sumW > 0.0) {
-                    const double denom = sumW + static_cast<double>(K) * c;
-                    for (std::size_t k = 0; k < K; ++k) {
-                        dd.setProbability(static_cast<double>(k),
-                                          (dd.getSymbolProbability(k) * sumW + c) / denom);
-                    }
-                }
-            }
-        }
-    } else {
-        // ----------------------------------------------------------------
-        // Multivariate path — identical structure to BasicBaumWelchTrainer MV,
-        // but with MAP M-step for π and A instead of plain MLE.
-        // Continuous MV distributions are always fitted by MLE (no Dirichlet on emissions).
-        // ----------------------------------------------------------------
-        std::vector<std::vector<ObservationVectorView>> emisViews(N);
-        std::vector<std::vector<double>> emisWts(N);
-
-        for (const auto& obs : this->getObservationLists()) {
-            const std::size_t T = ObsSeqTraits<Obs>::sequence_length(obs);
-            if (T == 0) continue;
-
-            BasicForwardBackwardCalculator<Obs> fbc(hmm, obs);
-            const double logP = fbc.getLogProbability();
-            if (!std::isfinite(logP)) continue;
-
-            const Matrix& logAlpha = fbc.getLogForwardVariables();
-            const Matrix& logBeta  = fbc.getLogBackwardVariables();
-            const double* alphaData = logAlpha.data();
-            const double* betaData  = logBeta.data();
-
-            for (std::size_t t = 0; t < T; ++t) {
-                const double*         aRow = alphaData + t * N;
-                const double*         bRow = betaData  + t * N;
-                ObservationVectorView view = row_view(obs, t);
-                for (std::size_t i = 0; i < N; ++i) {
-                    const double g = std::exp(aRow[i] + bRow[i] - logP);
-                    emisViews[i].push_back(view);
-                    emisWts[i].push_back(g);
-                    if (t == 0)     piNum[i]    += g;
-                    if (t < T - 1)  transDen[i] += g;
-                }
-            }
-
-            accumulate_xi(alphaData, betaData, fbc.getLogEmitByTime(), logTransT,
-                          logP, T, N, hasZeroTransitions, transNumT);
-            ++validSeqs;
-        }
-
-        if (validSeqs == 0) {
-            throw std::runtime_error(
-                "MapBaumWelchTrainer: no valid observation sequences "
-                "(all had zero probability under the current model)");
-        }
-
-        m_step_pi_map(hmm, N, piNum, c);
-        m_step_transitions_map(hmm, N, transNumT, transDen, c);
-
-        // Emission M-step — MLE for all MV distributions (no discrete smoothing).
-        for (std::size_t i = 0; i < N; ++i) {
-            const std::size_t M = emisViews[i].size();
-            if (M == 0) { hmm.getDistribution(i).reset(); continue; }
-            hmm.getDistribution(i).fit(
-                std::span<const ObservationVectorView>(emisViews[i].data(), M),
-                std::span<const double>(emisWts[i].data(), M));
-        }
+    // Emission M-step: EmisElem selects the correct fit() overload.
+    // On the scalar path, apply Dirichlet smoothing to discrete distributions.
+    for (std::size_t i = 0; i < N; ++i) {
+        const std::size_t M = emisAccum[i].size();
+        auto& dist = hmm.getDistribution(i);
+        if (M == 0) { dist.reset(); continue; }
+        dist.fit(std::span<const EmisElem>(emisAccum[i].data(), M),
+                 std::span<const double>(emisWts[i].data(), M));
+        // apply_discrete_smoothing is a no-op when c==0 or dist is not discrete.
+        if constexpr (std::is_same_v<Obs, double>)
+            apply_discrete_smoothing(hmm, i, emisWts[i], c);
     }
 }
 

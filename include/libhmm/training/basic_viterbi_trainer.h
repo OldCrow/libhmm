@@ -93,6 +93,23 @@ private:
     bool   maxItersReached_{false};
     double lastLogProb_{-std::numeric_limits<double>::infinity()};
 
+    // Type-adapting emission accumulator (same pattern as BaumWelchTrainer).
+    using EmisElem = std::conditional_t<std::is_same_v<Obs, double>,
+                                         double, ObservationVectorView>;
+    using EmisAccumType = std::vector<std::vector<EmisElem>>;
+
+    /**
+     * @brief Decode one sequence via Viterbi and accumulate hard-assignment stats.
+     *
+     * Updates @p pi (initial state counts), @p trans (transition counts), and
+     * @p emisAccum (per-state emission data) from the Viterbi-decoded state sequence.
+     *
+     * @return log-probability of the decoded path; -∞ if the sequence is invalid.
+     */
+    static double process_one_sequence(const HmmType& hmm, const SeqType& obs,
+                                        Vector& pi, Matrix& trans,
+                                        EmisAccumType& emisAccum) noexcept;
+
     /// Run one Viterbi pass. Returns total log-probability; -∞ on failure.
     double runIteration();
 
@@ -150,88 +167,74 @@ void BasicViterbiTrainer<Obs>::train() {
     maxItersReached_ = true;
 }
 
+// ---------------------------------------------------------------------------
+// process_one_sequence — decode one sequence and accumulate stats
+// ---------------------------------------------------------------------------
+
+template<typename Obs>
+double BasicViterbiTrainer<Obs>::process_one_sequence(
+        const HmmType& hmm, const SeqType& obs,
+        Vector& pi, Matrix& trans, EmisAccumType& emisAccum) noexcept
+{
+    try {
+        const std::size_t T = ObsSeqTraits<Obs>::sequence_length(obs);
+        if (T == 0) return -std::numeric_limits<double>::infinity();
+        BasicViterbiCalculator<Obs> vc(hmm, obs);
+        const double lp = vc.getLogProbability();
+        if (!std::isfinite(lp)) return lp;
+        const StateSequence& seq = vc.getStateSequence();
+        pi(static_cast<std::size_t>(seq(0))) += 1.0;
+        for (std::size_t t = 0; t < T; ++t) {
+            const std::size_t s = static_cast<std::size_t>(seq(t));
+            const EmisElem obs_t = [&]() -> EmisElem {
+                if constexpr (std::is_same_v<Obs, double>) return obs(t);
+                else return row_view(obs, t);
+            }();
+            emisAccum[s].push_back(obs_t);
+            if (t + 1 < T)
+                trans(s, static_cast<std::size_t>(seq(t + 1))) += 1.0;
+        }
+        return lp;
+    } catch (...) {
+        return -std::numeric_limits<double>::infinity();
+    }
+}
+
 template<typename Obs>
 double BasicViterbiTrainer<Obs>::runIteration() {
     HmmType& hmm = this->getHmmRef();
     const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
 
-    Vector pi(N);
-    clear_vector(pi);
-    Matrix trans(N, N);
-    clear_matrix(trans);
+    Vector pi(N); clear_vector(pi);
+    Matrix trans(N, N); clear_matrix(trans);
+    EmisAccumType emisAccum(N);
 
     double      totalLogProb = 0.0;
     std::size_t validSeqs    = 0;
 
-    if constexpr (std::is_same_v<Obs, double>) {
-        // ----------------------------------------------------------------
-        // Scalar path: accumulate observation values per state.
-        // ----------------------------------------------------------------
-        std::vector<std::vector<double>> emisData(N);
-
-        for (const auto& obs : this->getObservationLists()) {
-            if (obs.size() == 0) continue;
-            try {
-                BasicViterbiCalculator<double> vc(hmm, obs);
-                const double lp = vc.getLogProbability();
-                if (!std::isfinite(lp)) continue;
-                const StateSequence& seq = vc.getStateSequence();
-                const std::size_t T = obs.size();
-                pi(static_cast<std::size_t>(seq(0))) += 1.0;
-                for (std::size_t t = 0; t < T; ++t) {
-                    const std::size_t s = static_cast<std::size_t>(seq(t));
-                    emisData[s].push_back(obs(t));
-                    if (t + 1 < T)
-                        trans(s, static_cast<std::size_t>(seq(t + 1))) += 1.0;
-                }
-                totalLogProb += lp;
-                ++validSeqs;
-            } catch (...) {}
-        }
-
-        if (validSeqs == 0) return lastLogProb_;
-
-        normalize_and_commit(hmm, N, pi, trans);
-        this->apply_emission_fits(hmm, N, emisData);
-    } else {
-        // ----------------------------------------------------------------
-        // Multivariate path: accumulate non-owning row views per state.
-        // ----------------------------------------------------------------
-        std::vector<std::vector<ObservationVectorView>> emisViews(N);
-
-        for (const auto& obs : this->getObservationLists()) {
-            const std::size_t T = ObsSeqTraits<Obs>::sequence_length(obs);
-            if (T == 0) continue;
-            try {
-                BasicViterbiCalculator<Obs> vc(hmm, obs);
-                const double lp = vc.getLogProbability();
-                if (!std::isfinite(lp)) continue;
-                const StateSequence& seq = vc.getStateSequence();
-                pi(static_cast<std::size_t>(seq(0))) += 1.0;
-                for (std::size_t t = 0; t < T; ++t) {
-                    const std::size_t s = static_cast<std::size_t>(seq(t));
-                    emisViews[s].push_back(row_view(obs, t));
-                    if (t + 1 < T)
-                        trans(s, static_cast<std::size_t>(seq(t + 1))) += 1.0;
-                }
-                totalLogProb += lp;
-                ++validSeqs;
-            } catch (...) {}
-        }
-
-        if (validSeqs == 0) return lastLogProb_;
-
-        normalize_and_commit(hmm, N, pi, trans);
-
-        // Unweighted fit from hard-assigned row views.
-        for (std::size_t i = 0; i < N; ++i) {
-            const std::size_t M = emisViews[i].size();
-            if (M == 0) { hmm.getDistribution(i).reset(); continue; }
-            hmm.getDistribution(i).fit(
-                std::span<const ObservationVectorView>(emisViews[i].data(), M));
-        }
+    for (const auto& obs : this->getObservationLists()) {
+        const double lp = process_one_sequence(hmm, obs, pi, trans, emisAccum);
+        if (std::isfinite(lp)) { totalLogProb += lp; ++validSeqs; }
     }
 
+    if (validSeqs == 0) return lastLogProb_;
+
+    normalize_and_commit(hmm, N, pi, trans);
+
+    // Emission M-step: EmisElem selects the correct unweighted fit() overload.
+    if constexpr (std::is_same_v<Obs, double>) {
+        // Scalar path uses apply_emission_fits from BasicTrainer.
+        std::vector<std::vector<double>> data(N);
+        for (std::size_t i = 0; i < N; ++i) data[i] = std::move(emisAccum[i]);
+        this->apply_emission_fits(hmm, N, data);
+    } else {
+        for (std::size_t i = 0; i < N; ++i) {
+            const std::size_t M = emisAccum[i].size();
+            if (M == 0) { hmm.getDistribution(i).reset(); continue; }
+            hmm.getDistribution(i).fit(
+                std::span<const EmisElem>(emisAccum[i].data(), M));
+        }
+    }
     return totalLogProb;
 }
 

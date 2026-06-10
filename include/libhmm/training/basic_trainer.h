@@ -72,6 +72,29 @@ public:
 protected:
 
     // =========================================================================
+    // precompute_log_trans_flat
+    //
+    // Builds a column-major flat log-transition vector from the current HMM:
+    //   logTransT[j * N + i] = log a_{ij}
+    //
+    // Column-major layout matches the contiguous read pattern in the xi inner
+    // loop.  Sets @p hasZeroTransitions if any entry is zero (sparse model).
+    // =========================================================================
+    static void precompute_log_trans_flat(const HmmType& hmm, std::size_t N,
+                                           std::vector<double>& logTransT,
+                                           bool& hasZeroTransitions) noexcept {
+        constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
+        const Matrix& A = hmm.getTrans();
+        for (std::size_t i = 0; i < N; ++i) {
+            for (std::size_t j = 0; j < N; ++j) {
+                const double a = A(i, j);
+                logTransT[j * N + i] = (a > 0.0) ? std::log(a) : LOG_ZERO;
+                if (a <= 0.0) hasZeroTransitions = true;
+            }
+        }
+    }
+
+    // =========================================================================
     // apply_emission_fits — scalar path (Obs=double)
     //
     // Refits each emission distribution from accumulated (data, weights) pairs.
