@@ -1,8 +1,8 @@
 # libhmm Examples
 
-20 examples in two categories: algorithm and distribution demonstrations using
-synthetic data, and real-world benchmarks against published datasets and
-established R packages.
+21 examples in two categories: algorithm and distribution demonstrations using
+synthetic data (including the new v4 multivariate example), and real-world benchmarks
+against published datasets and established R packages.
 
 ---
 
@@ -17,6 +17,9 @@ cmake --build build --config Release
 ./build/examples/elk_movement_example /tmp    # data-dependent examples need a data dir
 ./build/examples/earthquake_example           # data is embedded — no download needed
 ```
+
+> **XML IO is scalar-only and legacy.** Multivariate HMMs use `save_json_mv` / `load_json_mv`.
+> New code should use JSON for all model persistence.
 
 Data preparation scripts for the benchmark examples are in `scripts/`:
 
@@ -67,6 +70,12 @@ MAP-EM Baum-Welch with Dirichlet priors. Contrasts `c = 0` (MLE) with
 `c = 1` (Laplace smoothing). Shows that `logL + computeLogPrior()` is the
 correct convergence criterion when `c > 0`.
 **Distributions:** Discrete
+
+#### [mv_gaussian_example.cpp](mv_gaussian_example.cpp)
+2D DiagonalGaussian HMM on synthetic two-cluster data. Demonstrates the full v4 MV workflow:
+k-means++ initialisation, Baum-Welch training, log-probability scoring, and JSON save/load.
+No external data required — runs standalone.
+**Distributions:** DiagonalGaussianDistribution (2D)
 
 ---
 

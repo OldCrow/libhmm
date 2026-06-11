@@ -52,6 +52,9 @@ add_hmm_example(posterior_decoding_example posterior_decoding_example.cpp)
 # MAP-EM Baum-Welch with Dirichlet priors
 add_hmm_example(map_baum_welch_example map_baum_welch_example.cpp)
 
+# Multivariate HMM demonstration (v4) — standalone, synthetic data
+add_hmm_example(mv_gaussian_example mv_gaussian_example.cpp)
+
 # Real-world ecology benchmark: elk movement vs moveHMM (R)
 add_hmm_example(elk_movement_example elk_movement_example.cpp)
 
@@ -88,6 +91,7 @@ install(TARGETS
     dax_regime_example
     sp500_regime_example
     earthquake_example
+    mv_gaussian_example
     wind_direction_example
     RUNTIME DESTINATION bin/examples
 )

@@ -86,4 +86,4 @@ OBJECT library and link into both targets — no double compilation overhead.
 ## CI Matrix
 
 See `.github/workflows/ci.yml`. Four build jobs (Linux/GCC, Linux/Clang, macOS/AppleClang,
-Windows/MSVC) plus a lint job (clang-format + cppcheck). All 41 tests pass on every platform.
+Windows/MSVC) plus a lint job (clang-format + cppcheck). All 47 tests pass on every platform.
