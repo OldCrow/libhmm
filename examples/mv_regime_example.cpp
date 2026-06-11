@@ -2,37 +2,44 @@
  * mv_regime_example — Two-sector market regime detection via multivariate HMM (v4).
  *
  * Demonstrates DiagonalGaussianDistribution vs FullCovarianceGaussianDistribution
- * in a 3-state regime-switching model for correlated asset returns.  No external
- * data required: 240 synthetic monthly returns are embedded directly.
+ * in a 3-state regime-switching model for correlated asset returns.
  *
- * Synthetic dataset:
- *   Two equity sectors (Tech, Finance) modelled as correlated bivariate Gaussians.
- *   Ground-truth HMM has three states with increasing cross-sector correlation:
+ * Data sources (in priority order):
+ *   1. Real: SPY (S&P 500) + QQQ (Nasdaq-100) monthly log-returns, 2000–2022.
+ *      Download: Rscript scripts/prepare_mv_regime_data.R [output_dir]
+ *      This writes /tmp/spy_qqq_monthly.csv (or output_dir/spy_qqq_monthly.csv).
+ *      Reference comparison: scripts/verify_mv_regime.py (hmmlearn 0.3.3).
+ *   2. Synthetic fallback: 240 embedded observations from a known 3-state DGP.
+ *      Runs standalone with no data download required.
  *
+ * Usage:
+ *   ./mv_regime_example               # uses /tmp/spy_qqq_monthly.csv or synthetic
+ *   ./mv_regime_example /path/to/dir  # looks for spy_qqq_monthly.csv in that dir
+ *
+ * Synthetic DGP ground truth:
  *   State 0 — Bull:   μ=(0.9, 0.8)%,   Σ=[[16, 9],[9, 14]]   ρ=0.60
  *   State 1 — Bear:   μ=(-1.3,-1.5)%,  Σ=[[30,22],[22,28]]   ρ=0.76
  *   State 2 — Crisis: μ=(-4.0,-5.0)%,  Σ=[[80,72],[72,90]]   ρ=0.85
- *
- *   Data generated with seed 2024 (see scripts/gen_regime_data.R).
  *
  * Models:
  *   Model A — DiagonalGaussian: independent return series within each state.
  *   Model B — FullCovarianceGaussian: captures cross-sector correlation.
  *
  * Both operate on the same observation space so BIC comparison is valid.
- * FullCovGaussian should win: the ground-truth DGP has strong within-state
- * cross-sector correlation (ρ = 0.60–0.85) that the diagonal model misses.
- *
- * Recovered parameters are compared to the known ground truth.
+ * FullCovGaussian should win for both datasets: the DGP encodes ρ=0.60–0.85 and
+ * SPY/QQQ exhibit within-state correlation of ~0.80–0.95 across all three regimes.
  */
 
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <numeric>
 #include <random>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include "libhmm/calculators/basic_forward_backward_calculator.h"
@@ -301,13 +308,47 @@ constexpr std::size_t kNObs = 240;
 // Helpers
 // =============================================================================
 
-/// Build the single-sequence ObservationMatrix from the embedded array.
-static MultiObservationLists make_data()
+/// Build the single-sequence ObservationMatrix from the embedded synthetic array.
+static MultiObservationLists make_synthetic_data()
 {
     ObservationMatrix mat(kNObs, 2);
     for (std::size_t t = 0; t < kNObs; ++t) {
         mat(t, 0) = kObs[t][0];
         mat(t, 1) = kObs[t][1];
+    }
+    return {std::move(mat)};
+}
+
+/// Try to load spy_qqq_monthly.csv from @p path.
+/// Returns an empty list on any error (missing file, bad format, etc.).
+static MultiObservationLists try_load_csv(const std::string& path)
+{
+    std::ifstream f(path);
+    if (!f.is_open()) return {};
+
+    std::string line;
+    std::getline(f, line); // skip header: date,spy_logret,qqq_logret
+
+    std::vector<double> col0, col1;
+    while (std::getline(f, line)) {
+        if (line.empty()) continue;
+        // Format: "date",spy,qqq  (date may be quoted)
+        // Find second and third comma-separated fields.
+        const std::size_t c1 = line.find(',');
+        if (c1 == std::string::npos) continue;
+        const std::size_t c2 = line.find(',', c1 + 1);
+        if (c2 == std::string::npos) continue;
+        try {
+            col0.push_back(std::stod(line.substr(c1 + 1, c2 - c1 - 1)));
+            col1.push_back(std::stod(line.substr(c2 + 1)));
+        } catch (...) { continue; }
+    }
+    if (col0.empty()) return {};
+
+    ObservationMatrix mat(col0.size(), 2);
+    for (std::size_t t = 0; t < col0.size(); ++t) {
+        mat(t, 0) = col0[t];
+        mat(t, 1) = col1[t];
     }
     return {std::move(mat)};
 }
@@ -361,30 +402,61 @@ static HmmMV make_base_hmm()
 // main
 // =============================================================================
 
-int main()
+int main(int argc, char* argv[])
 {
+    const std::string data_dir  = (argc > 1) ? argv[1] : "/tmp";
+    const std::string csv_path  = data_dir + "/spy_qqq_monthly.csv";
+
+    // -----------------------------------------------------------------
+    // Load data: prefer real SPY+QQQ, fall back to embedded synthetic.
+    // -----------------------------------------------------------------
+    MultiObservationLists lists = try_load_csv(csv_path);
+    const bool using_real = !lists.empty();
+    if (!using_real) {
+        lists = make_synthetic_data();
+        std::cerr << "Note: " << csv_path << " not found; using embedded synthetic data.\n"
+                  << "Run: Rscript scripts/prepare_mv_regime_data.R to use real SPY+QQQ data.\n\n";
+    }
+
+    const auto& seq = lists[0];
+    const std::size_t N = seq.size1();
+    const char* col1_name = using_real ? "SPY" : "Sector1";
+    const char* col2_name = using_real ? "QQQ" : "Sector2";
+
     std::cout << "Market Regime Detection — Multivariate HMM (v4 API)\n";
+    if (using_real) {
+        std::cout << "SPY (S&P 500) + QQQ (Nasdaq-100) monthly log-returns, 2000–2022\n";
+    } else {
+        std::cout << "[synthetic fallback data — see prepare_mv_regime_data.R for real data]\n";
+    }
     std::cout << "Diagonal vs Full-Covariance Gaussian, 3 states\n";
     std::cout << "====================================================\n\n";
 
-    std::cout << "Dataset: 240 synthetic monthly returns for two equity sectors (Tech, Finance).\n";
-    std::cout << "Ground truth: bull \u03c1=0.60  bear \u03c1=0.76  crisis \u03c1=0.85\n\n";
-
-    const auto lists = make_data();
-
     // Summary statistics
     double sum0 = 0.0, sum1 = 0.0;
-    for (std::size_t t = 0; t < kNObs; ++t) { sum0 += kObs[t][0]; sum1 += kObs[t][1]; }
-    std::cout << std::fixed << std::setprecision(3);
-    std::cout << "Sample mean: Tech=" << sum0/kNObs << "%  Finance=" << sum1/kNObs << "%\n";
+    for (std::size_t t = 0; t < N; ++t) {
+        sum0 += seq(t, 0);
+        sum1 += seq(t, 1);
+    }
+    const double mean0 = sum0 / static_cast<double>(N);
+    const double mean1 = sum1 / static_cast<double>(N);
     double cov01 = 0.0, var0 = 0.0, var1 = 0.0;
-    for (std::size_t t = 0; t < kNObs; ++t) {
-        cov01 += (kObs[t][0]-sum0/kNObs)*(kObs[t][1]-sum1/kNObs);
-        var0  += (kObs[t][0]-sum0/kNObs)*(kObs[t][0]-sum0/kNObs);
-        var1  += (kObs[t][1]-sum1/kNObs)*(kObs[t][1]-sum1/kNObs);
+    for (std::size_t t = 0; t < N; ++t) {
+        const double r0 = seq(t, 0) - mean0;
+        const double r1 = seq(t, 1) - mean1;
+        cov01 += r0 * r1;
+        var0  += r0 * r0;
+        var1  += r1 * r1;
     }
     const double marginal_rho = cov01 / std::sqrt(var0 * var1);
-    std::cout << "Marginal correlation: " << marginal_rho << "\n\n";
+    std::cout << std::fixed << std::setprecision(3);
+    std::cout << "Observations: " << N << "\n";
+    std::cout << col1_name << ": mean=" << mean0 << "%\n";
+    std::cout << col2_name << ": mean=" << mean1 << "%\n";
+    std::cout << "Marginal correlation: " << marginal_rho << "\n";
+    if (!using_real)
+        std::cout << "Ground truth (DGP): bull \u03c1=0.60  bear \u03c1=0.76  crisis \u03c1=0.85\n";
+    std::cout << "\n";
 
     // =========================================================================
     // Model A — DiagonalGaussian (independence assumed within each state)
@@ -392,19 +464,23 @@ int main()
     std::cout << "--- Model A: DiagonalGaussianDistribution ---\n\n";
     std::cout << "Assumes Tech and Finance returns are independent within each state.\n\n";
 
+    // ----------------------------------------------------------------
+    // Shared initialisation — reasonable for both real and synthetic.
+    // Means and variances span the expected range for both datasets;
+    // Baum-Welch refines from these starting points.
+    // ----------------------------------------------------------------
     HmmMV hmm_a = make_base_hmm();
     {
-        // Initialise near ground-truth means; Baum-Welch will fit variances.
         auto a0 = std::make_unique<DiagonalGaussianDistribution>(2);
-        a0->setParameters({0.9,  0.8},  {16.0, 14.0});   // bull
+        a0->setParameters({ 0.8,  1.0}, { 9.0, 16.0});  // bull
         hmm_a.setDistribution(0, std::move(a0));
 
         auto a1 = std::make_unique<DiagonalGaussianDistribution>(2);
-        a1->setParameters({-1.3, -1.5}, {30.0, 28.0});   // bear
+        a1->setParameters({-1.5, -2.0}, {25.0, 50.0});  // bear
         hmm_a.setDistribution(1, std::move(a1));
 
         auto a2 = std::make_unique<DiagonalGaussianDistribution>(2);
-        a2->setParameters({-4.0, -5.0}, {80.0, 90.0});   // crisis
+        a2->setParameters({-5.0, -7.0}, {64.0, 100.0}); // crisis
         hmm_a.setDistribution(2, std::move(a2));
     }
 
@@ -434,28 +510,27 @@ int main()
 
     HmmMV hmm_b = make_base_hmm();
     {
-        // Initialise with ground-truth parameters so Baum-Welch refines from a good start.
         auto b0 = std::make_unique<FullCovarianceGaussianDistribution>(2);
         {
             BasicMatrix<double> S(2, 2, 0.0);
-            S(0,0)=16.0; S(0,1)= 9.0; S(1,0)= 9.0; S(1,1)=14.0;
-            b0->setParameters({0.9, 0.8}, std::move(S));
+            S(0,0)= 9.0; S(0,1)= 5.0; S(1,0)= 5.0; S(1,1)=16.0;  // bull rho~0.42
+            b0->setParameters({ 0.8,  1.0}, std::move(S));
         }
         hmm_b.setDistribution(0, std::move(b0));
 
         auto b1 = std::make_unique<FullCovarianceGaussianDistribution>(2);
         {
             BasicMatrix<double> S(2, 2, 0.0);
-            S(0,0)=30.0; S(0,1)=22.0; S(1,0)=22.0; S(1,1)=28.0;
-            b1->setParameters({-1.3, -1.5}, std::move(S));
+            S(0,0)=25.0; S(0,1)=18.0; S(1,0)=18.0; S(1,1)=50.0;  // bear rho~0.51
+            b1->setParameters({-1.5, -2.0}, std::move(S));
         }
         hmm_b.setDistribution(1, std::move(b1));
 
         auto b2 = std::make_unique<FullCovarianceGaussianDistribution>(2);
         {
             BasicMatrix<double> S(2, 2, 0.0);
-            S(0,0)=80.0; S(0,1)=72.0; S(1,0)=72.0; S(1,1)=90.0;
-            b2->setParameters({-4.0, -5.0}, std::move(S));
+            S(0,0)=64.0; S(0,1)=55.0; S(1,0)=55.0; S(1,1)=100.0; // crisis rho~0.69
+            b2->setParameters({-5.0, -7.0}, std::move(S));
         }
         hmm_b.setDistribution(2, std::move(b2));
     }
@@ -506,21 +581,29 @@ int main()
               << std::setw(14) << static_cast<int>(wall_a)
               << std::setw(14) << static_cast<int>(wall_b) << "\n";
 
-    std::cout << "\nGround truth (DGP parameters):\n";
-    std::cout << "  State 0 Bull:   mu=(0.9, 0.8)   rho=0.60\n";
-    std::cout << "  State 1 Bear:   mu=(-1.3,-1.5)  rho=0.76\n";
-    std::cout << "  State 2 Crisis: mu=(-4.0,-5.0)  rho=0.85\n\n";
-
-    std::cout << "Notes:\n";
+    std::cout << "\nNotes:\n";
     std::cout << "  Model B has " << (k_b - k_a)
               << " extra parameters (one off-diagonal covariance per state).\n";
-    std::cout << "  The ground-truth DGP has strong within-state cross-sector\n";
-    std::cout << "  correlation (rho=0.60-0.85) that Model A cannot capture.\n";
+    if (using_real) {
+        std::cout << "  " << col1_name << " and " << col2_name
+                  << " are large-cap US equity ETFs; within-state correlation\n";
+        std::cout << "  is typically 0.80\u20130.95, strongly motivating full covariance.\n";
+    } else {
+        std::cout << "  Synthetic DGP: bull \u03c1=0.60, bear \u03c1=0.76, crisis \u03c1=0.85.\n";
+    }
     if (bic_b < bic_a)
         std::cout << "  -> Model B wins on BIC: cross-sector correlation is informative.\n"
                      "     FullCovarianceGaussian is the correct model for this data.\n";
     else
         std::cout << "  -> Model A wins on BIC: diagonal approximation is sufficient here.\n";
+
+    if (using_real) {
+        std::cout << "\nCompare against hmmlearn reference (20 random restarts):\n";
+        std::cout << "  /tmp/libhmm_hmmlearn_venv/bin/python3 scripts/verify_mv_regime.py "
+                  << data_dir << "\n";
+        std::cout << "Model B (full) LLs should agree to < 0.1 nat; Model A (diag)\n";
+        std::cout << "may differ by a few nats since hmmlearn uses random restarts.\n";
+    }
 
     return 0;
 }

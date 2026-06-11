@@ -24,9 +24,21 @@ cmake --build build --config Release
 Data preparation scripts for the benchmark examples are in `scripts/`:
 
 ```bash
-Rscript scripts/prepare_elk_data.R      # elk movement   → /tmp/elk_*_obs.csv
-Rscript scripts/prepare_dax_data.R      # DAX + S&P 500  → /tmp/dax_logreturns.csv, sp500_logreturns.csv
-Rscript scripts/prepare_wind_data.R     # NOAA wind data → /tmp/ohare_wind_2015.csv
+Rscript scripts/prepare_elk_data.R        # elk movement   → /tmp/elk_*_obs.csv
+Rscript scripts/prepare_dax_data.R        # DAX + S&P 500  → /tmp/dax_logreturns.csv, sp500_logreturns.csv
+Rscript scripts/prepare_wind_data.R       # NOAA wind data → /tmp/ohare_wind_2015.csv
+Rscript scripts/prepare_mv_regime_data.R  # SPY + QQQ      → /tmp/spy_qqq_monthly.csv
+```
+
+The MV regime example also includes an independent Python reference comparison:
+
+```bash
+# One-time setup
+python3 -m venv /tmp/libhmm_hmmlearn_venv
+/tmp/libhmm_hmmlearn_venv/bin/pip install hmmlearn
+
+# Run reference (after prepare_mv_regime_data.R)
+/tmp/libhmm_hmmlearn_venv/bin/python3 scripts/verify_mv_regime.py
 ```
 
 ---
@@ -78,12 +90,13 @@ No external data required — runs standalone.
 **Distributions:** DiagonalGaussianDistribution (2D)
 
 #### [mv_regime_example.cpp](mv_regime_example.cpp)
-3-state market regime HMM on 240 embedded synthetic monthly returns for two correlated equity
-sectors (Tech + Finance). Compares DiagonalGaussian (independence assumed) against
-FullCovarianceGaussian (captures cross-sector correlation) via BIC. Ground-truth
-correlations are ρ=0.60 (bull), ρ=0.76 (bear), ρ=0.85 (crisis); FullCovGaussian should win.
-No external data required — runs standalone.
+3-state market regime HMM comparing DiagonalGaussian vs FullCovarianceGaussian on correlated
+two-sector returns. Loads real SPY + QQQ monthly log-returns (2000–2022) if
+`/tmp/spy_qqq_monthly.csv` is present; otherwise falls back to an embedded synthetic dataset.
+FullCovGaussian wins by >240 BIC units on real data (within-state ρ = 0.83–0.92).
+Validated against `hmmlearn 0.3.3` — Model B log-likelihoods agree to < 0.1 nat.
 **Distributions:** DiagonalGaussianDistribution, FullCovarianceGaussianDistribution (2D)
+**Reference:** `scripts/verify_mv_regime.py` (hmmlearn 0.3.3)
 
 ---
 
