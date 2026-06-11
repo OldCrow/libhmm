@@ -64,9 +64,39 @@ Multivariate HMM support and full C++20 type system modernisation. 47/47 tests p
 - All Catalina-specific CMake guards, Homebrew libc++ contamination detection,
   and `LIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX` option removed.
 
-### Changed — Code quality (Phase H–I)
+### Added — New MV examples and scripts
 
-- All Phase H trainer/calculator `train()` functions refactored to CCN ≤ 10 via extracted
+- **`examples/elk_mv_example.cpp`**: validates the v4 `IndependentComponentsDistribution`
+  API against the moveHMM R reference (Gamma + von Mises, 725 observations). Output
+  includes a statistical justification that within-state r(log\_step, angle) ≈ −0.06
+  (zero), confirming the independence assumption is appropriate. Cross-references
+  mv\_regime\_example for covariance comparison on genuinely correlated data.
+- **`examples/mv_regime_example.cpp`**: 3-state regime HMM comparing `DiagonalGaussian`
+  vs `FullCovarianceGaussian` on correlated two-sector returns. Loads real SPY + QQQ
+  monthly log-returns (2000–2022) if present; falls back to embedded synthetic DGP
+  (ρ = 0.60–0.85 per state). FullCovGaussian wins by >240 BIC units on real data;
+  within-state ρ = 0.83–0.92. Validated against hmmlearn 0.3.3 — Model B LLs agree
+  to < 0.1 nat.
+- **`scripts/prepare_mv_regime_data.R`**: downloads SPY + QQQ monthly returns from Yahoo
+  Finance via quantmod; writes `/tmp/spy_qqq_monthly.csv`.
+- **`scripts/verify_mv_regime.py`**: hmmlearn 0.3.3 reference fit (20 random restarts,
+  diagonal and full covariance) for direct comparison against mv\_regime\_example output.
+- **`docs/Future_Performance_Work.md`**: replaces the outdated performance-optimisation
+  document with a concise, accurate future-work document reflecting current SIMD
+  architecture.
+
+### Added — MV distribution setter API
+
+- **`DiagonalGaussianDistribution`**: `setParameters(means, variances)`, `setMeans(means)`,
+  `setVariances(variances)` — consistent with the univariate setter pattern.
+- **`FullCovarianceGaussianDistribution`**: `setMean(mean)`, `setCovariance(cov)`,
+  `setParameters(mean, cov)` — validate dimensions and recompute Cholesky factor.
+- **`IndependentComponentsDistribution`**: `setComponent(d, ptr)` — replace a component
+  distribution after construction.
+
+### Changed — Code quality
+
+- All trainer/calculator `train()` functions refactored to CCN ≤ 10 via extracted
   helpers: `accum_one_sequence`, `process_one_sequence`, `precompute_log_trans_flat`,
   `seed_kmeanspp`, `lloyd_assign`, `lloyd_update`, `fit_clusters`.
 - `FullCovarianceGaussianDistribution::fit()` refactored with extracted
@@ -75,6 +105,8 @@ Multivariate HMM support and full C++20 type system modernisation. 47/47 tests p
   `read_distribution_array` helpers; CCN 14 → 4.
 - `fillLogEmissions` (non-static) renamed from `fill_log_emissions` for naming-convention
   consistency (non-static methods use camelCase; static helpers use snake_case).
+- `DiagonalGaussianDistribution::setParameters` and `setVariances`: `variances` parameter
+  changed from pass-by-value to `const std::vector<double>&` (never moved).
 
 ### Tests (47 total, up from 42)
 
@@ -84,6 +116,8 @@ Multivariate HMM support and full C++20 type system modernisation. 47/47 tests p
 - `test_hmm_json_mv`: MV JSON round-trip, file I/O, schema validation, error cases.
 - `test_cholesky`: Cholesky factorisation with exact analytical reference values.
 - `test_model_selection` expanded: MV distribution parameter counts, `count_free_parameters(HmmMV)`.
+- `test_multivariate_distributions` expanded: 11 new setter tests covering `setParameters`,
+  `setMeans`, `setVariances`, `setMean`, `setCovariance`, and `setComponent`.
 
 ---
 

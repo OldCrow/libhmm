@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include "libhmm/distributions/diagonal_gaussian_distribution.h"
 #include "libhmm/distributions/full_covariance_gaussian_distribution.h"
+#include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/distributions/independent_components_distribution.h"
 #include <cmath>
 #include <random>
@@ -299,6 +300,125 @@ TEST(FullCovarianceGaussianTest, NumParameters3D)
     FullCovarianceGaussianDistribution d(3);
     // D=3: 3 means + 3*(3+1)/2 = 6 cov entries = 9
     EXPECT_EQ(d.getNumParameters(), 9u);
+}
+
+// ============================================================================
+// Setter API — DiagonalGaussianDistribution
+// ============================================================================
+
+TEST(DiagonalGaussianTest, SetParametersUpdatesMeanAndVariance)
+{
+    DiagonalGaussianDistribution d(2);
+    d.setParameters({1.5, -0.5}, {4.0, 9.0});
+    EXPECT_DOUBLE_EQ(d.getMean()[0], 1.5);
+    EXPECT_DOUBLE_EQ(d.getMean()[1], -0.5);
+    EXPECT_DOUBLE_EQ(d.getVariance()[0], 4.0);
+    EXPECT_DOUBLE_EQ(d.getVariance()[1], 9.0);
+    // log-probability at mean should be finite
+    const std::array<double,2> x = {1.5, -0.5};
+    const ObservationVectorView v(x.data(), x.size());
+    EXPECT_TRUE(std::isfinite(d.getLogProbability(v)));
+}
+
+TEST(DiagonalGaussianTest, SetParametersSizeMismatchThrows)
+{
+    DiagonalGaussianDistribution d(2);
+    EXPECT_THROW(d.setParameters({1.0}, {1.0, 1.0}), std::invalid_argument);
+    EXPECT_THROW(d.setParameters({1.0, 2.0}, {1.0}), std::invalid_argument);
+}
+
+TEST(DiagonalGaussianTest, SetParametersNonPositiveVarianceThrows)
+{
+    DiagonalGaussianDistribution d(2);
+    EXPECT_THROW(d.setParameters({0.0, 0.0}, {1.0, -0.5}), std::invalid_argument);
+    EXPECT_THROW(d.setParameters({0.0, 0.0}, {0.0,  1.0}), std::invalid_argument);
+}
+
+TEST(DiagonalGaussianTest, SetMeansOnly)
+{
+    DiagonalGaussianDistribution d(2, 0.0, 1.0);
+    d.setMeans({3.0, -2.0});
+    EXPECT_DOUBLE_EQ(d.getMean()[0], 3.0);
+    EXPECT_DOUBLE_EQ(d.getMean()[1], -2.0);
+    EXPECT_DOUBLE_EQ(d.getVariance()[0], 1.0);  // unchanged
+    EXPECT_THROW(d.setMeans({1.0}), std::invalid_argument);
+}
+
+TEST(DiagonalGaussianTest, SetVariancesOnly)
+{
+    DiagonalGaussianDistribution d(2, 0.0, 1.0);
+    d.setVariances({2.5, 0.5});
+    EXPECT_DOUBLE_EQ(d.getVariance()[0], 2.5);
+    EXPECT_DOUBLE_EQ(d.getVariance()[1], 0.5);
+    EXPECT_DOUBLE_EQ(d.getMean()[0], 0.0);      // unchanged
+    EXPECT_THROW(d.setVariances({1.0}),        std::invalid_argument);
+    EXPECT_THROW(d.setVariances({-1.0, 1.0}), std::invalid_argument);
+}
+
+// ============================================================================
+// Setter API — FullCovarianceGaussianDistribution
+// ============================================================================
+
+TEST(FullCovarianceGaussianTest, SetMeanOnly)
+{
+    FullCovarianceGaussianDistribution d(2);
+    d.setMean({3.0, -1.0});
+    EXPECT_DOUBLE_EQ(d.getMean()[0],  3.0);
+    EXPECT_DOUBLE_EQ(d.getMean()[1], -1.0);
+    // covariance unchanged (still identity)
+    EXPECT_DOUBLE_EQ(d.getCovariance()(0, 0), 1.0);
+    EXPECT_THROW(d.setMean({1.0}), std::invalid_argument);
+}
+
+TEST(FullCovarianceGaussianTest, SetCovarianceUpdatesFactorization)
+{
+    FullCovarianceGaussianDistribution d(2);
+    BasicMatrix<double> cov(2, 2, 0.0);
+    cov(0,0) = 4.0; cov(0,1) = 1.0;
+    cov(1,0) = 1.0; cov(1,1) = 9.0;
+    d.setCovariance(std::move(cov));
+    // Stored covariance has reg_=1e-5 added to the diagonal (same as fit()).
+    EXPECT_NEAR(d.getCovariance()(0, 0), 4.0, 1e-4);
+    EXPECT_NEAR(d.getCovariance()(0, 1), 1.0, 1e-12);
+    EXPECT_TRUE(std::isfinite(d.getLogDet()));
+    // log-probability at mean should be finite
+    const std::array<double,2> x = {0.0, 0.0};
+    const ObservationVectorView v(x.data(), x.size());
+    EXPECT_TRUE(std::isfinite(d.getLogProbability(v)));
+}
+
+TEST(FullCovarianceGaussianTest, SetCovarianceDimensionMismatchThrows)
+{
+    FullCovarianceGaussianDistribution d(2);
+    BasicMatrix<double> bad(3, 3, 0.0);
+    bad(0,0) = bad(1,1) = bad(2,2) = 1.0;
+    EXPECT_THROW(d.setCovariance(std::move(bad)), std::invalid_argument);
+}
+
+// ============================================================================
+// Setter API — IndependentComponentsDistribution
+// ============================================================================
+
+TEST(IndependentComponentsTest, SetComponentReplacesDistribution)
+{
+    IndependentComponentsDistribution d(2);
+    // Replace component 0 with an ExponentialDistribution proxy via Gaussian
+    d.setComponent(0, std::make_unique<GaussianDistribution>(5.0, 1.0));
+    const auto& g = static_cast<const GaussianDistribution&>(d.getComponent(0));
+    EXPECT_DOUBLE_EQ(g.getMean(), 5.0);
+}
+
+TEST(IndependentComponentsTest, SetComponentOutOfRangeThrows)
+{
+    IndependentComponentsDistribution d(2);
+    EXPECT_THROW(d.setComponent(2, std::make_unique<GaussianDistribution>()),
+                 std::invalid_argument);
+}
+
+TEST(IndependentComponentsTest, SetComponentNullThrows)
+{
+    IndependentComponentsDistribution d(2);
+    EXPECT_THROW(d.setComponent(0, nullptr), std::invalid_argument);
 }
 
 int main(int argc, char** argv)

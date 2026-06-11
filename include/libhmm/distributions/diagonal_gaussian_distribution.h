@@ -133,7 +133,7 @@ public:
      * @brief Set per-dimension means and variances simultaneously.
      * @throws std::invalid_argument if sizes differ from getDimension() or any variance <= 0.
      */
-    void setParameters(std::vector<double> means, std::vector<double> variances) {
+    void setParameters(std::vector<double> means, const std::vector<double>& variances) {
         if (means.size() != dim_ || variances.size() != dim_)
             throw std::invalid_argument(
                 "DiagonalGaussianDistribution::setParameters: size mismatch");
@@ -163,7 +163,7 @@ public:
      * @brief Set per-dimension variances only.
      * @throws std::invalid_argument if size differs from getDimension() or any value <= 0.
      */
-    void setVariances(std::vector<double> variances) {
+    void setVariances(const std::vector<double>& variances) {
         if (variances.size() != dim_)
             throw std::invalid_argument(
                 "DiagonalGaussianDistribution::setVariances: size mismatch");
