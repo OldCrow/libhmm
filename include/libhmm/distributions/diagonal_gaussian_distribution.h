@@ -130,6 +130,53 @@ public:
     [[nodiscard]] const std::vector<double>& getVariance() const noexcept { return var_;  }
 
     /**
+     * @brief Set per-dimension means and variances simultaneously.
+     * @throws std::invalid_argument if sizes differ from getDimension() or any variance <= 0.
+     */
+    void setParameters(std::vector<double> means, std::vector<double> variances) {
+        if (means.size() != dim_ || variances.size() != dim_)
+            throw std::invalid_argument(
+                "DiagonalGaussianDistribution::setParameters: size mismatch");
+        for (double v : variances)
+            if (v <= 0.0)
+                throw std::invalid_argument(
+                    "DiagonalGaussianDistribution::setParameters: variances must be > 0");
+        mean_ = std::move(means);
+        for (std::size_t d = 0; d < dim_; ++d)
+            var_[d] = std::max(variances[d], kMinVar);
+        invalidateCache();
+    }
+
+    /**
+     * @brief Set per-dimension means only.
+     * @throws std::invalid_argument if size differs from getDimension().
+     */
+    void setMeans(std::vector<double> means) {
+        if (means.size() != dim_)
+            throw std::invalid_argument(
+                "DiagonalGaussianDistribution::setMeans: size mismatch");
+        mean_ = std::move(means);
+        invalidateCache();
+    }
+
+    /**
+     * @brief Set per-dimension variances only.
+     * @throws std::invalid_argument if size differs from getDimension() or any value <= 0.
+     */
+    void setVariances(std::vector<double> variances) {
+        if (variances.size() != dim_)
+            throw std::invalid_argument(
+                "DiagonalGaussianDistribution::setVariances: size mismatch");
+        for (double v : variances)
+            if (v <= 0.0)
+                throw std::invalid_argument(
+                    "DiagonalGaussianDistribution::setVariances: variances must be > 0");
+        for (std::size_t d = 0; d < dim_; ++d)
+            var_[d] = std::max(variances[d], kMinVar);
+        invalidateCache();
+    }
+
+    /**
      * @brief Deserialize from JSON.  Reader must be positioned immediately
      * after the opening '{' and the "type" value have been consumed.
      * Reads remaining fields and the closing '}'.

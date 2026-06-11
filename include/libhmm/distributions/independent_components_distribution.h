@@ -128,6 +128,12 @@ public:
         validateDim(d, "getComponent");
         return *components_[d];
     }
+
+    /**
+     * @brief Replace component d with a new distribution.
+     * @throws std::invalid_argument if d >= getDimension() or component is null.
+     */
+    void setComponent(std::size_t d, std::unique_ptr<EmissionDistribution> component);
 };
 
 } // namespace libhmm

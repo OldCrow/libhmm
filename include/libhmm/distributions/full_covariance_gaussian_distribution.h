@@ -148,6 +148,31 @@ public:
     [[nodiscard]] const BasicMatrix<double>&  getCovariance() const noexcept { return cov_;  }
 
     /**
+     * @brief Set the mean vector.
+     * @throws std::invalid_argument if mean.size() != getDimension().
+     */
+    void setMean(std::vector<double> mean) {
+        if (mean.size() != dim_)
+            throw std::invalid_argument(
+                "FullCovarianceGaussianDistribution::setMean: size mismatch");
+        mean_ = std::move(mean);
+        invalidateCache();
+    }
+
+    /**
+     * @brief Set the covariance matrix.  Must be getDimension()×getDimension()
+     *        and positive-definite.  The Cholesky factor is recomputed.
+     * @throws std::invalid_argument on dimension mismatch or non-SPD matrix.
+     */
+    void setCovariance(BasicMatrix<double> cov);
+
+    /**
+     * @brief Set mean and covariance simultaneously.
+     * @throws std::invalid_argument on dimension mismatch or non-SPD matrix.
+     */
+    void setParameters(std::vector<double> mean, BasicMatrix<double> cov);
+
+    /**
      * @brief Deserialize from JSON.  Reader must be positioned immediately
      * after the opening '{' and the "type" value have been consumed.
      * Reads remaining fields and the closing '}'.

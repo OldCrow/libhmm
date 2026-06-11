@@ -58,6 +58,12 @@ add_hmm_example(mv_gaussian_example mv_gaussian_example.cpp)
 # Real-world ecology benchmark: elk movement vs moveHMM (R)
 add_hmm_example(elk_movement_example elk_movement_example.cpp)
 
+# Elk MV: IndependentComponents(Gamma+VonMises) vs DiagGaussian vs FullCovGaussian(log-step,angle) — BIC comparison
+add_hmm_example(elk_mv_example elk_mv_example.cpp)
+
+# MV regime: DiagonalGaussian vs FullCovGaussian on two-sector synthetic returns (no data download)
+add_hmm_example(mv_regime_example mv_regime_example.cpp)
+
 # Real-world finance benchmark: DAX regime detection vs fHMM (R)
 add_hmm_example(dax_regime_example dax_regime_example.cpp)
 
@@ -88,6 +94,8 @@ install(TARGETS
     posterior_decoding_example
     map_baum_welch_example
     elk_movement_example
+    elk_mv_example
+    mv_regime_example
     dax_regime_example
     sp500_regime_example
     earthquake_example

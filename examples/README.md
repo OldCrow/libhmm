@@ -1,7 +1,7 @@
 # libhmm Examples
 
-21 examples in two categories: algorithm and distribution demonstrations using
-synthetic data (including the new v4 multivariate example), and real-world benchmarks
+23 examples in two categories: algorithm and distribution demonstrations using
+synthetic data (including the v4 multivariate examples), and real-world benchmarks
 against published datasets and established R packages.
 
 ---
@@ -77,6 +77,14 @@ k-means++ initialisation, Baum-Welch training, log-probability scoring, and JSON
 No external data required — runs standalone.
 **Distributions:** DiagonalGaussianDistribution (2D)
 
+#### [mv_regime_example.cpp](mv_regime_example.cpp)
+3-state market regime HMM on 240 embedded synthetic monthly returns for two correlated equity
+sectors (Tech + Finance). Compares DiagonalGaussian (independence assumed) against
+FullCovarianceGaussian (captures cross-sector correlation) via BIC. Ground-truth
+correlations are ρ=0.60 (bull), ρ=0.76 (bear), ρ=0.85 (crisis); FullCovGaussian should win.
+No external data required — runs standalone.
+**Distributions:** DiagonalGaussianDistribution, FullCovarianceGaussianDistribution (2D)
+
 ---
 
 ### Domain applications (synthetic data)
@@ -120,6 +128,26 @@ independence of step length and angle given state.
 
 **Data:** `Rscript scripts/prepare_elk_data.R`
 **Reference:** Michelot et al. (2016), *Methods in Ecology and Evolution*
+
+---
+
+#### [elk_mv_example.cpp](elk_mv_example.cpp)
+**Multivariate HMM comparison on the same elk GPS data (v4 API)**
+
+Three models; valid BIC comparison between B and C (same observation space):
+
+| Model | Distribution | Observation | Notes |
+|---|---|---|---|
+| A | `IndependentComponents(Gamma, VonMises)` | (step, angle) | Same model as elk_movement_example; validates v4 MV API |
+| B | `DiagonalGaussian` | (log(step), angle) | Log-normal steps, conditional independence on log scale |
+| C | `FullCovarianceGaussian` | (log(step), angle) | Full 2×2 covariance — relaxes independence assumption |
+
+Model A LL should match elk_movement_example.cpp (validation). Model A vs B/C BIC
+comparison is invalid (different observation spaces). B vs C BIC comparison is valid;
+within-state log-step/angle correlation is near zero for this dataset, so B is expected
+to win — demonstrating correct model selection.
+
+**Data:** `Rscript scripts/prepare_elk_data.R` (same as elk_movement_example)
 
 ---
 

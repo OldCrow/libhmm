@@ -190,6 +190,43 @@ void FullCovarianceGaussianDistribution::fit(
     }
 }
 
+void FullCovarianceGaussianDistribution::setCovariance(BasicMatrix<double> cov)
+{
+    if (cov.size1() != dim_ || cov.size2() != dim_)
+        throw std::invalid_argument(
+            "FullCovarianceGaussianDistribution::setCovariance: dimension mismatch");
+    auto res = regularise_and_factorize(cov, dim_, reg_);
+    if (!res.success)
+        throw std::invalid_argument(
+            "FullCovarianceGaussianDistribution::setCovariance: "
+            "matrix is not positive-definite");
+    cov_     = std::move(cov);
+    chol_L_  = std::move(res.L);
+    log_det_ = chol::log_det(chol_L_);
+    markCacheValid();
+}
+
+void FullCovarianceGaussianDistribution::setParameters(std::vector<double> mean,
+                                                        BasicMatrix<double> cov)
+{
+    if (mean.size() != dim_)
+        throw std::invalid_argument(
+            "FullCovarianceGaussianDistribution::setParameters: mean size mismatch");
+    if (cov.size1() != dim_ || cov.size2() != dim_)
+        throw std::invalid_argument(
+            "FullCovarianceGaussianDistribution::setParameters: cov dimension mismatch");
+    auto res = regularise_and_factorize(cov, dim_, reg_);
+    if (!res.success)
+        throw std::invalid_argument(
+            "FullCovarianceGaussianDistribution::setParameters: "
+            "matrix is not positive-definite");
+    mean_    = std::move(mean);
+    cov_     = std::move(cov);
+    chol_L_  = std::move(res.L);
+    log_det_ = chol::log_det(chol_L_);
+    markCacheValid();
+}
+
 void FullCovarianceGaussianDistribution::reset() noexcept
 {
     std::fill(mean_.begin(), mean_.end(), 0.0);

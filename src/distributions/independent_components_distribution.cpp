@@ -116,6 +116,18 @@ void IndependentComponentsDistribution::reset() noexcept
     for (auto& c : components_) { c->reset(); }
 }
 
+void IndependentComponentsDistribution::setComponent(
+    std::size_t d, std::unique_ptr<EmissionDistribution> component)
+{
+    if (d >= dim_)
+        throw std::invalid_argument(
+            "IndependentComponentsDistribution::setComponent: index out of range");
+    if (!component)
+        throw std::invalid_argument(
+            "IndependentComponentsDistribution::setComponent: component must not be null");
+    components_[d] = std::move(component);
+}
+
 // =============================================================================
 // Sampling
 // =============================================================================
