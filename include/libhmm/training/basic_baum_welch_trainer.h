@@ -73,6 +73,15 @@ private:
                                          double, ObservationVectorView>;
     using EmisAccumType = std::vector<std::vector<EmisElem>>;
 
+    /// Mutable accumulators passed through the E-step as a single aggregate.
+    struct EStepBuffers {
+        EmisAccumType&                    emisAccum;
+        std::vector<std::vector<double>>& emisWts;
+        std::vector<double>&              piNum;
+        std::vector<double>&              transDen;
+        std::vector<double>&              transNumT;
+    };
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
@@ -82,7 +91,7 @@ private:
      *
      * Runs BasicForwardBackwardCalculator, accumulates gamma statistics
      * (emission data/weights, π numerator, transition denominator) and
-     * xi statistics (expected transition counts).
+     * xi statistics (expected transition counts) into @p bufs.
      *
      * @return true if the sequence contributed (finite log-probability);
      *         false if the sequence was skipped (empty or zero probability).
@@ -91,11 +100,7 @@ private:
                                     std::size_t N,
                                     const std::vector<double>& logTransT,
                                     bool hasZeroTransitions,
-                                    EmisAccumType& emisAccum,
-                                    std::vector<std::vector<double>>& emisWts,
-                                    std::vector<double>& piNum,
-                                    std::vector<double>& transDen,
-                                    std::vector<double>& transNumT);
+                                    EStepBuffers& bufs);
 
     /**
      * @brief Accumulate expected transition counts (xi) for one sequence.
@@ -165,12 +170,11 @@ void BasicBaumWelchTrainer<Obs>::train() {
         }
     }
 
+    EStepBuffers bufs{emisAccum, emisWts, piNum, transDen, transNumT};
     std::size_t validSeqs = 0;
     for (const auto& obs : this->getObservationLists()) {
-        if (accum_one_sequence(hmm, obs, N, logTransT, hasZeroTransitions,
-                               emisAccum, emisWts, piNum, transDen, transNumT)) {
+        if (accum_one_sequence(hmm, obs, N, logTransT, hasZeroTransitions, bufs))
             ++validSeqs;
-        }
     }
 
     if (validSeqs == 0) {
@@ -201,11 +205,7 @@ template<typename Obs>
 bool BasicBaumWelchTrainer<Obs>::accum_one_sequence(
         const HmmType& hmm, const SeqType& obs, std::size_t N,
         const std::vector<double>& logTransT, bool hasZeroTransitions,
-        EmisAccumType& emisAccum,
-        std::vector<std::vector<double>>& emisWts,
-        std::vector<double>& piNum,
-        std::vector<double>& transDen,
-        std::vector<double>& transNumT)
+        EStepBuffers& bufs)
 {
     const std::size_t T = ObsSeqTraits<Obs>::sequence_length(obs);
     if (T == 0) return false;
@@ -227,16 +227,16 @@ bool BasicBaumWelchTrainer<Obs>::accum_one_sequence(
         }();
         for (std::size_t i = 0; i < N; ++i) {
             const double g = std::exp(aRow[i] + bRow[i] - logP);
-            emisAccum[i].push_back(obs_t);
-            emisWts[i].push_back(g);
-            if (t == 0)    piNum[i]    += g;
-            if (t < T - 1) transDen[i] += g;
+            bufs.emisAccum[i].push_back(obs_t);
+            bufs.emisWts[i].push_back(g);
+            if (t == 0)    bufs.piNum[i]    += g;
+            if (t < T - 1) bufs.transDen[i] += g;
         }
     }
 
     // Reuse the FBC's emission buffer — avoids a second emission evaluation.
     accumulate_xi(alphaData, betaData, fbc.getLogEmitByTime(), logTransT,
-                  logP, T, N, hasZeroTransitions, transNumT);
+                  logP, T, N, hasZeroTransitions, bufs.transNumT);
     return true;
 }
 

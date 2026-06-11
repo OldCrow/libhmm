@@ -41,10 +41,10 @@ public:
     BasicVector() = default;
 
     // Constructor with size
-    explicit BasicVector(size_type size) : data_(size) {}
+    explicit BasicVector(size_type n) : data_(n) {}
 
     // Constructor with size and default value
-    BasicVector(size_type size, const T &value) : data_(size, value) {}
+    BasicVector(size_type n, const T &value) : data_(n, value) {}
 
     // Constructor from std::vector
     explicit BasicVector(const std::vector<T> &vec) : data_(vec) {}
@@ -92,8 +92,8 @@ public:
     bool empty() const noexcept { return data_.empty(); }
 
     // Resize operations
-    void resize(size_type size) { data_.resize(size); }
-    void resize(size_type size, const T &value) { data_.resize(size, value); }
+    void resize(size_type n) { data_.resize(n); }
+    void resize(size_type n, const T &value) { data_.resize(n, value); }
     void reserve(size_type capacity) { data_.reserve(capacity); }
 
     // Clear vector (set all elements to zero)

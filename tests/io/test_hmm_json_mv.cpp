@@ -255,7 +255,7 @@ TEST_F(MvJsonFileTest, SaveLoadDiagGaussianRoundTrip) {
 }
 
 TEST_F(MvJsonFileTest, LoadNonExistentThrows) {
-    EXPECT_THROW(load_json_mv(tmpDir_ / "does_not_exist.json"), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(load_json_mv(tmpDir_ / "does_not_exist.json")), std::runtime_error);
 }
 
 // =============================================================================
@@ -266,27 +266,27 @@ TEST(MvJsonErrors, RejectsScalarSchema) {
     // A scalar HMM JSON should be rejected by from_json_mv.
     Hmm scalar_hmm(2);
     const std::string scalar_json = to_json(scalar_hmm);
-    EXPECT_THROW(from_json_mv(scalar_json), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(from_json_mv(scalar_json)), std::runtime_error);
 }
 
 TEST(MvJsonErrors, RejectsWrongObsType) {
     const std::string bad = R"({"libhmm_version":"4","obs_type":"scalar","dimensions":2,"states":1,"pi":[1.0],"trans":[[1.0]],"distributions":[]})";
-    EXPECT_THROW(from_json_mv(bad), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
 }
 
 TEST(MvJsonErrors, RejectsUnknownDistributionType) {
     const std::string bad = R"({"libhmm_version":"4","obs_type":"multivariate","dimensions":2,"states":1,"pi":[1.0],"trans":[[1.0]],"distributions":[{"type":"BogusGaussian","dim":2}]})";
-    EXPECT_THROW(from_json_mv(bad), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
 }
 
 TEST(MvJsonErrors, RejectsMissingVersion) {
     const std::string bad = R"({"obs_type":"multivariate","dimensions":2,"states":1,"pi":[1.0],"trans":[[1.0]],"distributions":[]})";
-    EXPECT_THROW(from_json_mv(bad), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
 }
 
 TEST(MvJsonErrors, RejectsOversizedInput) {
     const std::string oversized(11UL * 1024UL * 1024UL, ' ');
-    EXPECT_THROW(from_json_mv(oversized), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(from_json_mv(oversized)), std::runtime_error);
 }
 
 // =============================================================================

@@ -46,12 +46,9 @@ double FullCovarianceGaussianDistribution::getLogProbability(
 {
     if (x.size() != dim_) return -std::numeric_limits<double>::infinity();
     if (!isCacheValid()) updateCache();
-
-    // Compute residual r = x - μ
-    std::vector<double> r(dim_);
-    for (std::size_t d = 0; d < dim_; ++d) { r[d] = x[d] - mean_[d]; }
-
-    const double q = chol::inv_quad_form(chol_L_, r);
+    // inv_quad_form_mv uses a thread_local scratch buffer: zero heap allocation
+    // in steady state, keeping noexcept sound on this hot path.
+    const double q = chol::inv_quad_form_mv(chol_L_, mean_, x);
     return -half_d_log2pi_ - 0.5 * log_det_ - 0.5 * q;
 }
 

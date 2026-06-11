@@ -97,5 +97,24 @@ struct CholeskyResult {
 [[nodiscard]] double inv_quad_form(const BasicMatrix<double>& L,
                                    std::span<const double> x) noexcept;
 
+/**
+ * @brief Mahalanobis squared distance (x−μ)ᵀ·A⁻¹·(x−μ), zero heap allocation.
+ *
+ * Computes the residual x−μ and solves L·v = (x−μ) via forward substitution,
+ * all in a thread_local scratch buffer.  After the first call per thread the
+ * function performs no heap allocation, making it safe to declare
+ * `noexcept` on the hot `getLogProbability` path.
+ *
+ * Precondition: L.rows() == L.cols() == mu.size() == x.size().
+ *
+ * @param L   Cholesky factor of Σ (lower triangular, D×D).
+ * @param mu  Mean vector (D).
+ * @param x   Observation vector (D).  Accepts ObservationVectorView directly.
+ * @return    (x−μ)ᵀ·Σ⁻¹·(x−μ) ≥ 0.
+ */
+[[nodiscard]] double inv_quad_form_mv(const BasicMatrix<double>& L,
+                                      const std::vector<double>& mu,
+                                      std::span<const double> x) noexcept;
+
 } // namespace chol
 } // namespace libhmm

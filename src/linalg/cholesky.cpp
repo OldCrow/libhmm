@@ -110,5 +110,32 @@ double inv_quad_form(const BasicMatrix<double>& L,
     return q;
 }
 
+// =============================================================================
+// inv_quad_form_mv — (x−μ)ᵀ Σ⁻¹ (x−μ) with thread_local scratch
+//
+// Residual and forward substitution are performed in-place in a thread_local
+// buffer, avoiding any heap allocation in steady state.
+// =============================================================================
+
+double inv_quad_form_mv(const BasicMatrix<double>& L,
+                         const std::vector<double>& mu,
+                         std::span<const double> x) noexcept
+{
+    const std::size_t n = mu.size();
+    // One allocation per thread; buffer only grows, never shrinks.
+    thread_local std::vector<double> v;
+    if (v.size() < n) v.resize(n);
+
+    // Compute residual x − μ, then solve L·v = residual in-place.
+    for (std::size_t i = 0; i < n; ++i) v[i] = x[i] - mu[i];
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < i; ++j) v[i] -= L(i, j) * v[j];
+        v[i] /= L(i, i);
+    }
+    double q = 0.0;
+    for (std::size_t i = 0; i < n; ++i) q += v[i] * v[i];
+    return q;
+}
+
 } // namespace chol
 } // namespace libhmm

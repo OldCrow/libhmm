@@ -42,11 +42,12 @@ public:
     BasicMatrix() : rows_(0), cols_(0) {}
 
     // Constructor with dimensions
-    BasicMatrix(size_type rows, size_type cols) : data_(rows * cols), rows_(rows), cols_(cols) {}
+    BasicMatrix(size_type n_rows, size_type n_cols)
+        : data_(n_rows * n_cols), rows_(n_rows), cols_(n_cols) {}
 
     // Constructor with dimensions and default value
-    BasicMatrix(size_type rows, size_type cols, const T &value)
-        : data_(rows * cols, value), rows_(rows), cols_(cols) {}
+    BasicMatrix(size_type n_rows, size_type n_cols, const T &value)
+        : data_(n_rows * n_cols, value), rows_(n_rows), cols_(n_cols) {}
 
     // Copy constructor
     BasicMatrix(const BasicMatrix &other)
@@ -112,16 +113,16 @@ public:
     bool empty() const noexcept { return data_.empty(); }
 
     // Resize operations
-    void resize(size_type rows, size_type cols) {
-        data_.resize(rows * cols);
-        rows_ = rows;
-        cols_ = cols;
+    void resize(size_type n_rows, size_type n_cols) {
+        data_.resize(n_rows * n_cols);
+        rows_ = n_rows;
+        cols_ = n_cols;
     }
 
-    void resize(size_type rows, size_type cols, const T &value) {
-        data_.resize(rows * cols, value);
-        rows_ = rows;
-        cols_ = cols;
+    void resize(size_type n_rows, size_type n_cols, const T &value) {
+        data_.resize(n_rows * n_cols, value);
+        rows_ = n_rows;
+        cols_ = n_cols;
     }
 
     // Clear matrix (set all elements to zero)
