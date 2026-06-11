@@ -145,22 +145,18 @@ independence of step length and angle given state.
 ---
 
 #### [elk_mv_example.cpp](elk_mv_example.cpp)
-**Multivariate HMM comparison on the same elk GPS data (v4 API)**
+**v4 IndependentComponents API validation vs moveHMM on elk GPS data**
 
-Three models; valid BIC comparison between B and C (same observation space):
+Fits `IndependentComponents(Gamma, VonMises)` on (step\_length, turning\_angle) using the v4
+MV API; compares recovered parameters and log-likelihood against the moveHMM R reference.
+Within-state correlation between log(step) and angle is r ≈ −0.05 to −0.08 —
+indistinguishable from zero — so the conditional independence assumption is statistically
+justified and no covariance model is needed for this dataset.
+The output explicitly notes this justification and cross-references mv\_regime\_example.cpp
+for comparison on data with genuinely high within-state correlation.
 
-| Model | Distribution | Observation | Notes |
-|---|---|---|---|
-| A | `IndependentComponents(Gamma, VonMises)` | (step, angle) | Same model as elk_movement_example; validates v4 MV API |
-| B | `DiagonalGaussian` | (log(step), angle) | Log-normal steps, conditional independence on log scale |
-| C | `FullCovarianceGaussian` | (log(step), angle) | Full 2×2 covariance — relaxes independence assumption |
-
-Model A LL should match elk_movement_example.cpp (validation). Model A vs B/C BIC
-comparison is invalid (different observation spaces). B vs C BIC comparison is valid;
-within-state log-step/angle correlation is near zero for this dataset, so B is expected
-to win — demonstrating correct model selection.
-
-**Data:** `Rscript scripts/prepare_elk_data.R` (same as elk_movement_example)
+**Data:** `Rscript scripts/prepare_elk_data.R` (same as elk\_movement\_example)
+**Reference:** moveHMM (Michelot et al. 2016, *Methods in Ecology and Evolution*)
 
 ---
 
