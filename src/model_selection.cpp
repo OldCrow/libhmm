@@ -4,21 +4,6 @@
 
 namespace libhmm {
 
-std::size_t count_free_parameters(const Hmm &hmm) {
-    const std::size_t N = hmm.getNumStatesModern();
-    // Transition matrix: N rows, each a simplex with N-1 free parameters.
-    std::size_t k = N * (N - 1u);
-    // Initial distribution: simplex with N-1 free parameters.
-    if (N > 0u) {
-        k += N - 1u;
-    }
-    // Emission distributions: each state contributes its own parameter count.
-    for (std::size_t i = 0; i < N; ++i) {
-        k += hmm.getDistribution(i).getNumParameters();
-    }
-    return k;
-}
-
 double compute_aic(double logL, std::size_t k) noexcept {
     return 2.0 * static_cast<double>(k) - 2.0 * logL;
 }

@@ -28,7 +28,7 @@ namespace libhmm {
  * - Financial modeling (fat-tailed distributions)
  * - Robust regression analysis
  */
-class StudentTDistribution : public DistributionBase {
+class StudentTDistribution : public DistributionBase<StudentTDistribution> {
 private:
     /**
      * Degrees of freedom parameter ν - must be positive

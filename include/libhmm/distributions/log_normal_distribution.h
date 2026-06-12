@@ -28,7 +28,7 @@ namespace libhmm {
  * - Mode: exp(μ - σ²)
  * - Support: x ∈ (0, ∞)
  */
-class LogNormalDistribution : public DistributionBase {
+class LogNormalDistribution : public DistributionBase<LogNormalDistribution> {
 private:
     /**
      * Mean parameter μ of the underlying normal distribution (mean of ln(X))

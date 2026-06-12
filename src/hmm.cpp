@@ -258,21 +258,26 @@ std::unique_ptr<EmissionDistribution> parse_rayleigh(std::istream &is) {
 // NegativeBinomial is absent: toString() writes "Negative Binomial Distribution:",
 // so the dispatch key would be "Negative" — a two-word type that cannot be
 // represented by a single-token lookup. Use JSON I/O for NegativeBinomial.
-const std::unordered_map<std::string, StreamParserFn> kStreamParsers = {
-    {"Gaussian", parse_gaussian},    {"Discrete", parse_discrete},
-    {"Gamma", parse_gamma},          {"Exponential", parse_exponential},
-    {"LogNormal", parse_log_normal}, {"Pareto", parse_pareto},
-    {"Poisson", parse_poisson},      {"Beta", parse_beta},
-    {"Weibull", parse_weibull},      {"Uniform", parse_uniform},
-    {"Binomial", parse_binomial},    {"Rayleigh", parse_rayleigh},
-    {"StudentT", parse_student_t},   {"ChiSquared", parse_chi_squared},
-};
+/// Returns the stream-parser dispatch map.
+/// Function-local static avoids bugprone-throwing-static-initialization.
+const std::unordered_map<std::string, StreamParserFn> &stream_parsers() {
+    static const std::unordered_map<std::string, StreamParserFn> s = {
+        {"Gaussian", parse_gaussian},    {"Discrete", parse_discrete},
+        {"Gamma", parse_gamma},          {"Exponential", parse_exponential},
+        {"LogNormal", parse_log_normal}, {"Pareto", parse_pareto},
+        {"Poisson", parse_poisson},      {"Beta", parse_beta},
+        {"Weibull", parse_weibull},      {"Uniform", parse_uniform},
+        {"Binomial", parse_binomial},    {"Rayleigh", parse_rayleigh},
+        {"StudentT", parse_student_t},   {"ChiSquared", parse_chi_squared},
+    };
+    return s;
+}
 
 } // anonymous namespace
 
 std::istream &operator>>(std::istream &is, libhmm::Hmm &hmm) {
     std::string s, t;
-    std::size_t states;
+    std::size_t states = 0;
 
     is >> s >> s >> s >> s; // "Hidden Markov Model parameters"
     is >> s >> s;           // "States:"
@@ -304,8 +309,8 @@ std::istream &operator>>(std::istream &is, libhmm::Hmm &hmm) {
     is >> s; // "Emissions:"
     for (std::size_t i = 0; i < states; ++i) {
         is >> s >> s >> t; // "State" "N:" type-keyword
-        const auto it = kStreamParsers.find(t);
-        if (it == kStreamParsers.end())
+        const auto it = stream_parsers().find(t);
+        if (it == stream_parsers().end())
             throw std::runtime_error("Unknown distribution type in stream: " + t);
         hmm.setDistribution(i, it->second(is));
     }

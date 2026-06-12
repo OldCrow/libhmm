@@ -223,16 +223,8 @@ bool FileIOManager::hasExtension(const std::filesystem::path &filepath,
         auto to_lower = [](unsigned char c) {
             return static_cast<char>(std::tolower(c));
         };
-        // std::ranges::transform preferred; falls back to std::transform on
-        // compilers without ranges support (e.g. AppleClang 12 / Catalina).
-        // LIBHMM_HAS_STD_RANGES is set by the CMake configure-time probe.
-#ifdef LIBHMM_HAS_STD_RANGES
         std::ranges::transform(ext, ext.begin(), to_lower);
         std::ranges::transform(expected, expected.begin(), to_lower);
-#else
-        std::transform(ext.begin(), ext.end(), ext.begin(), to_lower);
-        std::transform(expected.begin(), expected.end(), expected.begin(), to_lower);
-#endif
 
         return ext == expected;
 

@@ -5,9 +5,9 @@ according to the "Gold Standard" requirements, plus a fit quality survey added i
 
 ---
 
-## Gold Standard Requirements (v3.0)
+## Gold Standard Requirements (v4.0)
 
-### v3.0 Interface Requirements (EmissionDistribution — added Phase 2/4.5)
+### v4.0 Interface Requirements (BasicEmissionDistribution<Obs>)
 
 All distributions must implement the `EmissionDistribution` abstract interface. New in v3.0:
 
@@ -132,7 +132,9 @@ These converge to a valid local optimum but may arrive at a suboptimal one.
 
 ## Current Status Matrix (16 distributions)
 
-All 16 distributions meet the Gold Standard v3.0 interface. 41/41 tests pass on all platforms.
+All 16 scalar distributions meet the Gold Standard v4.0 interface. 47/47 tests pass on all platforms.
+The 3 MV distributions (DiagonalGaussian, FullCovGaussian, IndependentComponents) implement
+`BasicEmissionDistribution<ObservationVectorView>` and are covered by `test_multivariate_distributions`.
 
 | Feature | G | E | Ga | U | Chi | W | Ra | Bi | NB | T | Be | LN | Pa | Po | Di | VM |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -163,7 +165,7 @@ Fit tiers: **A** = exact weighted MLE; **B** = MOM ≈ MLE; **C** = MOM, gap can
 
 ---
 
-## Distribution inventory (v3.1)
+## Distribution inventory (v4.0)
 
 ### Discrete (4)
 1. ✅ DiscreteDistribution — Tier A fit
@@ -172,6 +174,7 @@ Fit tiers: **A** = exact weighted MLE; **B** = MOM ≈ MLE; **C** = MOM, gap can
 4. ✅ PoissonDistribution — Tier A fit
 
 ### Continuous (12)
+
 5. ✅ GaussianDistribution — Tier A fit
 6. ✅ ExponentialDistribution — Tier A fit
 7. ✅ GammaDistribution — ⚠️ Tier C fit (MOM for k)

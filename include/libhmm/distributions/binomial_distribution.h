@@ -17,7 +17,7 @@ namespace libhmm {
  * - Variance: n * p * (1-p)
  * - Support: k ∈ {0, 1, 2, ..., n}
  */
-class BinomialDistribution : public DistributionBase {
+class BinomialDistribution : public DistributionBase<BinomialDistribution> {
 private:
     /** Number of trials n - must be a positive integer */
     int n_{10};

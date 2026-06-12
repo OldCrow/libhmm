@@ -20,9 +20,6 @@ function(add_hmm_tool TARGET_NAME)
 
     set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
     set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
-    if(LIBHMM_LEGACY_WARNING_SUPPRESSIONS)
-        target_compile_options(${TARGET_NAME} PRIVATE ${LIBHMM_LEGACY_WARNING_SUPPRESSIONS})
-    endif()
     set_target_properties(${TARGET_NAME} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools")
 endfunction()

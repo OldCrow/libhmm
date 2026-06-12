@@ -25,7 +25,7 @@ namespace libhmm {
  * - Support: x ∈ [x_m, ∞)
  * - Heavy-tailed distribution (polynomial decay)
  */
-class ParetoDistribution : public DistributionBase {
+class ParetoDistribution : public DistributionBase<ParetoDistribution> {
 private:
     /**
      * Shape parameter k - must be positive

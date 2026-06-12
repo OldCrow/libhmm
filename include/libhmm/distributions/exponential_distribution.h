@@ -23,7 +23,7 @@ namespace libhmm {
  * - Support: x ∈ [0, ∞)
  * - Memoryless property: P(X > s+t | X > s) = P(X > t)
  */
-class ExponentialDistribution : public DistributionBase {
+class ExponentialDistribution : public DistributionBase<ExponentialDistribution> {
 private:
     /**
      * Rate parameter λ - must be positive

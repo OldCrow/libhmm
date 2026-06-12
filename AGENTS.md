@@ -64,12 +64,8 @@ cmake --build build
 
 VS 2022 Build Tools or full VS is sufficient. Install from https://aka.ms/vs/17/release/vs_buildtools.exe, or `winget install Microsoft.VisualStudio.2022.BuildTools`, or `choco install visualstudio2022buildtools`. GTest is fetched automatically via `FetchContent`; no vcpkg needed.
 
-### macOS Catalina (10.15)
-
-libhmm has no dedicated Catalina build script. The standard `cmake --preset release` command applies, but note:
-- Avoid Homebrew LLVM/libc++ on Catalina unless specifically troubleshooting; use the system AppleClang toolchain.
-- To bypass the Homebrew libc++ compatibility guard for troubleshooting only, pass `-DLIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX=ON`.
-- Background on the ABI issue: see `../libstats/docs/BUILD_SYSTEM_GUIDE.md` (available only if the sibling `libstats` repo is checked out alongside `libhmm`).
+> macOS 13 (Ventura) is the minimum supported version in v4. macOS 12 and earlier are not
+> supported; use v3.8.0 or fork. See MIGRATION.md.
 
 Build options: `BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS` (all `ON` by default), `BUILD_BENCHMARKS` (`OFF`), `ENABLE_CLANG_TIDY` (`OFF`).
 
@@ -161,7 +157,7 @@ SIMD compile flags (`LIBHMM_BEST_SIMD_FLAGS` = `-march=native` on GCC/Clang, CPU
 There are two tiers of SIMD implementation:
 
 - **Tier 2 (explicit intrinsics)**: `GaussianDistribution` and `ExponentialDistribution`. Dispatch chain: AVX-512 → AVX/AVX2 → SSE2 → NEON → scalar. `ForwardBackwardCalculator` and `BaumWelchTrainer` also have explicit recurrence kernels via `TranscendentalKernels`.
-- **Tier 1 (compiler auto-vectorization)**: The other 14 distributions implement concrete non-virtual `getBatchLogProbabilities` loops. Whether the compiler emits vector instructions depends on the loop body and compiler; tier 1 is reliable "well-shaped scalar code" rather than guaranteed SIMD.
+- **Tier 1 (compiler auto-vectorization)**: The other 14 scalar distributions implement concrete non-virtual `getBatchLogProbabilities` loops — reliable "well-shaped scalar code" rather than guaranteed SIMD. MV distributions (`DiagonalGaussian`, `FullCovGaussian`, `IndependentComponents`) call `getLogProbability(row_view(obs, t))` per timestep rather than a batch interface and are not in `LIBHMM_SIMD_SOURCES`.
 
 `getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values.
 
@@ -189,7 +185,7 @@ if (sumW < precision::ZERO || std::isnan(sumW)) return;
 
 ### I/O
 
-JSON (`save_json` / `load_json`) is the recommended format—exact IEEE 754 round-trip, no external dependencies. Legacy XML support (`XMLFileReader` / `XMLFileWriter`) is retained for reading existing `.xml` files but deprecated for new code. Reference HMM files in both formats live in `samples/`.
+JSON is the recommended format—exact IEEE 754 round-trip, no external dependencies. Scalar: `save_json`/`load_json`. MV: `save_json_mv`/`load_json_mv` (v4 schema with `obs_type: "multivariate"`). Legacy XML (`XMLFileReader`/`XMLFileWriter`) is scalar-only and deprecated; retained for reading existing `.xml` files. Reference HMM files live in `samples/`.
 
 ## Coding conventions
 

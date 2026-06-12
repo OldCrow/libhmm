@@ -25,7 +25,7 @@ namespace libhmm {
  * - Variance: r * (1-p) / p²
  * - Support: k ∈ {0, 1, 2, ...}
  */
-class NegativeBinomialDistribution : public DistributionBase {
+class NegativeBinomialDistribution : public DistributionBase<NegativeBinomialDistribution> {
 private:
     /**
      * Number of successes r - must be positive

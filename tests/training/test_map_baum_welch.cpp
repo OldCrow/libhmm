@@ -70,18 +70,21 @@ TEST(MapBaumWelchTest, NullHmmThrows) {
 
 TEST(MapBaumWelchTest, EmptyObsThrows) {
     auto hmm = make_uniform_hmm();
-    EXPECT_THROW(MapBaumWelchTrainer(*hmm, {}, 1.0), std::invalid_argument);
+    ObservationLists empty_obs; // named empty list — rvalue {} would now be a compile error
+    EXPECT_THROW(MapBaumWelchTrainer(*hmm, empty_obs, 1.0), std::invalid_argument);
 }
 
 TEST(MapBaumWelchTest, SetPseudoCountNegativeThrows) {
     auto hmm = make_uniform_hmm();
-    MapBaumWelchTrainer trainer(*hmm, make_casino_obs(), 1.0);
+    auto obs = make_casino_obs();
+    MapBaumWelchTrainer trainer(*hmm, obs, 1.0);
     EXPECT_THROW(trainer.setPseudoCount(-0.5), std::invalid_argument);
 }
 
 TEST(MapBaumWelchTest, GetPseudoCount) {
     auto hmm = make_uniform_hmm();
-    MapBaumWelchTrainer trainer(*hmm, make_casino_obs(), 2.5);
+    auto obs = make_casino_obs();
+    MapBaumWelchTrainer trainer(*hmm, obs, 2.5);
     EXPECT_DOUBLE_EQ(trainer.getPseudoCount(), 2.5);
     trainer.setPseudoCount(0.0);
     EXPECT_DOUBLE_EQ(trainer.getPseudoCount(), 0.0);
@@ -159,13 +162,15 @@ TEST(MapBaumWelchTest, DiscreteEmissionsSmoothed) {
 
 TEST(MapBaumWelchTest, LogPriorZeroWhenCIsZero) {
     auto hmm = make_uniform_hmm();
-    MapBaumWelchTrainer trainer(*hmm, make_casino_obs(), 0.0);
+    auto obs = make_casino_obs();
+    MapBaumWelchTrainer trainer(*hmm, obs, 0.0);
     EXPECT_DOUBLE_EQ(trainer.computeLogPrior(), 0.0);
 }
 
 TEST(MapBaumWelchTest, LogPriorFiniteAndNonPositive) {
     auto hmm = make_uniform_hmm();
-    MapBaumWelchTrainer trainer(*hmm, make_casino_obs(), 1.0);
+    auto obs = make_casino_obs();
+    MapBaumWelchTrainer trainer(*hmm, obs, 1.0);
     trainer.train();
     const double lp = trainer.computeLogPrior();
     EXPECT_TRUE(std::isfinite(lp));

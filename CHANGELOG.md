@@ -5,6 +5,122 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-06-11
+
+Multivariate HMM support and full C++20 type system modernisation. 47/47 tests pass.
+
+### Added — Multivariate emissions (v4)
+
+- **`BasicHmm<Obs>`** template (`include/libhmm/basic_hmm.h`): parameterises the HMM core
+  on observation type. `using Hmm = BasicHmm<double>` preserves the v3 API unchanged;
+  `using HmmMV = BasicHmm<ObservationVectorView>` is the new multivariate alias.
+- **`BasicEmissionDistribution<Obs>`** template (`include/libhmm/distributions/basic_emission_distribution.h`):
+  virtual interface parameterised on observation type. Scalar alias
+  `using EmissionDistribution = BasicEmissionDistribution<double>` unchanged.
+- **`DistributionBase<Derived, Obs>`** CRTP base: provides thread-safe cache management,
+  default batch loop, and automatic `clone()`. Existing distributions updated to
+  `public DistributionBase<Derived>` (scalar default). See MIGRATION.md.
+- **Three multivariate distributions** (`Obs = ObservationVectorView`):
+  - `DiagonalGaussianDistribution` — D means + D variances, uncorrelated features.
+  - `FullCovarianceGaussianDistribution` — D×D covariance with Cholesky caching and
+    regularisation, weighted MLE (Baum-Welch M-step).
+  - `IndependentComponentsDistribution` — D independent scalar emissions of any type.
+- **Cholesky factorisation utilities** (`include/libhmm/linalg/cholesky.h`): `factorize`,
+  `log_det`, `inv_quad_form`, `solve_lower`. No external dependency.
+- **Multivariate observation types** in `linalg_types.h`: `ObservationMatrix` (row-major
+  T×D), `MultiObservationLists`, `ObservationVectorView = std::span<const double>`,
+  `row_view()` helper.
+- **Template calculators and trainers** (scalar aliases unchanged):
+  `BasicForwardBackwardCalculator<Obs>`, `BasicViterbiCalculator<Obs>`,
+  `BasicBaumWelchTrainer<Obs>`, `BasicMapBaumWelchTrainer<Obs>`, `BasicViterbiTrainer<Obs>`.
+  Each has scalar (`.cpp`) and MV (`_mv.cpp`) explicit-instantiation TUs compiled with
+  `LIBHMM_BEST_SIMD_FLAGS`. MV path uses `if constexpr` emission dispatch.
+- **`kmeans_init`** (`include/libhmm/training/kmeans_init.h`): Lloyd's k-means with
+  k-means++ seeding on all observation vectors; initialises MV HMM emission distributions
+  from cluster members. Standard pre-training step before `BaumWelchTrainer<OVV>`.
+- **Multivariate JSON IO** (`to_json(HmmMV)`, `from_json_mv`, `save_json_mv`, `load_json_mv`):
+  v4 schema `{"libhmm_version":"4","obs_type":"multivariate","dimensions":D,...}`.
+  Full parameter serialisation for all three MV distributions. Scalar JSON unchanged.
+- **`getDimension()` virtual** on `BasicEmissionDistribution`: returns 1 for scalar
+  distributions (default); MV distributions override to return D. Used by `to_json(HmmMV)`.
+- **`count_free_parameters` template**: works for both `Hmm` and `HmmMV`.
+- **`examples/mv_gaussian_example.cpp`**: self-contained 2D DiagonalGaussian MV HMM
+  demonstration (synthetic data, no download required).
+
+### Added — Documentation
+
+- **`MIGRATION.md`**: v3→v4 upgrade guide covering platform minimums, CRTP change,
+  `Hmm` alias, JSON IO, and new MV features.
+- **`CONTRIBUTING.md`**: contribution guidelines including toolchain policy (no PRs
+  restoring pre-v4 compiler support) and code standards (CCN ≤ 10, Doxygen, etc.).
+
+### Changed — Platform and toolchain
+
+- **Minimum compilers raised**: Apple Clang 14+ (macOS 13+), GCC 12+, Clang 14+,
+  MSVC 2022 17.x (`/std:c++20`). Catalina and earlier macOS no longer supported.
+  CMake minimum deployment target set to `13.0` on Apple.
+- **`LIBHMM_HAS_STD_RANGES` probe removed**: `std::ranges::transform` used
+  unconditionally; pre-Ventura fallback branches deleted.
+- All Catalina-specific CMake guards, Homebrew libc++ contamination detection,
+  and `LIBHMM_ALLOW_UNSUPPORTED_CATALINA_HOMEBREW_LIBCXX` option removed.
+
+### Added — New MV examples and scripts
+
+- **`examples/elk_mv_example.cpp`**: validates the v4 `IndependentComponentsDistribution`
+  API against the moveHMM R reference (Gamma + von Mises, 725 observations). Output
+  includes a statistical justification that within-state r(log\_step, angle) ≈ −0.06
+  (zero), confirming the independence assumption is appropriate. Cross-references
+  mv\_regime\_example for covariance comparison on genuinely correlated data.
+- **`examples/mv_regime_example.cpp`**: 3-state regime HMM comparing `DiagonalGaussian`
+  vs `FullCovarianceGaussian` on correlated two-sector returns. Loads real SPY + QQQ
+  monthly log-returns (2000–2022) if present; falls back to embedded synthetic DGP
+  (ρ = 0.60–0.85 per state). FullCovGaussian wins by >240 BIC units on real data;
+  within-state ρ = 0.83–0.92. Validated against hmmlearn 0.3.3 — Model B LLs agree
+  to < 0.1 nat.
+- **`scripts/prepare_mv_regime_data.R`**: downloads SPY + QQQ monthly returns from Yahoo
+  Finance via quantmod; writes `/tmp/spy_qqq_monthly.csv`.
+- **`scripts/verify_mv_regime.py`**: hmmlearn 0.3.3 reference fit (20 random restarts,
+  diagonal and full covariance) for direct comparison against mv\_regime\_example output.
+- **`docs/Future_Performance_Work.md`**: replaces the outdated performance-optimisation
+  document with a concise, accurate future-work document reflecting current SIMD
+  architecture.
+
+### Added — MV distribution setter API
+
+- **`DiagonalGaussianDistribution`**: `setParameters(means, variances)`, `setMeans(means)`,
+  `setVariances(variances)` — consistent with the univariate setter pattern.
+- **`FullCovarianceGaussianDistribution`**: `setMean(mean)`, `setCovariance(cov)`,
+  `setParameters(mean, cov)` — validate dimensions and recompute Cholesky factor.
+- **`IndependentComponentsDistribution`**: `setComponent(d, ptr)` — replace a component
+  distribution after construction.
+
+### Changed — Code quality
+
+- All trainer/calculator `train()` functions refactored to CCN ≤ 10 via extracted
+  helpers: `accum_one_sequence`, `process_one_sequence`, `precompute_log_trans_flat`,
+  `seed_kmeanspp`, `lloyd_assign`, `lloyd_update`, `fit_clusters`.
+- `FullCovarianceGaussianDistribution::fit()` refactored with extracted
+  `compute_mean`, `compute_cov`, `compute_weighted_mean`, `compute_weighted_cov`.
+- `from_json`/`from_json_mv` refactored with `checked_size`, `build_hmm`,
+  `read_distribution_array` helpers; CCN 14 → 4.
+- `fillLogEmissions` (non-static) renamed from `fill_log_emissions` for naming-convention
+  consistency (non-static methods use camelCase; static helpers use snake_case).
+- `DiagonalGaussianDistribution::setParameters` and `setVariances`: `variances` parameter
+  changed from pass-by-value to `const std::vector<double>&` (never moved).
+
+### Tests (47 total, up from 42)
+
+- `test_mv_calculator`: `BasicForwardBackwardCalculator<OVV>`, `BasicViterbiCalculator<OVV>`.
+- `test_mv_training`: `BasicBaumWelchTrainer<OVV>`, `BasicViterbiTrainer<OVV>`,
+  `BasicMapBaumWelchTrainer<OVV>`, `kmeans_init`.
+- `test_hmm_json_mv`: MV JSON round-trip, file I/O, schema validation, error cases.
+- `test_cholesky`: Cholesky factorisation with exact analytical reference values.
+- `test_model_selection` expanded: MV distribution parameter counts, `count_free_parameters(HmmMV)`.
+- `test_multivariate_distributions` expanded: 11 new setter tests covering `setParameters`,
+  `setMeans`, `setVariances`, `setMean`, `setCovariance`, and `setComponent`.
+
+---
+
 ## [3.8.0] - 2026-06-07
 
 Final v3.x release before v4.0.0. 42/42 tests pass.
