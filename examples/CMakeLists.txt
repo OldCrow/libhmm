@@ -64,6 +64,9 @@ add_hmm_example(elk_mv_example elk_mv_example.cpp)
 # MV regime: DiagonalGaussian vs FullCovGaussian on two-sector synthetic returns (no data download)
 add_hmm_example(mv_regime_example mv_regime_example.cpp)
 
+# Network anomaly POC: MV HMM on CTU-13 Scenario 1 (Neris botnet binetflow)
+add_hmm_example(zeek_anomaly_poc zeek_anomaly_poc.cpp)
+
 # Real-world finance benchmark: DAX regime detection vs fHMM (R)
 add_hmm_example(dax_regime_example dax_regime_example.cpp)
 
@@ -96,6 +99,7 @@ install(TARGETS
     elk_movement_example
     elk_mv_example
     mv_regime_example
+    zeek_anomaly_poc
     dax_regime_example
     sp500_regime_example
     earthquake_example

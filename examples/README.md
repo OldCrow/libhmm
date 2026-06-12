@@ -89,6 +89,19 @@ k-means++ initialisation, Baum-Welch training, log-probability scoring, and JSON
 No external data required — runs standalone.
 **Distributions:** DiagonalGaussianDistribution (2D)
 
+#### [zeek_anomaly_poc.cpp](zeek_anomaly_poc.cpp)
+Network anomaly detection proof-of-concept using MV HMM on real labelled network
+traffic. Trains a 3-state DiagonalGaussian and FullCovarianceGaussian HMM on
+benign-only per-connection-key flow sequences from CTU-13 Scenario 1 (Neris botnet),
+then scores all sequences and reports detection rates and Cohen's d separation.
+Motivates the full zeekhmm offline post-processor project.
+
+**Data:** `python3 scripts/prepare_ctu13_data.py` (downloads 369 MB binetflow;
+`capture20110810.binetflow` cached in /tmp for reuse)
+**Reference:** Garcia et al. (2014), *Computers and Security*, 45, 100-123
+
+---
+
 #### [mv_regime_example.cpp](mv_regime_example.cpp)
 3-state market regime HMM comparing DiagonalGaussian vs FullCovarianceGaussian on correlated
 two-sector returns. Loads real SPY + QQQ monthly log-returns (2000–2022) if
