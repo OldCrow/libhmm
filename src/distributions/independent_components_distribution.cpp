@@ -45,7 +45,8 @@ IndependentComponentsDistribution::IndependentComponentsDistribution(
 
 IndependentComponentsDistribution::IndependentComponentsDistribution(
     const IndependentComponentsDistribution& other)
-    : dim_{other.dim_}
+    : DistributionBase<IndependentComponentsDistribution, ObservationVectorView>(other)
+    , dim_{other.dim_}
 {
     components_.reserve(dim_);
     for (const auto& c : other.components_) {

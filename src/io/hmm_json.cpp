@@ -44,32 +44,39 @@ std::size_t checked_size(double raw, double lo, double hi, const char* err_msg) 
 
 using FactoryFn = std::unique_ptr<EmissionDistribution> (*)(json::Reader&);
 
-const std::unordered_map<std::string, FactoryFn> kFactory = {
-    {"Gaussian",         &GaussianDistribution::from_json},
-    {"Exponential",      &ExponentialDistribution::from_json},
-    {"Gamma",            &GammaDistribution::from_json},
-    {"Beta",             &BetaDistribution::from_json},
-    {"Weibull",          &WeibullDistribution::from_json},
-    {"LogNormal",        &LogNormalDistribution::from_json},
-    {"Pareto",           &ParetoDistribution::from_json},
-    {"NegativeBinomial", &NegativeBinomialDistribution::from_json},
-    {"ChiSquared",       &ChiSquaredDistribution::from_json},
-    {"StudentT",         &StudentTDistribution::from_json},
-    {"Poisson",          &PoissonDistribution::from_json},
-    {"Binomial",         &BinomialDistribution::from_json},
-    {"Discrete",         &DiscreteDistribution::from_json},
-    {"Uniform",          &UniformDistribution::from_json},
-    {"Rayleigh",         &RayleighDistribution::from_json},
-    {"VonMises",         &VonMisesDistribution::from_json},
-};
+/// Returns the scalar distribution factory map.
+/// Function-local static avoids bugprone-throwing-static-initialization:
+/// std::unordered_map construction is deferred to first call and any exception
+/// propagates normally rather than terminating during static initialisation.
+const std::unordered_map<std::string, FactoryFn>& scalar_factory() {
+    static const std::unordered_map<std::string, FactoryFn> s = {
+        {"Gaussian",         &GaussianDistribution::from_json},
+        {"Exponential",      &ExponentialDistribution::from_json},
+        {"Gamma",            &GammaDistribution::from_json},
+        {"Beta",             &BetaDistribution::from_json},
+        {"Weibull",          &WeibullDistribution::from_json},
+        {"LogNormal",        &LogNormalDistribution::from_json},
+        {"Pareto",           &ParetoDistribution::from_json},
+        {"NegativeBinomial", &NegativeBinomialDistribution::from_json},
+        {"ChiSquared",       &ChiSquaredDistribution::from_json},
+        {"StudentT",         &StudentTDistribution::from_json},
+        {"Poisson",          &PoissonDistribution::from_json},
+        {"Binomial",         &BinomialDistribution::from_json},
+        {"Discrete",         &DiscreteDistribution::from_json},
+        {"Uniform",          &UniformDistribution::from_json},
+        {"Rayleigh",         &RayleighDistribution::from_json},
+        {"VonMises",         &VonMisesDistribution::from_json},
+    };
+    return s;
+}
 
 /// Parse one scalar distribution object.  Reader is positioned before '{'.
 std::unique_ptr<EmissionDistribution> read_distribution(json::Reader& r) {
     r.consume('{');
     r.read_key();
     const std::string type = r.read_string();
-    const auto it = kFactory.find(type);
-    if (it == kFactory.end())
+    const auto it = scalar_factory().find(type);
+    if (it == scalar_factory().end())
         throw std::runtime_error("HMM JSON: unknown distribution type \"" + type + "\"");
     return it->second(r);
 }
@@ -153,7 +160,7 @@ Hmm from_json(std::string_view src) {
     if (src.size() > kMaxJsonInputBytes)
         throw std::runtime_error(
             "HMM JSON: input exceeds maximum allowed size (" +
-            std::to_string(kMaxJsonInputBytes / (1024 * 1024)) + " MB)");
+            std::to_string(kMaxJsonInputBytes / (1024UL * 1024UL)) + " MB)");
 
     json::Reader r(src);
     r.consume('{');
@@ -320,7 +327,7 @@ HmmMV from_json_mv(std::string_view src) {
     if (src.size() > kMaxJsonInputBytes)
         throw std::runtime_error(
             "HMM MV JSON: input exceeds maximum allowed size (" +
-            std::to_string(kMaxJsonInputBytes / (1024 * 1024)) + " MB)");
+            std::to_string(kMaxJsonInputBytes / (1024UL * 1024UL)) + " MB)");
 
     json::Reader r(src);
     r.consume('{');

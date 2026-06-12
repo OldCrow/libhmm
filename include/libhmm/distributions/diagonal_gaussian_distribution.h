@@ -47,8 +47,8 @@ private:
     static constexpr double kMinVar = 1e-6;
 
     void updateCache() const noexcept {
-        log_var_.resize(dim_);
-        inv_var_.resize(dim_);
+        // log_var_ and inv_var_ are pre-sized to dim_ in the constructor and
+        // never change size thereafter; no resize needed here.
         log_normalizer_ = 0.5 * static_cast<double>(dim_) * constants::math::LN_2PI;
         for (std::size_t d = 0; d < dim_; ++d) {
             log_var_[d] = std::log(var_[d]);

@@ -68,7 +68,7 @@ namespace {
 /// MoM seed for k (coefficient-of-variation approximation).
 void weibull_mom_init(double mean, double var, double &k_out, double &lambda_out) noexcept {
     const double cv = std::sqrt(var) / mean;
-    double k_est;
+    double k_est = 0.0;
     if (cv < 0.2)
         k_est = 1.0 / (cv * cv * 6.0);
     else if (cv < 1.0)
@@ -180,7 +180,7 @@ void WeibullDistribution::fit(std::span<const double> data) {
 
     double k_init = 1.0;
     if (variance > precision::ZERO && mean > precision::ZERO) {
-        double lambda_tmp;
+        double lambda_tmp = 0.0;
         weibull_mom_init(mean, variance, k_init, lambda_tmp);
     }
 
@@ -237,7 +237,7 @@ void WeibullDistribution::fit(std::span<const double> data, std::span<const doub
 
     double k_init = 1.0;
     if (variance > precision::ZERO && mean > precision::ZERO) {
-        double lambda_tmp;
+        double lambda_tmp = 0.0;
         weibull_mom_init(mean, variance, k_init, lambda_tmp);
     }
 
