@@ -14,6 +14,7 @@
 #include "libhmm/distributions/full_covariance_gaussian_distribution.h"
 #include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/distributions/independent_components_distribution.h"
+#include <array>
 #include <cmath>
 #include <random>
 #include <vector>
