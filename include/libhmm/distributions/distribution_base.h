@@ -69,7 +69,40 @@ public:
     ~DistributionBase() override = default;
 
     // =========================================================================
+    // CRTP clone()
+    //
+    // Returns a heap-allocated copy of the concrete distribution.
+    // Requires Derived to be copy-constructible (all concrete distributions are).
+    // =========================================================================
+
+    [[nodiscard]] std::unique_ptr<BasicEmissionDistribution<Obs>>
+    clone() const override {
+        return std::make_unique<Derived>(static_cast<const Derived&>(*this));
+    }
+
+    // =========================================================================
+    // Default batch log-probability (scalar loop)
+    //
+    // Concrete distributions override this for SIMD vectorization.
+    // The virtual getLogProbability() call is intentionally explicit to make
+    // the virtual dispatch visible at the call site.
+    // =========================================================================
+
+    void getBatchLogProbabilities(std::span<const Obs> observations,
+                                  std::span<double> out) const override {
+        assert(observations.size() == out.size());
+        for (std::size_t i = 0; i < observations.size(); ++i) {
+            out[i] = this->getLogProbability(observations[i]);
+        }
+    }
+
+protected:
+    // =========================================================================
     // Rule of Five
+    //
+    // Constructors and assignment operators are protected: DistributionBase is
+    // a CRTP intermediate and should never be instantiated directly.  Only
+    // derived classes construct and assign through these operations.
     //
     // std::atomic<bool> is neither copyable nor movable, so copy/move
     // operations are defined explicitly to load and store the atomic flag.
@@ -108,35 +141,6 @@ public:
         return *this;
     }
 
-    // =========================================================================
-    // CRTP clone()
-    //
-    // Returns a heap-allocated copy of the concrete distribution.
-    // Requires Derived to be copy-constructible (all concrete distributions are).
-    // =========================================================================
-
-    [[nodiscard]] std::unique_ptr<BasicEmissionDistribution<Obs>>
-    clone() const override {
-        return std::make_unique<Derived>(static_cast<const Derived&>(*this));
-    }
-
-    // =========================================================================
-    // Default batch log-probability (scalar loop)
-    //
-    // Concrete distributions override this for SIMD vectorization.
-    // The virtual getLogProbability() call is intentionally explicit to make
-    // the virtual dispatch visible at the call site.
-    // =========================================================================
-
-    void getBatchLogProbabilities(std::span<const Obs> observations,
-                                  std::span<double> out) const override {
-        assert(observations.size() == out.size());
-        for (std::size_t i = 0; i < observations.size(); ++i) {
-            out[i] = this->getLogProbability(observations[i]);
-        }
-    }
-
-protected:
     // =========================================================================
     // Thread-safe cache management
     //
