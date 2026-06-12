@@ -135,8 +135,8 @@ public:
      * @throws std::invalid_argument if symbols <= 0
      */
     explicit DiscreteDistribution(int symbols = 10)
-        : DistributionBase<DiscreteDistribution>{}, numSymbols_{validateSymbols(symbols)}, pdf_(numSymbols_),
-          cachedSum_{1.0}, cachedEntropy_{0.0} {
+        : DistributionBase<DiscreteDistribution>{}, numSymbols_{validateSymbols(symbols)},
+          pdf_(numSymbols_), cachedSum_{1.0}, cachedEntropy_{0.0} {
         init_uniform();
     }
 

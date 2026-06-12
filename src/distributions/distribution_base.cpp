@@ -29,7 +29,7 @@ double DistributionMathHelper::gammap(double a, double x) noexcept {
     }
 }
 
-void DistributionMathHelper::gcf(double& gammcf, double a, double x, double& gln) noexcept {
+void DistributionMathHelper::gcf(double &gammcf, double a, double x, double &gln) noexcept {
     using namespace libhmm::constants;
 
     gln = std::lgamma(a);
@@ -57,7 +57,7 @@ void DistributionMathHelper::gcf(double& gammcf, double a, double x, double& gln
     gammcf = std::exp(-x + a * std::log(x) - gln) * h;
 }
 
-void DistributionMathHelper::gser(double& gamser, double a, double x, double& gln) noexcept {
+void DistributionMathHelper::gser(double &gamser, double a, double x, double &gln) noexcept {
     using namespace libhmm::constants;
 
     gln = std::lgamma(a);
@@ -88,9 +88,12 @@ double DistributionMathHelper::incompleteBeta(double x, double a, double b) noex
     // Regularized incomplete beta function I_x(a, b).
     // Continued-fraction algorithm (Numerical Recipes §6.4) with symmetry
     // relation I_x(a,b) = 1 - I_{1-x}(b,a) for improved convergence.
-    if (x <= 0.0) return 0.0;
-    if (x >= 1.0) return 1.0;
-    if (a <= 0.0 || b <= 0.0) return 0.0;
+    if (x <= 0.0)
+        return 0.0;
+    if (x >= 1.0)
+        return 1.0;
+    if (a <= 0.0 || b <= 0.0)
+        return 0.0;
 
     // Apply symmetry for better convergence when x is large.
     const bool use_symmetry = (x > (a + 1.0) / (a + b + 2.0));
@@ -98,40 +101,48 @@ double DistributionMathHelper::incompleteBeta(double x, double a, double b) noex
     const double ra = use_symmetry ? b : a;
     const double rb = use_symmetry ? a : b;
 
-    const double log_beta_ab =
-        std::lgamma(ra) + std::lgamma(rb) - std::lgamma(ra + rb);
-    const double log_prefix = ra * std::log(rx) + rb * std::log(1.0 - rx)
-                              - std::log(ra) - log_beta_ab;
+    const double log_beta_ab = std::lgamma(ra) + std::lgamma(rb) - std::lgamma(ra + rb);
+    const double log_prefix =
+        ra * std::log(rx) + rb * std::log(1.0 - rx) - std::log(ra) - log_beta_ab;
     const double prefix = std::exp(log_prefix);
 
     // Evaluate continued fraction.
     constexpr int kMaxIter = 200;
-    constexpr double kTol  = 1e-12;
+    constexpr double kTol = 1e-12;
     constexpr double kTiny = 1e-30;
 
     double c = 1.0;
     double d = 1.0 - (ra + rb) * rx / (ra + 1.0);
-    if (std::abs(d) < kTiny) d = kTiny;
+    if (std::abs(d) < kTiny)
+        d = kTiny;
     d = 1.0 / d;
     double cf = d;
 
     for (int m = 1; m <= kMaxIter; ++m) {
         // Even step (2m)
-        double num = m * (rb - m) * rx /
-                     ((ra + 2.0 * m - 1.0) * (ra + 2.0 * m));
-        d = 1.0 + num * d;  if (std::abs(d) < kTiny) d = kTiny;
-        c = 1.0 + num / c;  if (std::abs(c) < kTiny) c = kTiny;
-        d = 1.0 / d;  cf *= d * c;
+        double num = m * (rb - m) * rx / ((ra + 2.0 * m - 1.0) * (ra + 2.0 * m));
+        d = 1.0 + num * d;
+        if (std::abs(d) < kTiny)
+            d = kTiny;
+        c = 1.0 + num / c;
+        if (std::abs(c) < kTiny)
+            c = kTiny;
+        d = 1.0 / d;
+        cf *= d * c;
 
         // Odd step (2m+1)
-        num = -(ra + m) * (ra + rb + m) * rx /
-              ((ra + 2.0 * m) * (ra + 2.0 * m + 1.0));
-        d = 1.0 + num * d;  if (std::abs(d) < kTiny) d = kTiny;
-        c = 1.0 + num / c;  if (std::abs(c) < kTiny) c = kTiny;
+        num = -(ra + m) * (ra + rb + m) * rx / ((ra + 2.0 * m) * (ra + 2.0 * m + 1.0));
+        d = 1.0 + num * d;
+        if (std::abs(d) < kTiny)
+            d = kTiny;
+        c = 1.0 + num / c;
+        if (std::abs(c) < kTiny)
+            c = kTiny;
         d = 1.0 / d;
         const double delta = d * c;
         cf *= delta;
-        if (std::abs(delta - 1.0) < kTol) break;
+        if (std::abs(delta - 1.0) < kTol)
+            break;
     }
 
     const double result = prefix * cf;

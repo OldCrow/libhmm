@@ -14,9 +14,7 @@ namespace libhmm {
 // Construction
 // =============================================================================
 
-IndependentComponentsDistribution::IndependentComponentsDistribution(std::size_t dim)
-    : dim_{dim}
-{
+IndependentComponentsDistribution::IndependentComponentsDistribution(std::size_t dim) : dim_{dim} {
     if (dim == 0) {
         throw std::invalid_argument("IndependentComponentsDistribution: dim must be > 0");
     }
@@ -28,28 +26,25 @@ IndependentComponentsDistribution::IndependentComponentsDistribution(std::size_t
 
 IndependentComponentsDistribution::IndependentComponentsDistribution(
     std::vector<std::unique_ptr<EmissionDistribution>> components)
-    : dim_{components.size()}, components_{std::move(components)}
-{
+    : dim_{components.size()}, components_{std::move(components)} {
     if (dim_ == 0) {
         throw std::invalid_argument(
             "IndependentComponentsDistribution: components must be non-empty");
     }
     for (std::size_t d = 0; d < dim_; ++d) {
         if (!components_[d]) {
-            throw std::invalid_argument(
-                "IndependentComponentsDistribution: component " +
-                std::to_string(d) + " is null");
+            throw std::invalid_argument("IndependentComponentsDistribution: component " +
+                                        std::to_string(d) + " is null");
         }
     }
 }
 
 IndependentComponentsDistribution::IndependentComponentsDistribution(
-    const IndependentComponentsDistribution& other)
-    : DistributionBase<IndependentComponentsDistribution, ObservationVectorView>(other)
-    , dim_{other.dim_}
-{
+    const IndependentComponentsDistribution &other)
+    : DistributionBase<IndependentComponentsDistribution, ObservationVectorView>(other),
+      dim_{other.dim_} {
     components_.reserve(dim_);
-    for (const auto& c : other.components_) {
+    for (const auto &c : other.components_) {
         components_.push_back(c->clone());
     }
 }
@@ -59,9 +54,9 @@ IndependentComponentsDistribution::IndependentComponentsDistribution(
 // =============================================================================
 
 double IndependentComponentsDistribution::getLogProbability(
-    const ObservationVectorView& x) const noexcept
-{
-    if (x.size() != dim_) return -std::numeric_limits<double>::infinity();
+    const ObservationVectorView &x) const noexcept {
+    if (x.size() != dim_)
+        return -std::numeric_limits<double>::infinity();
     double logp = 0.0;
     for (std::size_t d = 0; d < dim_; ++d) {
         logp += components_[d]->getLogProbability(x[d]);
@@ -69,9 +64,7 @@ double IndependentComponentsDistribution::getLogProbability(
     return logp;
 }
 
-double IndependentComponentsDistribution::getProbability(
-    const ObservationVectorView& x) const
-{
+double IndependentComponentsDistribution::getProbability(const ObservationVectorView &x) const {
     return std::exp(getLogProbability(x));
 }
 
@@ -79,10 +72,11 @@ double IndependentComponentsDistribution::getProbability(
 // Fitting
 // =============================================================================
 
-void IndependentComponentsDistribution::fit(
-    std::span<const ObservationVectorView> data)
-{
-    if (data.empty()) { reset(); return; }
+void IndependentComponentsDistribution::fit(std::span<const ObservationVectorView> data) {
+    if (data.empty()) {
+        reset();
+        return;
+    }
     const std::size_t n = data.size();
     std::vector<double> dim_data(n);
     for (std::size_t d = 0; d < dim_; ++d) {
@@ -93,12 +87,11 @@ void IndependentComponentsDistribution::fit(
     }
 }
 
-void IndependentComponentsDistribution::fit(
-    std::span<const ObservationVectorView> data,
-    std::span<const double> weights)
-{
+void IndependentComponentsDistribution::fit(std::span<const ObservationVectorView> data,
+                                            std::span<const double> weights) {
     const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
-    if (sumW <= 0.0 || data.empty()) return;
+    if (sumW <= 0.0 || data.empty())
+        return;
 
     const std::size_t n = data.size();
     std::vector<double> dim_data(n);
@@ -112,14 +105,14 @@ void IndependentComponentsDistribution::fit(
     }
 }
 
-void IndependentComponentsDistribution::reset() noexcept
-{
-    for (auto& c : components_) { c->reset(); }
+void IndependentComponentsDistribution::reset() noexcept {
+    for (auto &c : components_) {
+        c->reset();
+    }
 }
 
 void IndependentComponentsDistribution::setComponent(
-    std::size_t d, std::unique_ptr<EmissionDistribution> component)
-{
+    std::size_t d, std::unique_ptr<EmissionDistribution> component) {
     if (d >= dim_)
         throw std::invalid_argument(
             "IndependentComponentsDistribution::setComponent: index out of range");
@@ -133,16 +126,12 @@ void IndependentComponentsDistribution::setComponent(
 // Sampling
 // =============================================================================
 
-double IndependentComponentsDistribution::sample(std::mt19937_64&) const
-{
-    throw std::logic_error(
-        "IndependentComponentsDistribution::sample() returns double which is "
-        "not meaningful for D-dimensional distributions. Use sample_mv().");
+double IndependentComponentsDistribution::sample(std::mt19937_64 &) const {
+    throw std::logic_error("IndependentComponentsDistribution::sample() returns double which is "
+                           "not meaningful for D-dimensional distributions. Use sample_mv().");
 }
 
-std::vector<double> IndependentComponentsDistribution::sample_mv(
-    std::mt19937_64& rng) const
-{
+std::vector<double> IndependentComponentsDistribution::sample_mv(std::mt19937_64 &rng) const {
     std::vector<double> result(dim_);
     for (std::size_t d = 0; d < dim_; ++d) {
         result[d] = components_[d]->sample(rng);
@@ -154,23 +143,23 @@ std::vector<double> IndependentComponentsDistribution::sample_mv(
 // Metadata
 // =============================================================================
 
-bool IndependentComponentsDistribution::isDiscrete() const noexcept
-{
-    for (const auto& c : components_) {
-        if (!c->isDiscrete()) return false;
+bool IndependentComponentsDistribution::isDiscrete() const noexcept {
+    for (const auto &c : components_) {
+        if (!c->isDiscrete())
+            return false;
     }
     return true;
 }
 
-std::size_t IndependentComponentsDistribution::getNumParameters() const noexcept
-{
+std::size_t IndependentComponentsDistribution::getNumParameters() const noexcept {
     std::size_t total = 0;
-    for (const auto& c : components_) { total += c->getNumParameters(); }
+    for (const auto &c : components_) {
+        total += c->getNumParameters();
+    }
     return total;
 }
 
-std::string IndependentComponentsDistribution::to_json() const
-{
+std::string IndependentComponentsDistribution::to_json() const {
     std::string s;
     s.reserve(64 + dim_ * 80);
     s += "{\"type\":\"IndependentComponents\"";
@@ -179,15 +168,15 @@ std::string IndependentComponentsDistribution::to_json() const
     s += std::to_string(dim_);
     s += ",\"components\":[";
     for (std::size_t d = 0; d < dim_; ++d) {
-        if (d) s += ',';
+        if (d)
+            s += ',';
         s += components_[d]->to_json();
     }
     s += "]}"; // close components array, then outer object
     return s;
 }
 
-std::string IndependentComponentsDistribution::toString() const
-{
+std::string IndependentComponentsDistribution::toString() const {
     std::ostringstream oss;
     oss << "IndependentComponents Distribution (D=" << dim_ << "):\n";
     for (std::size_t d = 0; d < dim_; ++d) {

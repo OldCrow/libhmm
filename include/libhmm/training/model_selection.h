@@ -36,17 +36,17 @@ struct HmmModelCriteria {
  * @param hmm  The HMM to inspect.
  * @return Total free parameter count.
  */
-template<typename Obs>
-[[nodiscard]] std::size_t count_free_parameters(const BasicHmm<Obs>& hmm) {
+template <typename Obs>
+[[nodiscard]] std::size_t count_free_parameters(const BasicHmm<Obs> &hmm) {
     const std::size_t N = hmm.getNumStatesModern();
-    std::size_t k = N * (N - 1) + (N - 1);  // transition rows + pi simplex
+    std::size_t k = N * (N - 1) + (N - 1); // transition rows + pi simplex
     for (std::size_t i = 0; i < N; ++i)
         k += hmm.getDistribution(i).getNumParameters();
     return k;
 }
 
 /// @brief Scalar specialisation — delegates to the template.
-[[nodiscard]] inline std::size_t count_free_parameters(const Hmm& hmm) {
+[[nodiscard]] inline std::size_t count_free_parameters(const Hmm &hmm) {
     return count_free_parameters<double>(hmm);
 }
 

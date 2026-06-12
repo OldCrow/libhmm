@@ -260,7 +260,7 @@ std::unique_ptr<EmissionDistribution> parse_rayleigh(std::istream &is) {
 // represented by a single-token lookup. Use JSON I/O for NegativeBinomial.
 /// Returns the stream-parser dispatch map.
 /// Function-local static avoids bugprone-throwing-static-initialization.
-const std::unordered_map<std::string, StreamParserFn>& stream_parsers() {
+const std::unordered_map<std::string, StreamParserFn> &stream_parsers() {
     static const std::unordered_map<std::string, StreamParserFn> s = {
         {"Gaussian", parse_gaussian},    {"Discrete", parse_discrete},
         {"Gamma", parse_gamma},          {"Exponential", parse_exponential},

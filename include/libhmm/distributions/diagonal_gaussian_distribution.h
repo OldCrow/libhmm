@@ -35,13 +35,13 @@ class DiagonalGaussianDistribution
     : public DistributionBase<DiagonalGaussianDistribution, ObservationVectorView> {
 private:
     std::size_t dim_{0};
-    std::vector<double> mean_;      ///< μ_d  for d in [0, D)
-    std::vector<double> var_;       ///< σ²_d for d in [0, D)
+    std::vector<double> mean_; ///< μ_d  for d in [0, D)
+    std::vector<double> var_;  ///< σ²_d for d in [0, D)
 
     // Cached values (updated when parameters change)
-    mutable std::vector<double> log_var_;   ///< log(σ²_d)
-    mutable std::vector<double> inv_var_;   ///< 1 / σ²_d
-    mutable double log_normalizer_{0.0};    ///< D/2 · log(2π)
+    mutable std::vector<double> log_var_; ///< log(σ²_d)
+    mutable std::vector<double> inv_var_; ///< 1 / σ²_d
+    mutable double log_normalizer_{0.0};  ///< D/2 · log(2π)
 
     /// Minimum allowed variance (prevents numerical collapse).
     static constexpr double kMinVar = 1e-6;
@@ -68,14 +68,12 @@ public:
      * @param mean  Initial mean for all dimensions (default 0.0).
      * @param var   Initial variance for all dimensions (default 1.0, must be > 0).
      */
-    explicit DiagonalGaussianDistribution(std::size_t dim,
-                                          double mean = 0.0,
-                                          double var  = 1.0);
+    explicit DiagonalGaussianDistribution(std::size_t dim, double mean = 0.0, double var = 1.0);
 
-    DiagonalGaussianDistribution(const DiagonalGaussianDistribution&) = default;
-    DiagonalGaussianDistribution& operator=(const DiagonalGaussianDistribution&) = default;
-    DiagonalGaussianDistribution(DiagonalGaussianDistribution&&) = default;
-    DiagonalGaussianDistribution& operator=(DiagonalGaussianDistribution&&) = default;
+    DiagonalGaussianDistribution(const DiagonalGaussianDistribution &) = default;
+    DiagonalGaussianDistribution &operator=(const DiagonalGaussianDistribution &) = default;
+    DiagonalGaussianDistribution(DiagonalGaussianDistribution &&) = default;
+    DiagonalGaussianDistribution &operator=(DiagonalGaussianDistribution &&) = default;
     ~DiagonalGaussianDistribution() override = default;
 
     // =========================================================================
@@ -83,21 +81,19 @@ public:
     // =========================================================================
 
     /** @brief exp(getLogProbability(x)). Prefer the log version. */
-    [[nodiscard]] double getProbability(const ObservationVectorView& x) const override;
+    [[nodiscard]] double getProbability(const ObservationVectorView &x) const override;
 
     /**
      * @brief log p(x) = -D/2·log(2π) - ½·Σ_d [log(σ²_d) + (x_d-μ_d)²/σ²_d]
      * Precondition: x.size() == getDimension()
      */
-    [[nodiscard]] double getLogProbability(
-        const ObservationVectorView& x) const noexcept override;
+    [[nodiscard]] double getLogProbability(const ObservationVectorView &x) const noexcept override;
 
     /** @brief Unweighted MLE: per-dimension sample mean and variance. */
     void fit(std::span<const ObservationVectorView> data) override;
 
     /** @brief Weighted MLE (Baum-Welch M-step): per-dimension weighted mean and variance. */
-    void fit(std::span<const ObservationVectorView> data,
-             std::span<const double> weights) override;
+    void fit(std::span<const ObservationVectorView> data, std::span<const double> weights) override;
 
     /** @brief Reset to zero mean and unit variance for all dimensions. */
     void reset() noexcept override;
@@ -107,33 +103,31 @@ public:
      * Use sample_mv() instead.
      * @throws std::logic_error always.
      */
-    [[nodiscard]] double sample(std::mt19937_64& rng) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /** @brief Draw a D-dimensional sample: result[d] ~ N(μ_d, σ²_d). */
-    [[nodiscard]] std::vector<double> sample_mv(std::mt19937_64& rng) const;
+    [[nodiscard]] std::vector<double> sample_mv(std::mt19937_64 &rng) const;
 
     [[nodiscard]] std::string to_json() const override;
     [[nodiscard]] std::string toString() const override;
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
 
     /** @brief 2·D (D means + D variances). */
-    [[nodiscard]] std::size_t getNumParameters() const noexcept override {
-        return 2 * dim_;
-    }
+    [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 2 * dim_; }
 
     // =========================================================================
     // Accessors
     // =========================================================================
 
     [[nodiscard]] std::size_t getDimension() const noexcept override { return dim_; }
-    [[nodiscard]] const std::vector<double>& getMean()     const noexcept { return mean_; }
-    [[nodiscard]] const std::vector<double>& getVariance() const noexcept { return var_;  }
+    [[nodiscard]] const std::vector<double> &getMean() const noexcept { return mean_; }
+    [[nodiscard]] const std::vector<double> &getVariance() const noexcept { return var_; }
 
     /**
      * @brief Set per-dimension means and variances simultaneously.
      * @throws std::invalid_argument if sizes differ from getDimension() or any variance <= 0.
      */
-    void setParameters(std::vector<double> means, const std::vector<double>& variances) {
+    void setParameters(std::vector<double> means, const std::vector<double> &variances) {
         if (means.size() != dim_ || variances.size() != dim_)
             throw std::invalid_argument(
                 "DiagonalGaussianDistribution::setParameters: size mismatch");
@@ -153,8 +147,7 @@ public:
      */
     void setMeans(std::vector<double> means) {
         if (means.size() != dim_)
-            throw std::invalid_argument(
-                "DiagonalGaussianDistribution::setMeans: size mismatch");
+            throw std::invalid_argument("DiagonalGaussianDistribution::setMeans: size mismatch");
         mean_ = std::move(means);
         invalidateCache();
     }
@@ -163,7 +156,7 @@ public:
      * @brief Set per-dimension variances only.
      * @throws std::invalid_argument if size differs from getDimension() or any value <= 0.
      */
-    void setVariances(const std::vector<double>& variances) {
+    void setVariances(const std::vector<double> &variances) {
         if (variances.size() != dim_)
             throw std::invalid_argument(
                 "DiagonalGaussianDistribution::setVariances: size mismatch");
@@ -182,7 +175,7 @@ public:
      * Reads remaining fields and the closing '}'.
      */
     [[nodiscard]] static std::unique_ptr<BasicEmissionDistribution<ObservationVectorView>>
-    from_json(json::Reader& r);
+    from_json(json::Reader &r);
 };
 
 } // namespace libhmm

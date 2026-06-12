@@ -108,10 +108,9 @@ inline constexpr std::size_t CONTINUOUS_DISTRIBUTION_COUNT = 12;
 /// Number of multivariate distribution types (Obs = ObservationVectorView, v4)
 inline constexpr std::size_t MULTIVARIATE_DISTRIBUTION_COUNT = 3;
 
-static_assert(
-    DISCRETE_DISTRIBUTION_COUNT +
-    CONTINUOUS_DISTRIBUTION_COUNT +
-    MULTIVARIATE_DISTRIBUTION_COUNT == DISTRIBUTION_COUNT,
-    "Distribution counts must be consistent");
+static_assert(DISCRETE_DISTRIBUTION_COUNT + CONTINUOUS_DISTRIBUTION_COUNT +
+                      MULTIVARIATE_DISTRIBUTION_COUNT ==
+                  DISTRIBUTION_COUNT,
+              "Distribution counts must be consistent");
 } // namespace detail
 } // namespace libhmm

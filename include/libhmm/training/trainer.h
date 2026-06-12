@@ -11,7 +11,7 @@
 // derive from Trainer and continue to work unchanged.
 
 #include "libhmm/training/basic_trainer.h"
-#include "libhmm/hmm.h"   // provides 'Hmm = BasicHmm<double>' alias
+#include "libhmm/hmm.h" // provides 'Hmm = BasicHmm<double>' alias
 
 namespace libhmm {
 

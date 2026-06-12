@@ -36,7 +36,7 @@ namespace libhmm {
 // =============================================================================
 
 /// Serialize a scalar HMM to a compact JSON string.
-[[nodiscard]] std::string to_json(const Hmm& hmm);
+[[nodiscard]] std::string to_json(const Hmm &hmm);
 
 /// Deserialize a scalar HMM from a JSON string produced by to_json(Hmm).
 /// @throws std::runtime_error on malformed input.
@@ -44,11 +44,11 @@ namespace libhmm {
 
 /// Write scalar HMM as JSON to @p filepath (creates parent directories).
 /// @throws std::runtime_error on I/O failure.
-void save_json(const Hmm& hmm, const std::filesystem::path& filepath);
+void save_json(const Hmm &hmm, const std::filesystem::path &filepath);
 
 /// Read and deserialize a scalar HMM from a JSON file.
 /// @throws std::runtime_error on I/O or parse failure.
-[[nodiscard]] Hmm load_json(const std::filesystem::path& filepath);
+[[nodiscard]] Hmm load_json(const std::filesystem::path &filepath);
 
 // =============================================================================
 // Multivariate HMM (Obs=ObservationVectorView, v4)
@@ -57,7 +57,7 @@ void save_json(const Hmm& hmm, const std::filesystem::path& filepath);
 /// Serialize a multivariate HMM to a compact JSON string.
 /// Writes the v4 schema including obs_type, dimensions, and full distribution
 /// parameters (means, variances/covariances, component distributions).
-[[nodiscard]] std::string to_json(const HmmMV& hmm);
+[[nodiscard]] std::string to_json(const HmmMV &hmm);
 
 /**
  * @brief Deserialize a multivariate HMM from a v4 JSON string.
@@ -72,10 +72,10 @@ void save_json(const Hmm& hmm, const std::filesystem::path& filepath);
 
 /// Write multivariate HMM as JSON to @p filepath (creates parent directories).
 /// @throws std::runtime_error on I/O failure.
-void save_json_mv(const HmmMV& hmm, const std::filesystem::path& filepath);
+void save_json_mv(const HmmMV &hmm, const std::filesystem::path &filepath);
 
 /// Read and deserialize a multivariate HMM from a JSON file.
 /// @throws std::runtime_error on I/O or parse failure.
-[[nodiscard]] HmmMV load_json_mv(const std::filesystem::path& filepath);
+[[nodiscard]] HmmMV load_json_mv(const std::filesystem::path &filepath);
 
 } // namespace libhmm

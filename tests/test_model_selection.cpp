@@ -216,13 +216,13 @@ TEST(ModelSelectionTest, AicAlwaysLessThanBicForReasonableSequence) {
 /// IndependentComponents(D) with default Gaussian components: 2 params per dim.
 TEST(ModelSelectionTest, IndependentComponentsNumParametersD3) {
     IndependentComponentsDistribution d(3);
-    EXPECT_EQ(d.getNumParameters(), 6u);  // 3 × GaussianDistribution(2 params)
+    EXPECT_EQ(d.getNumParameters(), 6u); // 3 × GaussianDistribution(2 params)
 }
 
 /// DiagonalGaussian(D): 2D free parameters (D means + D variances).
 TEST(ModelSelectionTest, DiagonalGaussianNumParametersD4) {
     DiagonalGaussianDistribution d(4);
-    EXPECT_EQ(d.getNumParameters(), 8u);  // 2 × 4
+    EXPECT_EQ(d.getNumParameters(), 8u); // 2 × 4
 }
 
 /// DiagonalGaussian(D=1): degenerates to 2 free params (same as univariate Gaussian).
@@ -234,12 +234,12 @@ TEST(ModelSelectionTest, DiagonalGaussianNumParametersD1) {
 /// FullCovarianceGaussian(D): D + D·(D+1)/2 free params.
 TEST(ModelSelectionTest, FullCovarianceGaussianNumParametersD2) {
     FullCovarianceGaussianDistribution d(2);
-    EXPECT_EQ(d.getNumParameters(), 5u);  // 2 + 3
+    EXPECT_EQ(d.getNumParameters(), 5u); // 2 + 3
 }
 
 TEST(ModelSelectionTest, FullCovarianceGaussianNumParametersD3) {
     FullCovarianceGaussianDistribution d(3);
-    EXPECT_EQ(d.getNumParameters(), 9u);  // 3 + 6
+    EXPECT_EQ(d.getNumParameters(), 9u); // 3 + 6
 }
 
 /// count_free_parameters on a 2-state MV HMM with DiagonalGaussian(D=2) emissions.
@@ -253,10 +253,14 @@ TEST(ModelSelectionTest, CountFreeParamsMvDiagGaussian2State) {
     hmm.setDistribution(0, std::make_unique<DiagonalGaussianDistribution>(D));
     hmm.setDistribution(1, std::make_unique<DiagonalGaussianDistribution>(D));
     Matrix trans(2, 2);
-    trans(0,0) = 0.8; trans(0,1) = 0.2;
-    trans(1,0) = 0.3; trans(1,1) = 0.7;
+    trans(0, 0) = 0.8;
+    trans(0, 1) = 0.2;
+    trans(1, 0) = 0.3;
+    trans(1, 1) = 0.7;
     hmm.setTrans(trans);
-    Vector pi(2); pi(0) = 0.5; pi(1) = 0.5;
+    Vector pi(2);
+    pi(0) = 0.5;
+    pi(1) = 0.5;
     hmm.setPi(pi);
     // transitions: N*(N-1) = 2; pi: (N-1) = 1; emissions: N * 2D = 2*4 = 8
     EXPECT_EQ(count_free_parameters(hmm), 11u);

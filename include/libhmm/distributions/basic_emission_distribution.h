@@ -25,19 +25,19 @@ namespace libhmm {
  * signatures to v3's `EmissionDistribution`, so all existing derived classes
  * compile unchanged after the alias is introduced.
  */
-template<typename Obs = double>
+template <typename Obs = double>
 class BasicEmissionDistribution {
 public:
     /// Observation parameter type: by value for scalars, const-ref otherwise.
-    using obs_param_t = std::conditional_t<std::is_scalar_v<Obs>, Obs, const Obs&>;
+    using obs_param_t = std::conditional_t<std::is_scalar_v<Obs>, Obs, const Obs &>;
 
     virtual ~BasicEmissionDistribution() = default;
 
     BasicEmissionDistribution() = default;
-    BasicEmissionDistribution(const BasicEmissionDistribution&) = default;
-    BasicEmissionDistribution& operator=(const BasicEmissionDistribution&) = default;
-    BasicEmissionDistribution(BasicEmissionDistribution&&) = default;
-    BasicEmissionDistribution& operator=(BasicEmissionDistribution&&) = default;
+    BasicEmissionDistribution(const BasicEmissionDistribution &) = default;
+    BasicEmissionDistribution &operator=(const BasicEmissionDistribution &) = default;
+    BasicEmissionDistribution(BasicEmissionDistribution &&) = default;
+    BasicEmissionDistribution &operator=(BasicEmissionDistribution &&) = default;
 
     // =========================================================================
     // Scalar evaluation
@@ -113,7 +113,7 @@ public:
      * @return     A sampled observation encoded as `double` (scalar path) or
      *             the appropriate type for the observation space.
      */
-    [[nodiscard]] virtual double sample(std::mt19937_64& rng) const = 0;
+    [[nodiscard]] virtual double sample(std::mt19937_64 &rng) const = 0;
 
     // =========================================================================
     // Cloning
@@ -126,8 +126,7 @@ public:
      * automatically by DistributionBase<Derived, Obs> via CRTP; requires
      * Derived to be copy-constructible.
      */
-    [[nodiscard]] virtual std::unique_ptr<BasicEmissionDistribution<Obs>>
-    clone() const = 0;
+    [[nodiscard]] virtual std::unique_ptr<BasicEmissionDistribution<Obs>> clone() const = 0;
 
     // =========================================================================
     // Metadata

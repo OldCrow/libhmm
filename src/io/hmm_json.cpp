@@ -33,7 +33,7 @@ constexpr std::size_t kMaxJsonInputBytes = 10UL * 1024UL * 1024UL; // 10 MB
 /// Validate a JSON-read double as a bounded positive integer.
 /// Shared by both scalar and MV deserializers.
 /// @throws std::runtime_error with @p err_msg if the value is out of [lo, hi].
-std::size_t checked_size(double raw, double lo, double hi, const char* err_msg) {
+std::size_t checked_size(double raw, double lo, double hi, const char *err_msg) {
     if (!std::isfinite(raw) || raw < lo || raw > hi)
         throw std::runtime_error(err_msg);
     return static_cast<std::size_t>(raw);
@@ -42,36 +42,36 @@ std::size_t checked_size(double raw, double lo, double hi, const char* err_msg) 
 // =============================================================================
 // Scalar distribution factory
 
-using FactoryFn = std::unique_ptr<EmissionDistribution> (*)(json::Reader&);
+using FactoryFn = std::unique_ptr<EmissionDistribution> (*)(json::Reader &);
 
 /// Returns the scalar distribution factory map.
 /// Function-local static avoids bugprone-throwing-static-initialization:
 /// std::unordered_map construction is deferred to first call and any exception
 /// propagates normally rather than terminating during static initialisation.
-const std::unordered_map<std::string, FactoryFn>& scalar_factory() {
+const std::unordered_map<std::string, FactoryFn> &scalar_factory() {
     static const std::unordered_map<std::string, FactoryFn> s = {
-        {"Gaussian",         &GaussianDistribution::from_json},
-        {"Exponential",      &ExponentialDistribution::from_json},
-        {"Gamma",            &GammaDistribution::from_json},
-        {"Beta",             &BetaDistribution::from_json},
-        {"Weibull",          &WeibullDistribution::from_json},
-        {"LogNormal",        &LogNormalDistribution::from_json},
-        {"Pareto",           &ParetoDistribution::from_json},
+        {"Gaussian", &GaussianDistribution::from_json},
+        {"Exponential", &ExponentialDistribution::from_json},
+        {"Gamma", &GammaDistribution::from_json},
+        {"Beta", &BetaDistribution::from_json},
+        {"Weibull", &WeibullDistribution::from_json},
+        {"LogNormal", &LogNormalDistribution::from_json},
+        {"Pareto", &ParetoDistribution::from_json},
         {"NegativeBinomial", &NegativeBinomialDistribution::from_json},
-        {"ChiSquared",       &ChiSquaredDistribution::from_json},
-        {"StudentT",         &StudentTDistribution::from_json},
-        {"Poisson",          &PoissonDistribution::from_json},
-        {"Binomial",         &BinomialDistribution::from_json},
-        {"Discrete",         &DiscreteDistribution::from_json},
-        {"Uniform",          &UniformDistribution::from_json},
-        {"Rayleigh",         &RayleighDistribution::from_json},
-        {"VonMises",         &VonMisesDistribution::from_json},
+        {"ChiSquared", &ChiSquaredDistribution::from_json},
+        {"StudentT", &StudentTDistribution::from_json},
+        {"Poisson", &PoissonDistribution::from_json},
+        {"Binomial", &BinomialDistribution::from_json},
+        {"Discrete", &DiscreteDistribution::from_json},
+        {"Uniform", &UniformDistribution::from_json},
+        {"Rayleigh", &RayleighDistribution::from_json},
+        {"VonMises", &VonMisesDistribution::from_json},
     };
     return s;
 }
 
 /// Parse one scalar distribution object.  Reader is positioned before '{'.
-std::unique_ptr<EmissionDistribution> read_distribution(json::Reader& r) {
+std::unique_ptr<EmissionDistribution> read_distribution(json::Reader &r) {
     r.consume('{');
     r.read_key();
     const std::string type = r.read_string();
@@ -82,25 +82,26 @@ std::unique_ptr<EmissionDistribution> read_distribution(json::Reader& r) {
 }
 
 /// Read the scalar distribution array.  Reader positioned before '['.
-std::vector<std::unique_ptr<EmissionDistribution>>
-read_distribution_array(json::Reader& r, std::size_t N) {
+std::vector<std::unique_ptr<EmissionDistribution>> read_distribution_array(json::Reader &r,
+                                                                           std::size_t N) {
     std::vector<std::unique_ptr<EmissionDistribution>> emis;
     emis.reserve(N);
     r.consume('[');
     if (!r.at(']')) {
         emis.push_back(read_distribution(r));
-        while (r.at(',')) { r.consume(','); emis.push_back(read_distribution(r)); }
+        while (r.at(',')) {
+            r.consume(',');
+            emis.push_back(read_distribution(r));
+        }
     }
     r.consume(']');
     return emis;
 }
 
 /// Validate parsed arrays and construct scalar Hmm.
-Hmm build_hmm(const std::vector<double>& pi_data,
-               const std::vector<std::vector<double>>& trans_rows,
-               std::vector<std::unique_ptr<EmissionDistribution>> emis,
-               std::size_t N)
-{
+Hmm build_hmm(const std::vector<double> &pi_data,
+              const std::vector<std::vector<double>> &trans_rows,
+              std::vector<std::unique_ptr<EmissionDistribution>> emis, std::size_t N) {
     if (pi_data.size() != N)
         throw std::runtime_error("HMM JSON: pi size mismatch");
     if (trans_rows.size() != N)
@@ -108,13 +109,15 @@ Hmm build_hmm(const std::vector<double>& pi_data,
     if (emis.size() != N)
         throw std::runtime_error("HMM JSON: distribution count mismatch");
     Vector pi(N);
-    for (std::size_t i = 0; i < N; ++i) pi[i] = pi_data[i];
+    for (std::size_t i = 0; i < N; ++i)
+        pi[i] = pi_data[i];
     Matrix trans(N, N);
     for (std::size_t i = 0; i < N; ++i) {
         if (trans_rows[i].size() != N)
             throw std::runtime_error("HMM JSON: trans row length mismatch at row " +
                                      std::to_string(i));
-        for (std::size_t j = 0; j < N; ++j) trans(i, j) = trans_rows[i][j];
+        for (std::size_t j = 0; j < N; ++j)
+            trans(i, j) = trans_rows[i][j];
     }
     return Hmm(std::move(trans), std::move(emis), std::move(pi));
 }
@@ -158,18 +161,16 @@ std::string to_json(const Hmm &hmm) {
 
 Hmm from_json(std::string_view src) {
     if (src.size() > kMaxJsonInputBytes)
-        throw std::runtime_error(
-            "HMM JSON: input exceeds maximum allowed size (" +
-            std::to_string(kMaxJsonInputBytes / (1024UL * 1024UL)) + " MB)");
+        throw std::runtime_error("HMM JSON: input exceeds maximum allowed size (" +
+                                 std::to_string(kMaxJsonInputBytes / (1024UL * 1024UL)) + " MB)");
 
     json::Reader r(src);
     r.consume('{');
 
     // states: validated against [1, kMaxHmmStates] before any heap allocation.
     r.read_key();
-    const std::size_t N = checked_size(r.read_double(), 1.0,
-                                        static_cast<double>(kMaxHmmStates),
-                                        "HMM JSON: states must be a positive integer");
+    const std::size_t N = checked_size(r.read_double(), 1.0, static_cast<double>(kMaxHmmStates),
+                                       "HMM JSON: states must be a positive integer");
 
     r.read_key(); // "pi"
     const auto pi_data = r.read_double_array(N);
@@ -210,7 +211,7 @@ constexpr std::size_t kMaxMvDimensions = 1024;
 /// Parse one MV distribution object.  Reader is positioned before the '{'.
 /// Must be defined before read_mv_distribution_array which calls it.
 std::unique_ptr<BasicEmissionDistribution<ObservationVectorView>>
-read_mv_distribution(json::Reader& r) {
+read_mv_distribution(json::Reader &r) {
     r.consume('{');
     r.read_key(); // "type"
     const std::string type = r.read_string();
@@ -222,16 +223,19 @@ read_mv_distribution(json::Reader& r) {
     if (type == "IndependentComponents") {
         // Reads the component array using the scalar kFactory defined above.
         r.read_key(); // "dim"
-        const std::size_t D = checked_size(
-            r.read_double(), 1.0, static_cast<double>(kMaxMvDimensions),
-            "IndependentComponents JSON: invalid dim");
+        const std::size_t D =
+            checked_size(r.read_double(), 1.0, static_cast<double>(kMaxMvDimensions),
+                         "IndependentComponents JSON: invalid dim");
         r.read_key(); // "components"
         r.consume('[');
         std::vector<std::unique_ptr<EmissionDistribution>> comps;
         comps.reserve(D);
         if (!r.at(']')) {
             comps.push_back(read_distribution(r));
-            while (r.at(',')) { r.consume(','); comps.push_back(read_distribution(r)); }
+            while (r.at(',')) {
+                r.consume(',');
+                comps.push_back(read_distribution(r));
+            }
         }
         r.consume(']');
         r.consume('}');
@@ -244,24 +248,26 @@ read_mv_distribution(json::Reader& r) {
 
 /// Read the full MV distribution array.  Reader positioned before '['.
 std::vector<std::unique_ptr<BasicEmissionDistribution<ObservationVectorView>>>
-read_mv_distribution_array(json::Reader& r, std::size_t N) {
+read_mv_distribution_array(json::Reader &r, std::size_t N) {
     std::vector<std::unique_ptr<BasicEmissionDistribution<ObservationVectorView>>> emis;
     emis.reserve(N);
     r.consume('[');
     if (!r.at(']')) {
         emis.push_back(read_mv_distribution(r));
-        while (r.at(',')) { r.consume(','); emis.push_back(read_mv_distribution(r)); }
+        while (r.at(',')) {
+            r.consume(',');
+            emis.push_back(read_mv_distribution(r));
+        }
     }
     r.consume(']');
     return emis;
 }
 
 /// Validate parsed field arrays and construct HmmMV.
-HmmMV build_hmm_mv(const std::vector<double>& pi_data,
-                    const std::vector<std::vector<double>>& trans_rows,
-                    std::vector<std::unique_ptr<BasicEmissionDistribution<ObservationVectorView>>> emis,
-                    std::size_t N)
-{
+HmmMV build_hmm_mv(
+    const std::vector<double> &pi_data, const std::vector<std::vector<double>> &trans_rows,
+    std::vector<std::unique_ptr<BasicEmissionDistribution<ObservationVectorView>>> emis,
+    std::size_t N) {
     if (pi_data.size() != N)
         throw std::runtime_error("HMM MV JSON: pi size mismatch");
     if (trans_rows.size() != N)
@@ -270,7 +276,8 @@ HmmMV build_hmm_mv(const std::vector<double>& pi_data,
         throw std::runtime_error("HMM MV JSON: distribution count mismatch");
 
     Vector pi(N);
-    for (std::size_t i = 0; i < N; ++i) pi[i] = pi_data[i];
+    for (std::size_t i = 0; i < N; ++i)
+        pi[i] = pi_data[i];
 
     Matrix trans(N, N);
     for (std::size_t i = 0; i < N; ++i) {
@@ -283,16 +290,16 @@ HmmMV build_hmm_mv(const std::vector<double>& pi_data,
     return HmmMV(std::move(trans), std::move(emis), std::move(pi));
 }
 
-} // anonymous namespace (MV)
+} // namespace
 
 // -----------------------------------------------------------------------------
 // to_json(HmmMV)
 // -----------------------------------------------------------------------------
 
-std::string to_json(const HmmMV& hmm) {
+std::string to_json(const HmmMV &hmm) {
     const std::size_t N = hmm.getNumStatesModern();
-    const auto& pi    = hmm.getPi();
-    const auto& trans = hmm.getTrans();
+    const auto &pi = hmm.getPi();
+    const auto &trans = hmm.getTrans();
 
     // Query D from the first distribution (getDimension() is now virtual).
     const std::size_t D = (N > 0) ? hmm.getDistribution(0).getDimension() : 0;
@@ -312,10 +319,11 @@ std::string to_json(const HmmMV& hmm) {
     s += json::write_matrix(N, N, std::span<const double>(trans.data(), N * N));
     s += ",\"distributions\":[";
     for (std::size_t i = 0; i < N; ++i) {
-        if (i) s += ',';
+        if (i)
+            s += ',';
         s += hmm.getDistribution(i).to_json();
     }
-    s += "]}";  // close distributions array and root object
+    s += "]}"; // close distributions array and root object
     return s;
 }
 
@@ -325,9 +333,8 @@ std::string to_json(const HmmMV& hmm) {
 
 HmmMV from_json_mv(std::string_view src) {
     if (src.size() > kMaxJsonInputBytes)
-        throw std::runtime_error(
-            "HMM MV JSON: input exceeds maximum allowed size (" +
-            std::to_string(kMaxJsonInputBytes / (1024UL * 1024UL)) + " MB)");
+        throw std::runtime_error("HMM MV JSON: input exceeds maximum allowed size (" +
+                                 std::to_string(kMaxJsonInputBytes / (1024UL * 1024UL)) + " MB)");
 
     json::Reader r(src);
     r.consume('{');
@@ -345,9 +352,8 @@ HmmMV from_json_mv(std::string_view src) {
                  "HMM MV JSON: invalid dimensions value");
 
     r.read_key(); // "states"
-    const std::size_t N = checked_size(r.read_double(), 1.0,
-                                        static_cast<double>(kMaxHmmStates),
-                                        "HMM MV JSON: states out of range");
+    const std::size_t N = checked_size(r.read_double(), 1.0, static_cast<double>(kMaxHmmStates),
+                                       "HMM MV JSON: states out of range");
 
     r.read_key(); // "pi"
     const auto pi_data = r.read_double_array(N);
@@ -366,11 +372,11 @@ HmmMV from_json_mv(std::string_view src) {
 // File I/O wrappers (MV)
 // -----------------------------------------------------------------------------
 
-void save_json_mv(const HmmMV& hmm, const std::filesystem::path& filepath) {
+void save_json_mv(const HmmMV &hmm, const std::filesystem::path &filepath) {
     FileIOManager::writeTextFile(filepath, to_json(hmm));
 }
 
-HmmMV load_json_mv(const std::filesystem::path& filepath) {
+HmmMV load_json_mv(const std::filesystem::path &filepath) {
     return from_json_mv(FileIOManager::readTextFile(filepath));
 }
 

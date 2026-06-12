@@ -6,4 +6,4 @@
 // All v3 code using ViterbiTrainer/TrainingConfig/training_presets compiles unchanged.
 
 #include "libhmm/training/basic_viterbi_trainer.h"
-#include "libhmm/hmm.h"   // provides Hmm = BasicHmm<double> and HmmMV aliases
+#include "libhmm/hmm.h" // provides Hmm = BasicHmm<double> and HmmMV aliases

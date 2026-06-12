@@ -67,10 +67,8 @@ ObservationMatrix const_seq(std::size_t T, std::size_t D, double val) {
 
 /// Generate @p n_seqs sequences of length @p T from two D-dim clusters:
 ///   half near @p c0, half near @p c1 (with small Gaussian noise σ=0.3).
-MultiObservationLists make_two_cluster_data(
-        std::size_t n_seqs, std::size_t T, std::size_t D,
-        double c0, double c1, std::uint64_t seed = 42)
-{
+MultiObservationLists make_two_cluster_data(std::size_t n_seqs, std::size_t T, std::size_t D,
+                                            double c0, double c1, std::uint64_t seed = 42) {
     std::mt19937_64 rng(seed);
     std::normal_distribution<double> noise(0.0, 0.3);
     MultiObservationLists lists;
@@ -87,9 +85,9 @@ MultiObservationLists make_two_cluster_data(
 }
 
 /// Compute total log-probability of @p lists under @p hmm.
-double total_log_prob(HmmMV& hmm, const MultiObservationLists& lists) {
+double total_log_prob(HmmMV &hmm, const MultiObservationLists &lists) {
     double lp = 0.0;
-    for (const auto& seq : lists) {
+    for (const auto &seq : lists) {
         BasicForwardBackwardCalculator<ObservationVectorView> fbc(hmm, seq);
         lp += fbc.getLogProbability();
     }
@@ -142,9 +140,7 @@ TEST(MvBWT, RunsOnSingleSequence) {
 TEST(MvBWT, EmptyListThrows) {
     HmmMV hmm = make_hmm_mv(2, 2);
     MultiObservationLists empty;
-    EXPECT_THROW(
-        (BasicBaumWelchTrainer<ObservationVectorView>(hmm, empty)),
-        std::invalid_argument);
+    EXPECT_THROW((BasicBaumWelchTrainer<ObservationVectorView>(hmm, empty)), std::invalid_argument);
 }
 
 // =============================================================================
@@ -193,15 +189,15 @@ TEST(MvMapBWT, ZeroPseudoCountEquivalentToBWT) {
     constexpr std::size_t D = 2;
     auto lists = make_two_cluster_data(10, 8, D, 0.0, 5.0, 99);
 
-    HmmMV hmm_bwt  = make_hmm_mv(2, D);
-    HmmMV hmm_map  = make_hmm_mv(2, D);
+    HmmMV hmm_bwt = make_hmm_mv(2, D);
+    HmmMV hmm_map = make_hmm_mv(2, D);
     // Identical initialisation
     std::mt19937_64 rng(123);
     kmeans_init(hmm_bwt, lists, rng);
     rng = std::mt19937_64(123);
     kmeans_init(hmm_map, lists, rng);
 
-    BasicBaumWelchTrainer<ObservationVectorView>    bwt(hmm_bwt, lists);
+    BasicBaumWelchTrainer<ObservationVectorView> bwt(hmm_bwt, lists);
     BasicMapBaumWelchTrainer<ObservationVectorView> map(hmm_map, lists, 0.0);
     bwt.train();
     map.train();
@@ -220,7 +216,7 @@ TEST(MvMapBWT, ComputeLogPriorMvReturnsOnlyTransAndPiPart) {
     BasicMapBaumWelchTrainer<ObservationVectorView> trainer(hmm, lists, 1.0);
     const double prior = trainer.computeLogPrior();
     EXPECT_TRUE(std::isfinite(prior));
-    EXPECT_LT(prior, 0.0);  // log of probabilities < 1 is negative
+    EXPECT_LT(prior, 0.0); // log of probabilities < 1 is negative
 }
 
 // =============================================================================
@@ -250,13 +246,13 @@ TEST(KmeansInit, ImprovesLogProbOverDefaultInit) {
     constexpr std::size_t D = 2;
     auto lists = make_two_cluster_data(20, 10, D, -5.0, 5.0, 17);
 
-    HmmMV hmm_default = make_hmm_mv(2, D);  // all means at 0
-    HmmMV hmm_kmeans  = make_hmm_mv(2, D);
+    HmmMV hmm_default = make_hmm_mv(2, D); // all means at 0
+    HmmMV hmm_kmeans = make_hmm_mv(2, D);
     std::mt19937_64 rng(55);
     kmeans_init(hmm_kmeans, lists, rng);
 
     const double lp_default = total_log_prob(hmm_default, lists);
-    const double lp_kmeans  = total_log_prob(hmm_kmeans, lists);
+    const double lp_kmeans = total_log_prob(hmm_kmeans, lists);
     EXPECT_GT(lp_kmeans, lp_default);
 }
 
@@ -277,7 +273,7 @@ TEST(KmeansInit, SingleClusterData) {
     EXPECT_NO_THROW(kmeans_init(hmm, lists, rng));
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

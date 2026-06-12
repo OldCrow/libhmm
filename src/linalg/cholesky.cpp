@@ -17,8 +17,7 @@ namespace chol {
 // The upper triangle of L is left at 0 (zero-initialised).
 // =============================================================================
 
-CholeskyResult factorize(const BasicMatrix<double>& A) noexcept
-{
+CholeskyResult factorize(const BasicMatrix<double> &A) noexcept {
     const std::size_t n = A.rows();
     CholeskyResult result;
     result.L = BasicMatrix<double>(n, n, 0.0);
@@ -56,8 +55,7 @@ CholeskyResult factorize(const BasicMatrix<double>& A) noexcept
 // log(det(A)) = log(det(L)^2) = 2 * sum_i log(L[i,i])
 // =============================================================================
 
-double log_det(const BasicMatrix<double>& L) noexcept
-{
+double log_det(const BasicMatrix<double> &L) noexcept {
     double logd = 0.0;
     for (std::size_t i = 0; i < L.rows(); ++i) {
         const double lii = L(i, i);
@@ -75,9 +73,7 @@ double log_det(const BasicMatrix<double>& L) noexcept
 // x[i] = (b[i] - sum_{j<i} L[i,j] * x[j]) / L[i,i]
 // =============================================================================
 
-BasicVector<double> solve_lower(const BasicMatrix<double>& L,
-                                std::span<const double> b) noexcept
-{
+BasicVector<double> solve_lower(const BasicMatrix<double> &L, std::span<const double> b) noexcept {
     const std::size_t n = b.size();
     assert(L.rows() == n && L.cols() == n);
 
@@ -99,9 +95,7 @@ BasicVector<double> solve_lower(const BasicMatrix<double>& L,
 // result = z · z = ‖z‖²
 // =============================================================================
 
-double inv_quad_form(const BasicMatrix<double>& L,
-                     std::span<const double> x) noexcept
-{
+double inv_quad_form(const BasicMatrix<double> &L, std::span<const double> x) noexcept {
     const auto z = solve_lower(L, x);
     double q = 0.0;
     for (std::size_t i = 0; i < z.size(); ++i) {
@@ -117,23 +111,25 @@ double inv_quad_form(const BasicMatrix<double>& L,
 // buffer, avoiding any heap allocation in steady state.
 // =============================================================================
 
-double inv_quad_form_mv(const BasicMatrix<double>& L,
-                         const std::vector<double>& mu,
-                         std::span<const double> x) noexcept
-{
+double inv_quad_form_mv(const BasicMatrix<double> &L, const std::vector<double> &mu,
+                        std::span<const double> x) noexcept {
     const std::size_t n = mu.size();
     // One allocation per thread; buffer only grows, never shrinks.
     thread_local std::vector<double> v;
-    if (v.size() < n) v.resize(n);
+    if (v.size() < n)
+        v.resize(n);
 
     // Compute residual x − μ, then solve L·v = residual in-place.
-    for (std::size_t i = 0; i < n; ++i) v[i] = x[i] - mu[i];
+    for (std::size_t i = 0; i < n; ++i)
+        v[i] = x[i] - mu[i];
     for (std::size_t i = 0; i < n; ++i) {
-        for (std::size_t j = 0; j < i; ++j) v[i] -= L(i, j) * v[j];
+        for (std::size_t j = 0; j < i; ++j)
+            v[i] -= L(i, j) * v[j];
         v[i] /= L(i, i);
     }
     double q = 0.0;
-    for (std::size_t i = 0; i < n; ++i) q += v[i] * v[i];
+    for (std::size_t i = 0; i < n; ++i)
+        q += v[i] * v[i];
     return q;
 }
 

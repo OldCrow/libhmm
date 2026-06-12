@@ -31,7 +31,7 @@ namespace libhmm {
  * GaussianDistribution.  Non-scalar HMMs leave emission slots null until
  * setDistribution() is called.
  */
-template<typename Obs = double>
+template <typename Obs = double>
 class BasicHmm {
 protected:
     Matrix trans_;
@@ -95,8 +95,7 @@ public:
 
     /// Constructor with given transition matrix, emissions, and initial probabilities.
     /// @throws std::invalid_argument if dimensions don't match.
-    BasicHmm(Matrix trans,
-             std::vector<std::unique_ptr<BasicEmissionDistribution<Obs>>> emis,
+    BasicHmm(Matrix trans, std::vector<std::unique_ptr<BasicEmissionDistribution<Obs>>> emis,
              Vector pi)
         : trans_{std::move(trans)}, emis_{std::move(emis)}, pi_{std::move(pi)} {
 
@@ -117,10 +116,10 @@ public:
     }
 
     /// Non-copyable but movable.
-    BasicHmm(const BasicHmm&) = delete;
-    BasicHmm& operator=(const BasicHmm&) = delete;
-    BasicHmm(BasicHmm&&) = default;
-    BasicHmm& operator=(BasicHmm&&) = default;
+    BasicHmm(const BasicHmm &) = delete;
+    BasicHmm &operator=(const BasicHmm &) = delete;
+    BasicHmm(BasicHmm &&) = default;
+    BasicHmm &operator=(BasicHmm &&) = default;
 
     // =========================================================================
     // Setters
@@ -128,7 +127,7 @@ public:
 
     /// Sets the initial state probability vector.
     /// @throws std::invalid_argument if size doesn't match number of states.
-    void setPi(const Vector& pi) {
+    void setPi(const Vector &pi) {
         if (pi.size() != states_) {
             throw std::invalid_argument("Pi vector size must match number of states");
         }
@@ -137,7 +136,7 @@ public:
 
     /// Sets the transition matrix.
     /// @throws std::invalid_argument if dimensions don't match.
-    void setTrans(const Matrix& trans) {
+    void setTrans(const Matrix &trans) {
         if (trans.size1() != states_ || trans.size2() != states_) {
             throw std::invalid_argument("Transition matrix dimensions must match number of states");
         }
@@ -162,28 +161,26 @@ public:
 
     /// Gets the emission distribution for a state (non-const — for trainers).
     /// @throws std::out_of_range if state index is invalid.
-    BasicEmissionDistribution<Obs>& getDistribution(std::size_t state) {
+    BasicEmissionDistribution<Obs> &getDistribution(std::size_t state) {
         validateStateIndex(state);
         return *emis_[state];
     }
 
     /// Gets the emission distribution for a state (const).
     /// @throws std::out_of_range if state index is invalid.
-    [[nodiscard]] const BasicEmissionDistribution<Obs>& getDistribution(std::size_t state) const {
+    [[nodiscard]] const BasicEmissionDistribution<Obs> &getDistribution(std::size_t state) const {
         validateStateIndex(state);
         return *emis_[state];
     }
 
     /// Gets the transition matrix.
-    [[nodiscard]] const Matrix& getTrans() const noexcept { return trans_; }
+    [[nodiscard]] const Matrix &getTrans() const noexcept { return trans_; }
 
     /// Gets the initial state probability vector.
-    [[nodiscard]] const Vector& getPi() const noexcept { return pi_; }
+    [[nodiscard]] const Vector &getPi() const noexcept { return pi_; }
 
     /// Gets the number of states (legacy int interface for backward compatibility).
-    [[nodiscard]] int getNumStates() const noexcept {
-        return static_cast<int>(states_);
-    }
+    [[nodiscard]] int getNumStates() const noexcept { return static_cast<int>(states_); }
 
     /// Gets the number of states.
     [[nodiscard]] std::size_t getNumStatesModern() const noexcept { return states_; }
@@ -213,8 +210,8 @@ public:
 
         for (std::size_t i = 0; i < states_; ++i) {
             if (!emis_[i]) {
-                throw std::runtime_error("Emission distribution for state " +
-                                         std::to_string(i) + " is null");
+                throw std::runtime_error("Emission distribution for state " + std::to_string(i) +
+                                         " is null");
             }
         }
     }

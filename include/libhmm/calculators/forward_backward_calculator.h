@@ -5,4 +5,4 @@
 // All v3 code using ForwardBackwardCalculator continues to compile unchanged.
 
 #include "libhmm/calculators/basic_forward_backward_calculator.h"
-#include "libhmm/hmm.h"   // provides Hmm = BasicHmm<double> and HmmMV aliases
+#include "libhmm/hmm.h" // provides Hmm = BasicHmm<double> and HmmMV aliases

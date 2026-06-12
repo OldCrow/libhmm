@@ -6,7 +6,7 @@
 // derive from Calculator and continue to work unchanged.
 
 #include "libhmm/calculators/basic_calculator.h"
-#include "libhmm/hmm.h"   // provides 'Hmm = BasicHmm<double>' alias
+#include "libhmm/hmm.h" // provides 'Hmm = BasicHmm<double>' alias
 
 namespace libhmm {
 

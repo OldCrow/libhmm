@@ -34,8 +34,8 @@ namespace chol {
  * symmetric positive-definite) L is left in a partial or zeroed state.
  */
 struct CholeskyResult {
-    BasicMatrix<double> L{};    ///< Lower triangular factor such that A = L·Lᵀ
-    bool success{false};        ///< false when A is not positive-definite
+    BasicMatrix<double> L{}; ///< Lower triangular factor such that A = L·Lᵀ
+    bool success{false};     ///< false when A is not positive-definite
 };
 
 // =============================================================================
@@ -55,7 +55,7 @@ struct CholeskyResult {
  * @return   CholeskyResult with success=true and the lower triangular L on
  *           success; success=false otherwise.
  */
-[[nodiscard]] CholeskyResult factorize(const BasicMatrix<double>& A) noexcept;
+[[nodiscard]] CholeskyResult factorize(const BasicMatrix<double> &A) noexcept;
 
 /**
  * @brief Log-determinant of A from its Cholesky factor L.
@@ -65,7 +65,7 @@ struct CholeskyResult {
  * @param L  Lower triangular factor from a successful factorize() call.
  * @return   log(det(A)).  Result is -∞ if any diagonal entry is ≤ 0.
  */
-[[nodiscard]] double log_det(const BasicMatrix<double>& L) noexcept;
+[[nodiscard]] double log_det(const BasicMatrix<double> &L) noexcept;
 
 /**
  * @brief Forward substitution: solve L·x = b for x.
@@ -78,7 +78,7 @@ struct CholeskyResult {
  *           which includes ObservationVectorView and std::vector<double>.
  * @return   Solution vector x (D).
  */
-[[nodiscard]] BasicVector<double> solve_lower(const BasicMatrix<double>& L,
+[[nodiscard]] BasicVector<double> solve_lower(const BasicMatrix<double> &L,
                                               std::span<const double> b) noexcept;
 
 /**
@@ -94,7 +94,7 @@ struct CholeskyResult {
  * @param x  Query vector (D).  Accepts ObservationVectorView directly.
  * @return   xᵀ·A⁻¹·x ≥ 0.
  */
-[[nodiscard]] double inv_quad_form(const BasicMatrix<double>& L,
+[[nodiscard]] double inv_quad_form(const BasicMatrix<double> &L,
                                    std::span<const double> x) noexcept;
 
 /**
@@ -112,8 +112,7 @@ struct CholeskyResult {
  * @param x   Observation vector (D).  Accepts ObservationVectorView directly.
  * @return    (x−μ)ᵀ·Σ⁻¹·(x−μ) ≥ 0.
  */
-[[nodiscard]] double inv_quad_form_mv(const BasicMatrix<double>& L,
-                                      const std::vector<double>& mu,
+[[nodiscard]] double inv_quad_form_mv(const BasicMatrix<double> &L, const std::vector<double> &mu,
                                       std::span<const double> x) noexcept;
 
 } // namespace chol

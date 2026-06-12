@@ -60,12 +60,11 @@ public:
         std::vector<std::unique_ptr<EmissionDistribution>> components);
 
     /// Deep-copy constructor required by CRTP clone().
-    IndependentComponentsDistribution(const IndependentComponentsDistribution& other);
-    IndependentComponentsDistribution& operator=(
-        const IndependentComponentsDistribution& other) = delete;
-    IndependentComponentsDistribution(IndependentComponentsDistribution&&) = default;
-    IndependentComponentsDistribution& operator=(
-        IndependentComponentsDistribution&&) = default;
+    IndependentComponentsDistribution(const IndependentComponentsDistribution &other);
+    IndependentComponentsDistribution &
+    operator=(const IndependentComponentsDistribution &other) = delete;
+    IndependentComponentsDistribution(IndependentComponentsDistribution &&) = default;
+    IndependentComponentsDistribution &operator=(IndependentComponentsDistribution &&) = default;
     ~IndependentComponentsDistribution() override = default;
 
     // =========================================================================
@@ -73,21 +72,19 @@ public:
     // =========================================================================
 
     /** @brief exp(getLogProbability(x)). Prefer the log version. */
-    [[nodiscard]] double getProbability(const ObservationVectorView& x) const override;
+    [[nodiscard]] double getProbability(const ObservationVectorView &x) const override;
 
     /**
      * @brief log p(x) = Σ_d component[d].getLogProbability(x[d])
      * Precondition: x.size() == getDimension()
      */
-    [[nodiscard]] double getLogProbability(
-        const ObservationVectorView& x) const noexcept override;
+    [[nodiscard]] double getLogProbability(const ObservationVectorView &x) const noexcept override;
 
     /** @brief Fit each component independently from the corresponding dimension. */
     void fit(std::span<const ObservationVectorView> data) override;
 
     /** @brief Weighted fit: extract per-dimension weighted data and fit each component. */
-    void fit(std::span<const ObservationVectorView> data,
-             std::span<const double> weights) override;
+    void fit(std::span<const ObservationVectorView> data, std::span<const double> weights) override;
 
     /** @brief Reset all components to their defaults. */
     void reset() noexcept override;
@@ -97,10 +94,10 @@ public:
      * Use sample_mv() instead.
      * @throws std::logic_error always.
      */
-    [[nodiscard]] double sample(std::mt19937_64& rng) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /** @brief Draw a D-dimensional sample: result[d] ~ component[d]. */
-    [[nodiscard]] std::vector<double> sample_mv(std::mt19937_64& rng) const;
+    [[nodiscard]] std::vector<double> sample_mv(std::mt19937_64 &rng) const;
 
     [[nodiscard]] std::string to_json() const override;
     [[nodiscard]] std::string toString() const override;
@@ -118,13 +115,13 @@ public:
     [[nodiscard]] std::size_t getDimension() const noexcept override { return dim_; }
 
     /** @brief Read-only access to component d. */
-    [[nodiscard]] const EmissionDistribution& getComponent(std::size_t d) const {
+    [[nodiscard]] const EmissionDistribution &getComponent(std::size_t d) const {
         validateDim(d, "getComponent");
         return *components_[d];
     }
 
     /** @brief Mutable access to component d (e.g. for manual parameter setting). */
-    [[nodiscard]] EmissionDistribution& getComponent(std::size_t d) {
+    [[nodiscard]] EmissionDistribution &getComponent(std::size_t d) {
         validateDim(d, "getComponent");
         return *components_[d];
     }

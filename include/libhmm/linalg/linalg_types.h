@@ -63,8 +63,8 @@ using MultiObservationLists = std::vector<ObservationMatrix>;
 
 /// Return a non-owning view of row t of an ObservationMatrix.
 /// The returned span is valid as long as mat is alive.
-[[nodiscard]] inline ObservationVectorView
-row_view(const ObservationMatrix& mat, std::size_t t) noexcept {
+[[nodiscard]] inline ObservationVectorView row_view(const ObservationMatrix &mat,
+                                                    std::size_t t) noexcept {
     return ObservationVectorView(mat.data() + t * mat.cols(), mat.cols());
 }
 
@@ -76,25 +76,25 @@ row_view(const ObservationMatrix& mat, std::size_t t) noexcept {
 // Two specialisations: Obs=double (scalar) and Obs=ObservationVectorView (MV).
 // ===========================================================================
 
-template<typename Obs>
-struct ObsSeqTraits;  ///< Primary; only the two specialisations below are valid.
+template <typename Obs>
+struct ObsSeqTraits; ///< Primary; only the two specialisations below are valid.
 
-template<>
+template <>
 struct ObsSeqTraits<double> {
-    using SeqType  = ObservationSet;    ///< BasicVector<double>
-    using ListType = ObservationLists;  ///< vector<ObservationSet>
+    using SeqType = ObservationSet;    ///< BasicVector<double>
+    using ListType = ObservationLists; ///< vector<ObservationSet>
 
     /// Length of a single observation sequence.
-    static std::size_t sequence_length(const SeqType& s) noexcept { return s.size(); }
+    static std::size_t sequence_length(const SeqType &s) noexcept { return s.size(); }
 };
 
-template<>
+template <>
 struct ObsSeqTraits<ObservationVectorView> {
-    using SeqType  = ObservationMatrix;          ///< BasicMatrix<double>, T rows x D cols
-    using ListType = MultiObservationLists;      ///< vector<ObservationMatrix>
+    using SeqType = ObservationMatrix;      ///< BasicMatrix<double>, T rows x D cols
+    using ListType = MultiObservationLists; ///< vector<ObservationMatrix>
 
     /// Length of a single observation sequence (number of time steps = rows).
-    static std::size_t sequence_length(const SeqType& s) noexcept { return s.size1(); }
+    static std::size_t sequence_length(const SeqType &s) noexcept { return s.size1(); }
 };
 
 } // namespace libhmm

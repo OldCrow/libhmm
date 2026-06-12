@@ -55,20 +55,24 @@ HmmMV make_true_hmm() {
     hmm.setDistribution(1, std::make_unique<DiagonalGaussianDistribution>(2, 5.0, 1.0));
 
     Matrix trans(2, 2);
-    trans(0, 0) = 0.85; trans(0, 1) = 0.15;
-    trans(1, 0) = 0.15; trans(1, 1) = 0.85;
+    trans(0, 0) = 0.85;
+    trans(0, 1) = 0.15;
+    trans(1, 0) = 0.15;
+    trans(1, 1) = 0.85;
     hmm.setTrans(trans);
 
-    Vector pi(2); pi(0) = 0.5; pi(1) = 0.5;
+    Vector pi(2);
+    pi(0) = 0.5;
+    pi(1) = 0.5;
     hmm.setPi(pi);
     return hmm;
 }
 
 /// Sample one observation sequence of length T from @p true_hmm.
-ObservationMatrix sample_sequence(const HmmMV& true_hmm, std::size_t T, std::mt19937_64& rng) {
+ObservationMatrix sample_sequence(const HmmMV &true_hmm, std::size_t T, std::mt19937_64 &rng) {
     const std::size_t N = static_cast<std::size_t>(true_hmm.getNumStates());
-    const auto& pi    = true_hmm.getPi();
-    const auto& trans = true_hmm.getTrans();
+    const auto &pi = true_hmm.getPi();
+    const auto &trans = true_hmm.getTrans();
 
     // Sample initial state from pi.
     std::discrete_distribution<std::size_t> pi_dist(pi.data(), pi.data() + N);
@@ -77,16 +81,16 @@ ObservationMatrix sample_sequence(const HmmMV& true_hmm, std::size_t T, std::mt1
     ObservationMatrix mat(T, 2);
     for (std::size_t t = 0; t < T; ++t) {
         // Emit from the current state's diagonal Gaussian.
-        const auto& d = static_cast<const DiagonalGaussianDistribution&>(
-            true_hmm.getDistribution(state));
-        const auto& mu  = d.getMean();
-        const auto& var = d.getVariance();
+        const auto &d =
+            static_cast<const DiagonalGaussianDistribution &>(true_hmm.getDistribution(state));
+        const auto &mu = d.getMean();
+        const auto &var = d.getVariance();
         for (std::size_t dim = 0; dim < 2; ++dim) {
             std::normal_distribution<double> nd(mu[dim], std::sqrt(var[dim]));
             mat(t, dim) = nd(rng);
         }
         // Transition.
-        const double* row = trans.data() + state * N;
+        const double *row = trans.data() + state * N;
         std::discrete_distribution<std::size_t> trans_dist(row, row + N);
         state = trans_dist(rng);
     }
@@ -94,9 +98,9 @@ ObservationMatrix sample_sequence(const HmmMV& true_hmm, std::size_t T, std::mt1
 }
 
 /// Compute total log-probability of @p lists under @p hmm.
-double total_log_prob(HmmMV& hmm, const MultiObservationLists& lists) {
+double total_log_prob(HmmMV &hmm, const MultiObservationLists &lists) {
     double lp = 0.0;
-    for (const auto& seq : lists) {
+    for (const auto &seq : lists) {
         BasicForwardBackwardCalculator<ObservationVectorView> fbc(hmm, seq);
         lp += fbc.getLogProbability();
     }
@@ -104,13 +108,13 @@ double total_log_prob(HmmMV& hmm, const MultiObservationLists& lists) {
 }
 
 /// Print the mean and variance for each state.
-void print_emissions(const HmmMV& hmm) {
+void print_emissions(const HmmMV &hmm) {
     const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
     for (std::size_t i = 0; i < N; ++i) {
-        const auto& d = static_cast<const DiagonalGaussianDistribution&>(hmm.getDistribution(i));
+        const auto &d = static_cast<const DiagonalGaussianDistribution &>(hmm.getDistribution(i));
         std::cout << "  State " << i << ": μ=[" << std::fixed << std::setprecision(3)
-                  << d.getMean()[0] << ", " << d.getMean()[1] << "]  σ²=["
-                  << d.getVariance()[0] << ", " << d.getVariance()[1] << "]\n";
+                  << d.getMean()[0] << ", " << d.getMean()[1] << "]  σ²=[" << d.getVariance()[0]
+                  << ", " << d.getVariance()[1] << "]\n";
     }
 }
 
@@ -150,10 +154,14 @@ int main() {
     fitted_hmm.setDistribution(1, std::make_unique<DiagonalGaussianDistribution>(2));
 
     Matrix trans(2, 2);
-    trans(0, 0) = 0.7; trans(0, 1) = 0.3;
-    trans(1, 0) = 0.3; trans(1, 1) = 0.7;
+    trans(0, 0) = 0.7;
+    trans(0, 1) = 0.3;
+    trans(1, 0) = 0.3;
+    trans(1, 1) = 0.7;
     fitted_hmm.setTrans(trans);
-    Vector pi(2); pi(0) = 0.5; pi(1) = 0.5;
+    Vector pi(2);
+    pi(0) = 0.5;
+    pi(1) = 0.5;
     fitted_hmm.setPi(pi);
 
     // -------------------------------------------------------------------------
@@ -165,9 +173,8 @@ int main() {
 
     std::cout << "After kmeans_init:\n";
     print_emissions(fitted_hmm);
-    std::cout << "  total logP: " << std::fixed << std::setprecision(2)
-              << lp_before_init << "  →  " << lp_after_init
-              << "  (improvement: " << (lp_after_init - lp_before_init) << ")\n\n";
+    std::cout << "  total logP: " << std::fixed << std::setprecision(2) << lp_before_init << "  →  "
+              << lp_after_init << "  (improvement: " << (lp_after_init - lp_before_init) << ")\n\n";
 
     // -------------------------------------------------------------------------
     // 4. Baum-Welch training
@@ -183,8 +190,8 @@ int main() {
         trainer.train();
         const double cur_lp = total_log_prob(fitted_hmm, training_data);
         if (k < 5 || (k + 1) % 10 == 0)
-            std::cout << "  iter " << std::setw(3) << (k + 1)
-                      << "  logP = " << std::setprecision(2) << cur_lp << '\n';
+            std::cout << "  iter " << std::setw(3) << (k + 1) << "  logP = " << std::setprecision(2)
+                      << cur_lp << '\n';
         if (std::abs(cur_lp - prev_lp) < TOLERANCE) {
             std::cout << "  converged at iteration " << (k + 1) << '\n';
             break;
@@ -202,19 +209,20 @@ int main() {
 
     BasicForwardBackwardCalculator<ObservationVectorView> fbc(fitted_hmm, test_seq);
     std::cout << "Test sequence (T=15):\n";
-    std::cout << "  log P(O | fitted model) = " << std::setprecision(4)
-              << fbc.getLogProbability() << '\n';
-    std::cout << "  P(O | fitted model)     = " << std::setprecision(6)
-              << fbc.probability() << '\n';
+    std::cout << "  log P(O | fitted model) = " << std::setprecision(4) << fbc.getLogProbability()
+              << '\n';
+    std::cout << "  P(O | fitted model)     = " << std::setprecision(6) << fbc.probability()
+              << '\n';
 
     // -------------------------------------------------------------------------
     // 6. Viterbi decoding
     // -------------------------------------------------------------------------
     BasicViterbiCalculator<ObservationVectorView> vc(fitted_hmm, test_seq);
     std::cout << "\nViterbi decoded state sequence:\n  [";
-    const StateSequence& seq = vc.getStateSequence();
+    const StateSequence &seq = vc.getStateSequence();
     for (std::size_t t = 0; t < seq.size(); ++t) {
-        if (t) std::cout << ", ";
+        if (t)
+            std::cout << ", ";
         std::cout << seq(t);
     }
     std::cout << "]\n  (log P(O, q*) = " << vc.getLogProbability() << ")\n";
@@ -229,8 +237,8 @@ int main() {
 
     BasicForwardBackwardCalculator<ObservationVectorView> fbc2(reloaded, test_seq);
     const double logp_diff = std::abs(fbc.getLogProbability() - fbc2.getLogProbability());
-    std::cout << "  log-probability difference after reload: " << std::scientific
-              << logp_diff << " (should be ~0)\n";
+    std::cout << "  log-probability difference after reload: " << std::scientific << logp_diff
+              << " (should be ~0)\n";
 
     std::cout << "\nDone.\n";
     return 0;

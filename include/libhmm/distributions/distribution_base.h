@@ -42,10 +42,10 @@ protected:
 
 private:
     /** Incomplete gamma via continued fraction (used by gammap). */
-    static void gcf(double& gammcf, double a, double x, double& gln) noexcept;
+    static void gcf(double &gammcf, double a, double x, double &gln) noexcept;
 
     /** Incomplete gamma via series representation (used by gammap). */
-    static void gser(double& gamser, double a, double x, double& gln) noexcept;
+    static void gser(double &gamser, double a, double x, double &gln) noexcept;
 };
 
 // =============================================================================
@@ -62,9 +62,8 @@ private:
 // @tparam Derived  Concrete distribution type (CRTP parameter).
 // @tparam Obs      Observation type; default double preserves v3 API.
 // =============================================================================
-template<typename Derived, typename Obs = double>
-class DistributionBase : public BasicEmissionDistribution<Obs>,
-                         protected DistributionMathHelper {
+template <typename Derived, typename Obs = double>
+class DistributionBase : public BasicEmissionDistribution<Obs>, protected DistributionMathHelper {
 public:
     ~DistributionBase() override = default;
 
@@ -75,9 +74,8 @@ public:
     // Requires Derived to be copy-constructible (all concrete distributions are).
     // =========================================================================
 
-    [[nodiscard]] std::unique_ptr<BasicEmissionDistribution<Obs>>
-    clone() const override {
-        return std::make_unique<Derived>(static_cast<const Derived&>(*this));
+    [[nodiscard]] std::unique_ptr<BasicEmissionDistribution<Obs>> clone() const override {
+        return std::make_unique<Derived>(static_cast<const Derived &>(*this));
     }
 
     // =========================================================================
@@ -115,10 +113,10 @@ protected:
 
     DistributionBase() : cacheValid_{false} {}
 
-    DistributionBase(const DistributionBase& other)
+    DistributionBase(const DistributionBase &other)
         : cacheValid_{other.cacheValid_.load(std::memory_order_acquire)} {}
 
-    DistributionBase& operator=(const DistributionBase& other) {
+    DistributionBase &operator=(const DistributionBase &other) {
         if (this != &other) {
             cacheValid_.store(other.cacheValid_.load(std::memory_order_acquire),
                               std::memory_order_release);
@@ -126,13 +124,13 @@ protected:
         return *this;
     }
 
-    DistributionBase(DistributionBase&& other) noexcept
+    DistributionBase(DistributionBase &&other) noexcept
         : cacheValid_{other.cacheValid_.load(std::memory_order_acquire)} {
         // Leave moved-from object in a determinate (cache-invalid) state.
         other.cacheValid_.store(false, std::memory_order_relaxed);
     }
 
-    DistributionBase& operator=(DistributionBase&& other) noexcept {
+    DistributionBase &operator=(DistributionBase &&other) noexcept {
         if (this != &other) {
             cacheValid_.store(other.cacheValid_.load(std::memory_order_acquire),
                               std::memory_order_release);
@@ -152,9 +150,7 @@ protected:
     mutable std::atomic<bool> cacheValid_{false};
 
     /** Mark cache as stale. Call from setters and fit(). */
-    void invalidateCache() noexcept {
-        cacheValid_.store(false, std::memory_order_relaxed);
-    }
+    void invalidateCache() noexcept { cacheValid_.store(false, std::memory_order_relaxed); }
 
     /** Returns true if the cache is current. */
     [[nodiscard]] bool isCacheValid() const noexcept {
@@ -162,9 +158,7 @@ protected:
     }
 
     /** Mark cache as valid. Call at end of updateCache(). */
-    void markCacheValid() const noexcept {
-        cacheValid_.store(true, std::memory_order_release);
-    }
+    void markCacheValid() const noexcept { cacheValid_.store(true, std::memory_order_release); }
 };
 
 } // namespace libhmm

@@ -70,13 +70,13 @@ TEST(MapBaumWelchTest, NullHmmThrows) {
 
 TEST(MapBaumWelchTest, EmptyObsThrows) {
     auto hmm = make_uniform_hmm();
-    ObservationLists empty_obs;  // named empty list — rvalue {} would now be a compile error
+    ObservationLists empty_obs; // named empty list — rvalue {} would now be a compile error
     EXPECT_THROW(MapBaumWelchTrainer(*hmm, empty_obs, 1.0), std::invalid_argument);
 }
 
 TEST(MapBaumWelchTest, SetPseudoCountNegativeThrows) {
-    auto hmm  = make_uniform_hmm();
-    auto obs  = make_casino_obs();
+    auto hmm = make_uniform_hmm();
+    auto obs = make_casino_obs();
     MapBaumWelchTrainer trainer(*hmm, obs, 1.0);
     EXPECT_THROW(trainer.setPseudoCount(-0.5), std::invalid_argument);
 }

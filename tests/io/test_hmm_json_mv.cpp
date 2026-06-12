@@ -50,7 +50,7 @@ HmmMV make_uniform_hmm_mv(std::size_t N = 2) {
 }
 
 /// Check that JSON string @p json contains the substring @p needle.
-bool json_contains(const std::string& json, const std::string& needle) {
+bool json_contains(const std::string &json, const std::string &needle) {
     return json.find(needle) != std::string::npos;
 }
 
@@ -125,19 +125,19 @@ TEST(MvJsonRoundTrip, DiagonalGaussianParametersExact) {
 
     HmmMV restored = from_json_mv(to_json(hmm));
 
-    auto* d0 = dynamic_cast<const DiagonalGaussianDistribution*>(&restored.getDistribution(0));
+    auto *d0 = dynamic_cast<const DiagonalGaussianDistribution *>(&restored.getDistribution(0));
     ASSERT_NE(d0, nullptr);
     EXPECT_EQ(d0->getDimension(), D);
     for (std::size_t k = 0; k < D; ++k) {
-        EXPECT_EQ(d0->getMean()[k], 1.5)     << "state0 mean[" << k << "]";
+        EXPECT_EQ(d0->getMean()[k], 1.5) << "state0 mean[" << k << "]";
         EXPECT_EQ(d0->getVariance()[k], 0.25) << "state0 var[" << k << "]";
     }
 
-    auto* d1 = dynamic_cast<const DiagonalGaussianDistribution*>(&restored.getDistribution(1));
+    auto *d1 = dynamic_cast<const DiagonalGaussianDistribution *>(&restored.getDistribution(1));
     ASSERT_NE(d1, nullptr);
     for (std::size_t k = 0; k < D; ++k) {
         EXPECT_EQ(d1->getMean()[k], -2.0) << "state1 mean[" << k << "]";
-        EXPECT_EQ(d1->getVariance()[k],  3.0) << "state1 var[" << k << "]";
+        EXPECT_EQ(d1->getVariance()[k], 3.0) << "state1 var[" << k << "]";
     }
 }
 
@@ -152,8 +152,8 @@ TEST(MvJsonRoundTrip, FullCovGaussianTypeAndDimension) {
     hmm.setDistribution(1, std::make_unique<FullCovarianceGaussianDistribution>(D));
 
     HmmMV restored = from_json_mv(to_json(hmm));
-    auto* d = dynamic_cast<const FullCovarianceGaussianDistribution*>(
-                  &restored.getDistribution(0));
+    auto *d =
+        dynamic_cast<const FullCovarianceGaussianDistribution *>(&restored.getDistribution(0));
     ASSERT_NE(d, nullptr) << "Wrong distribution type after round-trip";
     EXPECT_EQ(d->getDimension(), D);
 }
@@ -170,8 +170,8 @@ TEST(MvJsonRoundTrip, FullCovGaussianMeanAndCovExact) {
 
     HmmMV restored = from_json_mv(to_json(hmm));
 
-    auto* r = dynamic_cast<const FullCovarianceGaussianDistribution*>(
-                  &restored.getDistribution(0));
+    auto *r =
+        dynamic_cast<const FullCovarianceGaussianDistribution *>(&restored.getDistribution(0));
     ASSERT_NE(r, nullptr);
     EXPECT_EQ(r->getDimension(), D);
     // Default mean is [0,0]; default cov is I.
@@ -194,8 +194,7 @@ TEST(MvJsonRoundTrip, IndependentComponentsTypeAndDimension) {
     hmm.setDistribution(1, std::make_unique<IndependentComponentsDistribution>(D));
 
     HmmMV restored = from_json_mv(to_json(hmm));
-    auto* d = dynamic_cast<const IndependentComponentsDistribution*>(
-                  &restored.getDistribution(0));
+    auto *d = dynamic_cast<const IndependentComponentsDistribution *>(&restored.getDistribution(0));
     ASSERT_NE(d, nullptr) << "Wrong distribution type after round-trip";
     EXPECT_EQ(d->getDimension(), D);
 }
@@ -208,11 +207,10 @@ TEST(MvJsonRoundTrip, IndependentComponentsComponentTypes) {
     hmm.setDistribution(1, std::make_unique<IndependentComponentsDistribution>(D));
 
     HmmMV restored = from_json_mv(to_json(hmm));
-    auto* d = dynamic_cast<const IndependentComponentsDistribution*>(
-                  &restored.getDistribution(0));
+    auto *d = dynamic_cast<const IndependentComponentsDistribution *>(&restored.getDistribution(0));
     ASSERT_NE(d, nullptr);
     for (std::size_t k = 0; k < D; ++k) {
-        const auto* g = dynamic_cast<const GaussianDistribution*>(&d->getComponent(k));
+        const auto *g = dynamic_cast<const GaussianDistribution *>(&d->getComponent(k));
         EXPECT_NE(g, nullptr) << "Component " << k << " should be GaussianDistribution";
     }
 }
@@ -248,14 +246,15 @@ TEST_F(MvJsonFileTest, SaveLoadDiagGaussianRoundTrip) {
     HmmMV restored = load_json_mv(path);
     EXPECT_EQ(restored.getNumStatesModern(), N);
 
-    auto* d0 = dynamic_cast<const DiagonalGaussianDistribution*>(&restored.getDistribution(0));
+    auto *d0 = dynamic_cast<const DiagonalGaussianDistribution *>(&restored.getDistribution(0));
     ASSERT_NE(d0, nullptr);
     EXPECT_EQ(d0->getMean()[0], 1.0);
     EXPECT_EQ(d0->getVariance()[0], 2.0);
 }
 
 TEST_F(MvJsonFileTest, LoadNonExistentThrows) {
-    EXPECT_THROW(static_cast<void>(load_json_mv(tmpDir_ / "does_not_exist.json")), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(load_json_mv(tmpDir_ / "does_not_exist.json")),
+                 std::runtime_error);
 }
 
 // =============================================================================
@@ -270,17 +269,20 @@ TEST(MvJsonErrors, RejectsScalarSchema) {
 }
 
 TEST(MvJsonErrors, RejectsWrongObsType) {
-    const std::string bad = R"({"libhmm_version":"4","obs_type":"scalar","dimensions":2,"states":1,"pi":[1.0],"trans":[[1.0]],"distributions":[]})";
+    const std::string bad =
+        R"({"libhmm_version":"4","obs_type":"scalar","dimensions":2,"states":1,"pi":[1.0],"trans":[[1.0]],"distributions":[]})";
     EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
 }
 
 TEST(MvJsonErrors, RejectsUnknownDistributionType) {
-    const std::string bad = R"({"libhmm_version":"4","obs_type":"multivariate","dimensions":2,"states":1,"pi":[1.0],"trans":[[1.0]],"distributions":[{"type":"BogusGaussian","dim":2}]})";
+    const std::string bad =
+        R"({"libhmm_version":"4","obs_type":"multivariate","dimensions":2,"states":1,"pi":[1.0],"trans":[[1.0]],"distributions":[{"type":"BogusGaussian","dim":2}]})";
     EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
 }
 
 TEST(MvJsonErrors, RejectsMissingVersion) {
-    const std::string bad = R"({"obs_type":"multivariate","dimensions":2,"states":1,"pi":[1.0],"trans":[[1.0]],"distributions":[]})";
+    const std::string bad =
+        R"({"obs_type":"multivariate","dimensions":2,"states":1,"pi":[1.0],"trans":[[1.0]],"distributions":[]})";
     EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
 }
 
@@ -295,11 +297,15 @@ TEST(MvJsonErrors, RejectsOversizedInput) {
 
 TEST(MvJsonBackwardCompat, ScalarFromJsonUnaffected) {
     Hmm original(2);
-    Vector pi(2); pi(0) = 0.6; pi(1) = 0.4;
+    Vector pi(2);
+    pi(0) = 0.6;
+    pi(1) = 0.4;
     original.setPi(pi);
     Matrix trans(2, 2);
-    trans(0,0)=0.9; trans(0,1)=0.1;
-    trans(1,0)=0.2; trans(1,1)=0.8;
+    trans(0, 0) = 0.9;
+    trans(0, 1) = 0.1;
+    trans(1, 0) = 0.2;
+    trans(1, 1) = 0.8;
     original.setTrans(trans);
 
     Hmm restored = from_json(to_json(original));
@@ -308,7 +314,7 @@ TEST(MvJsonBackwardCompat, ScalarFromJsonUnaffected) {
     EXPECT_EQ(restored.getPi()(1), 0.4);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

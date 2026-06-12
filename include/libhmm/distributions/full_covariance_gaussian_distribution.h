@@ -35,16 +35,15 @@ namespace libhmm {
  * Obs = ObservationVectorView = std::span<const double>.
  */
 class FullCovarianceGaussianDistribution
-    : public DistributionBase<FullCovarianceGaussianDistribution,
-                               ObservationVectorView> {
+    : public DistributionBase<FullCovarianceGaussianDistribution, ObservationVectorView> {
 private:
     std::size_t dim_{0};
-    std::vector<double>   mean_;    ///< D-dimensional mean vector
-    BasicMatrix<double>   cov_;     ///< D×D covariance matrix
+    std::vector<double> mean_; ///< D-dimensional mean vector
+    BasicMatrix<double> cov_;  ///< D×D covariance matrix
 
     // Cached Cholesky factor and log-determinant
-    mutable BasicMatrix<double> chol_L_{};   ///< lower-triangular L: Σ = L·Lᵀ
-    mutable double log_det_{0.0};            ///< log(det(Σ))
+    mutable BasicMatrix<double> chol_L_{}; ///< lower-triangular L: Σ = L·Lᵀ
+    mutable double log_det_{0.0};          ///< log(det(Σ))
 
     /// Regularisation added to the diagonal before factorization.
     double reg_{1e-5};
@@ -55,7 +54,7 @@ private:
     void updateCache() const noexcept {
         auto res = chol::factorize(cov_);
         if (res.success) {
-            chol_L_  = std::move(res.L);
+            chol_L_ = std::move(res.L);
             log_det_ = chol::log_det(chol_L_);
         }
         // If factorization fails the cached values retain their previous state.
@@ -79,17 +78,13 @@ public:
      * @param regularise   Regularisation added to Σ diagonal before
      *                     factorization (default 1e-5).
      */
-    explicit FullCovarianceGaussianDistribution(std::size_t dim,
-                                                 double regularise = 1e-5);
+    explicit FullCovarianceGaussianDistribution(std::size_t dim, double regularise = 1e-5);
 
-    FullCovarianceGaussianDistribution(
-        const FullCovarianceGaussianDistribution&) = default;
-    FullCovarianceGaussianDistribution& operator=(
-        const FullCovarianceGaussianDistribution&) = default;
-    FullCovarianceGaussianDistribution(
-        FullCovarianceGaussianDistribution&&) = default;
-    FullCovarianceGaussianDistribution& operator=(
-        FullCovarianceGaussianDistribution&&) = default;
+    FullCovarianceGaussianDistribution(const FullCovarianceGaussianDistribution &) = default;
+    FullCovarianceGaussianDistribution &
+    operator=(const FullCovarianceGaussianDistribution &) = default;
+    FullCovarianceGaussianDistribution(FullCovarianceGaussianDistribution &&) = default;
+    FullCovarianceGaussianDistribution &operator=(FullCovarianceGaussianDistribution &&) = default;
     ~FullCovarianceGaussianDistribution() override = default;
 
     // =========================================================================
@@ -97,21 +92,19 @@ public:
     // =========================================================================
 
     /** @brief exp(getLogProbability(x)). Prefer the log version. */
-    [[nodiscard]] double getProbability(const ObservationVectorView& x) const override;
+    [[nodiscard]] double getProbability(const ObservationVectorView &x) const override;
 
     /**
      * @brief log p(x) = -D/2·log(2π) - log_det(L)/2 - inv_quad_form(L, x-μ)/2
      * Precondition: x.size() == getDimension()
      */
-    [[nodiscard]] double getLogProbability(
-        const ObservationVectorView& x) const noexcept override;
+    [[nodiscard]] double getLogProbability(const ObservationVectorView &x) const noexcept override;
 
     /** @brief Unweighted MLE: sample mean and covariance. */
     void fit(std::span<const ObservationVectorView> data) override;
 
     /** @brief Weighted MLE (Baum-Welch M-step): weighted mean and covariance. */
-    void fit(std::span<const ObservationVectorView> data,
-             std::span<const double> weights) override;
+    void fit(std::span<const ObservationVectorView> data, std::span<const double> weights) override;
 
     /** @brief Reset to μ = 0, Σ = I (and refactorize). */
     void reset() noexcept override;
@@ -121,14 +114,14 @@ public:
      * Use sample_mv() instead.
      * @throws std::logic_error always.
      */
-    [[nodiscard]] double sample(std::mt19937_64& rng) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /**
      * @brief Draw a D-dimensional sample: x = μ + L·z, z ~ N(0, I).
      * Precondition: the Cholesky factor must be valid (i.e., fit() or
      * construction must have succeeded).
      */
-    [[nodiscard]] std::vector<double> sample_mv(std::mt19937_64& rng) const;
+    [[nodiscard]] std::vector<double> sample_mv(std::mt19937_64 &rng) const;
 
     [[nodiscard]] std::string to_json() const override;
     [[nodiscard]] std::string toString() const override;
@@ -144,8 +137,8 @@ public:
     // =========================================================================
 
     [[nodiscard]] std::size_t getDimension() const noexcept override { return dim_; }
-    [[nodiscard]] const std::vector<double>&  getMean()       const noexcept { return mean_; }
-    [[nodiscard]] const BasicMatrix<double>&  getCovariance() const noexcept { return cov_;  }
+    [[nodiscard]] const std::vector<double> &getMean() const noexcept { return mean_; }
+    [[nodiscard]] const BasicMatrix<double> &getCovariance() const noexcept { return cov_; }
 
     /**
      * @brief Set the mean vector.
@@ -178,17 +171,19 @@ public:
      * Reads remaining fields and the closing '}'.
      */
     [[nodiscard]] static std::unique_ptr<BasicEmissionDistribution<ObservationVectorView>>
-    from_json(json::Reader& r);
+    from_json(json::Reader &r);
 
     /** @brief Cached Cholesky factor L; valid after a successful fit/construction. */
-    [[nodiscard]] const BasicMatrix<double>& getCholeskyFactor() const noexcept {
-        if (!isCacheValid()) updateCache();
+    [[nodiscard]] const BasicMatrix<double> &getCholeskyFactor() const noexcept {
+        if (!isCacheValid())
+            updateCache();
         return chol_L_;
     }
 
     /** @brief log(det(Σ)); valid after a successful fit/construction. */
     [[nodiscard]] double getLogDet() const noexcept {
-        if (!isCacheValid()) updateCache();
+        if (!isCacheValid())
+            updateCache();
         return log_det_;
     }
 };

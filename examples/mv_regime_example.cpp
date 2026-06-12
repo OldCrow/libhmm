@@ -309,8 +309,7 @@ constexpr std::size_t kNObs = 240;
 // =============================================================================
 
 /// Build the single-sequence ObservationMatrix from the embedded synthetic array.
-static MultiObservationLists make_synthetic_data()
-{
+static MultiObservationLists make_synthetic_data() {
     ObservationMatrix mat(kNObs, 2);
     for (std::size_t t = 0; t < kNObs; ++t) {
         mat(t, 0) = kObs[t][0];
@@ -321,29 +320,35 @@ static MultiObservationLists make_synthetic_data()
 
 /// Try to load spy_qqq_monthly.csv from @p path.
 /// Returns an empty list on any error (missing file, bad format, etc.).
-static MultiObservationLists try_load_csv(const std::string& path)
-{
+static MultiObservationLists try_load_csv(const std::string &path) {
     std::ifstream f(path);
-    if (!f.is_open()) return {};
+    if (!f.is_open())
+        return {};
 
     std::string line;
     std::getline(f, line); // skip header: date,spy_logret,qqq_logret
 
     std::vector<double> col0, col1;
     while (std::getline(f, line)) {
-        if (line.empty()) continue;
+        if (line.empty())
+            continue;
         // Format: "date",spy,qqq  (date may be quoted)
         // Find second and third comma-separated fields.
         const std::size_t c1 = line.find(',');
-        if (c1 == std::string::npos) continue;
+        if (c1 == std::string::npos)
+            continue;
         const std::size_t c2 = line.find(',', c1 + 1);
-        if (c2 == std::string::npos) continue;
+        if (c2 == std::string::npos)
+            continue;
         try {
             col0.push_back(std::stod(line.substr(c1 + 1, c2 - c1 - 1)));
             col1.push_back(std::stod(line.substr(c2 + 1)));
-        } catch (...) { continue; }
+        } catch (...) {
+            continue;
+        }
     }
-    if (col0.empty()) return {};
+    if (col0.empty())
+        return {};
 
     ObservationMatrix mat(col0.size(), 2);
     for (std::size_t t = 0; t < col0.size(); ++t) {
@@ -354,10 +359,9 @@ static MultiObservationLists try_load_csv(const std::string& path)
 }
 
 /// Total log-probability over all sequences.
-static double total_logp(HmmMV& hmm, const MultiObservationLists& lists)
-{
+static double total_logp(HmmMV &hmm, const MultiObservationLists &lists) {
     double lp = 0.0;
-    for (const auto& seq : lists) {
+    for (const auto &seq : lists) {
         BasicForwardBackwardCalculator<ObservationVectorView> fbc(hmm, seq);
         lp += fbc.getLogProbability();
     }
@@ -365,35 +369,44 @@ static double total_logp(HmmMV& hmm, const MultiObservationLists& lists)
 }
 
 /// Run Baum-Welch to convergence; return final log-likelihood.
-static double run_bwt(HmmMV& hmm, const MultiObservationLists& lists,
-                      int max_iter = 300, double tol = 1e-4)
-{
+static double run_bwt(HmmMV &hmm, const MultiObservationLists &lists, int max_iter = 300,
+                      double tol = 1e-4) {
     BasicBaumWelchTrainer<ObservationVectorView> trainer(hmm, lists);
     double prev = total_logp(hmm, lists);
     int conv = -1;
     for (int k = 0; k < max_iter; ++k) {
         trainer.train();
-        const double cur  = total_logp(hmm, lists);
+        const double cur = total_logp(hmm, lists);
         const double delta = cur - prev;
         if (k > 0 && delta >= -1e-8 && delta < tol) {
-            if (conv < 0) conv = k;
+            if (conv < 0)
+                conv = k;
         }
-        if (conv >= 0 && k >= conv + 2) break;
+        if (conv >= 0 && k >= conv + 2)
+            break;
         prev = cur;
     }
     return total_logp(hmm, lists);
 }
 
 /// Build a 3-state HmmMV with uniform-ish transitions and equal initial probs.
-static HmmMV make_base_hmm()
-{
+static HmmMV make_base_hmm() {
     HmmMV hmm(3);
     Matrix A(3, 3);
-    A(0,0)=0.92; A(0,1)=0.06; A(0,2)=0.02;
-    A(1,0)=0.05; A(1,1)=0.90; A(1,2)=0.05;
-    A(2,0)=0.04; A(2,1)=0.10; A(2,2)=0.86;
+    A(0, 0) = 0.92;
+    A(0, 1) = 0.06;
+    A(0, 2) = 0.02;
+    A(1, 0) = 0.05;
+    A(1, 1) = 0.90;
+    A(1, 2) = 0.05;
+    A(2, 0) = 0.04;
+    A(2, 1) = 0.10;
+    A(2, 2) = 0.86;
     hmm.setTrans(A);
-    Vector pi(3); pi(0)=0.5; pi(1)=0.4; pi(2)=0.1;
+    Vector pi(3);
+    pi(0) = 0.5;
+    pi(1) = 0.4;
+    pi(2) = 0.1;
     hmm.setPi(pi);
     return hmm;
 }
@@ -402,10 +415,9 @@ static HmmMV make_base_hmm()
 // main
 // =============================================================================
 
-int main(int argc, char* argv[])
-{
-    const std::string data_dir  = (argc > 1) ? argv[1] : "/tmp";
-    const std::string csv_path  = data_dir + "/spy_qqq_monthly.csv";
+int main(int argc, char *argv[]) {
+    const std::string data_dir = (argc > 1) ? argv[1] : "/tmp";
+    const std::string csv_path = data_dir + "/spy_qqq_monthly.csv";
 
     // -----------------------------------------------------------------
     // Load data: prefer real SPY+QQQ, fall back to embedded synthetic.
@@ -418,10 +430,10 @@ int main(int argc, char* argv[])
                   << "Run: Rscript scripts/prepare_mv_regime_data.R to use real SPY+QQQ data.\n\n";
     }
 
-    const auto& seq = lists[0];
+    const auto &seq = lists[0];
     const std::size_t N = seq.size1();
-    const char* col1_name = using_real ? "SPY" : "Sector1";
-    const char* col2_name = using_real ? "QQQ" : "Sector2";
+    const char *col1_name = using_real ? "SPY" : "Sector1";
+    const char *col2_name = using_real ? "QQQ" : "Sector2";
 
     std::cout << "Market Regime Detection — Multivariate HMM (v4 API)\n";
     if (using_real) {
@@ -445,8 +457,8 @@ int main(int argc, char* argv[])
         const double r0 = seq(t, 0) - mean0;
         const double r1 = seq(t, 1) - mean1;
         cov01 += r0 * r1;
-        var0  += r0 * r0;
-        var1  += r1 * r1;
+        var0 += r0 * r0;
+        var1 += r1 * r1;
     }
     const double marginal_rho = cov01 / std::sqrt(var0 * var1);
     std::cout << std::fixed << std::setprecision(3);
@@ -472,11 +484,11 @@ int main(int argc, char* argv[])
     HmmMV hmm_a = make_base_hmm();
     {
         auto a0 = std::make_unique<DiagonalGaussianDistribution>(2);
-        a0->setParameters({ 0.8,  1.0}, { 9.0, 16.0});  // bull
+        a0->setParameters({0.8, 1.0}, {9.0, 16.0}); // bull
         hmm_a.setDistribution(0, std::move(a0));
 
         auto a1 = std::make_unique<DiagonalGaussianDistribution>(2);
-        a1->setParameters({-1.5, -2.0}, {25.0, 50.0});  // bear
+        a1->setParameters({-1.5, -2.0}, {25.0, 50.0}); // bear
         hmm_a.setDistribution(1, std::move(a1));
 
         auto a2 = std::make_unique<DiagonalGaussianDistribution>(2);
@@ -486,18 +498,18 @@ int main(int argc, char* argv[])
 
     const auto t_a0 = std::chrono::steady_clock::now();
     const double ll_a = run_bwt(hmm_a, lists);
-    const double wall_a = std::chrono::duration<double, std::milli>(
-        std::chrono::steady_clock::now() - t_a0).count();
+    const double wall_a =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_a0).count();
 
     std::cout << std::fixed << std::setprecision(4);
-    const char* state_names[] = {"Bull  ", "Bear  ", "Crisis"};
+    const char *state_names[] = {"Bull  ", "Bear  ", "Crisis"};
     for (int s = 0; s < 3; ++s) {
-        const auto& dg = static_cast<const DiagonalGaussianDistribution&>(
-            hmm_a.getDistribution(s));
+        const auto &dg =
+            static_cast<const DiagonalGaussianDistribution &>(hmm_a.getDistribution(s));
         std::cout << "State " << s << " (" << state_names[s] << "): "
                   << "mu=[" << dg.getMean()[0] << ", " << dg.getMean()[1] << "]  "
-                  << "sd=[" << std::sqrt(dg.getVariance()[0])
-                  << ", " << std::sqrt(dg.getVariance()[1]) << "]\n";
+                  << "sd=[" << std::sqrt(dg.getVariance()[0]) << ", "
+                  << std::sqrt(dg.getVariance()[1]) << "]\n";
     }
     std::cout << "Log-likelihood: " << ll_a << "\n";
     std::cout << "Wall time: " << std::setprecision(1) << wall_a << " ms\n\n";
@@ -513,15 +525,21 @@ int main(int argc, char* argv[])
         auto b0 = std::make_unique<FullCovarianceGaussianDistribution>(2);
         {
             BasicMatrix<double> S(2, 2, 0.0);
-            S(0,0)= 9.0; S(0,1)= 5.0; S(1,0)= 5.0; S(1,1)=16.0;  // bull rho~0.42
-            b0->setParameters({ 0.8,  1.0}, std::move(S));
+            S(0, 0) = 9.0;
+            S(0, 1) = 5.0;
+            S(1, 0) = 5.0;
+            S(1, 1) = 16.0; // bull rho~0.42
+            b0->setParameters({0.8, 1.0}, std::move(S));
         }
         hmm_b.setDistribution(0, std::move(b0));
 
         auto b1 = std::make_unique<FullCovarianceGaussianDistribution>(2);
         {
             BasicMatrix<double> S(2, 2, 0.0);
-            S(0,0)=25.0; S(0,1)=18.0; S(1,0)=18.0; S(1,1)=50.0;  // bear rho~0.51
+            S(0, 0) = 25.0;
+            S(0, 1) = 18.0;
+            S(1, 0) = 18.0;
+            S(1, 1) = 50.0; // bear rho~0.51
             b1->setParameters({-1.5, -2.0}, std::move(S));
         }
         hmm_b.setDistribution(1, std::move(b1));
@@ -529,7 +547,10 @@ int main(int argc, char* argv[])
         auto b2 = std::make_unique<FullCovarianceGaussianDistribution>(2);
         {
             BasicMatrix<double> S(2, 2, 0.0);
-            S(0,0)=64.0; S(0,1)=55.0; S(1,0)=55.0; S(1,1)=100.0; // crisis rho~0.69
+            S(0, 0) = 64.0;
+            S(0, 1) = 55.0;
+            S(1, 0) = 55.0;
+            S(1, 1) = 100.0; // crisis rho~0.69
             b2->setParameters({-5.0, -7.0}, std::move(S));
         }
         hmm_b.setDistribution(2, std::move(b2));
@@ -537,18 +558,18 @@ int main(int argc, char* argv[])
 
     const auto t_b0 = std::chrono::steady_clock::now();
     const double ll_b = run_bwt(hmm_b, lists);
-    const double wall_b = std::chrono::duration<double, std::milli>(
-        std::chrono::steady_clock::now() - t_b0).count();
+    const double wall_b =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_b0).count();
 
     std::cout << std::fixed << std::setprecision(4);
     for (int s = 0; s < 3; ++s) {
-        const auto& fc = static_cast<const FullCovarianceGaussianDistribution&>(
-            hmm_b.getDistribution(s));
-        const auto& C = fc.getCovariance();
-        const double rho = C(0,1) / std::sqrt(C(0,0) * C(1,1));
+        const auto &fc =
+            static_cast<const FullCovarianceGaussianDistribution &>(hmm_b.getDistribution(s));
+        const auto &C = fc.getCovariance();
+        const double rho = C(0, 1) / std::sqrt(C(0, 0) * C(1, 1));
         std::cout << "State " << s << " (" << state_names[s] << "): "
                   << "mu=[" << fc.getMean()[0] << ", " << fc.getMean()[1] << "]  "
-                  << "sd=[" << std::sqrt(C(0,0)) << ", " << std::sqrt(C(1,1)) << "]  "
+                  << "sd=[" << std::sqrt(C(0, 0)) << ", " << std::sqrt(C(1, 1)) << "]  "
                   << "rho=" << rho << "\n";
     }
     std::cout << "Log-likelihood: " << ll_b << "\n";
@@ -563,22 +584,17 @@ int main(int argc, char* argv[])
     const double bic_b = compute_bic(ll_b, k_b, kNObs);
 
     std::cout << "=== Model comparison ===\n\n";
-    std::cout << std::setw(26) << " "
-              << std::setw(14) << "Model A (Diag)"
-              << std::setw(14) << "Model B (Full)\n";
+    std::cout << std::setw(26) << " " << std::setw(14) << "Model A (Diag)" << std::setw(14)
+              << "Model B (Full)\n";
     std::cout << std::string(54, '-') << "\n";
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << std::setw(26) << "Log-likelihood"
-              << std::setw(14) << ll_a
-              << std::setw(14) << ll_b << "\n";
-    std::cout << std::setw(26) << "Free parameters k"
-              << std::setw(14) << k_a
-              << std::setw(14) << k_b << "\n";
-    std::cout << std::setw(26) << "BIC (lower = better)"
-              << std::setw(14) << bic_a
-              << std::setw(14) << bic_b << "\n";
-    std::cout << std::setw(26) << "Wall time (ms)"
-              << std::setw(14) << static_cast<int>(wall_a)
+    std::cout << std::setw(26) << "Log-likelihood" << std::setw(14) << ll_a << std::setw(14) << ll_b
+              << "\n";
+    std::cout << std::setw(26) << "Free parameters k" << std::setw(14) << k_a << std::setw(14)
+              << k_b << "\n";
+    std::cout << std::setw(26) << "BIC (lower = better)" << std::setw(14) << bic_a << std::setw(14)
+              << bic_b << "\n";
+    std::cout << std::setw(26) << "Wall time (ms)" << std::setw(14) << static_cast<int>(wall_a)
               << std::setw(14) << static_cast<int>(wall_b) << "\n";
 
     std::cout << "\nNotes:\n";

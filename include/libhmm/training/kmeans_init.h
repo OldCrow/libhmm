@@ -40,7 +40,7 @@ namespace libhmm {
  * @throws std::invalid_argument if data is empty or hmm has zero states.
  * @throws std::invalid_argument if the dimensionality of observations is zero.
  */
-void kmeans_init(HmmMV& hmm, const MultiObservationLists& data,
-                 std::mt19937_64& rng, std::size_t max_iter = 100);
+void kmeans_init(HmmMV &hmm, const MultiObservationLists &data, std::mt19937_64 &rng,
+                 std::size_t max_iter = 100);
 
 } // namespace libhmm

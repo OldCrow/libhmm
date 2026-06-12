@@ -7,7 +7,7 @@
 // validate(), JSON I/O, and stream operators are all unaffected.
 
 #include "libhmm/basic_hmm.h"
-#include <iostream>  // for stream operator signatures
+#include <iostream> // for stream operator signatures
 
 namespace libhmm {
 
@@ -27,7 +27,7 @@ using HmmMV = BasicHmm<ObservationVectorView>;
 
 /// Legacy stream I/O operators (scalar HMM only).
 /// Prefer JSON I/O (hmm_json.h) for new code.
-std::ostream& operator<<(std::ostream&, const Hmm&);
-std::istream& operator>>(std::istream&, Hmm&);
+std::ostream &operator<<(std::ostream &, const Hmm &);
+std::istream &operator>>(std::istream &, Hmm &);
 
 } // namespace libhmm
