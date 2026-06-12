@@ -3,8 +3,8 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-3.8.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-42%2F42_Passing-success.svg)](tests/)
+[![Version](https://img.shields.io/badge/Version-4.0.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-47%2F47_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
@@ -12,11 +12,6 @@ Fit Hidden Markov Models with Baum-Welch EM, decode sequences with Viterbi or po
 and run exact probabilistic inference at native C++ speed — no external runtime required.
 
 **Zero external dependencies** — C++20 standard library only.
-
-> **Roadmap:** v3.8.0 is the final v3.x release. v4.0.0 will raise the minimum
-> platform floor to macOS 13+, GCC 12+, Apple Clang 14+, and MSVC 2022 17.x to
-> enable full C++20 (`<concepts>`, `<ranges>`) and introduce multivariate emission
-> distributions. Existing v3.x source code will recompile unchanged under v4.
 
 ## Use cases
 
@@ -68,7 +63,7 @@ HmmModelCriteria mc = evaluate_model(hmm, fbc.getLogProbability(), obs.size());
 std::cout << "AIC: " << mc.aic << "  BIC: " << mc.bic << "\n";
 ```
 
-### Probability Distributions (16)
+### Probability Distributions (16 scalar + 3 multivariate)
 
 **Discrete:** `DiscreteDistribution`, `BinomialDistribution`, `NegativeBinomialDistribution`, `PoissonDistribution`
 
@@ -76,17 +71,22 @@ std::cout << "AIC: " << mc.aic << "  BIC: " << mc.bic << "\n";
 `BetaDistribution`, `UniformDistribution`, `WeibullDistribution`, `ParetoDistribution`,
 `RayleighDistribution`, `StudentTDistribution`, `ChiSquaredDistribution`, `VonMisesDistribution`
 
+**Multivariate** (`Obs = ObservationVectorView = std::span<const double>`):
+`DiagonalGaussianDistribution`, `FullCovarianceGaussianDistribution`, `IndependentComponentsDistribution`
+
 All distributions implement `getBatchLogProbabilities()` for SIMD-accelerated batch evaluation.
 `GaussianDistribution` and `ExponentialDistribution` have explicit AVX-512/AVX2/SSE2/NEON intrinsics (tier 2);
-the remaining 13 use concrete non-virtual loops that the compiler auto-vectorizes under `-march=native`.
+the remaining scalar distributions use concrete non-virtual loops that the compiler auto-vectorizes under `-march=native`.
 
 ### I/O
 
-- **JSON serialization** (recommended): `save_json(hmm, path)` / `load_json(path)` — exact IEEE 754
-  round-trip, no external dependencies, locale-safe.
+- **JSON serialization** (recommended): exact IEEE 754 round-trip, no external dependencies, locale-safe.
   ```cpp
-  libhmm::save_json(hmm, "model.json");
+  libhmm::save_json(hmm, "model.json");       // scalar
   auto hmm2 = libhmm::load_json("model.json");
+
+  libhmm::save_json_mv(hmm_mv, "model_mv.json"); // multivariate
+  auto hmm_mv2 = libhmm::load_json_mv("model_mv.json");
   ```
 - **Legacy XML** (`XMLFileReader` / `XMLFileWriter`): retained for reading existing `.xml` files;
   deprecated in favour of JSON for new code.
@@ -191,15 +191,15 @@ libhmm/
 ├── include/libhmm/    # Public headers (layered architecture)
 │   ├── platform/      # Layer 0: SIMD detection
 │   ├── math/          # Layer 1: constants, log-space, numerics
-│   ├── linalg/        # Layer 2: Matrix, Vector types
-│   ├── distributions/ # Layer 3: 16 distributions + base
-│   ├── hmm.h          # Core HMM class
-│   ├── calculators/   # Layer 4: ForwardBackward, Viterbi
-│   ├── training/      # Layer 4: BaumWelch, MapBaumWelch, Viterbi, SegmentalKMeans
-│   └── io/            # JSON (hmm_json.h) + legacy XML I/O
+│   ├── linalg/        # Layer 2: Matrix, Vector, ObservationMatrix types
+│   ├── distributions/ # Layer 3: 16 scalar + 3 multivariate distributions
+│   ├── basic_hmm.h    # BasicHmm<Obs> template; Hmm and HmmMV aliases
+│   ├── calculators/   # Layer 4: ForwardBackward, Viterbi (scalar + MV)
+│   ├── training/      # Layer 4: BaumWelch, MapBaumWelch, Viterbi, kmeans_init
+│   └── io/            # JSON (hmm_json.h, scalar + MV) + legacy XML I/O
 ├── src/               # Implementation (mirrors include/)
-├── tests/             # 41-test GTest suite
-├── examples/          # 17 usage demonstrations
+├── tests/             # 47-test GTest suite
+├── examples/          # 20 usage demonstrations
 ├── tools/             # simd_inspection, batch_performance, hmm_validator (.json/.xml)
 ├── samples/           # Reference HMM files (two_state_gaussian, casino) in JSON and XML
 ├── benchmarks/        # Comparative benchmarks (requires external libraries)
@@ -229,16 +229,21 @@ See [examples/](examples/) for demonstrations:
 | `map_baum_welch_example` | Discrete | MAP Baum-Welch (c=0 vs c=1, MAP convergence table) |
 | `elk_movement_example` | Gamma, VonMises | BaumWelch (step length + turning angle) |
 | `dax_regime_example` | StudentT | BaumWelch (DAX log-returns 2000–2022) |
+| `mv_gaussian_example` | DiagonalGaussian (MV) | BaumWelch (2D synthetic) |
+| `elk_mv_example` | IndependentComponents (MV) | BaumWelch (GPS tracks vs moveHMM R) |
+| `mv_regime_example` | DiagonalGaussian + FullCovGaussian (MV) | BaumWelch (SPY+QQQ vs hmmlearn) |
 
 ## Requirements
 
-- **C++20** compiler: GCC 11+, Clang 14+, MSVC 2019 16.11+
+- **C++20** compiler: GCC 12+, Apple Clang 14+ (macOS 13+), Clang 14+, MSVC 2022 17.x
 - **CMake 3.20+**
 
 No external dependencies. GTest is fetched automatically via CMake `FetchContent` for the test suite.
 
 ## Documentation
 
+- [MIGRATION.md](MIGRATION.md) — v3→v4 upgrade guide
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guidelines and toolchain policy
 - [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) — build options, library output, CI matrix
 - [docs/GOLD_STANDARD_CHECKLIST.md](docs/GOLD_STANDARD_CHECKLIST.md) — distribution implementation requirements
 - [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) — coding conventions
