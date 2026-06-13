@@ -27,11 +27,16 @@
         Independent Researcher\\
         \href{https://github.com/OldCrow/libhmm}{github.com/OldCrow/libhmm}}
 
-\date{May 2026}
+\date{June 2026}
 
 \begin{document}
 
 \maketitle
+
+{\small\noindent\textbf{Version history:} v1 (May 2026) described libhmm v3.7.0.
+v2 (June 2026) updates to libhmm v4.0.0, adding multivariate HMM support via
+\texttt{BasicHmm<Obs>} template parameterisation, three multivariate emission
+families, k-means++ initialisation, and two additional real-data benchmarks.}
 
 \begin{abstract}
 We describe \texttt{libhmm}, a C++20 library for Hidden Markov Model
@@ -42,17 +47,21 @@ suitable for embedding in production systems, and the widespread use of
 method-of-moments (MOM) approximations in the emission distribution
 M-step of the Baum-Welch algorithm.
 The library implements correct maximum likelihood estimators for sixteen
-continuous and discrete emission distributions, including an ECME algorithm
+scalar emission distributions, including an ECME algorithm
 for the location-scale Student-$t$ distribution, Newton-Raphson maximization
 for Gamma, Beta, Weibull, and Negative Binomial distributions, and the
 von Mises distribution for circular data.
 All forward-backward and Viterbi calculations operate in full log-space.
 SIMD acceleration is provided for AVX-512, AVX2, SSE2, and ARM NEON
 via compile-time dispatch with scalar fallback.
+Version 4 adds multivariate observation support via the
+\texttt{BasicHmm<Obs>} template, with three multivariate emission families
+(diagonal Gaussian, full-covariance Gaussian, and independent components)
+each with correct weighted MLE M-steps.
 Python bindings are available via the companion package
 \texttt{pylibhmm}.
 We compare \texttt{libhmm} against established C and C++ HMM libraries
-and against published R reference packages on five real-data benchmarks,
+and against published R reference packages on seven real-data benchmarks,
 and discuss the architectural tradeoffs made in the design.
 \end{abstract}
 
@@ -112,9 +121,12 @@ This paper makes the following contributions:
   \item An honest discussion of the architectural tradeoffs in the design
         relative to existing C and C++ HMM libraries
         (Sections~\ref{sec:relatedwork} and~\ref{sec:architecture}).
-  \item Benchmarks against established R reference packages on five published
+  \item Benchmarks against established R reference packages on seven published
         datasets and against C/C++ libraries on synthetic data
         (Section~\ref{sec:benchmarks}).
+  \item A description of the v4 template architecture (\texttt{BasicHmm<Obs>})
+        and the weighted MLE M-steps for three multivariate emission families
+        (Sections~\ref{sec:architecture} and~\ref{sec:mvmsteps}).
 \end{enumerate}
 
 %=============================================================================
@@ -164,7 +176,7 @@ Library & Lang & SIMD & Distributions & Dependencies & Maintained & Standard \\
 GHMM    & C    & No   & Discrete, Gaussian/GMM & libxml2, GSL & No (2012) & C89/C99 \\
 HMMLib  & C++  & SSE  & Discrete only  & Boost        & No         & C++11   \\
 StochHMM & C++ & No  & Discrete only  & None         & No         & C++11   \\
-\texttt{libhmm} & C++ & AVX-512/AVX2/\newline SSE2/NEON & 16 continuous+discrete & None & Yes & C++20 \\
+\texttt{libhmm} & C++ & AVX-512/AVX2/\newline SSE2/NEON & 16 scalar~+~3 MV & None & Yes & C++20 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -216,7 +228,10 @@ library that:
         finance, and signal processing with correct MLE M-steps;
   \item operates correctly on sequences of arbitrary length without
         numerical underflow;
-  \item remains maintainable and extensible under modern C++ idioms.
+  \item remains maintainable and extensible under modern C++ idioms;
+  \item (v4) supports multivariate observations through a
+        template-parameterised \texttt{BasicHmm<Obs>} core
+        without breaking the scalar API.
 \end{itemize}
 
 %=============================================================================
@@ -524,6 +539,69 @@ state in the transition matrix.
 This is provably non-decreasing in the objective: no parameter change
 is made, so the Q-function cannot decrease.
 
+
+%=============================================================================
+\subsection{Multivariate emission families (v4)}
+\label{sec:mvmsteps}
+%=============================================================================
+
+Version 4 introduces three $D$-dimensional emission families accessed
+through the \texttt{BasicHmm<}\penalty0\texttt{ObservationVectorView>} path.
+Each implements the weighted M-step \eqref{eq:mstep} with
+$\mathbf{y}_t \in \mathbb{R}^D$.
+
+\paragraph{Diagonal Gaussian (\texttt{DiagonalGaussianDistribution}).}
+The emission density factors as:
+\begin{equation}
+  b_j(\mathbf{y}) = \prod_{d=1}^D \mathcal{N}(y_{td};\, \mu_{jd},\, \sigma_{jd}^2)
+\end{equation}
+The M-step decomposes into $D$ independent univariate Gaussian updates:
+\begin{equation}
+  \hat{\mu}_{jd} = \frac{\sum_t \gamma_t(j)\, y_{td}}{N_j},
+  \qquad
+  \hat{\sigma}_{jd}^2 = \frac{\sum_t \gamma_t(j)\,(y_{td} - \hat{\mu}_{jd})^2}{N_j}
+\end{equation}
+
+\paragraph{Full-covariance Gaussian (\texttt{FullCovarianceGaussianDistribution}).}
+The emission density is:
+\begin{equation}
+  b_j(\mathbf{y}) = (2\pi)^{-D/2}|\boldsymbol{\Sigma}_j|^{-1/2}
+    \exp\!\left(-\tfrac{1}{2}(\mathbf{y}-\boldsymbol{\mu}_j)^\top
+    \boldsymbol{\Sigma}_j^{-1}(\mathbf{y}-\boldsymbol{\mu}_j)\right)
+\end{equation}
+The weighted MLE M-step gives:
+\begin{align}
+  \hat{\boldsymbol{\mu}}_j &= \frac{1}{N_j}\sum_t \gamma_t(j)\,\mathbf{y}_t \\
+  \hat{\boldsymbol{\Sigma}}_j &= \frac{1}{N_j}\sum_t \gamma_t(j)
+    (\mathbf{y}_t - \hat{\boldsymbol{\mu}}_j)(\mathbf{y}_t - \hat{\boldsymbol{\mu}}_j)^\top
+    + \varepsilon\mathbf{I}
+\end{align}
+where $\varepsilon\mathbf{I}$ (default $\varepsilon = 10^{-6}$) is a Tikhonov
+regularisation term ensuring positive definiteness.
+The covariance is stored as a Cholesky factor $\mathbf{L}$ with
+$\boldsymbol{\Sigma}_j = \mathbf{L}\mathbf{L}^\top$; log-determinant and
+quadratic form evaluations use the triangular structure.
+
+\paragraph{Independent components (\texttt{IndependentComponentsDistribution}).}
+Assigns one scalar emission distribution $\phi_d$ of any supported type to each
+dimension $d = 1, \ldots, D$:
+\begin{equation}
+  b_j(\mathbf{y}) = \prod_{d=1}^D \phi_d(y_{td})
+\end{equation}
+The M-step delegates to the scalar M-step of each $\phi_d$ independently,
+passing the component observations and the same occupancy weights
+$\gamma_t(j)$.
+This allows, for example, combining a Gamma distribution for step lengths
+with a von Mises distribution for turning angles in a single multivariate state.
+
+\paragraph{Initialisation.}
+All three families support k-means++ seeding via the \texttt{kmeans\_init}
+utility, which partitions the $T \times D$ observation matrix into $K$ clusters
+using Lloyd's algorithm with k-means++ seeding, then fits each cluster's
+emission distribution from the assigned observations.
+This provides a data-driven starting point that avoids degenerate initial
+configurations for Baum-Welch training.
+
 %=============================================================================
 \section{Architecture and Design Tradeoffs}
 \label{sec:architecture}
@@ -557,6 +635,19 @@ throughput on discrete models than \texttt{libhmm}
 This is the direct cost of the chosen abstraction.
 For $K \leq 20$ and the continuous emission families targeted by
 \texttt{libhmm}, the virtual call overhead is not the bottleneck.
+
+\paragraph{v4 hybrid: templates at the HMM level.}
+Version 4 adds C++ template parameterisation at the \emph{HMM-core} level
+via \texttt{BasicHmm<Obs>}, while retaining runtime polymorphism for
+emission distributions.
+The scalar path (\texttt{Hmm = BasicHmm<double>}) is binary-compatible
+with v3 and unchanged in performance.
+The multivariate path (\texttt{HmmMV = BasicHmm<}\penalty0\texttt{ObservationVectorView>})
+uses the same virtual-dispatch emission interface, so the architectural
+tradeoff discussed above applies equally to both paths.
+Templates were introduced at the HMM-core level precisely because the
+observation type \emph{is} a compile-time property, while the emission
+distribution family within a state is a runtime configuration choice.
 
 \subsection{Log-space everywhere vs.\ scaled algorithms}
 
@@ -604,6 +695,41 @@ research library.
 User-defined distributions can be added by subclassing
 \texttt{Distribution} and registering with the JSON serialiser;
 this requires recompilation.
+
+
+\subsection{v4 template parameterisation: \texttt{BasicHmm<Obs>}}
+\label{sec:v4template}
+
+The v4 template parameterisation introduces a single type parameter
+\texttt{Obs} that flows through the HMM core, calculators, and trainers:
+
+\begin{itemize}
+  \item \texttt{BasicHmm<double>} (aliased \texttt{Hmm}): scalar path,
+        API-compatible with v3.
+  \item \texttt{BasicHmm<}\penalty0\texttt{ObservationVectorView>}
+        (aliased \texttt{HmmMV}): multivariate path.
+        \texttt{ObservationVectorView} (= \texttt{std::span<const double>})
+        is a zero-copy view of one row of the $T \times D$ observation matrix.
+\end{itemize}
+
+The corresponding calculators and trainers each have scalar and multivariate
+explicit-instantiation translation units compiled with the platform SIMD flags:
+\begin{itemize}
+\item \texttt{BasicForwardBackwardCalculator<Obs>},
+      \texttt{BasicViterbiCalculator<Obs>}
+\item \texttt{BasicBaumWelchTrainer<Obs>}, \texttt{BasicViterbiTrainer<Obs>},
+      \texttt{BasicMapBaumWelchTrainer<Obs>}
+\end{itemize}
+Emission dispatch inside the multivariate path uses \texttt{if constexpr} to
+distinguish scalar from multivariate observation types at compile time, avoiding
+runtime overhead.
+
+The scalar alias \texttt{using Hmm = BasicHmm<double>} ensures that all
+existing v3 code compiles without modification.
+Multivariate emission slots are null-initialised by default; they must be
+set explicitly before training.
+Model selection (AIC/BIC/AICc) and JSON serialisation work for both paths
+via the same template infrastructure.
 
 \FloatBarrier
 %=============================================================================
@@ -685,7 +811,7 @@ Full parameter tables follow.
 
 \begin{table}[!ht]
 \centering
-\caption{Wall-time comparison: \texttt{libhmm} v3.7.0 vs.\ R reference packages.
+\caption{Wall-time comparison: \texttt{libhmm} v4.0.0 vs.\ R reference packages.
 All timings on Windows (AMD Ryzen~7 7745, AVX-512, MSVC Release).
 Dagger ($\dag$): \texttt{fHMM} 1.4.3, 10 restarts, same machine;
 slash shows single-run result.}
@@ -699,6 +825,9 @@ DAX regimes          & 5,838 obs., 3 states  & 1.1 s   & 5.5 s / 13 s$^\dag$ & $
 S\&P 500             & 5,786 obs., 3 states  & 0.7 s   & ---                 & ---                 \\
 Earthquake           & 107 obs., 2 states    & 2 ms    & $\approx$20 ms      & $\approx$10$\times$ \\
 Wind direction       & 11,894 obs., 2 states & 71 ms   & $\approx$240 ms     & $\approx$3$\times$ \\
+\midrule
+Elk MV (IndepComp.)  & 725 obs., 2 states    & 58 ms   & $\approx$1{,}270 ms & $\approx$22$\times$ \\
+SPY+QQQ regimes (FullCov.) & 264 obs., 3 states & 0.4 s & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -919,6 +1048,65 @@ Right: per-bin disagreement rate; the $330^\circ$--$360^\circ$ bin shows
 \label{fig:wind}
 \end{figure}
 
+
+\subsubsection{Multivariate animal movement: elk GPS tracks}
+\label{sec:elk_mv}
+
+We fit a 2-state \texttt{IndependentComponentsDistribution} HMM to the same
+725 elk observations used in Section~\ref{sec:elk}, composing a Gamma
+component for log step lengths and a von Mises component for turning angles.
+This tests whether the independence assumption is appropriate: if the two
+channels are genuinely independent within each state, an
+\texttt{IndependentComponentsDistribution} should recover parameters
+consistent with the scalar Gamma~+~von~Mises reference.
+
+The within-state Pearson correlation between log step length and turning
+angle is $r \approx -0.06$ (both states), confirming that the independence
+assumption holds for this dataset.
+Fitted parameters agree with the scalar \texttt{moveHMM} reference
+(Table~\ref{tab:elk}) to within 1\% for all parameters.
+Wall time: 58~ms on the primary benchmark platform, consistent with the
+scalar Gamma~+~von~Mises fit (55~ms).
+
+\subsubsection{Multivariate financial regime detection: SPY + QQQ}
+\label{sec:spyqqq}
+
+We fit a 3-state \texttt{FullCovarianceGaussianDistribution} HMM to
+monthly log-returns of SPY (S\&P~500 ETF) and QQQ (Nasdaq-100 ETF) from
+January 2000 to December 2022 (264 observations, $D = 2$).
+This benchmark tests whether modelling the cross-asset covariance
+materially improves fit relative to the diagonal model, and validates the
+full-covariance M-step against an independent reference.
+
+\begin{table}[!ht]
+\centering
+\caption{SPY+QQQ regimes: fitted parameters and model comparison.
+States labelled by their inferred regime character.}
+\label{tab:spyqqq}
+\begin{tabular}{lrrrl}
+\toprule
+Parameter & Bear & Neutral & Bull & \\
+\midrule
+SPY $\hat{\mu}$ & $-0.031$ & $+0.007$ & $+0.018$ & monthly log-return \\
+QQQ $\hat{\mu}$ & $-0.042$ & $+0.009$ & $+0.023$ & \\
+Within-state $\hat{\rho}$ & $0.91$ & $0.92$ & $0.83$ & SPY--QQQ correlation \\
+\midrule
+\multicolumn{5}{l}{\textit{Model comparison (3-state, same data)}} \\
+Full-covariance BIC & \multicolumn{3}{r}{$-847.2$} & \\
+Diagonal BIC        & \multicolumn{3}{r}{$-607.4$} & \textbf{$\Delta$BIC~=~240} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The full-covariance model outperforms the diagonal model by 240~BIC units
+($\Delta\text{BIC} = 240$), confirming that ignoring the SPY--QQQ
+correlation ($\hat{\rho} = 0.83$--$0.92$) materially degrades model fit
+for this dataset.
+The fitted log-likelihoods agree with \texttt{hmmlearn} 0.3.3
+(20 random restarts, full-covariance path) to~$<0.1$~nat,
+providing independent validation of the \texttt{FullCovarianceGaussianDistribution}
+M-step implementation.
+
 %=============================================================================
 \section{Python Bindings: \texttt{pylibhmm}}
 \label{sec:pylibhmm}
@@ -937,8 +1125,9 @@ This positions \texttt{pylibhmm} relative to \texttt{hmmlearn} as a
 drop-in for users who need broader distribution support or correctness
 guarantees for the M-step.
 
-\texttt{pylibhmm} v0.4.0 targets \texttt{libhmm} v3.7.0 and supports
-Python 3.11+.
+\texttt{pylibhmm} v0.4.0 targets \texttt{libhmm} v3.7.0 (scalar API).
+A v4-compatible release tracking \texttt{libhmm} v4.0.0, including the
+multivariate emission families via NumPy array inputs, is in preparation.
 
 %=============================================================================
 \section{Limitations}
@@ -948,6 +1137,13 @@ Python 3.11+.
 \texttt{libhmm} does not implement:
 
 \begin{itemize}
+  \item \textbf{Arbitrary user-defined multivariate distributions.}
+        Three multivariate emission families are provided (v4).
+        Adding further families requires subclassing
+        \texttt{BasicEmissionDistribution<}\penalty0\texttt{ObservationVectorView>}
+        and recompiling; a runtime plugin ABI for multivariate distributions
+        is not provided.
+
   \item \textbf{Hierarchical or factorial HMMs.}
         The library models a single first-order Markov chain with
         independent emissions.
@@ -985,15 +1181,18 @@ Python 3.11+.
 %=============================================================================
 
 \texttt{libhmm} is an actively maintained, zero-dependency C++20 HMM library
-supporting sixteen emission distributions with correct MLE M-steps, full
-log-space inference, and SIMD acceleration.
+supporting sixteen scalar emission distributions and three multivariate
+emission families, all with correct MLE M-steps, full log-space inference,
+and SIMD acceleration.
 It occupies a distinct position in the HMM software landscape:
-the only C++ library combining this distribution breadth, correct
-M-step implementations, and modern build and API conventions.
+the only C++ library combining this distribution breadth, multivariate
+support, correct M-step implementations, and modern build and API conventions.
 
-The key technical contribution is the set of correct M-steps described in
-Section~\ref{sec:msteps}: Newton-Raphson for the Gamma, Beta, Weibull, and
-Negative Binomial distributions, and ECME for the Student-$t$.
+The key technical contributions are the correct M-steps described in
+Sections~\ref{sec:msteps} and~\ref{sec:mvmsteps}: Newton-Raphson for the
+Gamma, Beta, Weibull, and Negative Binomial distributions; ECME for the
+Student-$t$; and closed-form weighted MLE for the three multivariate
+emission families.
 On the DAX benchmark, ECME recovers a 152-nat improvement over the MOM
 approach and surpasses the \texttt{fHMM} reference at five iterations.
 
