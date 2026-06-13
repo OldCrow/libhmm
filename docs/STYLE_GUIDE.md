@@ -52,11 +52,11 @@ include/libhmm/
 ├── platform/        # Layer 0: SIMD detection, CPU features
 ├── math/            # Layer 1: constants, log-space ops, numerics
 ├── linalg/          # Layer 2: Matrix, Vector types
-├── distributions/   # Layer 3: EmissionDistribution + 15 distributions
-├── hmm.h            # Core HMM class
-├── calculators/     # Layer 4: ForwardBackward, Viterbi
-├── training/        # Layer 4: BaumWelch, Viterbi, SegmentalKMeans
-├── io/              # JSON (hmm_json.h) + legacy XML I/O
+├── distributions/   # Layer 3: BasicEmissionDistribution<Obs> + 16 scalar + 3 MV
+├── basic_hmm.h      # Template HMM core; hmm.h provides scalar Hmm alias
+├── calculators/     # Layer 4: BasicForwardBackward<Obs>, BasicViterbi<Obs>; scalar aliases
+├── training/        # Layer 4: BasicBaumWelch<Obs>, BasicViterbi<Obs>; kmeans_init
+├── io/              # JSON scalar + MV (hmm_json.h); legacy XML (scalar only)
 └── common/          # Shared types and serialization helpers
 ```
 
@@ -403,6 +403,9 @@ if (!cacheValid_) {
 
 ## Testing
 
+All new code requires GTest tests in `tests/`. Cyclomatic complexity (CCN) must be ≤ 10 per function; verify with `python3 -m lizard src/ include/ --CCN 10 -w`. See `tests/TESTING_STRATEGY.md`.
+
+
 ### 1. Test Organization
 - **One test file per class**: `test_gaussian_distribution.cpp`
 - **Comprehensive coverage**: Constructor, methods, edge cases
@@ -443,6 +446,44 @@ void testParameterValidation() {
 - **Mathematical Correctness**: Statistical properties, known values
 - **Performance**: Efficiency of critical paths
 - **Edge Cases**: Boundary conditions, extreme values
+
+## v4 Template Patterns
+
+### BasicHmm<Obs> and explicit template instantiation
+New template classes use `extern template` declarations in headers with explicit instantiation
+in paired `.cpp` files (scalar) and `_mv.cpp` files (multivariate). Example pattern:
+```cpp
+// In header (basic_foo.h):
+template<typename Obs>
+class BasicFoo { /* full inline definition */ };
+extern template class BasicFoo<double>;
+extern template class BasicFoo<ObservationVectorView>;
+using Foo = BasicFoo<double>;  // scalar alias
+
+// In foo.cpp: template class BasicFoo<double>;
+// In foo_mv.cpp: template class BasicFoo<ObservationVectorView>;
+```
+
+### if constexpr for scalar/MV dispatch
+Use `if constexpr (std::is_same_v<Obs, double>)` to branch between scalar and MV code paths
+within template methods. Prefer this over overloading or SFINAE.
+
+### EmisElem / EmisAccumType pattern
+Trainers use conditional type aliases to unify scalar and MV emission accumulators:
+```cpp
+using EmisElem      = std::conditional_t<std::is_same_v<Obs,double>, double, ObservationVectorView>;
+using EmisAccumType = std::vector<std::vector<EmisElem>>;
+```
+`std::span<const EmisElem>` then dispatches to the correct `fit()` overload automatically.
+
+### Naming: static helpers vs instance methods
+- Non-static instance methods: **camelCase** (`fillLogEmissions`, `runViterbi`, `computeLogForward`)
+- Static helper functions and free functions: **snake_case** (`accum_one_sequence`, `m_step_pi`, `lloyd_assign`)
+
+### Cyclomatic complexity limit
+All functions must have CCN ≤ 10. Measure with `python3 -m lizard <files> --CCN 10 -w`.
+Extract per-sequence helpers, builder helpers, and algorithmic sub-phases to separate functions
+rather than nesting loops and conditionals in a single body.
 
 ## Static Analysis
 

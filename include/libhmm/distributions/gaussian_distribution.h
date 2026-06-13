@@ -17,7 +17,7 @@ namespace libhmm {
  *   - fit() accepts std::span<const double> (no copies, no Observation alias)
  *   - Weighted fit() added for Baum-Welch M-step
  */
-class GaussianDistribution : public DistributionBase {
+class GaussianDistribution : public DistributionBase<GaussianDistribution> {
 private:
     /**
      * Mean parameter μ - can be any finite real number
@@ -124,6 +124,7 @@ public:
     /// Precondition: observations.size() == out.size()
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /**
      * Evaluates the CDF at x using the error function

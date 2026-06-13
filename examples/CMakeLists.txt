@@ -1,26 +1,5 @@
 # Examples CMakeLists.txt
 
-# Detect if using LLVM compiler and set appropriate linking flags
-# NOTE: LLVM-specific linking temporarily commented out due to runtime issues
-#       on macOS 10.15 (2012 MacBook Pro). Using system libc++ for stability.
-# if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER MATCHES "llvm")
-#     message(STATUS "Detected LLVM Clang compiler - configuring libc++ linking")
-#     set(LIBCXX_LINK_FLAGS "-stdlib=libc++")
-#     # Add explicit path to LLVM's libc++ if needed
-#     get_filename_component(LLVM_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
-#     get_filename_component(LLVM_ROOT_DIR ${LLVM_BIN_DIR} DIRECTORY)
-#     set(LLVM_LIBCXX_PATH "${LLVM_ROOT_DIR}/lib/c++")
-#     if(EXISTS "${LLVM_LIBCXX_PATH}")
-#         set(LIBCXX_LINK_FLAGS "${LIBCXX_LINK_FLAGS} -L${LLVM_LIBCXX_PATH} -Wl,-rpath,${LLVM_LIBCXX_PATH}")
-#         message(STATUS "Using LLVM libc++ from: ${LLVM_LIBCXX_PATH}")
-#     endif()
-# else()
-#     set(LIBCXX_LINK_FLAGS "")
-# endif()
-
-# Use system libc++ for stability
-set(LIBCXX_LINK_FLAGS "")
-
 # Helper function to create example targets with consistent settings
 function(add_hmm_example target_name source_file)
     add_executable(${target_name} ${source_file})
@@ -37,19 +16,9 @@ function(add_hmm_example target_name source_file)
         target_link_libraries(${target_name} hmm_static)
     endif()
 
-    # Apply LLVM-specific linking flags if needed
-    if(LIBCXX_LINK_FLAGS)
-        set_target_properties(${target_name} PROPERTIES
-            LINK_FLAGS "${LIBCXX_LINK_FLAGS}"
-        )
-    endif()
-
     # Ensure C++20 standard
     set_property(TARGET ${target_name} PROPERTY CXX_STANDARD 20)
     set_property(TARGET ${target_name} PROPERTY CXX_STANDARD_REQUIRED ON)
-    if(LIBHMM_LEGACY_WARNING_SUPPRESSIONS)
-        target_compile_options(${target_name} PRIVATE ${LIBHMM_LEGACY_WARNING_SUPPRESSIONS})
-    endif()
 endfunction()
 
 # Basic HMM example (casino problem, distributions, Viterbi training, file I/O)
@@ -83,8 +52,20 @@ add_hmm_example(posterior_decoding_example posterior_decoding_example.cpp)
 # MAP-EM Baum-Welch with Dirichlet priors
 add_hmm_example(map_baum_welch_example map_baum_welch_example.cpp)
 
+# Multivariate HMM demonstration (v4) — standalone, synthetic data
+add_hmm_example(mv_gaussian_example mv_gaussian_example.cpp)
+
 # Real-world ecology benchmark: elk movement vs moveHMM (R)
 add_hmm_example(elk_movement_example elk_movement_example.cpp)
+
+# Elk MV: IndependentComponents(Gamma+VonMises) vs DiagGaussian vs FullCovGaussian(log-step,angle) — BIC comparison
+add_hmm_example(elk_mv_example elk_mv_example.cpp)
+
+# MV regime: DiagonalGaussian vs FullCovGaussian on two-sector synthetic returns (no data download)
+add_hmm_example(mv_regime_example mv_regime_example.cpp)
+
+# Network anomaly POC: MV HMM on CTU-13 Scenario 1 (Neris botnet binetflow)
+add_hmm_example(zeek_anomaly_poc zeek_anomaly_poc.cpp)
 
 # Real-world finance benchmark: DAX regime detection vs fHMM (R)
 add_hmm_example(dax_regime_example dax_regime_example.cpp)
@@ -116,9 +97,13 @@ install(TARGETS
     posterior_decoding_example
     map_baum_welch_example
     elk_movement_example
+    elk_mv_example
+    mv_regime_example
+    zeek_anomaly_poc
     dax_regime_example
     sp500_regime_example
     earthquake_example
+    mv_gaussian_example
     wind_direction_example
     RUNTIME DESTINATION bin/examples
 )

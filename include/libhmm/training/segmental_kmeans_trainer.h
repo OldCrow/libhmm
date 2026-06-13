@@ -69,7 +69,9 @@ public:
         validateDiscreteDistributions();
     }
 
-    SegmentalKMeansTrainer(Hmm *hmm, const ObservationLists &obsLists) : Trainer(hmm, obsLists) {
+    SegmentalKMeansTrainer(Hmm *hmm, const ObservationLists &obsLists)
+        : Trainer(hmm ? *hmm : throw std::invalid_argument("HMM pointer cannot be null"),
+                  obsLists) {
         validateDiscreteDistributions();
     }
 

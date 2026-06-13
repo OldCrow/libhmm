@@ -17,7 +17,7 @@ namespace libhmm {
  * - Variance: n * p * (1-p)
  * - Support: k ∈ {0, 1, 2, ..., n}
  */
-class BinomialDistribution : public DistributionBase {
+class BinomialDistribution : public DistributionBase<BinomialDistribution> {
 private:
     /** Number of trials n - must be a positive integer */
     int n_{10};
@@ -74,6 +74,7 @@ public:
     ~BinomialDistribution() override = default;
 
     [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
     /// Concrete non-virtual batch log-PMF. Eliminates per-element virtual dispatch.

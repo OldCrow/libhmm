@@ -1,83 +1,9 @@
 #pragma once
 
-#include "libhmm/training/trainer.h"
-#include <deque>
-#include <limits>
+// v4 Phase H alias header.
+// ViterbiTrainer is now a type alias for BasicViterbiTrainer<double>.
+// TrainingConfig and training_presets are defined in basic_viterbi_trainer.h.
+// All v3 code using ViterbiTrainer/TrainingConfig/training_presets compiles unchanged.
 
-namespace libhmm {
-
-/**
- * @brief Configuration for ViterbiTrainer.
- *
- * Convergence is declared when the absolute change in total log-probability
- * between successive iterations stays below convergenceTolerance for
- * convergenceWindow consecutive iterations.
- */
-struct TrainingConfig {
-    double convergenceTolerance{1e-6};
-    std::size_t maxIterations{500};
-    std::size_t convergenceWindow{3};
-    bool enableProgressReporting{false};
-};
-
-/// Named preset configurations for common training scenarios.
-namespace training_presets {
-/// Fast convergence, loose tolerance — suitable for initialisation.
-[[nodiscard]] TrainingConfig fast() noexcept;
-/// Default balanced settings.
-[[nodiscard]] TrainingConfig balanced() noexcept;
-/// Tight tolerance for high-accuracy offline training.
-[[nodiscard]] TrainingConfig precise() noexcept;
-} // namespace training_presets
-
-/**
- * @brief Log-space Viterbi trainer.
- *
- * Each iteration:
- *   1. Runs ViterbiCalculator on every observation sequence.
- *   2. Assigns each observation to the decoded state.
- *   3. Refits emission distributions via EmissionDistribution::fit(data).
- *   4. Re-estimates pi and the transition matrix from the Viterbi paths.
- *
- * Works with any EmissionDistribution (continuous or discrete).
- */
-class ViterbiTrainer : public Trainer {
-public:
-    explicit ViterbiTrainer(Hmm &hmm, const ObservationLists &obsLists,
-                            const TrainingConfig &config = {});
-    explicit ViterbiTrainer(Hmm *hmm, const ObservationLists &obsLists,
-                            const TrainingConfig &config = {});
-    ~ViterbiTrainer() override = default;
-
-    void train() override;
-
-    /// True if the last train() call terminated via convergence criterion.
-    [[nodiscard]] bool hasConverged() const noexcept { return converged_; }
-    /// True if the last train() call exhausted maxIterations.
-    [[nodiscard]] bool reachedMaxIterations() const noexcept { return maxItersReached_; }
-    /// Total log-probability from the final iteration.
-    [[nodiscard]] double getLastLogProbability() const noexcept { return lastLogProb_; }
-
-    [[nodiscard]] const TrainingConfig &getConfig() const noexcept { return config_; }
-    void setConfig(const TrainingConfig &config) { config_ = config; }
-
-private:
-    TrainingConfig config_;
-    bool converged_{false};
-    bool maxItersReached_{false};
-    double lastLogProb_{-std::numeric_limits<double>::infinity()};
-
-    /// Runs ViterbiCalculator on one sequence, accumulates pi/trans/emission stats.
-    /// Returns the log-probability contribution, or -∞ if the sequence is skipped
-    /// (non-finite log-prob or any exception).
-    static double accum_sequence(const Hmm &hmm, const ObservationSet &obs, Vector &pi,
-                                 Matrix &trans,
-                                 std::vector<std::vector<double>> &emisData) noexcept;
-
-    /// Normalizes pi and every transition row, then commits both to the HMM.
-    static void normalize_and_commit(Hmm &hmm, std::size_t N, Vector &pi, Matrix &trans);
-    /// Run one Viterbi iteration; returns total log-probability over all sequences.
-    double runIteration();
-}; // class ViterbiTrainer
-
-} // namespace libhmm
+#include "libhmm/training/basic_viterbi_trainer.h"
+#include "libhmm/hmm.h" // provides Hmm = BasicHmm<double> and HmmMV aliases

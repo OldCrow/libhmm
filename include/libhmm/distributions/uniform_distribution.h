@@ -24,7 +24,7 @@ namespace libhmm {
  * - Variance: σ² = (b - a)² / 12
  * - Support: x ∈ [a, b]
  */
-class UniformDistribution : public DistributionBase {
+class UniformDistribution : public DistributionBase<UniformDistribution> {
 private:
     double a_; ///< Lower bound
     double b_; ///< Upper bound
@@ -61,7 +61,8 @@ public:
     UniformDistribution &operator=(UniformDistribution &&other) noexcept = default;
     ~UniformDistribution() override = default;
 
-    [[nodiscard]] double getProbability(double val) const override;
+    [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     [[nodiscard]] double getLogProbability(double val) const noexcept override;
 
     /// Concrete non-virtual batch log-PDF (constant inside support, -Inf outside).

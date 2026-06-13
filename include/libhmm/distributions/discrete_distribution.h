@@ -30,7 +30,7 @@ namespace libhmm {
  * - Multinomial experiments
  * - Any scenario with discrete, mutually exclusive outcomes
  */
-class DiscreteDistribution : public DistributionBase {
+class DiscreteDistribution : public DistributionBase<DiscreteDistribution> {
 private:
     /**
      * Number of discrete symbols/categories
@@ -135,8 +135,8 @@ public:
      * @throws std::invalid_argument if symbols <= 0
      */
     explicit DiscreteDistribution(int symbols = 10)
-        : DistributionBase{}, numSymbols_{validateSymbols(symbols)}, pdf_(numSymbols_),
-          cachedSum_{1.0}, cachedEntropy_{0.0} {
+        : DistributionBase<DiscreteDistribution>{}, numSymbols_{validateSymbols(symbols)},
+          pdf_(numSymbols_), cachedSum_{1.0}, cachedEntropy_{0.0} {
         init_uniform();
     }
 
@@ -154,6 +154,7 @@ public:
      */
     [[nodiscard]] double getProbability(double x) const override;
 
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     /** Empirical probabilities: P(X=k) = count(k) / N. */
     void fit(std::span<const double> data) override;
 

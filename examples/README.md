@@ -1,8 +1,8 @@
 # libhmm Examples
 
-20 examples in two categories: algorithm and distribution demonstrations using
-synthetic data, and real-world benchmarks against published datasets and
-established R packages.
+23 examples in two categories: algorithm and distribution demonstrations using
+synthetic data (including the v4 multivariate examples), and real-world benchmarks
+against published datasets and established R packages.
 
 ---
 
@@ -18,12 +18,27 @@ cmake --build build --config Release
 ./build/examples/earthquake_example           # data is embedded — no download needed
 ```
 
+> **XML IO is scalar-only and legacy.** Multivariate HMMs use `save_json_mv` / `load_json_mv`.
+> New code should use JSON for all model persistence.
+
 Data preparation scripts for the benchmark examples are in `scripts/`:
 
 ```bash
-Rscript scripts/prepare_elk_data.R      # elk movement   → /tmp/elk_*_obs.csv
-Rscript scripts/prepare_dax_data.R      # DAX + S&P 500  → /tmp/dax_logreturns.csv, sp500_logreturns.csv
-Rscript scripts/prepare_wind_data.R     # NOAA wind data → /tmp/ohare_wind_2015.csv
+Rscript scripts/prepare_elk_data.R        # elk movement   → /tmp/elk_*_obs.csv
+Rscript scripts/prepare_dax_data.R        # DAX + S&P 500  → /tmp/dax_logreturns.csv, sp500_logreturns.csv
+Rscript scripts/prepare_wind_data.R       # NOAA wind data → /tmp/ohare_wind_2015.csv
+Rscript scripts/prepare_mv_regime_data.R  # SPY + QQQ      → /tmp/spy_qqq_monthly.csv
+```
+
+The MV regime example also includes an independent Python reference comparison:
+
+```bash
+# One-time setup
+python3 -m venv /tmp/libhmm_hmmlearn_venv
+/tmp/libhmm_hmmlearn_venv/bin/pip install hmmlearn
+
+# Run reference (after prepare_mv_regime_data.R)
+/tmp/libhmm_hmmlearn_venv/bin/python3 scripts/verify_mv_regime.py
 ```
 
 ---
@@ -68,6 +83,34 @@ MAP-EM Baum-Welch with Dirichlet priors. Contrasts `c = 0` (MLE) with
 correct convergence criterion when `c > 0`.
 **Distributions:** Discrete
 
+#### [mv_gaussian_example.cpp](mv_gaussian_example.cpp)
+2D DiagonalGaussian HMM on synthetic two-cluster data. Demonstrates the full v4 MV workflow:
+k-means++ initialisation, Baum-Welch training, log-probability scoring, and JSON save/load.
+No external data required — runs standalone.
+**Distributions:** DiagonalGaussianDistribution (2D)
+
+#### [zeek_anomaly_poc.cpp](zeek_anomaly_poc.cpp)
+Network anomaly detection proof-of-concept using MV HMM on real labelled network
+traffic. Trains a 3-state DiagonalGaussian and FullCovarianceGaussian HMM on
+benign-only per-connection-key flow sequences from CTU-13 Scenario 1 (Neris botnet),
+then scores all sequences and reports detection rates and Cohen's d separation.
+Motivates the full zeekhmm offline post-processor project.
+
+**Data:** `python3 scripts/prepare_ctu13_data.py` (downloads 369 MB binetflow;
+`capture20110810.binetflow` cached in /tmp for reuse)
+**Reference:** Garcia et al. (2014), *Computers and Security*, 45, 100-123
+
+---
+
+#### [mv_regime_example.cpp](mv_regime_example.cpp)
+3-state market regime HMM comparing DiagonalGaussian vs FullCovarianceGaussian on correlated
+two-sector returns. Loads real SPY + QQQ monthly log-returns (2000–2022) if
+`/tmp/spy_qqq_monthly.csv` is present; otherwise falls back to an embedded synthetic dataset.
+FullCovGaussian wins by >240 BIC units on real data (within-state ρ = 0.83–0.92).
+Validated against `hmmlearn 0.3.3` — Model B log-likelihoods agree to < 0.1 nat.
+**Distributions:** DiagonalGaussianDistribution, FullCovarianceGaussianDistribution (2D)
+**Reference:** `scripts/verify_mv_regime.py` (hmmlearn 0.3.3)
+
 ---
 
 ### Domain applications (synthetic data)
@@ -111,6 +154,22 @@ independence of step length and angle given state.
 
 **Data:** `Rscript scripts/prepare_elk_data.R`
 **Reference:** Michelot et al. (2016), *Methods in Ecology and Evolution*
+
+---
+
+#### [elk_mv_example.cpp](elk_mv_example.cpp)
+**v4 IndependentComponents API validation vs moveHMM on elk GPS data**
+
+Fits `IndependentComponents(Gamma, VonMises)` on (step\_length, turning\_angle) using the v4
+MV API; compares recovered parameters and log-likelihood against the moveHMM R reference.
+Within-state correlation between log(step) and angle is r ≈ −0.05 to −0.08 —
+indistinguishable from zero — so the conditional independence assumption is statistically
+justified and no covariance model is needed for this dataset.
+The output explicitly notes this justification and cross-references mv\_regime\_example.cpp
+for comparison on data with genuinely high within-state correlation.
+
+**Data:** `Rscript scripts/prepare_elk_data.R` (same as elk\_movement\_example)
+**Reference:** moveHMM (Michelot et al. 2016, *Methods in Ecology and Evolution*)
 
 ---
 

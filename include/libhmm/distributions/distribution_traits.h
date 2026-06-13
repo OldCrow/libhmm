@@ -1,5 +1,9 @@
 #pragma once
 
+// NOTE: distribution_traits.h is retained for backward compatibility.
+// New code should prefer libhmm/distributions/emission_concepts.h, which
+// provides C++20 concepts that replace the SFINAE helpers and macros here.
+
 #include <type_traits>
 #include <utility>
 

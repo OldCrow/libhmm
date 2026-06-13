@@ -17,7 +17,7 @@ namespace libhmm {
  * PMF: P(X = k) = (λ^k * e^(-λ)) / k!  for k = 0, 1, 2, ...
  * where λ (lambda) is the rate parameter (mean number of events per interval)
  */
-class PoissonDistribution : public DistributionBase {
+class PoissonDistribution : public DistributionBase<PoissonDistribution> {
 private:
     /**
      * Rate parameter λ (lambda) - average number of events per interval.
@@ -105,6 +105,7 @@ public:
      */
     [[nodiscard]] double getProbability(double value) const override;
 
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     /** Fit λ = sample_mean (unweighted MLE). */
     void fit(std::span<const double> data) override;
 

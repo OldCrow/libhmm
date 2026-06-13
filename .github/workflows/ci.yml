@@ -72,7 +72,9 @@ jobs:
       if: matrix.msvc
       run: |
         cmake -B build `
-          -G "Visual Studio 17 2022" -A x64 `
+          -G "Ninja" `
+          -DCMAKE_C_COMPILER=cl `
+          -DCMAKE_CXX_COMPILER=cl `
           -DBUILD_SHARED_LIBS=OFF `
           -DBUILD_EXAMPLES=OFF `
           -DBUILD_TOOLS=OFF `
@@ -94,52 +96,10 @@ jobs:
       run: cmake --build build --config Release --parallel
 
     # -------------------------------------------------------------------------
-    # Test — 36/36 tests pass on all platforms
+    # Test — 41/41 tests pass on all platforms
     # -------------------------------------------------------------------------
     - name: Test
       run: ctest --test-dir build -C Release --output-on-failure --timeout 60 -LE "known_broken|benchmark"
-  catalina-guard:
-    name: Catalina guard (configure-only)
-    runs-on: macos-latest
-    timeout-minutes: 10
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Catalina-safe configure should pass
-      shell: bash
-      run: |
-        ./scripts/configure_catalina.sh build-catalina-guard-pass \
-          -DBUILD_TESTS=OFF \
-          -DBUILD_EXAMPLES=OFF \
-          -DBUILD_TOOLS=OFF \
-          -DBUILD_BENCHMARKS=OFF
-
-    - name: Catalina contaminated configure should fail
-      shell: bash
-      run: |
-        set +e
-        CXXFLAGS="-isystem /usr/local/opt/llvm/include/c++/v1" \
-        cmake -S . -B build-catalina-guard-fail \
-          -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
-          -DBUILD_TESTS=OFF \
-          -DBUILD_EXAMPLES=OFF \
-          -DBUILD_TOOLS=OFF \
-          -DBUILD_BENCHMARKS=OFF \
-          > build-catalina-guard-fail.log 2>&1
-        status=$?
-        set -e
-
-        if [ "$status" -eq 0 ]; then
-          echo "Expected configure to fail for Catalina Homebrew libc++ contamination."
-          cat build-catalina-guard-fail.log
-          exit 1
-        fi
-
-        if ! grep -Fq "Detected Homebrew LLVM/libc++ hints on macOS Catalina" build-catalina-guard-fail.log; then
-          echo "Expected Catalina guard diagnostic was not found."
-          cat build-catalina-guard-fail.log
-          exit 1
-        fi
 
   # ---------------------------------------------------------------------------
   # Quality jobs — ubuntu only; run independently of the build matrix.

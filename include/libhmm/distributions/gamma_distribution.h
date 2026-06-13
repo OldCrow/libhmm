@@ -27,7 +27,7 @@ namespace libhmm {
  * - Support: x ∈ [0, ∞)
  * - Special cases: k=1 gives exponential distribution, k→∞ approaches normal
  */
-class GammaDistribution : public DistributionBase {
+class GammaDistribution : public DistributionBase<GammaDistribution> {
 private:
     /**
      * Shape parameter k - must be positive
@@ -126,6 +126,7 @@ public:
     /// Precondition: observations.size() == out.size()
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /**
      * Evaluates the CDF at x using the incomplete gamma function

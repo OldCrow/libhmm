@@ -22,7 +22,7 @@ namespace libhmm {
  * - α < β: Skewed toward 0
  * - α > β: Skewed toward 1
  */
-class BetaDistribution : public DistributionBase {
+class BetaDistribution : public DistributionBase<BetaDistribution> {
 private:
     /**
      * Shape parameter α (alpha) - must be positive
@@ -61,13 +61,6 @@ private:
         betaMinus1_ = beta_ - 1.0;
         markCacheValid();
     }
-
-    /**
-     * Computes the regularized incomplete beta function I_x(a,b)
-     * using continued fraction expansion for numerical accuracy.
-     * This is essential for the Beta distribution CDF.
-     */
-    double incompleteBeta(double x, double a, double b) const noexcept;
 
     /**
      * Validates parameters for the Beta distribution
@@ -119,6 +112,7 @@ public:
     /// Precondition: observations.size() == out.size()
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /**
      * Computes the cumulative distribution function for the Beta distribution.

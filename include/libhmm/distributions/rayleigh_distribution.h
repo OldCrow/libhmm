@@ -33,7 +33,7 @@ namespace libhmm {
  * - Materials science (fiber strength)
  * - Communications (fading channel modeling)
  */
-class RayleighDistribution : public DistributionBase {
+class RayleighDistribution : public DistributionBase<RayleighDistribution> {
 private:
     /**
      * Scale parameter σ (sigma) - must be positive
@@ -122,6 +122,7 @@ public:
     ~RayleighDistribution() override = default;
 
     [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.

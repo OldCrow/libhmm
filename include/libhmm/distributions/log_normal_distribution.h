@@ -28,7 +28,7 @@ namespace libhmm {
  * - Mode: exp(μ - σ²)
  * - Support: x ∈ (0, ∞)
  */
-class LogNormalDistribution : public DistributionBase {
+class LogNormalDistribution : public DistributionBase<LogNormalDistribution> {
 private:
     /**
      * Mean parameter μ of the underlying normal distribution (mean of ln(X))
@@ -109,6 +109,7 @@ public:
     /// Precondition: observations.size() == out.size()
     void getBatchLogProbabilities(std::span<const double> observations,
                                   std::span<double> out) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     [[nodiscard]] double getCumulativeProbability(double value) const noexcept;
 
     /** MLE: μ̂ = mean(ln(x_i)), σ̂ = std_dev(ln(x_i)). */

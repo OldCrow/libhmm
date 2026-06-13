@@ -28,7 +28,7 @@ namespace libhmm {
  * - Financial modeling (fat-tailed distributions)
  * - Robust regression analysis
  */
-class StudentTDistribution : public DistributionBase {
+class StudentTDistribution : public DistributionBase<StudentTDistribution> {
 private:
     /**
      * Degrees of freedom parameter ν - must be positive
@@ -123,6 +123,7 @@ public:
      * @return Probability density f(value|ν)
      */
     [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.

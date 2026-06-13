@@ -1,4 +1,4 @@
-# libhmm Testing Strategy (v3.0)
+# libhmm Testing Strategy (v4.0)
 
 All tests use GoogleTest and are organised into 8 architectural levels
 matching the library layered dependency graph.
@@ -10,26 +10,31 @@ tests/
 |├── common/                     # Level 1: Math, basic types
 |│   ├── test_modern_constants.cpp
 |│   └── test_common.cpp
-├── distributions/              # Level 3: All 15 distributions
+├── distributions/              # Level 3: All 19 distributions (16 scalar + 3 MV)
 │   ├── test_distributions.cpp
 │   ├── test_distribution_type_safety.cpp
 │   ├── test_distribution_traits.cpp
 │   ├── test_distributions_header.cpp
 │   └── test_<name>_distribution.cpp   (one per distribution)
-├── test_hmm_core.cpp           # Level 4: Core HMM
+├── linalg/                     # Level 2: Cholesky + linear algebra helpers
+│   └── test_cholesky.cpp
+├── test_hmm_core.cpp           # Level 4: Core HMM (BasicHmm<Obs>)
 ├── calculators/                # Level 5: Inference
 │   ├── test_canonical_calculators.cpp
 │   ├── test_calculator_continuous.cpp
-│   └── test_calculator_edge_cases.cpp
+│   ├── test_calculator_edge_cases.cpp
+│   └── test_mv_calculator.cpp      # v4: BasicFBC<OVV> + BasicViterbi<OVV>
 ├── training/                   # Level 6: Training algorithms
 │   ├── test_canonical_training.cpp
 │   ├── test_training.cpp
 │   ├── test_training_edge_cases.cpp
-│   └── test_baum_welch_convergence.cpp
+│   ├── test_baum_welch_convergence.cpp
+│   └── test_mv_training.cpp        # v4: BasicBWT<OVV>, kmeans_init
 ├── io/                         # Level 7: IO
 │   ├── test_xml_file_io.cpp
 │   ├── test_hmm_stream_io.cpp
-│   └── test_hmm_json.cpp
+│   ├── test_hmm_json.cpp
+│   └── test_hmm_json_mv.cpp        # v4: to_json(HmmMV) + from_json_mv
 ├── integration/                # Level 7: End-to-end
 │   └── test_end_to_end.cpp
 ├── CMakeLists.txt
@@ -39,7 +44,7 @@ tests/
 ## Running Tests
 
 ```bash
-# Standard run -- all 40 tests (mirrors CI)
+# Standard run -- all 47 tests (mirrors CI)
 ctest --test-dir build -C Release --output-on-failure
 
 # cmake custom targets
@@ -59,7 +64,8 @@ cmake --build build --config Release --target test_canonical_calculators
 | Level | Content |
 |-------|---------|
 | 1 | Math & Numerics |
-| 3 | Distributions (15 individual + 4 shared) |
+| 2 | Linalg (Cholesky) |
+| 3 | Distributions (19: 16 scalar individual + 3 MV + shared suites) |
 | 4 | Core HMM |
 | 5 | Calculators |
 | 6 | Trainers |
@@ -82,4 +88,4 @@ Performance tools live in tools/, not tests/:
 
 ---
 
-40/40 tests pass on all platforms (Linux/GCC, Linux/Clang, macOS, Windows/MSVC).
+47/47 tests pass on all platforms (Linux/GCC, Linux/Clang, macOS, Windows/MSVC).

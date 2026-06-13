@@ -1,69 +1,18 @@
 #include "libhmm/distributions/distribution_base.h"
 #include "libhmm/math/constants.h"
-#include <cassert>
 #include <cmath>
-#include <iostream>
 #include <limits>
 
 namespace libhmm {
 
 // =============================================================================
-// Rule of Five
-// std::atomic<bool> is not copyable or movable, so we must load/store
-// explicitly in copy/move operations.
+// DistributionMathHelper — shared math utilities for all emission distributions.
+//
+// Rule of Five and getBatchLogProbabilities() are now inline in the
+// DistributionBase<Derived, Obs> template header.
 // =============================================================================
 
-DistributionBase::DistributionBase() : cacheValid_{false} {}
-
-DistributionBase::DistributionBase(const DistributionBase &other)
-    : cacheValid_{other.cacheValid_.load(std::memory_order_acquire)} {}
-
-DistributionBase &DistributionBase::operator=(const DistributionBase &other) {
-    if (this != &other) {
-        cacheValid_.store(other.cacheValid_.load(std::memory_order_acquire),
-                          std::memory_order_release);
-    }
-    return *this;
-}
-
-DistributionBase::DistributionBase(DistributionBase &&other) noexcept
-    : cacheValid_{other.cacheValid_.load(std::memory_order_acquire)} {
-    // Leave other in a determinate (invalid cache) state
-    other.cacheValid_.store(false, std::memory_order_relaxed);
-}
-
-DistributionBase &DistributionBase::operator=(DistributionBase &&other) noexcept {
-    if (this != &other) {
-        cacheValid_.store(other.cacheValid_.load(std::memory_order_acquire),
-                          std::memory_order_release);
-        other.cacheValid_.store(false, std::memory_order_relaxed);
-    }
-    return *this;
-}
-
-// =============================================================================
-// Default batch log-probability (scalar loop)
-// Concrete distributions override this for SIMD vectorization.
-// =============================================================================
-
-void DistributionBase::getBatchLogProbabilities(std::span<const double> observations,
-                                                std::span<double> out) const {
-    assert(observations.size() == out.size());
-    // Index loop preserved: getLogProbability() is a virtual call whose target
-    // is unknown here. Wrapping it in a std::ranges::transform lambda does not
-    // remove the virtual dispatch; the explicit form makes that visible.
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        out[i] = getLogProbability(observations[i]);
-    }
-}
-
-// =============================================================================
-// Math helpers
-// Moved from ProbabilityDistribution. Kept as static to avoid polluting the
-// derived-class interface; accessed through DistributionBase.
-// =============================================================================
-
-double DistributionBase::gammap(double a, double x) noexcept {
+double DistributionMathHelper::gammap(double a, double x) noexcept {
     using namespace libhmm::constants;
     if (x < math::ZERO_DOUBLE || a <= math::ZERO_DOUBLE) {
         return math::ZERO_DOUBLE;
@@ -80,7 +29,7 @@ double DistributionBase::gammap(double a, double x) noexcept {
     }
 }
 
-void DistributionBase::gcf(double &gammcf, double a, double x, double &gln) noexcept {
+void DistributionMathHelper::gcf(double &gammcf, double a, double x, double &gln) noexcept {
     using namespace libhmm::constants;
 
     gln = std::lgamma(a);
@@ -108,7 +57,7 @@ void DistributionBase::gcf(double &gammcf, double a, double x, double &gln) noex
     gammcf = std::exp(-x + a * std::log(x) - gln) * h;
 }
 
-void DistributionBase::gser(double &gamser, double a, double x, double &gln) noexcept {
+void DistributionMathHelper::gser(double &gamser, double a, double x, double &gln) noexcept {
     using namespace libhmm::constants;
 
     gln = std::lgamma(a);
@@ -135,7 +84,72 @@ void DistributionBase::gser(double &gamser, double a, double x, double &gln) noe
     gamser = sum * std::exp(-x + a * std::log(x) - gln);
 }
 
-double DistributionBase::errorf_inv(double y) noexcept {
+double DistributionMathHelper::incompleteBeta(double x, double a, double b) noexcept {
+    // Regularized incomplete beta function I_x(a, b).
+    // Continued-fraction algorithm (Numerical Recipes §6.4) with symmetry
+    // relation I_x(a,b) = 1 - I_{1-x}(b,a) for improved convergence.
+    if (x <= 0.0)
+        return 0.0;
+    if (x >= 1.0)
+        return 1.0;
+    if (a <= 0.0 || b <= 0.0)
+        return 0.0;
+
+    // Apply symmetry for better convergence when x is large.
+    const bool use_symmetry = (x > (a + 1.0) / (a + b + 2.0));
+    const double rx = use_symmetry ? 1.0 - x : x;
+    const double ra = use_symmetry ? b : a;
+    const double rb = use_symmetry ? a : b;
+
+    const double log_beta_ab = std::lgamma(ra) + std::lgamma(rb) - std::lgamma(ra + rb);
+    const double log_prefix =
+        ra * std::log(rx) + rb * std::log(1.0 - rx) - std::log(ra) - log_beta_ab;
+    const double prefix = std::exp(log_prefix);
+
+    // Evaluate continued fraction.
+    constexpr int kMaxIter = 200;
+    constexpr double kTol = 1e-12;
+    constexpr double kTiny = 1e-30;
+
+    double c = 1.0;
+    double d = 1.0 - (ra + rb) * rx / (ra + 1.0);
+    if (std::abs(d) < kTiny)
+        d = kTiny;
+    d = 1.0 / d;
+    double cf = d;
+
+    for (int m = 1; m <= kMaxIter; ++m) {
+        // Even step (2m)
+        double num = m * (rb - m) * rx / ((ra + 2.0 * m - 1.0) * (ra + 2.0 * m));
+        d = 1.0 + num * d;
+        if (std::abs(d) < kTiny)
+            d = kTiny;
+        c = 1.0 + num / c;
+        if (std::abs(c) < kTiny)
+            c = kTiny;
+        d = 1.0 / d;
+        cf *= d * c;
+
+        // Odd step (2m+1)
+        num = -(ra + m) * (ra + rb + m) * rx / ((ra + 2.0 * m) * (ra + 2.0 * m + 1.0));
+        d = 1.0 + num * d;
+        if (std::abs(d) < kTiny)
+            d = kTiny;
+        c = 1.0 + num / c;
+        if (std::abs(c) < kTiny)
+            c = kTiny;
+        d = 1.0 / d;
+        const double delta = d * c;
+        cf *= delta;
+        if (std::abs(delta - 1.0) < kTol)
+            break;
+    }
+
+    const double result = prefix * cf;
+    return use_symmetry ? 1.0 - result : result;
+}
+
+double DistributionMathHelper::errorf_inv(double y) noexcept {
     using namespace libhmm::constants;
 
     if (y == math::ZERO_DOUBLE)

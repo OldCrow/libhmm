@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
 #include "libhmm/training/model_selection.h"
 #include "libhmm/hmm.h"
+#include "libhmm/distributions/diagonal_gaussian_distribution.h"
 #include "libhmm/distributions/discrete_distribution.h"
-#include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/distributions/exponential_distribution.h"
+#include "libhmm/distributions/full_covariance_gaussian_distribution.h"
+#include "libhmm/distributions/gaussian_distribution.h"
+#include "libhmm/distributions/independent_components_distribution.h"
 #include "libhmm/distributions/student_t_distribution.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
 #include <cmath>
@@ -204,6 +207,63 @@ TEST(ModelSelectionTest, AicAlwaysLessThanBicForReasonableSequence) {
     const double logL = -80.0;
     HmmModelCriteria c = evaluate_model(*hmm, logL, 1000);
     EXPECT_LT(c.aic, c.bic);
+}
+
+// ---------------------------------------------------------------------------
+// Phase J: getNumParameters() for multivariate distributions (v4)
+// ---------------------------------------------------------------------------
+
+/// IndependentComponents(D) with default Gaussian components: 2 params per dim.
+TEST(ModelSelectionTest, IndependentComponentsNumParametersD3) {
+    IndependentComponentsDistribution d(3);
+    EXPECT_EQ(d.getNumParameters(), 6u); // 3 × GaussianDistribution(2 params)
+}
+
+/// DiagonalGaussian(D): 2D free parameters (D means + D variances).
+TEST(ModelSelectionTest, DiagonalGaussianNumParametersD4) {
+    DiagonalGaussianDistribution d(4);
+    EXPECT_EQ(d.getNumParameters(), 8u); // 2 × 4
+}
+
+/// DiagonalGaussian(D=1): degenerates to 2 free params (same as univariate Gaussian).
+TEST(ModelSelectionTest, DiagonalGaussianNumParametersD1) {
+    DiagonalGaussianDistribution d(1);
+    EXPECT_EQ(d.getNumParameters(), 2u);
+}
+
+/// FullCovarianceGaussian(D): D + D·(D+1)/2 free params.
+TEST(ModelSelectionTest, FullCovarianceGaussianNumParametersD2) {
+    FullCovarianceGaussianDistribution d(2);
+    EXPECT_EQ(d.getNumParameters(), 5u); // 2 + 3
+}
+
+TEST(ModelSelectionTest, FullCovarianceGaussianNumParametersD3) {
+    FullCovarianceGaussianDistribution d(3);
+    EXPECT_EQ(d.getNumParameters(), 9u); // 3 + 6
+}
+
+/// count_free_parameters on a 2-state MV HMM with DiagonalGaussian(D=2) emissions.
+/// Free params: 2·(2-1)  [transitions]
+///              + (2-1)   [initial distribution]
+///              + 2·(2·2) [2 states × 4 emission params each]
+///              = 2 + 1 + 8 = 11
+TEST(ModelSelectionTest, CountFreeParamsMvDiagGaussian2State) {
+    HmmMV hmm(2);
+    constexpr std::size_t D = 2;
+    hmm.setDistribution(0, std::make_unique<DiagonalGaussianDistribution>(D));
+    hmm.setDistribution(1, std::make_unique<DiagonalGaussianDistribution>(D));
+    Matrix trans(2, 2);
+    trans(0, 0) = 0.8;
+    trans(0, 1) = 0.2;
+    trans(1, 0) = 0.3;
+    trans(1, 1) = 0.7;
+    hmm.setTrans(trans);
+    Vector pi(2);
+    pi(0) = 0.5;
+    pi(1) = 0.5;
+    hmm.setPi(pi);
+    // transitions: N*(N-1) = 2; pi: (N-1) = 1; emissions: N * 2D = 2*4 = 8
+    EXPECT_EQ(count_free_parameters(hmm), 11u);
 }
 
 /// Integration: run FB calculator on a real sequence and feed logL into criteria.

@@ -25,7 +25,7 @@ namespace libhmm {
  * - Variance: r * (1-p) / p²
  * - Support: k ∈ {0, 1, 2, ...}
  */
-class NegativeBinomialDistribution : public DistributionBase {
+class NegativeBinomialDistribution : public DistributionBase<NegativeBinomialDistribution> {
 private:
     /**
      * Number of successes r - must be positive
@@ -128,6 +128,7 @@ public:
      * @return Probability mass
      */
     [[nodiscard]] double getProbability(double value) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /// MLE fit: Newton–Raphson on the NB profile score for r; p = r/(r+k̄) closed form.
     /// Falls back to reset() if variance ≤ mean (under-dispersion → NB not appropriate).

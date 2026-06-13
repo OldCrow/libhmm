@@ -25,7 +25,7 @@ namespace libhmm {
  * - Support: x ∈ [x_m, ∞)
  * - Heavy-tailed distribution (polynomial decay)
  */
-class ParetoDistribution : public DistributionBase {
+class ParetoDistribution : public DistributionBase<ParetoDistribution> {
 private:
     /**
      * Shape parameter k - must be positive
@@ -119,6 +119,7 @@ public:
      * @return Probability density (or approximated probability for discrete sampling)
      */
     [[nodiscard]] double getProbability(double x) const override;
+    [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
     [[nodiscard]] double getLogProbability(double value) const noexcept override;
 
     /// Concrete non-virtual batch log-PDF. Eliminates per-element virtual dispatch.

@@ -79,7 +79,7 @@ bool XMLFileReader::canParseAsHmm(const std::filesystem::path &filepath) noexcep
 
         // Reject empty files and implausibly large ones (100 MB).
         const auto fileSize = std::filesystem::file_size(filepath);
-        if (fileSize == 0 || fileSize > 100 * 1024 * 1024) {
+        if (fileSize == 0 || fileSize > 100UL * 1024UL * 1024UL) {
             return false;
         }
 
