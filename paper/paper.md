@@ -5,6 +5,7 @@ tags:
   - hidden Markov models
   - Baum-Welch EM
   - Viterbi
+  - multivariate HMMs
   - animal movement ecology
   - financial time series
   - circular statistics
@@ -17,7 +18,7 @@ authors:
 affiliations:
   - index: 1
     name: Independent Researcher
-date: 26 May 2026
+date: 13 June 2026
 bibliography: paper.bib
 ---
 
@@ -29,10 +30,11 @@ set of unobserved states. They are used across ecology, finance, bioinformatics,
 meteorology, and signal processing to identify latent regime structure in time
 series. `libhmm` is a C++20 library implementing HMM parameter estimation
 (Baum-Welch EM and Viterbi training), sequence decoding (Viterbi and posterior
-decoding), and model selection (AIC/BIC/AICc) for sixteen probability
-distributions. All algorithms operate in log-space to avoid numerical underflow.
-The library has zero external dependencies and is designed to be embedded
-directly in C++ research pipelines without requiring an R or Python runtime.
+decoding), and model selection (AIC/BIC/AICc) for sixteen scalar probability
+distributions and three multivariate emission families. All algorithms operate
+in log-space to avoid numerical underflow. The library has zero external
+dependencies and is designed to be embedded directly in C++ research pipelines
+without requiring an R or Python runtime.
 `libhmm` originated as a C++ port of the JAHMM library [@JAHMM], developed
 during the author's graduate research on HMM-based characterization of HTTP
 reverse tunnels. The codebase has since been redesigned from first principles
@@ -53,9 +55,10 @@ A secondary gap concerns M-step correctness. Most existing packages use
 method-of-moments (MOM) approximations for distributions that lack closed-form
 maximum likelihood estimators (MLEs), including the Gamma, Beta, Weibull, and
 Student-t distributions. This degrades parameter estimates, particularly when
-states are sparsely populated. `libhmm` addresses both gaps: it provides a
-dependency-free C++ HMM library with correct closed-form or Newton–Raphson MLE
-M-steps for all sixteen supported distributions.
+states are sparsely populated. `libhmm` addresses both gaps: it provides a dependency-free C++ HMM library
+with correct closed-form or Newton–Raphson MLE M-steps for all sixteen
+scalar distributions, and extends to multivariate observations via a
+template-parameterised `BasicHmm<Obs>` core (v4.0.0).
 
 # State of the Field
 
@@ -78,9 +81,10 @@ longer actively maintained. `HMMLib` supports discrete HMMs with SSE intrinsics
 but lacks continuous distributions and requires Boost.
 
 `libhmm` occupies a distinct position: it is the only actively maintained,
-zero-dependency C++ library supporting sixteen emission distributions (including
-`VonMisesDistribution` for circular data), correct MLE M-steps, and a complete
-training and decoding pipeline. Contributing this functionality to any existing
+zero-dependency C++ library supporting sixteen scalar emission distributions
+(including `VonMisesDistribution` for circular data), three multivariate
+emission families with correct weighted MLE, and a complete training and
+decoding pipeline. Contributing this functionality to any existing
 package would require fundamental architectural changes incompatible with their
 design goals and programming language.
 
@@ -120,6 +124,18 @@ core → calculators → trainers → I/O) enforces dependency order and allows
 distributions to be used independently of the HMM machinery. JSON serialization
 and legacy XML I/O are provided for model persistence.
 
+**Multivariate observations via template parameterisation.** Version 4
+parameterises the HMM core on observation type: `BasicHmm<double>` (aliased as
+`Hmm`) preserves the v3 scalar API unchanged, while
+`BasicHmm<ObservationVectorView>` (aliased as `HmmMV`) supports D-dimensional
+observations. Three multivariate emission families are provided:
+`DiagonalGaussianDistribution` (D means and D variances, independent features),
+`FullCovarianceGaussianDistribution` (D×D Cholesky-factored covariance with
+regularisation and weighted MLE M-step), and
+`IndependentComponentsDistribution` (D independent scalar emissions of any
+type). k-means++ initialisation seeds multivariate HMM emission parameters
+before Baum-Welch training.
+
 **Python bindings.** The companion package `pylibhmm` (v0.4.0) wraps the full
 C++ API using `nanobind` and `scikit-build-core`, providing access to all 16
 distributions, all training algorithms, posterior decoding, model selection, and
@@ -127,7 +143,7 @@ JSON/XML I/O from NumPy-based Python code [@pylibhmm].
 
 # Research Impact Statement
 
-`libhmm` includes five benchmark examples fitting HMMs to published datasets and
+`libhmm` includes seven benchmark examples fitting HMMs to published datasets and
 comparing against established R reference packages on the same data, providing
 reproducible reference materials.
 
@@ -150,6 +166,20 @@ Ivy Bridge; fHMM appears to have improved substantially between versions.
 series from @Zucchini2009 matches the `HiddenMarkov` R package to 4 significant
 figures ($\hat{\lambda}_\text{low} = 15.419$ versus 15.418) in 2 ms versus
 approximately 20 ms.
+
+**Multivariate animal movement.** An `IndependentComponentsDistribution` HMM
+combining Gamma and `VonMisesDistribution` components fits the same 4-elk GPS
+dataset as the scalar example above. Within-state correlation between log step
+length and turning angle is r ≈ −0.06, confirming the independence assumption
+and matching the scalar `moveHMM` reference parameters to within 1%.
+
+**Multivariate financial regime detection.** A 3-state
+`FullCovarianceGaussianDistribution` HMM on SPY + QQQ monthly log-returns
+(2000–2022) captures within-state correlations ρ = 0.83–0.92 across the three
+regimes. On real data the full-covariance model outperforms a diagonal model by
+more than 240 BIC units, confirming that ignoring cross-asset correlation
+materially degrades model fit. Log-likelihoods agree with hmmlearn 0.3.3 (20
+random restarts) to < 0.1 nat.
 
 **Circular data.** A 2-state `VonMisesDistribution` HMM on 11,894 hourly wind
 directions (NOAA ISD, Chicago O'Hare, 2015 [@NOAA2001]) demonstrates
