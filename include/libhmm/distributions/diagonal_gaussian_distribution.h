@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <mutex>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -46,7 +47,16 @@ private:
     /// Minimum allowed variance (prevents numerical collapse).
     static constexpr double kMinVar = 1e-6;
 
+    /// Guards concurrent writes to log_var_, inv_var_, and log_normalizer_.
+    /// Not copied/moved: each object has its own independent mutex.
+    mutable std::mutex cache_mutex_;
+
     void updateCache() const noexcept {
+        // Double-checked locking: re-check the flag under the mutex so that
+        // two threads racing on a stale cache only compute once.
+        std::lock_guard lock(cache_mutex_);
+        if (isCacheValid())
+            return;
         // log_var_ and inv_var_ are pre-sized to dim_ in the constructor and
         // never change size thereafter; no resize needed here.
         log_normalizer_ = 0.5 * static_cast<double>(dim_) * constants::math::LN_2PI;
@@ -70,10 +80,12 @@ public:
      */
     explicit DiagonalGaussianDistribution(std::size_t dim, double mean = 0.0, double var = 1.0);
 
-    DiagonalGaussianDistribution(const DiagonalGaussianDistribution &) = default;
-    DiagonalGaussianDistribution &operator=(const DiagonalGaussianDistribution &) = default;
-    DiagonalGaussianDistribution(DiagonalGaussianDistribution &&) = default;
-    DiagonalGaussianDistribution &operator=(DiagonalGaussianDistribution &&) = default;
+    // Explicit copy/move: std::mutex is non-copyable/non-movable; each object
+    // gets its own independent mutex; cached data is copied/moved explicitly.
+    DiagonalGaussianDistribution(const DiagonalGaussianDistribution &);
+    DiagonalGaussianDistribution &operator=(const DiagonalGaussianDistribution &);
+    DiagonalGaussianDistribution(DiagonalGaussianDistribution &&) noexcept;
+    DiagonalGaussianDistribution &operator=(DiagonalGaussianDistribution &&) noexcept;
     ~DiagonalGaussianDistribution() override = default;
 
     // =========================================================================

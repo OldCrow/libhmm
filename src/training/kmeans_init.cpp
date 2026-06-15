@@ -33,9 +33,14 @@ double min_sq_dist(ObservationVectorView x, const std::vector<std::vector<double
 }
 
 /// k-means++ seeding: choose K initial centroids from @p pts using @p rng.
+/// @throws std::invalid_argument if pts.size() < K (cannot seed K distinct centroids).
 std::vector<std::vector<double>> seed_kmeanspp(const std::vector<ObservationVectorView> &pts,
                                                std::size_t K, std::size_t D, std::mt19937_64 &rng) {
     const std::size_t M = pts.size();
+    if (M < K)
+        throw std::invalid_argument("kmeans++: cannot initialize " + std::to_string(K) +
+                                    " centroids from " + std::to_string(M) +
+                                    " observations (need at least K observations)");
     std::vector<std::vector<double>> centroids(K, std::vector<double>(D, 0.0));
 
     std::uniform_int_distribution<std::size_t> uni(0, M - 1);
@@ -94,10 +99,13 @@ bool lloyd_assign(const std::vector<ObservationVectorView> &pts,
 }
 
 /// One Lloyd's update pass: recompute centroids from current assignments.
+/// Empty clusters retain their previous centroid rather than collapsing to zero.
 void lloyd_update(const std::vector<ObservationVectorView> &pts,
                   const std::vector<std::size_t> &assign, std::size_t D,
                   std::vector<std::vector<double>> &centroids) {
     const std::size_t K = centroids.size();
+    // Save centroids before zeroing so empty clusters can retain theirs.
+    const auto prev_centroids = centroids;
     std::vector<std::size_t> counts(K, 0);
     for (auto &c : centroids)
         std::fill(c.begin(), c.end(), 0.0);
@@ -112,8 +120,11 @@ void lloyd_update(const std::vector<ObservationVectorView> &pts,
             const double inv = 1.0 / static_cast<double>(counts[k]);
             for (std::size_t d = 0; d < D; ++d)
                 centroids[k][d] *= inv;
+        } else {
+            // Empty cluster: restore the previous centroid so the cluster
+            // is not collapsed to the zero vector.
+            centroids[k] = prev_centroids[k];
         }
-        // Empty cluster: retain previous centroid.
     }
 }
 

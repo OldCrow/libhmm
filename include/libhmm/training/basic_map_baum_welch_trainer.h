@@ -151,7 +151,8 @@ template <typename Obs>
 BasicMapBaumWelchTrainer<Obs>::BasicMapBaumWelchTrainer(HmmType &hmm, const ListType &obsLists,
                                                         double pseudo_count)
     : Base(hmm, obsLists), pseudo_count_(pseudo_count) {
-    if (pseudo_count < 0.0) {
+    // Use !(>= 0) so that NaN also fails the check (NaN < 0 is false).
+    if (!(pseudo_count >= 0.0)) {
         throw std::invalid_argument("MapBaumWelchTrainer: pseudo_count must be >= 0 "
                                     "(sparse-inducing priors require Variational Bayes)");
     }
@@ -166,7 +167,8 @@ BasicMapBaumWelchTrainer<Obs>::BasicMapBaumWelchTrainer(HmmType *hmm, const List
 
 template <typename Obs>
 void BasicMapBaumWelchTrainer<Obs>::setPseudoCount(double c) {
-    if (c < 0.0)
+    // Use !(>= 0) so that NaN also fails the check (NaN < 0 is false).
+    if (!(c >= 0.0))
         throw std::invalid_argument("MapBaumWelchTrainer: pseudo_count must be >= 0");
     pseudo_count_ = c;
 }
@@ -248,6 +250,18 @@ void BasicMapBaumWelchTrainer<Obs>::apply_discrete_smoothing(HmmType &hmm, std::
         for (std::size_t k = 0; k < K; ++k) {
             dd.setProbability(static_cast<double>(k),
                               (dd.getSymbolProbability(k) * sumW + c) / denom);
+        }
+        // Re-normalize: guards against un-normalized probabilities when
+        // DiscreteDistribution::fit() used an inflated sumW denominator
+        // (e.g. out-of-range observations counted in weight sum but not in
+        // per-symbol bins), which leaves the pre-smoothing pdf summing to < 1.
+        double total = 0.0;
+        for (std::size_t k = 0; k < K; ++k)
+            total += dd.getSymbolProbability(k);
+        if (total > 0.0 && std::isfinite(total)) {
+            const double inv_total = 1.0 / total;
+            for (std::size_t k = 0; k < K; ++k)
+                dd.setProbability(static_cast<double>(k), dd.getSymbolProbability(k) * inv_total);
         }
     }
 }

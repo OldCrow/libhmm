@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <mutex>
 #include <numeric>
 #include <random>
 #include <stdexcept>
@@ -12,20 +13,73 @@
 namespace libhmm {
 
 // =============================================================================
-// Construction
+// Construction — including explicit copy/move for the mutable mutex member
 // =============================================================================
+
+// Copy constructor: each object gets its own independent mutex.
+FullCovarianceGaussianDistribution::FullCovarianceGaussianDistribution(
+    const FullCovarianceGaussianDistribution &other)
+    : DistributionBase(other), dim_(other.dim_), mean_(other.mean_), cov_(other.cov_),
+      chol_L_(other.chol_L_), log_det_(other.log_det_), reg_(other.reg_),
+      half_d_log2pi_(other.half_d_log2pi_) {
+    // cache_mutex_ is default-constructed; each copy owns its own mutex.
+}
+
+FullCovarianceGaussianDistribution &
+FullCovarianceGaussianDistribution::operator=(const FullCovarianceGaussianDistribution &other) {
+    if (this != &other) {
+        // Lock other's mutex to safely read its cached fields.
+        std::lock_guard lock(other.cache_mutex_);
+        DistributionBase::operator=(other);
+        dim_ = other.dim_;
+        mean_ = other.mean_;
+        cov_ = other.cov_;
+        chol_L_ = other.chol_L_;
+        log_det_ = other.log_det_;
+        reg_ = other.reg_;
+        half_d_log2pi_ = other.half_d_log2pi_;
+        // this->cache_mutex_ is unchanged; it is independent per object.
+    }
+    return *this;
+}
+
+// Move constructor: cached data is moved; each object retains its own mutex.
+FullCovarianceGaussianDistribution::FullCovarianceGaussianDistribution(
+    FullCovarianceGaussianDistribution &&other) noexcept
+    : DistributionBase(std::move(other)), dim_(other.dim_), mean_(std::move(other.mean_)),
+      cov_(std::move(other.cov_)), chol_L_(std::move(other.chol_L_)), log_det_(other.log_det_),
+      reg_(other.reg_), half_d_log2pi_(other.half_d_log2pi_) {
+    // cache_mutex_ is default-constructed; other.cache_mutex_ remains with other.
+}
+
+FullCovarianceGaussianDistribution &
+FullCovarianceGaussianDistribution::operator=(FullCovarianceGaussianDistribution &&other) noexcept {
+    if (this != &other) {
+        DistributionBase::operator=(std::move(other));
+        dim_ = other.dim_;
+        mean_ = std::move(other.mean_);
+        cov_ = std::move(other.cov_);
+        chol_L_ = std::move(other.chol_L_);
+        log_det_ = other.log_det_;
+        reg_ = other.reg_;
+        half_d_log2pi_ = other.half_d_log2pi_;
+        // cache_mutex_ is independent per object; not transferred on move.
+    }
+    return *this;
+}
 
 FullCovarianceGaussianDistribution::FullCovarianceGaussianDistribution(std::size_t dim,
                                                                        double regularise)
     : dim_{dim}, mean_(dim, 0.0), cov_(dim, dim, 0.0), reg_{regularise},
       half_d_log2pi_{0.5 * static_cast<double>(dim) * constants::math::LN_2PI} {
     validateDim(dim, "FullCovarianceGaussianDistribution");
-    // Initialise to identity covariance + regularisation
-    for (std::size_t d = 0; d < dim; ++d) {
+    // cov_ = I (unregularised); cache is built from (I + reg*I).
+    for (std::size_t d = 0; d < dim; ++d)
         cov_(d, d) = 1.0;
-    }
-    // Factorize immediately so the cache is valid
-    auto res = chol::factorize(cov_);
+    auto tmp = cov_;
+    for (std::size_t d = 0; d < dim; ++d)
+        tmp(d, d) += reg_;
+    auto res = chol::factorize(tmp);
     if (res.success) {
         chol_L_ = std::move(res.L);
         log_det_ = chol::log_det(chol_L_);
@@ -148,11 +202,16 @@ void FullCovarianceGaussianDistribution::fit(std::span<const ObservationVectorVi
         reset();
         return;
     }
+    for (const auto &x : data)
+        if (x.size() != dim_)
+            throw std::invalid_argument(
+                "FullCovarianceGaussianDistribution::fit: observation dimension mismatch");
     mean_ = compute_mean(data, dim_);
     auto new_cov = compute_cov(data, mean_, dim_);
-    auto res = regularise_and_factorize(new_cov, dim_, reg_);
+    auto tmp = new_cov; // scratch copy for regularisation; new_cov stays unregularised
+    auto res = regularise_and_factorize(tmp, dim_, reg_);
     if (res.success) {
-        cov_ = new_cov;
+        cov_ = std::move(new_cov); // store unregularised empirical covariance
         chol_L_ = std::move(res.L);
         log_det_ = chol::log_det(chol_L_);
         markCacheValid();
@@ -169,11 +228,16 @@ void FullCovarianceGaussianDistribution::fit(std::span<const ObservationVectorVi
     const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
     if (sumW <= 0.0 || data.empty())
         return;
+    for (const auto &x : data)
+        if (x.size() != dim_)
+            throw std::invalid_argument(
+                "FullCovarianceGaussianDistribution::fit: observation dimension mismatch");
     mean_ = compute_weighted_mean(data, weights, sumW, dim_);
     auto new_cov = compute_weighted_cov(data, weights, mean_, 1.0 / sumW, dim_);
-    auto res = regularise_and_factorize(new_cov, dim_, reg_);
+    auto tmp = new_cov; // scratch copy for regularisation; new_cov stays unregularised
+    auto res = regularise_and_factorize(tmp, dim_, reg_);
     if (res.success) {
-        cov_ = new_cov;
+        cov_ = std::move(new_cov); // store unregularised empirical covariance
         chol_L_ = std::move(res.L);
         log_det_ = chol::log_det(chol_L_);
         markCacheValid();
@@ -184,11 +248,12 @@ void FullCovarianceGaussianDistribution::setCovariance(BasicMatrix<double> cov) 
     if (cov.size1() != dim_ || cov.size2() != dim_)
         throw std::invalid_argument(
             "FullCovarianceGaussianDistribution::setCovariance: dimension mismatch");
-    auto res = regularise_and_factorize(cov, dim_, reg_);
+    auto tmp = cov; // scratch copy for regularisation; cov remains unregularised
+    auto res = regularise_and_factorize(tmp, dim_, reg_);
     if (!res.success)
         throw std::invalid_argument("FullCovarianceGaussianDistribution::setCovariance: "
                                     "matrix is not positive-definite");
-    cov_ = std::move(cov);
+    cov_ = std::move(cov); // store unregularised user-provided matrix
     chol_L_ = std::move(res.L);
     log_det_ = chol::log_det(chol_L_);
     markCacheValid();
@@ -202,12 +267,13 @@ void FullCovarianceGaussianDistribution::setParameters(std::vector<double> mean,
     if (cov.size1() != dim_ || cov.size2() != dim_)
         throw std::invalid_argument(
             "FullCovarianceGaussianDistribution::setParameters: cov dimension mismatch");
-    auto res = regularise_and_factorize(cov, dim_, reg_);
+    auto tmp = cov; // scratch copy for regularisation; cov remains unregularised
+    auto res = regularise_and_factorize(tmp, dim_, reg_);
     if (!res.success)
         throw std::invalid_argument("FullCovarianceGaussianDistribution::setParameters: "
                                     "matrix is not positive-definite");
     mean_ = std::move(mean);
-    cov_ = std::move(cov);
+    cov_ = std::move(cov); // store unregularised user-provided matrix
     chol_L_ = std::move(res.L);
     log_det_ = chol::log_det(chol_L_);
     markCacheValid();
@@ -278,8 +344,9 @@ FullCovarianceGaussianDistribution::from_json(json::Reader &r) {
     // Reader is positioned after '{' and "type":"FullCovarianceGaussian" consumed.
     r.read_key(); // "dim"
     const auto dim_raw = r.read_double();
-    if (!std::isfinite(dim_raw) || dim_raw < 1.0)
-        throw std::runtime_error("FullCovarianceGaussian JSON: invalid dim");
+    // Upper bound matches kMaxMvDimensions in hmm_json.cpp (1024).
+    if (!std::isfinite(dim_raw) || dim_raw < 1.0 || dim_raw > 1024.0)
+        throw std::runtime_error("FullCovarianceGaussian JSON: dim out of range [1, 1024]");
     const std::size_t D = static_cast<std::size_t>(dim_raw);
 
     r.read_key(); // "reg"

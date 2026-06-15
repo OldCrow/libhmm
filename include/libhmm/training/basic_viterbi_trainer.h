@@ -4,6 +4,7 @@
 #include <deque>
 #include <limits>
 #include <span>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -92,8 +93,14 @@ public:
 
     /** @brief Read current training configuration. */
     [[nodiscard]] const TrainingConfig &getConfig() const noexcept { return config_; }
-    /** @brief Replace the training configuration (takes effect from the next train() call). */
-    void setConfig(const TrainingConfig &config) { config_ = config; }
+    /** @brief Replace the training configuration (takes effect from the next train() call).
+     *  @throws std::invalid_argument if convergenceWindow < 2.
+     */
+    void setConfig(const TrainingConfig &config) {
+        if (config.convergenceWindow < 2)
+            throw std::invalid_argument("ViterbiTrainer: convergenceWindow must be >= 2");
+        config_ = config;
+    }
 
 private:
     TrainingConfig config_;
@@ -131,13 +138,23 @@ private:
 template <typename Obs>
 BasicViterbiTrainer<Obs>::BasicViterbiTrainer(HmmType &hmm, const ListType &obsLists,
                                               const TrainingConfig &config)
-    : Base(hmm, obsLists), config_(config) {}
+    : Base(hmm, obsLists), config_(config) {
+    if (config.convergenceWindow < 2)
+        throw std::invalid_argument("ViterbiTrainer: convergenceWindow must be >= 2 "
+                                    "(a window of 1 produces an empty comparison range and "
+                                    "declares convergence after a single iteration)");
+}
 
 template <typename Obs>
 BasicViterbiTrainer<Obs>::BasicViterbiTrainer(HmmType *hmm, const ListType &obsLists,
                                               const TrainingConfig &config)
     : Base(hmm ? *hmm : throw std::invalid_argument("HMM pointer cannot be null"), obsLists),
-      config_(config) {}
+      config_(config) {
+    if (config.convergenceWindow < 2)
+        throw std::invalid_argument("ViterbiTrainer: convergenceWindow must be >= 2 "
+                                    "(a window of 1 produces an empty comparison range and "
+                                    "declares convergence after a single iteration)");
+}
 
 template <typename Obs>
 void BasicViterbiTrainer<Obs>::train() {

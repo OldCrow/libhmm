@@ -263,6 +263,36 @@ TEST(KmeansInit, EmptyDataThrows) {
     EXPECT_THROW(kmeans_init(hmm, empty, rng), std::invalid_argument);
 }
 
+TEST(KmeansInit, FewerObsThanStatesThrows) {
+    // M < K: cannot seed K distinct centroids from fewer observations.
+    // Before fix: seed_kmeanspp produced duplicate centroids silently.
+    HmmMV hmm = make_hmm_mv(5, 2); // K=5 states
+    MultiObservationLists lists;
+    // Only 3 observations total (< K=5)
+    for (int i = 0; i < 3; ++i)
+        lists.push_back(const_seq(1, 2, static_cast<double>(i)));
+    std::mt19937_64 rng(0);
+    EXPECT_THROW(kmeans_init(hmm, lists, rng), std::invalid_argument);
+}
+
+TEST(MvViterbiTrainer, ConvergenceWindowOneTwoThrows) {
+    // convergenceWindow=1 causes premature convergence after one iteration.
+    // After fix, construction throws invalid_argument.
+    HmmMV hmm = make_hmm_mv(2, 2);
+    auto lists = make_two_cluster_data(10, 8, 2, 0.0, 4.0);
+    TrainingConfig bad_cfg;
+    bad_cfg.convergenceWindow = 1;
+    EXPECT_THROW((BasicViterbiTrainer<ObservationVectorView>(hmm, lists, bad_cfg)),
+                 std::invalid_argument);
+    // window=0 is also invalid
+    bad_cfg.convergenceWindow = 0;
+    EXPECT_THROW((BasicViterbiTrainer<ObservationVectorView>(hmm, lists, bad_cfg)),
+                 std::invalid_argument);
+    // window=2 is the minimum valid value
+    bad_cfg.convergenceWindow = 2;
+    EXPECT_NO_THROW((BasicViterbiTrainer<ObservationVectorView>(hmm, lists, bad_cfg)));
+}
+
 TEST(KmeansInit, SingleClusterData) {
     // All data at the same point — should not crash or hang.
     HmmMV hmm = make_hmm_mv(2, 2);

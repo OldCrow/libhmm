@@ -167,18 +167,27 @@ Hmm from_json(std::string_view src) {
     json::Reader r(src);
     r.consume('{');
 
+    // Validate each key name before consuming its value so that key-reordered
+    // JSON (e.g. produced by jq or json.dumps(sort_keys=True)) is rejected
+    // with a clear error rather than silently scrambling HMM parameters.
+    auto expect_key = [](const std::string &actual, const char *expected) {
+        if (actual != expected)
+            throw std::runtime_error(std::string("HMM JSON: expected key \"") + expected +
+                                     "\", got \"" + actual + "\"");
+    };
+
     // states: validated against [1, kMaxHmmStates] before any heap allocation.
-    r.read_key();
+    expect_key(r.read_key(), "states");
     const std::size_t N = checked_size(r.read_double(), 1.0, static_cast<double>(kMaxHmmStates),
                                        "HMM JSON: states must be a positive integer");
 
-    r.read_key(); // "pi"
+    expect_key(r.read_key(), "pi");
     const auto pi_data = r.read_double_array(N);
 
-    r.read_key(); // "trans"
+    expect_key(r.read_key(), "trans");
     const auto trans_rows = r.read_double_matrix(N, N);
 
-    r.read_key(); // "distributions"
+    expect_key(r.read_key(), "distributions");
     auto emis = read_distribution_array(r, N);
     r.consume('}');
 
@@ -339,31 +348,51 @@ HmmMV from_json_mv(std::string_view src) {
     json::Reader r(src);
     r.consume('{');
 
-    r.read_key(); // "libhmm_version"
+    // Validate each key name before consuming its value so that key-reordered
+    // JSON is rejected with a clear error rather than silently scrambling parameters.
+    auto expect_key = [](const std::string &actual, const char *expected) {
+        if (actual != expected)
+            throw std::runtime_error(std::string("HMM MV JSON: expected key \"") + expected +
+                                     "\", got \"" + actual + "\"");
+    };
+
+    expect_key(r.read_key(), "libhmm_version");
     if (r.read_string() != "4")
         throw std::runtime_error("HMM MV JSON: unsupported libhmm_version");
 
-    r.read_key(); // "obs_type"
+    expect_key(r.read_key(), "obs_type");
     if (r.read_string() != "multivariate")
         throw std::runtime_error("HMM MV JSON: expected obs_type \"multivariate\"");
 
-    r.read_key(); // "dimensions" (stored in JSON for reference; each distribution validates its own dim)
-    checked_size(r.read_double(), 1.0, static_cast<double>(kMaxMvDimensions),
-                 "HMM MV JSON: invalid dimensions value");
+    // Capture manifest_dim to cross-validate per-distribution dim fields below.
+    expect_key(r.read_key(), "dimensions");
+    const std::size_t manifest_dim =
+        checked_size(r.read_double(), 1.0, static_cast<double>(kMaxMvDimensions),
+                     "HMM MV JSON: invalid dimensions value");
 
-    r.read_key(); // "states"
+    expect_key(r.read_key(), "states");
     const std::size_t N = checked_size(r.read_double(), 1.0, static_cast<double>(kMaxHmmStates),
                                        "HMM MV JSON: states out of range");
 
-    r.read_key(); // "pi"
+    expect_key(r.read_key(), "pi");
     const auto pi_data = r.read_double_array(N);
 
-    r.read_key(); // "trans"
+    expect_key(r.read_key(), "trans");
     const auto trans_rows = r.read_double_matrix(N, N);
 
-    r.read_key(); // "distributions"
+    expect_key(r.read_key(), "distributions");
     auto emis = read_mv_distribution_array(r, N);
     r.consume('}');
+
+    // Cross-validate each distribution's dimension against the manifest.
+    for (std::size_t i = 0; i < emis.size(); ++i) {
+        const std::size_t dist_dim = emis[i]->getDimension();
+        if (dist_dim != manifest_dim)
+            throw std::runtime_error(
+                "HMM MV JSON: distribution[" + std::to_string(i) +
+                "] has dim=" + std::to_string(dist_dim) +
+                ", expected manifest dimensions=" + std::to_string(manifest_dim));
+    }
 
     return build_hmm_mv(pi_data, trans_rows, std::move(emis), N);
 }

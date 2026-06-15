@@ -86,7 +86,7 @@ double VonMisesDistribution::wrap_angle(double x) noexcept {
         return x;
     const double twopi = constants::math::TWO_PI;
     x = std::fmod(x, twopi);
-    if (x <= -constants::math::PI)
+    if (x < -constants::math::PI)
         x += twopi;
     if (x > constants::math::PI)
         x -= twopi;
@@ -249,19 +249,21 @@ void VonMisesDistribution::fit(std::span<const double> data) {
 }
 
 void VonMisesDistribution::fit(std::span<const double> data, std::span<const double> weights) {
-    const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
-    // Guard: keep current parameters when effective weight is near zero.
-    // Calling reset() would destroy valid parameters and cause state collapse in EM.
-    if (sumW < precision::ZERO || std::isnan(sumW))
-        return;
-
-    double S = 0.0, C = 0.0;
+    // Accumulate sumW, S, and C only over observations that are finite and
+    // have positive weight.  Including non-finite data weights in sumW while
+    // excluding them from S/C would deflate R_bar and bias kappa_ downward.
+    double sumW = 0.0, S = 0.0, C = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
         if (weights[i] > 0.0 && std::isfinite(data[i])) {
+            sumW += weights[i];
             S += weights[i] * std::sin(data[i]);
             C += weights[i] * std::cos(data[i]);
         }
     }
+    // Guard: keep current parameters when effective weight is near zero.
+    // Calling reset() would destroy valid parameters and cause state collapse in EM.
+    if (sumW < precision::ZERO)
+        return;
 
     mu_ = wrap_angle(std::atan2(S / sumW, C / sumW));
     const double R_bar = std::sqrt(S * S + C * C) / sumW;

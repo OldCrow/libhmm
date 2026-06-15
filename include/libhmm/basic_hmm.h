@@ -161,15 +161,25 @@ public:
 
     /// Gets the emission distribution for a state (non-const — for trainers).
     /// @throws std::out_of_range if state index is invalid.
+    /// @throws std::runtime_error if the emission slot is null (MV HMM requires setDistribution).
     BasicEmissionDistribution<Obs> &getDistribution(std::size_t state) {
         validateStateIndex(state);
+        if (!emis_[state])
+            throw std::runtime_error("getDistribution: emission distribution for state " +
+                                     std::to_string(state) +
+                                     " is null; call setDistribution() before use");
         return *emis_[state];
     }
 
     /// Gets the emission distribution for a state (const).
     /// @throws std::out_of_range if state index is invalid.
+    /// @throws std::runtime_error if the emission slot is null (MV HMM requires setDistribution).
     [[nodiscard]] const BasicEmissionDistribution<Obs> &getDistribution(std::size_t state) const {
         validateStateIndex(state);
+        if (!emis_[state])
+            throw std::runtime_error("getDistribution: emission distribution for state " +
+                                     std::to_string(state) +
+                                     " is null; call setDistribution() before use");
         return *emis_[state];
     }
 

@@ -291,6 +291,33 @@ TEST(MvJsonErrors, RejectsOversizedInput) {
     EXPECT_THROW(static_cast<void>(from_json_mv(oversized)), std::runtime_error);
 }
 
+TEST(MvJsonErrors, RejectsReorderedKeys) {
+    // from_json_mv validates each key name before consuming its value.
+    // This JSON has "states" before "dimensions" (wrong order).
+    const std::string reordered =
+        R"({"libhmm_version":"4","obs_type":"multivariate","states":1,"dimensions":2,)"
+        R"("pi":[1.0],"trans":[[1.0]],)"
+        R"("distributions":[{"type":"DiagonalGaussian","dim":2,"mean":[0.0,0.0],"var":[1.0,1.0]}]})"; // NOLINT
+    EXPECT_THROW(static_cast<void>(from_json_mv(reordered)), std::runtime_error);
+}
+
+TEST(MvJsonErrors, RejectsMismatchedDimensions) {
+    // Cross-validation: manifest says dimensions=2, distribution reports dim=3.
+    const std::string bad =
+        R"({"libhmm_version":"4","obs_type":"multivariate","dimensions":2,"states":1,)"
+        R"("pi":[1.0],"trans":[[1.0]],)"
+        R"("distributions":[{"type":"DiagonalGaussian","dim":3,"mean":[0.0,0.0,0.0],"var":[1.0,1.0,1.0]}]})"; // NOLINT
+    EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
+}
+
+TEST(MvJsonErrors, RejectsOversizedDimensionsManifest) {
+    // The manifest dimensions field is bounded by kMaxMvDimensions=1024.
+    const std::string bad =
+        R"({"libhmm_version":"4","obs_type":"multivariate","dimensions":9999,"states":1,)"
+        R"("pi":[1.0],"trans":[[1.0]],"distributions":[]})"; // NOLINT
+    EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
+}
+
 // =============================================================================
 // Scalar from_json still works (backward compat unchanged)
 // =============================================================================

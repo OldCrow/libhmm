@@ -71,8 +71,9 @@ double StudentTDistribution::getLogProbability(double value) const noexcept {
  */
 double StudentTDistribution::getCumulativeProbability(double value) const noexcept {
     if (!std::isfinite(value)) {
-        return std::isnan(value) ? std::numeric_limits<double>::quiet_NaN()
-                                 : (value < math::ZERO_DOUBLE ? math::ZERO_DOUBLE : math::ONE);
+        // NaN: return 0.0 consistent with getProbability(NaN) = 0.0.
+        // ±∞: return 0.0 or 1.0 by convention.
+        return (std::isnan(value) || value < math::ZERO_DOUBLE) ? math::ZERO_DOUBLE : math::ONE;
     }
 
     if (!isCacheValid())
