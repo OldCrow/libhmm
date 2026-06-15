@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.1] - 2026-06-15
+
+Bugfix release addressing 15 findings from an independent code review of the v4.0.0 diff.
+47/47 tests pass. No new public API; no breaking changes beyond replacing undefined behaviour.
+
+### Fixed
+
+- **Thread safety** (`FullCovarianceGaussianDistribution`, `DiagonalGaussianDistribution`):
+  concurrent const reads (calculator thread pool) could race on `chol_L_`, `log_det_`,
+  `log_var_`, and `inv_var_`. Added `mutable std::mutex cache_mutex_` with double-checked
+  locking in `updateCache()`.
+- **Null dereference** (`BasicHmm<ObservationVectorView>::getDistribution()`): emission slots
+  are null until `setDistribution()` is called on MV HMMs; both overloads now throw
+  `std::runtime_error` with a descriptive message instead of dereferencing the null pointer.
+- **JSON key-order sensitivity** (`from_json`, `from_json_mv`): each key name is now validated
+  before consuming its value; reordered JSON (produced by `jq`, `json.dumps(sort_keys=True)`,
+  or schema validators) is rejected with a clear error rather than silently scrambling parameters.
+- **VonMises CDF at −π** (`VonMisesDistribution::getCumulativeProbability`): `wrap_angle` used
+  `x <= −π`, mapping exactly −π to +π and causing the integrator to return ≈1.0. Changed to
+  `x < −π`; `getCumulativeProbability(−π)` now correctly returns ≈0.0.
+- **Regularisation accumulation** (`FullCovarianceGaussianDistribution::setCovariance`,
+  `setParameters`, `fit`): the regularisation term `reg*I` was applied to `cov_` in-place, so
+  `getCovariance()` returned the regularised matrix and each `setCovariance(getCovariance())`
+  call added another `reg*I`. `cov_` now stores the unregularised matrix; regularisation is
+  applied only to a scratch copy for Cholesky factorisation.
+- **VonMises weighted `fit()` sumW inflation**: `sumW` was accumulated over all weights before
+  the finite-data filter, so non-finite observations inflated the denominator and biased κ
+  toward smaller values. `sumW` is now accumulated inside the filter loop.
+- **NaN `pseudo_count` accepted** (`BasicMapBaumWelchTrainer`): the guard `if (c < 0.0)` is
+  `false` for NaN (all NaN comparisons are false). Changed to `if (!(c >= 0.0))`.
+- **k-means `M < K`** (`kmeans_init`): when the number of observations was less than the number
+  of states, duplicate centroids were produced silently and training converged to a degenerate
+  local minimum. `seed_kmeanspp` now throws `std::invalid_argument`.
+- **Ragged observations in `fit()`** (`FullCovarianceGaussianDistribution`,
+  `DiagonalGaussianDistribution`): inner helpers accessed `x[d]` without checking `x.size()`,
+  causing UB on mismatched-dimension input. Both `fit()` overloads now validate per-observation
+  dimensionality.
+- **`convergenceWindow = 1` premature convergence** (`BasicViterbiTrainer`): a window of 1
+  produced an empty comparison loop, declaring convergence after a single EM iteration.
+  Construction now throws `std::invalid_argument` when `convergenceWindow < 2`.
+- **`StudentTDistribution::getCumulativeProbability(NaN)`**: returned `quiet_NaN()` instead of
+  `0.0`, inconsistent with `getProbability(NaN)` = 0.0. Fixed to return 0.0.
+- **`dimensions` field not cross-validated** (`from_json_mv`): the manifest `dimensions` field
+  was consumed and range-checked but not stored; per-distribution dim fields were never compared
+  against it. Cross-validation now throws if they differ.
+- **Unbounded `dim` in distribution `from_json`** (`FullCovarianceGaussianDistribution`,
+  `DiagonalGaussianDistribution`): a crafted value such as `"dim":1e9` passed the `isfinite &&
+  >= 1` guard, triggering a ~72 GB allocation attempt. `dim` is now bounded to [1, 1024].
+- **MAP discrete smoothing un-normalised** (`BasicMapBaumWelchTrainer::apply_discrete_smoothing`):
+  when `DiscreteDistribution::fit()` used an inflated `sumW` denominator (out-of-range
+  observations), the smoothed probabilities summed to < 1. A re-normalisation pass is now
+  applied after smoothing.
+- **Dead code in `lloyd_update`** (`kmeans_init`): all centroids were zeroed before accumulation,
+  making the "retain previous centroid for empty clusters" comment dead code. The previous
+  centroid is now saved before zeroing and restored for empty clusters.
+
+### Tests
+
+- Updated 2 existing tests that asserted old broken behaviour (StudentT CDF(NaN),
+  FullCovariance default log_det with regularisation).
+- Added 24 new regression tests across 7 test files covering all fixed paths.
+
+---
+
 ## [4.0.0] - 2026-06-11
 
 Multivariate HMM support and full C++20 type system modernisation. 47/47 tests pass.
