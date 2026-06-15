@@ -112,8 +112,9 @@ TEST(VonMisesDistribution, LogPDFConsistency) {
     for (double x : {-PI, -1.0, 0.0, 1.0, PI}) {
         const double p = d.getProbability(x);
         const double lp = d.getLogProbability(x);
-        if (p > 0.0)
+        if (p > 0.0) {
             EXPECT_NEAR(std::log(p), lp, 1e-10) << "x=" << x;
+        }
     }
 }
 
