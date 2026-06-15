@@ -178,19 +178,20 @@ TEST(MvHmmCoreTest, GetDistributionNullSlotThrows) {
     // runtime_error rather than unconditionally dereferencing the null pointer.
     HmmMV hmm(2);
     // No setDistribution() called — both slots are null.
-    EXPECT_THROW(hmm.getDistribution(0), std::runtime_error);
-    EXPECT_THROW(hmm.getDistribution(1), std::runtime_error);
+    // (void) cast silences the [[nodiscard]] warning inside EXPECT_THROW.
+    EXPECT_THROW((void)hmm.getDistribution(0), std::runtime_error);
+    EXPECT_THROW((void)hmm.getDistribution(1), std::runtime_error);
     // After setDistribution, the slot must no longer throw.
     hmm.setDistribution(0, std::make_unique<DiagonalGaussianDistribution>(2));
-    EXPECT_NO_THROW(hmm.getDistribution(0));
+    EXPECT_NO_THROW((void)hmm.getDistribution(0));
     // Slot 1 is still null.
-    EXPECT_THROW(hmm.getDistribution(1), std::runtime_error);
+    EXPECT_THROW((void)hmm.getDistribution(1), std::runtime_error);
 }
 
 TEST(MvHmmCoreTest, GetDistributionConstNullSlotThrows) {
     HmmMV hmm(2);
     const HmmMV &chmm = hmm;
-    EXPECT_THROW(chmm.getDistribution(0), std::runtime_error);
+    EXPECT_THROW((void)chmm.getDistribution(0), std::runtime_error);
 }
 
 int main(int argc, char **argv) {
