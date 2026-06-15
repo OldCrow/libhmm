@@ -193,16 +193,21 @@ TEST(FullCovarianceGaussianTest, ConstructDefault2D) {
     EXPECT_EQ(d.getDimension(), 2u);
     EXPECT_EQ(d.getNumParameters(), 2u + 3u); // D + D(D+1)/2 = 2 + 3
     EXPECT_FALSE(d.isDiscrete());
-    // Default Σ = I → log_det = log(1) = 0
-    EXPECT_NEAR(d.getLogDet(), 0.0, 1e-10);
+    // Default Σ = I (unregularised); internal Cholesky uses (I + 1e-5*I) for
+    // numerical stability, so log_det = D*log(1 + 1e-5) = 2*log(1.00001).
+    const double reg = 1e-5;
+    EXPECT_NEAR(d.getLogDet(), 2.0 * std::log(1.0 + reg), 1e-10);
 }
 
 TEST(FullCovarianceGaussianTest, LogProbAtMeanIdentityCov) {
-    // μ = [0,0], Σ = I  → log p([0,0]) = -log(2π)
+    // μ = [0,0], Σ = I; internal Cholesky uses (I + 1e-5*I).
+    // log p([0,0]) = -log(2π) - 0.5 * 2*log(1+1e-5) = -log(2π) - log(1+1e-5)
     FullCovarianceGaussianDistribution d(2);
     const std::vector<double> obs = {0.0, 0.0};
     const ObservationVectorView v(obs);
-    EXPECT_NEAR(d.getLogProbability(v), -std::log(2.0 * constants::math::PI), 1e-10);
+    const double reg = 1e-5;
+    const double expected = -std::log(2.0 * constants::math::PI) - std::log(1.0 + reg);
+    EXPECT_NEAR(d.getLogProbability(v), expected, 1e-10);
 }
 
 TEST(FullCovarianceGaussianTest, LogProbKnownCov2D) {
@@ -282,6 +287,82 @@ TEST(FullCovarianceGaussianTest, NumParameters3D) {
     FullCovarianceGaussianDistribution d(3);
     // D=3: 3 means + 3*(3+1)/2 = 6 cov entries = 9
     EXPECT_EQ(d.getNumParameters(), 9u);
+}
+
+// ============================================================================
+// Regression: setCovariance round-trip must not accumulate regularisation (F5)
+// ============================================================================
+
+TEST(FullCovarianceGaussianTest, SetCovarianceRoundTripIsIdempotent) {
+    // Before fix: regularise_and_factorize mutated its argument in-place so
+    // setCovariance(getCovariance()) silently added reg*I on every call.
+    // After fix: cov_ stores the unregularised matrix; round-trips are stable.
+    FullCovarianceGaussianDistribution d(2);
+    const double log_det_0 = d.getLogDet();
+    const BasicMatrix<double> &cov0 = d.getCovariance();
+
+    // First round-trip
+    d.setCovariance(cov0);
+    EXPECT_NEAR(d.getLogDet(), log_det_0, 1e-10)
+        << "log_det changed after first setCovariance(getCovariance()) call";
+
+    // Second round-trip — must still be the same
+    d.setCovariance(d.getCovariance());
+    EXPECT_NEAR(d.getLogDet(), log_det_0, 1e-10)
+        << "log_det changed after second setCovariance(getCovariance()) call";
+}
+
+TEST(FullCovarianceGaussianTest, SerialiseDeserialiseDoesNotAccumulateReg) {
+    // to_json serialises the unregularised cov; from_json restores it verbatim.
+    // A subsequent setCovariance(getCovariance()) must not add a further reg*I.
+    using namespace libhmm;
+    FullCovarianceGaussianDistribution d(2);
+    const double log_det_original = d.getLogDet();
+
+    const BasicMatrix<double> cov = d.getCovariance();
+    // The covariance retrieved from getCovariance() must be unregularised identity.
+    EXPECT_NEAR(cov(0, 0), 1.0, 1e-12);
+    EXPECT_NEAR(cov(1, 1), 1.0, 1e-12);
+    EXPECT_NEAR(cov(0, 1), 0.0, 1e-12);
+
+    // Re-setting the same covariance must preserve log_det.
+    d.setCovariance(cov);
+    EXPECT_NEAR(d.getLogDet(), log_det_original, 1e-10);
+}
+
+// ============================================================================
+// Regression: fit() must reject observations with wrong dimension (F9)
+// ============================================================================
+
+TEST(FullCovarianceGaussianTest, FitRaggedUnweightedThrows) {
+    FullCovarianceGaussianDistribution d(3); // 3-D distribution
+    // Provide 2-D observations — should throw, not silently read past the end.
+    const std::vector<std::vector<double>> raw = {{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
+    auto views = make_views(raw);
+    EXPECT_THROW(d.fit(views), std::invalid_argument);
+}
+
+TEST(FullCovarianceGaussianTest, FitRaggedWeightedThrows) {
+    FullCovarianceGaussianDistribution d(3);
+    const std::vector<std::vector<double>> raw = {{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}};
+    auto views = make_views(raw);
+    const std::vector<double> w = {1.0, 1.0, 1.0};
+    EXPECT_THROW(d.fit(views, w), std::invalid_argument);
+}
+
+TEST(DiagonalGaussianTest, FitRaggedUnweightedThrows) {
+    DiagonalGaussianDistribution d(3); // 3-D distribution
+    const std::vector<std::vector<double>> raw = {{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}}; // 2-D
+    auto views = make_views(raw);
+    EXPECT_THROW(d.fit(views), std::invalid_argument);
+}
+
+TEST(DiagonalGaussianTest, FitRaggedWeightedThrows) {
+    DiagonalGaussianDistribution d(3);
+    const std::vector<std::vector<double>> raw = {{1.0, 2.0}, {3.0, 4.0}};
+    auto views = make_views(raw);
+    const std::vector<double> w = {1.0, 1.0};
+    EXPECT_THROW(d.fit(views, w), std::invalid_argument);
 }
 
 // ============================================================================

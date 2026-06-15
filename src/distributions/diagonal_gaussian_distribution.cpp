@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <mutex>
 #include <numeric>
 #include <random>
 #include <stdexcept>
@@ -11,8 +12,52 @@
 namespace libhmm {
 
 // =============================================================================
-// Construction
+// Construction — including explicit copy/move for the mutable mutex member
 // =============================================================================
+
+DiagonalGaussianDistribution::DiagonalGaussianDistribution(
+    const DiagonalGaussianDistribution &other)
+    : DistributionBase(other), dim_(other.dim_), mean_(other.mean_), var_(other.var_),
+      log_var_(other.log_var_), inv_var_(other.inv_var_), log_normalizer_(other.log_normalizer_) {
+    // cache_mutex_ is default-constructed; each copy owns its own mutex.
+}
+
+DiagonalGaussianDistribution &
+DiagonalGaussianDistribution::operator=(const DiagonalGaussianDistribution &other) {
+    if (this != &other) {
+        std::lock_guard lock(other.cache_mutex_);
+        DistributionBase::operator=(other);
+        dim_ = other.dim_;
+        mean_ = other.mean_;
+        var_ = other.var_;
+        log_var_ = other.log_var_;
+        inv_var_ = other.inv_var_;
+        log_normalizer_ = other.log_normalizer_;
+    }
+    return *this;
+}
+
+DiagonalGaussianDistribution::DiagonalGaussianDistribution(
+    DiagonalGaussianDistribution &&other) noexcept
+    : DistributionBase(std::move(other)), dim_(other.dim_), mean_(std::move(other.mean_)),
+      var_(std::move(other.var_)), log_var_(std::move(other.log_var_)),
+      inv_var_(std::move(other.inv_var_)), log_normalizer_(other.log_normalizer_) {
+    // cache_mutex_ is default-constructed; other.cache_mutex_ remains with other.
+}
+
+DiagonalGaussianDistribution &
+DiagonalGaussianDistribution::operator=(DiagonalGaussianDistribution &&other) noexcept {
+    if (this != &other) {
+        DistributionBase::operator=(std::move(other));
+        dim_ = other.dim_;
+        mean_ = std::move(other.mean_);
+        var_ = std::move(other.var_);
+        log_var_ = std::move(other.log_var_);
+        inv_var_ = std::move(other.inv_var_);
+        log_normalizer_ = other.log_normalizer_;
+    }
+    return *this;
+}
 
 DiagonalGaussianDistribution::DiagonalGaussianDistribution(std::size_t dim, double mean, double var)
     : dim_{dim}, mean_(dim, mean), var_(dim, std::max(var, kMinVar)) {
@@ -59,6 +104,10 @@ void DiagonalGaussianDistribution::fit(std::span<const ObservationVectorView> da
         reset();
         return;
     }
+    for (const auto &x : data)
+        if (x.size() != dim_)
+            throw std::invalid_argument(
+                "DiagonalGaussianDistribution::fit: observation dimension mismatch");
     const double n = static_cast<double>(data.size());
     const double in = 1.0 / n;
 
@@ -91,6 +140,10 @@ void DiagonalGaussianDistribution::fit(std::span<const ObservationVectorView> da
     const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
     if (sumW <= 0.0 || data.empty())
         return;
+    for (const auto &x : data)
+        if (x.size() != dim_)
+            throw std::invalid_argument(
+                "DiagonalGaussianDistribution::fit: observation dimension mismatch");
 
     const double inv_sumW = 1.0 / sumW;
     const std::size_t n = data.size();
@@ -163,8 +216,9 @@ DiagonalGaussianDistribution::from_json(json::Reader &r) {
     // Reader is positioned after '{' and "type":"DiagonalGaussian" have been consumed.
     r.read_key(); // "dim"
     const auto dim_raw = r.read_double();
-    if (!std::isfinite(dim_raw) || dim_raw < 1.0)
-        throw std::runtime_error("DiagonalGaussian JSON: invalid dim");
+    // Upper bound matches kMaxMvDimensions in hmm_json.cpp (1024).
+    if (!std::isfinite(dim_raw) || dim_raw < 1.0 || dim_raw > 1024.0)
+        throw std::runtime_error("DiagonalGaussian JSON: dim out of range [1, 1024]");
     const std::size_t D = static_cast<std::size_t>(dim_raw);
 
     r.read_key(); // "mean"

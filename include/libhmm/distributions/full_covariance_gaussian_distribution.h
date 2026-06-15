@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <mutex>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -51,8 +52,22 @@ private:
     /// D/2 · log(2π) — precomputed at construction.
     double half_d_log2pi_{0.0};
 
+    /// Guards concurrent writes to chol_L_ and log_det_ in updateCache().
+    /// Not copied/moved: each object has its own independent mutex.
+    mutable std::mutex cache_mutex_;
+
     void updateCache() const noexcept {
-        auto res = chol::factorize(cov_);
+        // Double-checked locking: re-check the flag under the mutex so that
+        // two threads racing on a stale cache only compute once.
+        std::lock_guard lock(cache_mutex_);
+        if (isCacheValid())
+            return;
+        // Apply regularisation to a scratch copy; cov_ stores the user-visible
+        // (unregularised) matrix so getCovariance() round-trips cleanly.
+        auto tmp = cov_;
+        for (std::size_t d = 0; d < dim_; ++d)
+            tmp(d, d) += reg_;
+        auto res = chol::factorize(tmp);
         if (res.success) {
             chol_L_ = std::move(res.L);
             log_det_ = chol::log_det(chol_L_);
@@ -80,11 +95,12 @@ public:
      */
     explicit FullCovarianceGaussianDistribution(std::size_t dim, double regularise = 1e-5);
 
-    FullCovarianceGaussianDistribution(const FullCovarianceGaussianDistribution &) = default;
-    FullCovarianceGaussianDistribution &
-    operator=(const FullCovarianceGaussianDistribution &) = default;
-    FullCovarianceGaussianDistribution(FullCovarianceGaussianDistribution &&) = default;
-    FullCovarianceGaussianDistribution &operator=(FullCovarianceGaussianDistribution &&) = default;
+    // Explicit copy/move: std::mutex is non-copyable/non-movable; each object
+    // gets its own independent mutex; cached data is copied/moved explicitly.
+    FullCovarianceGaussianDistribution(const FullCovarianceGaussianDistribution &);
+    FullCovarianceGaussianDistribution &operator=(const FullCovarianceGaussianDistribution &);
+    FullCovarianceGaussianDistribution(FullCovarianceGaussianDistribution &&) noexcept;
+    FullCovarianceGaussianDistribution &operator=(FullCovarianceGaussianDistribution &&) noexcept;
     ~FullCovarianceGaussianDistribution() override = default;
 
     // =========================================================================

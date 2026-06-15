@@ -430,3 +430,28 @@ TEST(HmmJsonSanitization, StatesAtCapAccepted) {
         (void)r;
     });
 }
+
+// =============================================================================
+// Key-order validation (regression for F3 bugfix)
+// =============================================================================
+
+TEST(HmmJsonErrors, RejectsReorderedKeys) {
+    // from_json now validates each key name before consuming its value.
+    // A JSON with keys in a different order must be rejected rather than
+    // silently scrambling HMM parameters.
+    // This JSON has "pi" first instead of "states" first.
+    const std::string reordered = R"({"pi":[0.5,0.5],"states":2,"trans":[[0.7,0.3],[0.2,0.8]],)"
+                                  R"("distributions":[{"type":"Gaussian","mu":0.0,"sigma":1.0},)"
+                                  R"({"type":"Gaussian","mu":1.0,"sigma":1.0}]})"; // NOLINT
+    EXPECT_THROW(static_cast<void>(from_json(reordered)), std::runtime_error);
+}
+
+TEST(HmmJsonErrors, RejectsOversizedInput) {
+    const std::string oversized(11UL * 1024UL * 1024UL, ' ');
+    EXPECT_THROW(static_cast<void>(from_json(oversized)), std::runtime_error);
+}
+
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}

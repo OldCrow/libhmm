@@ -331,8 +331,8 @@ TEST(StudentTDistributionTest, CDFAccuracy) {
         EXPECT_NEAR(d.getCumulativeProbability(0.0), 0.5, 1e-12);
         EXPECT_EQ(d.getCumulativeProbability(std::numeric_limits<double>::infinity()), 1.0);
         EXPECT_EQ(d.getCumulativeProbability(-std::numeric_limits<double>::infinity()), 0.0);
-        EXPECT_TRUE(
-            std::isnan(d.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN())));
+        // NaN input should return 0.0, consistent with getProbability(NaN) = 0.0.
+        EXPECT_EQ(d.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
     }
 }
 
@@ -363,9 +363,8 @@ TEST(StudentTDistributionTest, InvalidInputHandling) {
     // Test probability with NaN (should return 0.0 like other distributions)
     EXPECT_EQ(t_dist.getProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
 
-    // Test CDF with NaN (should return NaN for CDF)
-    EXPECT_TRUE(
-        std::isnan(t_dist.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN())));
+    // Test CDF with NaN: returns 0.0, consistent with getProbability(NaN) = 0.0.
+    EXPECT_EQ(t_dist.getCumulativeProbability(std::numeric_limits<double>::quiet_NaN()), 0.0);
 }
 
 /**

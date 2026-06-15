@@ -63,6 +63,23 @@ TEST(MapBaumWelchTest, NegativePseudoCountThrows) {
     EXPECT_THROW(MapBaumWelchTrainer(*hmm, obs, -0.1), std::invalid_argument);
 }
 
+TEST(MapBaumWelchTest, NaNPseudoCountThrows) {
+    // Before fix: NaN passed the `c < 0.0` guard (all NaN comparisons are false).
+    // After fix: `!(c >= 0.0)` correctly rejects NaN.
+    auto hmm = make_uniform_hmm();
+    auto obs = make_casino_obs();
+    EXPECT_THROW(MapBaumWelchTrainer(*hmm, obs, std::numeric_limits<double>::quiet_NaN()),
+                 std::invalid_argument);
+}
+
+TEST(MapBaumWelchTest, NaNSetPseudoCountThrows) {
+    auto hmm = make_uniform_hmm();
+    auto obs = make_casino_obs();
+    MapBaumWelchTrainer trainer(*hmm, obs, 1.0);
+    EXPECT_THROW(trainer.setPseudoCount(std::numeric_limits<double>::quiet_NaN()),
+                 std::invalid_argument);
+}
+
 TEST(MapBaumWelchTest, NullHmmThrows) {
     auto obs = make_casino_obs();
     EXPECT_THROW(MapBaumWelchTrainer(nullptr, obs, 1.0), std::invalid_argument);

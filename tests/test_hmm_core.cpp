@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "libhmm/hmm.h"
+#include "libhmm/distributions/diagonal_gaussian_distribution.h"
 #include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/distributions/discrete_distribution.h"
 #include <memory>
@@ -165,6 +166,31 @@ TEST_F(HmmCoreTest, TypeSafetyEdgeCases) {
     EXPECT_NO_THROW(hmm_->getDistribution(static_cast<std::size_t>(0)));
     EXPECT_NO_THROW(hmm_->getDistribution(static_cast<std::size_t>(1)));
     EXPECT_THROW(hmm_->getDistribution(static_cast<std::size_t>(2)), std::out_of_range);
+}
+
+// ============================================================================
+// MV HMM — null emission slot safety (regression for F2 bugfix)
+// ============================================================================
+
+TEST(MvHmmCoreTest, GetDistributionNullSlotThrows) {
+    // BasicHmm<ObservationVectorView> leaves emission slots null until
+    // setDistribution() is called.  getDistribution() must throw a descriptive
+    // runtime_error rather than unconditionally dereferencing the null pointer.
+    HmmMV hmm(2);
+    // No setDistribution() called — both slots are null.
+    EXPECT_THROW(hmm.getDistribution(0), std::runtime_error);
+    EXPECT_THROW(hmm.getDistribution(1), std::runtime_error);
+    // After setDistribution, the slot must no longer throw.
+    hmm.setDistribution(0, std::make_unique<DiagonalGaussianDistribution>(2));
+    EXPECT_NO_THROW(hmm.getDistribution(0));
+    // Slot 1 is still null.
+    EXPECT_THROW(hmm.getDistribution(1), std::runtime_error);
+}
+
+TEST(MvHmmCoreTest, GetDistributionConstNullSlotThrows) {
+    HmmMV hmm(2);
+    const HmmMV &chmm = hmm;
+    EXPECT_THROW(chmm.getDistribution(0), std::runtime_error);
 }
 
 int main(int argc, char **argv) {

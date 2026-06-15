@@ -249,6 +249,65 @@ TEST(VonMisesDistribution, Reset) {
 }
 
 // ============================================================================
+// CDF boundary behaviour (regression tests for bugfixes)
+// ============================================================================
+
+TEST(VonMisesDistribution, CDFAtNegativePiIsNearZero) {
+    // getCumulativeProbability(-π) must be ≈ 0.0 (not ≈ 1.0).
+    // Bug: wrap_angle used x <= -π which mapped exactly -π → +π, causing the
+    // integrator to sweep the full circle and return ≈ 1.0.
+    // Fix: changed to x < -π so -π stays as -π and the integration range is [−π, −π],
+    // which the h≈0 guard catches and returns 0.0.
+    VonMisesDistribution d(0.0, 1.0);
+    EXPECT_NEAR(d.getCumulativeProbability(-PI), 0.0, 1e-6);
+}
+
+TEST(VonMisesDistribution, CDFAtPiIsNearOne) {
+    // CDF(+π) integrates the full distribution and should return ≈ 1.0.
+    VonMisesDistribution d(0.0, 1.0);
+    EXPECT_NEAR(d.getCumulativeProbability(PI), 1.0, 1e-4);
+}
+
+TEST(VonMisesDistribution, CDFMonotone) {
+    // CDF must be non-decreasing inside (-π, π).
+    VonMisesDistribution d(0.5, 2.0);
+    const double prev = d.getCumulativeProbability(-2.0);
+    for (double x : {-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0}) {
+        const double curr = d.getCumulativeProbability(x);
+        EXPECT_GE(curr, prev - 1e-8) << "CDF decreased at x=" << x;
+    }
+}
+
+// ============================================================================
+// Weighted fit with non-finite observations (regression for sumW inflation bug)
+// ============================================================================
+
+TEST(VonMisesDistribution, FitWeightedIgnoresNonFiniteObservations) {
+    // data=[1.0, NaN], weights=[1.0, 1.0].
+    // The NaN observation must be excluded from both sumW and S/C.
+    // With only one valid observation at θ=1.0, the distribution should
+    // concentrate sharply there (kappa large, mu ≈ 1.0).
+    // Bug: sumW included the NaN observation's weight (2.0 instead of 1.0),
+    // deflating R_bar to 0.5 and producing a much smaller kappa.
+    VonMisesDistribution d(0.0, 1.0);
+    const std::vector<double> data = {1.0, std::numeric_limits<double>::quiet_NaN()};
+    const std::vector<double> weights = {1.0, 1.0};
+    d.fit(data, weights);
+    EXPECT_NEAR(d.getMu(), 1.0, 0.01);
+    EXPECT_GT(d.getKappa(), 100.0); // R_bar=1.0 → essentially a point mass
+}
+
+TEST(VonMisesDistribution, FitWeightedIgnoresInfObservations) {
+    // Same as above but with +Inf instead of NaN.
+    VonMisesDistribution d(0.0, 1.0);
+    const std::vector<double> data = {1.0, std::numeric_limits<double>::infinity()};
+    const std::vector<double> weights = {1.0, 0.5};
+    d.fit(data, weights);
+    EXPECT_NEAR(d.getMu(), 1.0, 0.01);
+    EXPECT_GT(d.getKappa(), 100.0);
+}
+
+// ============================================================================
 // toString
 // ============================================================================
 
