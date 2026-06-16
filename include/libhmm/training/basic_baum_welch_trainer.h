@@ -120,7 +120,6 @@ private:
     static void m_step_transitions(HmmType &hmm, std::size_t N,
                                    const std::vector<double> &transNumT,
                                    const std::vector<double> &transDen);
-
 };
 
 // =============================================================================

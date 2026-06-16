@@ -192,7 +192,9 @@ public:
     /// Gets the number of states (legacy int interface for backward compatibility).
     /// @deprecated Use getNumStatesModern() which returns std::size_t.
     [[nodiscard, deprecated("Use getNumStatesModern() which returns std::size_t")]]
-    int getNumStates() const noexcept { return static_cast<int>(states_); }
+    int getNumStates() const noexcept {
+        return static_cast<int>(states_);
+    }
 
     /// Gets the number of states.
     [[nodiscard]] std::size_t getNumStatesModern() const noexcept { return states_; }

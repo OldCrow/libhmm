@@ -44,9 +44,6 @@ if(GTest_FOUND OR TARGET gtest)
     message(STATUS "Google Test found - building comprehensive test suite")
 
     include_directories(${CMAKE_SOURCE_DIR}/include)
-    if(GTest_FOUND)
-        include_directories(${GTEST_INCLUDE_DIRS})
-    endif()
 
     if(TARGET GTest::gtest AND TARGET GTest::gtest_main)
         set(TEST_LIBRARIES GTest::gtest_main GTest::gtest Threads::Threads hmm_static)
@@ -58,6 +55,17 @@ if(GTest_FOUND OR TARGET gtest)
         set(TEST_LIBRARIES ${GTEST_MAIN_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads hmm_static)
         message(STATUS "Using GTest library variables")
     endif()
+
+    foreach(_gtest_target GTest::gtest GTest::gtest_main gtest gtest_main)
+        if(TARGET ${_gtest_target})
+            get_target_property(_gtest_includes ${_gtest_target} INTERFACE_INCLUDE_DIRECTORIES)
+            if(_gtest_includes)
+                set_target_properties(${_gtest_target} PROPERTIES
+                    INTERFACE_INCLUDE_DIRECTORIES ""
+                    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_gtest_includes}")
+            endif()
+        endif()
+    endforeach()
 
     # =========================================================================
     # add_hmm_test(target source [LABELS label1 label2 ...])
@@ -74,13 +82,24 @@ if(GTest_FOUND OR TARGET gtest)
 
         add_executable(${TARGET_NAME} ${SOURCE_FILE})
         target_link_libraries(${TARGET_NAME} ${TEST_LIBRARIES})
+        if(GTest_FOUND AND GTEST_INCLUDE_DIRS)
+            target_include_directories(${TARGET_NAME} SYSTEM PRIVATE ${GTEST_INCLUDE_DIRS})
+        endif()
         set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
         set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
         # Apply same warning level as the library so test code is held to the
         # same standard. GTest itself is excluded via SYSTEM includes.
         if(MSVC)
             target_compile_options(${TARGET_NAME} PRIVATE /W4 /permissive-)
-        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            # GTest's printer/comparison templates trigger these warnings under
+            # Clang for otherwise clean test code. Keep suppressions local to
+            # test executables so library, examples, and tools stay fully strict.
+            target_compile_options(${TARGET_NAME} PRIVATE
+                -Wall -Wextra -Wpedantic
+                -Wno-character-conversion
+                -Wno-sign-compare)
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
             target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wpedantic)
         endif()
         add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})

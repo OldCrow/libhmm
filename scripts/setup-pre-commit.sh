@@ -31,17 +31,18 @@ info "Python: $($PYTHON --version)"
 
 # ─── install pre-commit ───────────────────────────────────────────────────────
 step "Installing pre-commit"
-
-if command -v pre-commit &>/dev/null; then
-    info "pre-commit already installed: $(pre-commit --version)"
+if $PYTHON -m pre_commit --version &>/dev/null; then
+    info "pre-commit already available: $($PYTHON -m pre_commit --version)"
 else
-    $PYTHON -m pip install --user pre-commit
-    if ! command -v pre-commit &>/dev/null; then
-        warn "pre-commit installed but not in PATH."
-        warn "Add ~/.local/bin to your PATH and re-run this script."
+    if command -v pre-commit &>/dev/null && ! pre-commit --version &>/dev/null; then
+        warn "Ignoring broken pre-commit executable on PATH; installing via $PYTHON."
+    fi
+    $PYTHON -m pip install --user --upgrade pre-commit
+    if ! $PYTHON -m pre_commit --version &>/dev/null; then
+        error "pre-commit installed but cannot run via '$PYTHON -m pre_commit'."
         exit 1
     fi
-    info "Installed: $(pre-commit --version)"
+    info "Installed: $($PYTHON -m pre_commit --version)"
 fi
 
 # ─── check optional tools ─────────────────────────────────────────────────────
@@ -58,16 +59,16 @@ fi
 # ─── install git hooks ────────────────────────────────────────────────────────
 step "Installing git hooks"
 
-pre-commit install
+"$PYTHON" -m pre_commit install
 info "Git hooks installed. They will run automatically on 'git commit'."
 
 # ─── done ─────────────────────────────────────────────────────────────────────
 step "Setup complete"
 echo ""
 echo "Useful commands:"
-echo "  pre-commit run --all-files     # Run all hooks on all files"
-echo "  pre-commit run --files FILE    # Run hooks on specific files"
-echo "  pre-commit autoupdate          # Update hook versions"
+echo "  $PYTHON -m pre_commit run --all-files     # Run all hooks on all files"
+echo "  $PYTHON -m pre_commit run --files FILE    # Run hooks on specific files"
+echo "  $PYTHON -m pre_commit autoupdate          # Update hook versions"
 echo "  git commit --no-verify         # Skip hooks (use sparingly)"
 echo ""
 info "See .pre-commit-config.yaml for the active hook set."
