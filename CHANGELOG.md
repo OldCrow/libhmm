@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.2] - 2026-06-16
+
+Maintenance release: internal header reorganisation and build-system cleanup.
+47/47 tests pass. No new public API; no breaking changes.
+
+### Changed
+
+- **Internal headers relocated to `include/libhmm/detail/`**: `simd_kernels_internal.h`
+  (SIMD dispatch helpers used by calculators and trainers) and `log_utils.h` (log arithmetic
+  utilities) are now under `detail/` to signal they are library-private. Removed their
+  inadvertent exposure through `distributions.h`.
+- **`scripts/setup-pre-commit.sh` hardened**: uses `python -m pre_commit` consistently,
+  and detects and removes broken `pre-commit` executables before reinstalling. Avoids
+  silent CI failures on machines with a broken hook shim.
+
+### Fixed
+
+- **Invalid `-Wno-character-conversion` Clang flag**: flag is unrecognised by AppleClang 15
+  and caused an "unknown warning option" warning on every test-target compile. Removed;
+  `-Wno-sign-compare` (valid and necessary for GTest comparison templates) is retained.
+- **Deprecated `volatile` compound-assignment** (`-Wdeprecated-volatile`, C++20 P1152):
+  replaced `sum += expr` with `sum = sum + expr` in 12 distribution performance tests.
+  Volatile accumulators are preserved as anti-optimisation sinks; only the deprecated
+  compound-assignment form is replaced.
+
+### Repository
+
+- `.gitignore` extended: `.cache/` (pre-commit hook cache) and `.synctex.gz` (LaTeX
+  build artefact).
+
+---
+
 ## [4.0.1] - 2026-06-15
 
 Bugfix release addressing 15 findings from an independent code review of the v4.0.0 diff.
