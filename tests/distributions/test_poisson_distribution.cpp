@@ -265,7 +265,7 @@ TEST(PoissonDistributionTest, Performance) {
     volatile double sum = 0.0; // volatile to prevent optimization
 
     for (int i = 0; i < pdfIterations; ++i) {
-        sum += poisson.getProbability(i % 50); // 0 to 49
+        sum = sum + poisson.getProbability(i % 50); // 0 to 49
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -277,7 +277,7 @@ TEST(PoissonDistributionTest, Performance) {
     volatile double logSum = 0.0;
 
     for (int i = 0; i < pdfIterations; ++i) {
-        logSum += poisson.getLogProbability(i % 50); // 0 to 49
+        logSum = logSum + poisson.getLogProbability(i % 50); // 0 to 49
     }
 
     end = std::chrono::high_resolution_clock::now();

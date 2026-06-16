@@ -424,7 +424,7 @@ TEST(ChiSquaredDistributionTest, Performance) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = static_cast<double>(i) / 1000.0; // Range 0 to 10
-        sum += chi_dist.getProbability(x);
+        sum = sum + chi_dist.getProbability(x);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -437,7 +437,7 @@ TEST(ChiSquaredDistributionTest, Performance) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = static_cast<double>(i) / 1000.0; // Range 0 to 10
-        logSum += chi_dist.getLogProbability(x);
+        logSum = logSum + chi_dist.getLogProbability(x);
     }
 
     end = std::chrono::high_resolution_clock::now();

@@ -470,7 +470,7 @@ TEST(WeibullDistributionTest, PerformanceCharacteristics) {
     auto start = std::chrono::high_resolution_clock::now();
     volatile double sum_pdf = 0.0; // volatile to prevent optimization
     for (const auto &val : testValues) {
-        sum_pdf += weibull.getProbability(val);
+        sum_pdf = sum_pdf + weibull.getProbability(val);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto pdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -479,7 +479,7 @@ TEST(WeibullDistributionTest, PerformanceCharacteristics) {
     start = std::chrono::high_resolution_clock::now();
     volatile double sum_log_pdf = 0.0; // volatile to prevent optimization
     for (const auto &val : testValues) {
-        sum_log_pdf += weibull.getLogProbability(val);
+        sum_log_pdf = sum_log_pdf + weibull.getLogProbability(val);
     }
     end = std::chrono::high_resolution_clock::now();
     auto log_pdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -488,7 +488,7 @@ TEST(WeibullDistributionTest, PerformanceCharacteristics) {
     start = std::chrono::high_resolution_clock::now();
     volatile double sum_cdf = 0.0; // volatile to prevent optimization
     for (const auto &val : testValues) {
-        sum_cdf += weibull.CDF(val);
+        sum_cdf = sum_cdf + weibull.CDF(val);
     }
     end = std::chrono::high_resolution_clock::now();
     auto cdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

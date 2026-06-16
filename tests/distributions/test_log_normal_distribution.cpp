@@ -428,7 +428,7 @@ TEST(LogNormalDistributionTest, PerformanceCharacteristics) {
     auto start = std::chrono::high_resolution_clock::now();
     volatile double sum_pdf = 0.0;
     for (const auto &val : testValues) {
-        sum_pdf += lognormal.getProbability(val);
+        sum_pdf = sum_pdf + lognormal.getProbability(val);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto pdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -438,7 +438,7 @@ TEST(LogNormalDistributionTest, PerformanceCharacteristics) {
     start = std::chrono::high_resolution_clock::now();
     volatile double sum_logpdf = 0.0;
     for (const auto &val : testValues) {
-        sum_logpdf += lognormal.getLogProbability(val);
+        sum_logpdf = sum_logpdf + lognormal.getLogProbability(val);
     }
     end = std::chrono::high_resolution_clock::now();
     auto logpdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

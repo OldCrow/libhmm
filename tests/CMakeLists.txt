@@ -56,16 +56,6 @@ if(GTest_FOUND OR TARGET gtest)
         message(STATUS "Using GTest library variables")
     endif()
 
-    foreach(_gtest_target GTest::gtest GTest::gtest_main gtest gtest_main)
-        if(TARGET ${_gtest_target})
-            get_target_property(_gtest_includes ${_gtest_target} INTERFACE_INCLUDE_DIRECTORIES)
-            if(_gtest_includes)
-                set_target_properties(${_gtest_target} PROPERTIES
-                    INTERFACE_INCLUDE_DIRECTORIES ""
-                    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_gtest_includes}")
-            endif()
-        endif()
-    endforeach()
 
     # =========================================================================
     # add_hmm_test(target source [LABELS label1 label2 ...])
@@ -97,7 +87,6 @@ if(GTest_FOUND OR TARGET gtest)
             # test executables so library, examples, and tools stay fully strict.
             target_compile_options(${TARGET_NAME} PRIVATE
                 -Wall -Wextra -Wpedantic
-                -Wno-character-conversion
                 -Wno-sign-compare)
         elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
             target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wpedantic)
