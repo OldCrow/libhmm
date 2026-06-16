@@ -479,7 +479,7 @@ TEST(UniformDistributionTest, PerformanceCharacteristics) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = 1.0 + static_cast<double>(i) / 20000.0; // Values in [1, 6]
-        sum += uniform.getProbability(x);
+        sum = sum + uniform.getProbability(x);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -492,7 +492,7 @@ TEST(UniformDistributionTest, PerformanceCharacteristics) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = 1.0 + static_cast<double>(i) / 20000.0; // Values in [1, 6]
-        logSum += uniform.getLogProbability(x);
+        logSum = logSum + uniform.getLogProbability(x);
     }
 
     end = std::chrono::high_resolution_clock::now();

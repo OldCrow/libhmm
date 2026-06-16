@@ -428,7 +428,7 @@ TEST(DiscreteDistributionTest, Performance) {
     volatile double sum = 0.0; // volatile to prevent optimization
 
     for (int i = 0; i < pdfIterations; ++i) {
-        sum += discrete.getProbability(i % 100); // 0 to 99
+        sum = sum + discrete.getProbability(i % 100); // 0 to 99
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -440,7 +440,7 @@ TEST(DiscreteDistributionTest, Performance) {
     volatile double logSum = 0.0;
 
     for (int i = 0; i < pdfIterations; ++i) {
-        logSum += discrete.getLogProbability(i % 100); // 0 to 99
+        logSum = logSum + discrete.getLogProbability(i % 100); // 0 to 99
     }
 
     end = std::chrono::high_resolution_clock::now();

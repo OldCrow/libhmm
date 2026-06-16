@@ -397,7 +397,7 @@ TEST(StudentTDistributionTest, Performance) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = static_cast<double>(i) / 1000.0 - 5.0; // Range -5 to 5
-        sum += t_dist.getProbability(x);
+        sum = sum + t_dist.getProbability(x);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -410,7 +410,7 @@ TEST(StudentTDistributionTest, Performance) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = static_cast<double>(i) / 1000.0 - 5.0; // Range -5 to 5
-        logSum += t_dist.getLogProbability(x);
+        logSum = logSum + t_dist.getLogProbability(x);
     }
 
     end = std::chrono::high_resolution_clock::now();

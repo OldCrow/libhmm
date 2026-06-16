@@ -337,7 +337,7 @@ TEST(ExponentialDistributionTest, PerformanceCharacteristics) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = static_cast<double>(i) / 10000.0;
-        sum += exponential.getProbability(x);
+        sum = sum + exponential.getProbability(x);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -350,7 +350,7 @@ TEST(ExponentialDistributionTest, PerformanceCharacteristics) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = static_cast<double>(i) / 10000.0;
-        logSum += exponential.getLogProbability(x);
+        logSum = logSum + exponential.getLogProbability(x);
     }
 
     end = std::chrono::high_resolution_clock::now();

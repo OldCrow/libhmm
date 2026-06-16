@@ -407,7 +407,7 @@ TEST(BinomialDistributionTest, Performance) {
     volatile double sum = 0.0; // volatile to prevent optimization
 
     for (int i = 0; i < pdfIterations; ++i) {
-        sum += binomial.getProbability(i % 101); // 0 to 100
+        sum = sum + binomial.getProbability(i % 101); // 0 to 100
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -419,7 +419,7 @@ TEST(BinomialDistributionTest, Performance) {
     volatile double logSum = 0.0;
 
     for (int i = 0; i < pdfIterations; ++i) {
-        logSum += binomial.getLogProbability(i % 101); // 0 to 100
+        logSum = logSum + binomial.getLogProbability(i % 101); // 0 to 100
     }
 
     end = std::chrono::high_resolution_clock::now();

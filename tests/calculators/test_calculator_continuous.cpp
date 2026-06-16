@@ -117,7 +117,7 @@ TEST_F(ContinuousCalculatorTest, Viterbi_AllStatesValid) {
     const auto seq = vc.decode();
     for (std::size_t i = 0; i < seq.size(); ++i) {
         EXPECT_GE(seq(i), 0);
-        EXPECT_LT(seq(i), hmm_->getNumStates());
+        EXPECT_LT(seq(i), static_cast<int>(hmm_->getNumStatesModern()));
     }
 }
 

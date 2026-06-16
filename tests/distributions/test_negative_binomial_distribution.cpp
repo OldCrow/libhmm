@@ -553,7 +553,7 @@ TEST(NegativeBinomialDistributionTest, Performance) {
     volatile double sum = 0.0; // volatile to prevent optimization
 
     for (int i = 0; i < pdfIterations; ++i) {
-        sum += negbinom.getProbability(i % 30); // 0 to 29
+        sum = sum + negbinom.getProbability(i % 30); // 0 to 29
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -565,7 +565,7 @@ TEST(NegativeBinomialDistributionTest, Performance) {
     volatile double logSum = 0.0;
 
     for (int i = 0; i < pdfIterations; ++i) {
-        logSum += negbinom.getLogProbability(i % 30); // 0 to 29
+        logSum = logSum + negbinom.getLogProbability(i % 30); // 0 to 29
     }
 
     end = std::chrono::high_resolution_clock::now();

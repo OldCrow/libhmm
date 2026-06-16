@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    const int N = hmm.getNumStates();
+    const auto N = static_cast<int>(hmm.getNumStatesModern());
     std::cout << "\nHMM summary:\n";
     std::cout << "  States: " << N << "\n";
 

@@ -66,7 +66,7 @@ static std::unique_ptr<Hmm> make_die_hmm() {
 
 static void print_emissions(const Hmm &hmm, const char *label) {
     std::cout << "  " << label << "\n";
-    for (int s = 0; s < hmm.getNumStates(); ++s) {
+    for (std::size_t s = 0; s < hmm.getNumStatesModern(); ++s) {
         const auto &d = static_cast<const DiscreteDistribution &>(hmm.getDistribution(s));
         std::cout << "    State " << s << ": ";
         for (std::size_t sym = 0; sym < d.getNumSymbols(); ++sym) {

@@ -430,7 +430,7 @@ TEST(ParetoDistributionTest, PerformanceCharacteristics) {
     auto start = std::chrono::high_resolution_clock::now();
     volatile double sum_pdf = 0.0; // volatile to prevent optimization
     for (const auto &val : testValues) {
-        sum_pdf += pareto.getProbability(val);
+        sum_pdf = sum_pdf + pareto.getProbability(val);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto pdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -440,7 +440,7 @@ TEST(ParetoDistributionTest, PerformanceCharacteristics) {
     start = std::chrono::high_resolution_clock::now();
     volatile double sum_logpdf = 0.0;
     for (const auto &val : testValues) {
-        sum_logpdf += pareto.getLogProbability(val);
+        sum_logpdf = sum_logpdf + pareto.getLogProbability(val);
     }
     end = std::chrono::high_resolution_clock::now();
     auto logpdf_duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

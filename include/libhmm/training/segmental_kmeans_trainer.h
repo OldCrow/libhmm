@@ -1,6 +1,6 @@
 #pragma once
 
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <memory>
 #include <stdexcept>
@@ -13,20 +13,7 @@ namespace libhmm {
 /// Manages the mapping between observations and cluster assignments.
 class Clusters {
 private:
-    class Value {
-    private:
-        std::size_t clusterNb_;
-
-    public:
-        Value() noexcept : clusterNb_{0} {}
-        explicit Value(std::size_t clusterNb) noexcept : clusterNb_{clusterNb} {}
-
-        void setClusterNb(std::size_t clusterNb) noexcept { clusterNb_ = clusterNb; }
-
-        std::size_t getClusterNb() const noexcept { return clusterNb_; }
-    };
-
-    std::map<std::size_t, Value> clustersHash_;
+    std::unordered_map<std::size_t, std::size_t> clustersHash_;
     std::vector<std::vector<std::size_t>> clusters_;
 
 public:

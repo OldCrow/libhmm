@@ -236,7 +236,7 @@ TEST(KmeansInit, DistributionDimensionsValidAfterInit) {
     auto lists = make_two_cluster_data(15, 8, D, 0.0, 10.0);
     std::mt19937_64 rng(0);
     kmeans_init(hmm, lists, rng);
-    for (int i = 0; i < hmm.getNumStates(); ++i)
+    for (std::size_t i = 0; i < hmm.getNumStatesModern(); ++i)
         EXPECT_EQ(hmm.getDistribution(i).getDimension(), D);
 }
 

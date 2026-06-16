@@ -21,16 +21,16 @@ protected:
 // Constructor Tests
 TEST_F(HmmCoreTest, DefaultConstructor) {
     Hmm defaultHmm;
-    EXPECT_EQ(defaultHmm.getNumStates(), 4);
+    EXPECT_EQ(defaultHmm.getNumStatesModern(), 4u);
     EXPECT_NO_THROW(defaultHmm.validate());
 }
 
 TEST_F(HmmCoreTest, SizeConstructor) {
     Hmm hmm3(3);
-    EXPECT_EQ(hmm3.getNumStates(), 3);
+    EXPECT_EQ(hmm3.getNumStatesModern(), 3u);
 
     Hmm hmm5(5);
-    EXPECT_EQ(hmm5.getNumStates(), 5);
+    EXPECT_EQ(hmm5.getNumStatesModern(), 5u);
 }
 
 TEST_F(HmmCoreTest, ZeroStatesThrows) {
@@ -132,10 +132,10 @@ TEST_F(HmmCoreTest, ValidationPasses) {
 // Move Semantics Tests
 TEST_F(HmmCoreTest, MoveConstructor) {
     Hmm original(3);
-    auto originalStates = original.getNumStates();
+    const auto originalStates = original.getNumStatesModern();
 
     Hmm moved = std::move(original);
-    EXPECT_EQ(moved.getNumStates(), originalStates);
+    EXPECT_EQ(moved.getNumStatesModern(), originalStates);
 }
 
 TEST_F(HmmCoreTest, MoveAssignment) {
@@ -143,12 +143,11 @@ TEST_F(HmmCoreTest, MoveAssignment) {
     Hmm source(5);
 
     target = std::move(source);
-    EXPECT_EQ(target.getNumStates(), 5);
+    EXPECT_EQ(target.getNumStatesModern(), 5u);
 }
 
 // Legacy Compatibility Tests
-TEST_F(HmmCoreTest, LegacyIntInterface) {
-    EXPECT_EQ(hmm_->getNumStates(), 2);
+TEST_F(HmmCoreTest, ModernStateCountInterface) {
     EXPECT_EQ(hmm_->getNumStatesModern(), 2u);
 }
 
@@ -158,7 +157,7 @@ TEST_F(HmmCoreTest, BoundaryConditions) {
 
     // Test edge case of 1 state
     Hmm singleState(1);
-    EXPECT_EQ(singleState.getNumStates(), 1);
+    EXPECT_EQ(singleState.getNumStatesModern(), 1u);
     EXPECT_NO_THROW(singleState.validate());
 }
 

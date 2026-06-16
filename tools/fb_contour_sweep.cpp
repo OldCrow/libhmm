@@ -120,7 +120,7 @@ ObservationSet make_obs(const int t, const int n) {
 
 Timings run_once(const Hmm &hmm, const ObservationSet &obs) {
     Timings out;
-    const std::size_t n = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t n = hmm.getNumStatesModern();
     const std::size_t t = obs.size();
 
     auto total_start = Clock::now();

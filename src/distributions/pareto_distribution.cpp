@@ -1,6 +1,6 @@
 #include "libhmm/distributions/pareto_distribution.h"
 #include "libhmm/io/json_utils.h"
-#include "libhmm/performance/simd_kernels_internal.h"
+#include "libhmm/detail/simd_kernels_internal.h"
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <numeric>   // For std::accumulate (not in common.h)
 #include <algorithm> // For std::min_element (exists in common.h, included for clarity)

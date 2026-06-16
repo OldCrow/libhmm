@@ -286,7 +286,7 @@ TEST_F(IOTest, XMLFileReaderBasicFunctionality) {
     XMLFileReader reader;
     Hmm readHmm(1);
     ASSERT_NO_THROW(readHmm = reader.read(xmlFile_));
-    EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
+    EXPECT_EQ(readHmm.getNumStatesModern(), hmm_->getNumStatesModern());
 }
 
 TEST_F(IOTest, XMLFileReaderStringPath) {
@@ -296,7 +296,7 @@ TEST_F(IOTest, XMLFileReaderStringPath) {
     XMLFileReader reader;
     Hmm readHmm(1);
     ASSERT_NO_THROW(readHmm = reader.read(std::string_view{xmlFile_.string()}));
-    EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
+    EXPECT_EQ(readHmm.getNumStatesModern(), hmm_->getNumStatesModern());
 }
 
 TEST_F(IOTest, XMLFileReaderNonExistentFileThrows) {
@@ -344,11 +344,11 @@ TEST_F(IOTest, XMLRoundTripConsistency) {
     writer.write(*hmm_, xmlFile_);
 
     Hmm readHmm = reader.read(xmlFile_); // throws on failure — no skip
-    EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
+    EXPECT_EQ(readHmm.getNumStatesModern(), hmm_->getNumStatesModern());
 
     // Distributions should have the same type and approximate parameters
     // (6-decimal-place format means ~1e-6 precision on probability values).
-    for (int i = 0; i < readHmm.getNumStates(); ++i) {
+    for (std::size_t i = 0; i < readHmm.getNumStatesModern(); ++i) {
         const auto *orig = dynamic_cast<const DiscreteDistribution *>(&hmm_->getDistribution(i));
         const auto *rest = dynamic_cast<const DiscreteDistribution *>(&readHmm.getDistribution(i));
         ASSERT_NE(orig, nullptr) << "state " << i;
@@ -376,7 +376,7 @@ TEST_F(IOTest, HMMStreamOperators) {
 
     Hmm readHmm(1);
     ASSERT_NO_THROW(ss >> readHmm);
-    EXPECT_EQ(readHmm.getNumStates(), hmm_->getNumStates());
+    EXPECT_EQ(readHmm.getNumStatesModern(), hmm_->getNumStatesModern());
 
     // Verify the discrete distribution round-trips correctly.
     const auto *orig = dynamic_cast<const DiscreteDistribution *>(&hmm_->getDistribution(0));

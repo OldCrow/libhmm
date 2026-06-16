@@ -231,7 +231,7 @@ TEST(RayleighDistributionTest, PerformanceCharacteristics) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = static_cast<double>(i + 1) / 10000.0; // Range 0.0001 to 10
-        sum += rayleigh.getProbability(x);
+        sum = sum + rayleigh.getProbability(x);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -244,7 +244,7 @@ TEST(RayleighDistributionTest, PerformanceCharacteristics) {
 
     for (int i = 0; i < pdfIterations; ++i) {
         double x = static_cast<double>(i + 1) / 10000.0; // Range 0.0001 to 10
-        logSum += rayleigh.getLogProbability(x);
+        logSum = logSum + rayleigh.getLogProbability(x);
     }
 
     end = std::chrono::high_resolution_clock::now();

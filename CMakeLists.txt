@@ -271,7 +271,7 @@ set(LIBHMM_SIMD_SOURCES
     src/distributions/von_mises_distribution.cpp
 )
 
-# Additional TUs that include simd_kernels_internal.h or transcendental_kernels.h
+# Additional TUs that include detail/simd_kernels_internal.h or transcendental_kernels.h
 # and therefore need LIBHMM_BEST_SIMD_FLAGS to activate the #if LIBHMM_HAS_* cascade.
 # (log_normal and pareto are already in LIBHMM_SIMD_SOURCES above.)
 # Both scalar and MV explicit-instantiation TUs are compiled with SIMD flags so the
@@ -484,7 +484,8 @@ install(TARGETS hmm hmm_static
     PUBLIC_HEADER DESTINATION include/libhmm
 )
 
-install(DIRECTORY include/libhmm DESTINATION include)
+install(DIRECTORY include/libhmm DESTINATION include
+    PATTERN "detail" EXCLUDE)
 
 # Examples
 if(BUILD_EXAMPLES)

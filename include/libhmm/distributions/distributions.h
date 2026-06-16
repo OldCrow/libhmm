@@ -32,9 +32,6 @@
 #include "libhmm/distributions/emission_distribution.h"
 #include "libhmm/distributions/distribution_base.h"
 
-// Distribution type traits (retained for backward compatibility; see emission_concepts.h)
-#include "libhmm/distributions/distribution_traits.h"
-
 // Discrete distributions
 #include "libhmm/distributions/discrete_distribution.h"
 #include "libhmm/distributions/binomial_distribution.h"
