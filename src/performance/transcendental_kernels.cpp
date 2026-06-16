@@ -14,7 +14,7 @@
 // Tier-2 distribution TUs (log_normal_distribution.cpp, pareto_distribution.cpp).
 
 #include "libhmm/performance/transcendental_kernels.h"
-#include "libhmm/performance/simd_kernels_internal.h"
+#include "libhmm/detail/simd_kernels_internal.h"
 #include "libhmm/math/constants.h"
 #include "libhmm/platform/simd_platform.h"
 

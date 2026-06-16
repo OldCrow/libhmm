@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "libhmm/calculators/basic_forward_backward_calculator.h"
+#include "libhmm/detail/log_utils.h"
 #include "libhmm/linalg/linalg_types.h"
 #include "libhmm/performance/transcendental_kernels.h"
 #include "libhmm/training/basic_trainer.h"
@@ -59,7 +60,7 @@ public:
     void train() override;
 
 private:
-    static constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
+    static constexpr double LOG_ZERO = detail::LOG_ZERO;
 
     // -------------------------------------------------------------------------
     // Emission accumulator types
@@ -120,8 +121,6 @@ private:
                                    const std::vector<double> &transNumT,
                                    const std::vector<double> &transDen);
 
-    /** @brief log(exp(a) + exp(b)) — numerically stable. */
-    [[nodiscard]] static double logSumExp(double a, double b) noexcept;
 };
 
 // =============================================================================
@@ -143,7 +142,7 @@ BasicBaumWelchTrainer<Obs>::BasicBaumWelchTrainer(HmmType *hmm, const ListType &
 template <typename Obs>
 void BasicBaumWelchTrainer<Obs>::train() {
     HmmType &hmm = this->getHmmRef();
-    const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t N = hmm.getNumStatesModern();
 
     std::vector<double> logTransT(N * N);
     bool hasZeroTransitions = false;
@@ -310,17 +309,6 @@ void BasicBaumWelchTrainer<Obs>::m_step_transitions(HmmType &hmm, std::size_t N,
         }
     }
     hmm.setTrans(newTrans);
-}
-
-template <typename Obs>
-double BasicBaumWelchTrainer<Obs>::logSumExp(double a, double b) noexcept {
-    if (a == LOG_ZERO)
-        return b;
-    if (b == LOG_ZERO)
-        return a;
-    if (a > b)
-        return a + std::log1p(std::exp(b - a));
-    return b + std::log1p(std::exp(a - b));
 }
 
 // =============================================================================

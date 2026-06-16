@@ -1,6 +1,6 @@
 #include "libhmm/distributions/log_normal_distribution.h"
 #include "libhmm/io/json_utils.h"
-#include "libhmm/performance/simd_kernels_internal.h"
+#include "libhmm/detail/simd_kernels_internal.h"
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <numeric>   // For std::accumulate (not in common.h)
 #include <algorithm> // For std::for_each (exists in common.h, included for clarity)

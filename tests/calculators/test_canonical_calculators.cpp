@@ -102,9 +102,9 @@ TEST_F(CanonicalCalculatorTest, FB_MatrixDimensions) {
     const Matrix &alpha = fbc.getLogForwardVariables();
     const Matrix &beta = fbc.getLogBackwardVariables();
     EXPECT_EQ(alpha.size1(), obs5_.size());
-    EXPECT_EQ(alpha.size2(), static_cast<std::size_t>(hmm_->getNumStates()));
+    EXPECT_EQ(alpha.size2(), hmm_->getNumStatesModern());
     EXPECT_EQ(beta.size1(), obs5_.size());
-    EXPECT_EQ(beta.size2(), static_cast<std::size_t>(hmm_->getNumStates()));
+    EXPECT_EQ(beta.size2(), hmm_->getNumStatesModern());
 }
 
 TEST_F(CanonicalCalculatorTest, FB_SingleObservation) {
@@ -155,7 +155,7 @@ TEST_F(CanonicalCalculatorTest, Viterbi_AllStatesValid) {
     StateSequence seq = vc.decode();
     for (std::size_t i = 0; i < seq.size(); ++i) {
         EXPECT_GE(seq(i), 0);
-        EXPECT_LT(seq(i), hmm_->getNumStates());
+        EXPECT_LT(seq(i), static_cast<int>(hmm_->getNumStatesModern()));
     }
 }
 
@@ -179,7 +179,7 @@ TEST_F(CanonicalCalculatorTest, Viterbi_SingleObservation) {
     StateSequence seq = vc.decode();
     EXPECT_EQ(seq.size(), 1u);
     EXPECT_GE(seq(0), 0);
-    EXPECT_LT(seq(0), hmm_->getNumStates());
+    EXPECT_LT(seq(0), static_cast<int>(hmm_->getNumStatesModern()));
 }
 
 TEST_F(CanonicalCalculatorTest, Viterbi_LongSequence) {

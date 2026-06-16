@@ -214,7 +214,7 @@ TEST(CasinoEndToEnd, TrainThenDecode_ValidPath) {
     EXPECT_EQ(path.size(), seq.size());
     for (std::size_t i = 0; i < path.size(); ++i) {
         EXPECT_GE(path(i), 0);
-        EXPECT_LT(path(i), hmm->getNumStates());
+        EXPECT_LT(path(i), static_cast<int>(hmm->getNumStatesModern()));
     }
 }
 

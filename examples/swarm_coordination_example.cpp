@@ -552,7 +552,7 @@ public:
     void printSystemDiagnostics() {
         std::cout << "\n🔧 System Diagnostics\n";
         std::cout << "=" << std::string(30, '=') << "\n";
-        std::cout << "HMM States: " << formationHMM_->getNumStates() << "\n";
+        std::cout << "HMM States: " << formationHMM_->getNumStatesModern() << "\n";
         std::cout << "Observation Space: " << SwarmObservation::getMaxValue() << " combinations\n";
         std::cout << "State History: " << stateHistory_.size() << " entries\n";
         std::cout << "Observation History: " << observationHistory_.size() << " entries\n";

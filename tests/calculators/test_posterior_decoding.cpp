@@ -81,7 +81,7 @@ TEST(PosteriorDecodingTest, AllStatesInValidRange) {
     StateSequence posterior = fbc.decodePosterior();
     for (std::size_t t = 0; t < posterior.size(); ++t) {
         EXPECT_GE(posterior(t), 0);
-        EXPECT_LT(posterior(t), hmm->getNumStates());
+        EXPECT_LT(posterior(t), static_cast<int>(hmm->getNumStatesModern()));
     }
 }
 
@@ -93,7 +93,7 @@ TEST(PosteriorDecodingTest, SingleObservation) {
     StateSequence posterior = fbc.decodePosterior();
     ASSERT_EQ(posterior.size(), 1u);
     EXPECT_GE(posterior(0), 0);
-    EXPECT_LT(posterior(0), hmm->getNumStates());
+    EXPECT_LT(posterior(0), static_cast<int>(hmm->getNumStatesModern()));
 }
 
 // ---------------------------------------------------------------------------

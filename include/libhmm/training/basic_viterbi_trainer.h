@@ -229,7 +229,7 @@ double BasicViterbiTrainer<Obs>::process_one_sequence(const HmmType &hmm, const 
 template <typename Obs>
 double BasicViterbiTrainer<Obs>::runIteration() {
     HmmType &hmm = this->getHmmRef();
-    const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t N = hmm.getNumStatesModern();
 
     Vector pi(N);
     clear_vector(pi);

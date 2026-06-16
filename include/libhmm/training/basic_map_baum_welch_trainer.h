@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "libhmm/calculators/basic_forward_backward_calculator.h"
+#include "libhmm/detail/log_utils.h"
 #include "libhmm/distributions/discrete_distribution.h"
 #include "libhmm/linalg/linalg_types.h"
 #include "libhmm/performance/transcendental_kernels.h"
@@ -88,7 +89,7 @@ public:
 private:
     double pseudo_count_;
 
-    static constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
+    static constexpr double LOG_ZERO = detail::LOG_ZERO;
 
     // Same type-adapting accumulator pattern as BasicBaumWelchTrainer.
     using EmisElem = std::conditional_t<std::is_same_v<Obs, double>, double, ObservationVectorView>;
@@ -207,7 +208,7 @@ double BasicMapBaumWelchTrainer<Obs>::computeLogPrior() const {
         return 0.0;
 
     const HmmType &hmm = this->getHmmRef();
-    const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t N = hmm.getNumStatesModern();
     const double c = pseudo_count_;
     double lp = 0.0;
 
@@ -308,7 +309,7 @@ bool BasicMapBaumWelchTrainer<Obs>::accum_one_sequence(const HmmType &hmm, const
 template <typename Obs>
 void BasicMapBaumWelchTrainer<Obs>::train() {
     HmmType &hmm = this->getHmmRef();
-    const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t N = hmm.getNumStatesModern();
     const double c = pseudo_count_;
 
     std::vector<double> logTransT(N * N);

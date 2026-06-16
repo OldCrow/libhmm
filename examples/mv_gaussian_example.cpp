@@ -70,7 +70,7 @@ HmmMV make_true_hmm() {
 
 /// Sample one observation sequence of length T from @p true_hmm.
 ObservationMatrix sample_sequence(const HmmMV &true_hmm, std::size_t T, std::mt19937_64 &rng) {
-    const std::size_t N = static_cast<std::size_t>(true_hmm.getNumStates());
+    const std::size_t N = true_hmm.getNumStatesModern();
     const auto &pi = true_hmm.getPi();
     const auto &trans = true_hmm.getTrans();
 
@@ -109,7 +109,7 @@ double total_log_prob(HmmMV &hmm, const MultiObservationLists &lists) {
 
 /// Print the mean and variance for each state.
 void print_emissions(const HmmMV &hmm) {
-    const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t N = hmm.getNumStatesModern();
     for (std::size_t i = 0; i < N; ++i) {
         const auto &d = static_cast<const DiagonalGaussianDistribution &>(hmm.getDistribution(i));
         std::cout << "  State " << i << ": μ=[" << std::fixed << std::setprecision(3)

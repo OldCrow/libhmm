@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "libhmm/calculators/basic_calculator.h"
+#include "libhmm/detail/log_utils.h"
 #include "libhmm/linalg/linalg_types.h"
 
 namespace libhmm {
@@ -68,7 +69,7 @@ public:
     [[nodiscard]] std::size_t getNumStates() const noexcept { return numStates_; }
 
 private:
-    static constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
+    static constexpr double LOG_ZERO = detail::LOG_ZERO;
 
     std::size_t numStates_{0};
 
@@ -113,7 +114,7 @@ private:
 
 template <typename Obs>
 BasicViterbiCalculator<Obs>::BasicViterbiCalculator(const HmmType &hmm, const SeqType &observations)
-    : Base(hmm, observations), numStates_(static_cast<std::size_t>(hmm.getNumStates())) {
+    : Base(hmm, observations), numStates_(hmm.getNumStatesModern()) {
     if (ObsSeqTraits<Obs>::sequence_length(observations) == 0) {
         throw std::invalid_argument("Observation sequence cannot be empty");
     }

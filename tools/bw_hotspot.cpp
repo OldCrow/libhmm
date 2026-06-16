@@ -105,7 +105,7 @@ struct BwBreakdown {
 };
 
 BwBreakdown profile_bw(const Hmm &hmm, const ObservationSet &obs, int warmup, int runs) {
-    const std::size_t N = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t N = hmm.getNumStatesModern();
     const std::size_t T = obs.size();
 
     // Precompute flat log-transition (row-major N×N) once — same as trainer would do.

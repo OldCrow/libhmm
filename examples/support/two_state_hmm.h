@@ -24,7 +24,7 @@ inline constexpr double loaded_biased_prob = 0.375;
 } // namespace dishonest_casino
 
 inline void prepare_two_state_hmm(Hmm &hmm) {
-    if (static_cast<std::size_t>(hmm.getNumStates()) != dishonest_casino::num_states) {
+    if (hmm.getNumStatesModern() != dishonest_casino::num_states) {
         throw std::invalid_argument("Dishonest casino helper expects a 2-state HMM");
     }
 

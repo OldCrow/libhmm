@@ -119,3 +119,7 @@ benchmarks/CMakeFiles/
 # Apache Ant (build tool for JAHMM)
 benchmarks/apache-ant-*
 apache-ant-*/
+
+# IDE caches and generated index files
+.cache/
+*.synctex.gz

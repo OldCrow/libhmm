@@ -151,7 +151,7 @@ void kmeans_init(HmmMV &hmm, const MultiObservationLists &data, std::mt19937_64 
                  std::size_t max_iter) {
     if (data.empty())
         throw std::invalid_argument("kmeans_init: data must be non-empty");
-    const std::size_t K = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t K = hmm.getNumStatesModern();
     if (K == 0)
         throw std::invalid_argument("kmeans_init: HMM must have at least one state");
 

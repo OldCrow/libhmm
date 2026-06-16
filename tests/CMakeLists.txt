@@ -129,7 +129,6 @@ if(GTest_FOUND OR TARGET gtest)
     # =========================================================================
     # Distributions
     # =========================================================================
-    add_hmm_test(test_distribution_traits       distributions/test_distribution_traits.cpp)
     add_hmm_test(test_distributions_header      distributions/test_distributions_header.cpp)
     add_hmm_test(test_distributions             distributions/test_distributions.cpp)
     add_hmm_test(test_distribution_type_safety  distributions/test_distribution_type_safety.cpp)

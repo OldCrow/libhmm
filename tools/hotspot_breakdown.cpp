@@ -128,7 +128,7 @@ ObservationSet make_obs(const int t, const int n) {
 
 ForwardBreakdown profile_forward_backward(const Hmm &hmm, const ObservationSet &obs,
                                           const int warmup, const int runs) {
-    const std::size_t n = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t n = hmm.getNumStatesModern();
     const std::size_t t = obs.size();
 
     std::vector<double> transition_ms;
@@ -293,7 +293,7 @@ ForwardBreakdown profile_forward_backward(const Hmm &hmm, const ObservationSet &
 
 ViterbiBreakdown profile_viterbi(const Hmm &hmm, const ObservationSet &obs, const int warmup,
                                  const int runs) {
-    const std::size_t n = static_cast<std::size_t>(hmm.getNumStates());
+    const std::size_t n = hmm.getNumStatesModern();
     const std::size_t t = obs.size();
 
     std::vector<double> transition_ms;

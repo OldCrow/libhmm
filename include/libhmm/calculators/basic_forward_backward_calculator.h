@@ -9,9 +9,10 @@
 #include <vector>
 
 #include "libhmm/calculators/basic_calculator.h"
+#include "libhmm/detail/log_utils.h"
 #include "libhmm/linalg/linalg_types.h"
-#include "libhmm/performance/fb_recurrence_policy.h"
 #include "libhmm/performance/transcendental_kernels.h"
+#include "libhmm/performance/fb_recurrence_policy.h"
 
 namespace libhmm {
 
@@ -129,7 +130,7 @@ public:
     [[nodiscard]] FbRecurrenceMode getRecurrenceMode() const noexcept { return currentMode_; }
 
 private:
-    static constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
+    static constexpr double LOG_ZERO = detail::LOG_ZERO;
 
     std::size_t numStates_{0};
 
@@ -210,7 +211,7 @@ private:
 template <typename Obs>
 BasicForwardBackwardCalculator<Obs>::BasicForwardBackwardCalculator(const HmmType &hmm,
                                                                     const SeqType &observations)
-    : Base(hmm, observations), numStates_(static_cast<std::size_t>(hmm.getNumStates())) {
+    : Base(hmm, observations), numStates_(hmm.getNumStatesModern()) {
     if (ObsSeqTraits<Obs>::sequence_length(observations) == 0) {
         throw std::invalid_argument("Observation sequence cannot be empty");
     }
@@ -460,13 +461,7 @@ StateSequence BasicForwardBackwardCalculator<Obs>::decodePosterior() const {
 
 template <typename Obs>
 double BasicForwardBackwardCalculator<Obs>::logSumExp(double a, double b) noexcept {
-    if (a == LOG_ZERO)
-        return b;
-    if (b == LOG_ZERO)
-        return a;
-    if (a > b)
-        return a + std::log1p(std::exp(b - a));
-    return b + std::log1p(std::exp(a - b));
+    return detail::logSumExp(a, b);
 }
 
 // =============================================================================

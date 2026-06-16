@@ -39,7 +39,7 @@ Clusters::Clusters(std::size_t k, const ObservationSet &observations) {
         const auto obsValue = static_cast<std::size_t>(observations(i));
 
         clusters_[clusterIdx].push_back(obsValue);
-        clustersHash_[obsValue] = Value(clusterIdx);
+        clustersHash_[obsValue] = clusterIdx;
     }
 }
 
@@ -48,7 +48,7 @@ std::size_t Clusters::clusterNumber(std::size_t observation) const {
     if (it == clustersHash_.end()) {
         throw std::out_of_range("Observation not found in clusters");
     }
-    return it->second.getClusterNb();
+    return it->second;
 }
 
 const std::vector<std::size_t> &Clusters::cluster(std::size_t clusterNb) const {
@@ -73,7 +73,7 @@ void Clusters::remove(std::size_t observation, std::size_t clusterNb) {
     }
 
     clusterVec.erase(it);
-    clustersHash_[observation].setClusterNb(static_cast<std::size_t>(-1));
+    clustersHash_[observation] = static_cast<std::size_t>(-1);
 }
 
 void Clusters::put(std::size_t observation, std::size_t clusterNb) {
@@ -81,13 +81,13 @@ void Clusters::put(std::size_t observation, std::size_t clusterNb) {
         throw std::out_of_range("Invalid cluster number");
     }
 
-    clustersHash_[observation].setClusterNb(clusterNb);
+    clustersHash_[observation] = clusterNb;
     clusters_[clusterNb].push_back(observation);
 }
 
 void SegmentalKMeansTrainer::validateDiscreteDistributions() const {
     Hmm &hmm = hmm_ref_.get();
-    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
+    const auto numStates = hmm.getNumStatesModern();
     for (std::size_t i = 0; i < numStates; ++i) {
         const auto *dist = dynamic_cast<const DiscreteDistribution *>(&hmm.getDistribution(i));
         if (!dist) {
@@ -99,7 +99,7 @@ void SegmentalKMeansTrainer::validateDiscreteDistributions() const {
 
 void SegmentalKMeansTrainer::train() {
     ObservationSet observations = flattenObservationLists(getObservationLists());
-    const auto numStates = static_cast<std::size_t>(hmm_ref_.get().getNumStates());
+    const auto numStates = hmm_ref_.get().getNumStatesModern();
     clusters_ = Clusters(numStates, observations);
 
     do {
@@ -120,7 +120,7 @@ void SegmentalKMeansTrainer::iterate() {
 /// / total sequences.
 void SegmentalKMeansTrainer::learnPi() {
     Hmm &hmm = hmm_ref_.get();
-    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
+    const auto numStates = hmm.getNumStatesModern();
     Vector pi(numStates);
 
     clear_vector(pi);
@@ -146,7 +146,7 @@ void SegmentalKMeansTrainer::learnPi() {
 /// to uniform to avoid a degenerate transition matrix.
 void SegmentalKMeansTrainer::learnTrans() {
     Hmm &hmm = hmm_ref_.get();
-    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
+    const auto numStates = hmm.getNumStatesModern();
     Matrix trans(numStates, numStates);
 
     clear_matrix(trans);
@@ -188,7 +188,7 @@ void SegmentalKMeansTrainer::learnTrans() {
 /// cause -inf log-probabilities during subsequent Viterbi decoding.
 void SegmentalKMeansTrainer::learnEmis() {
     Hmm &hmm = hmm_ref_.get();
-    const auto numStates = static_cast<std::size_t>(hmm.getNumStates());
+    const auto numStates = hmm.getNumStatesModern();
 
     for (std::size_t i = 0; i < numStates; ++i) {
         auto *dist = dynamic_cast<DiscreteDistribution *>(&hmm.getDistribution(i));

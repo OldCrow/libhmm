@@ -147,7 +147,7 @@ TEST(BaumWelchParity, OneStepDeterministic_DiscreteN3) {
 
     expectVectorsEqual(hmmA->getPi(), hmmB->getPi(), kBitExactTol);
     expectMatricesEqual(hmmA->getTrans(), hmmB->getTrans(), kBitExactTol);
-    for (int i = 0; i < hmmA->getNumStates(); ++i) {
+    for (std::size_t i = 0; i < hmmA->getNumStatesModern(); ++i) {
         const auto *distA = dynamic_cast<const DiscreteDistribution *>(&hmmA->getDistribution(i));
         const auto *distB = dynamic_cast<const DiscreteDistribution *>(&hmmB->getDistribution(i));
         ASSERT_NE(distA, nullptr);
