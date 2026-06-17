@@ -393,15 +393,38 @@ void BasicForwardBackwardCalculator<Obs>::computeLogForwardPairwise(std::size_t 
 template <typename Obs>
 void BasicForwardBackwardCalculator<Obs>::computeLogForwardMaxReduce(std::size_t T) {
     using TK = performance::detail::TranscendentalKernels;
-    compute_forward_impl(this->getHmmRef(), numStates_, T, logTransT_.data(), logEmitByTime_.data(),
-                         logAlpha_,
-                         [](const double *prev, const double *transCol, std::size_t n) noexcept {
-                             const double m = TK::reduce_max_sum2(prev, transCol, n);
-                             if (!std::isfinite(m))
-                                 return LOG_ZERO;
-                             const double s = TK::sum_exp_sum2_minus_max(prev, transCol, n, m);
-                             return (s > 0.0) ? m + std::log(s) : LOG_ZERO;
-                         });
+    const std::size_t N = numStates_;
+    const Vector &pi = this->getHmmRef().getPi();
+    double *alphaData = logAlpha_.data();
+    init_log_forward(alphaData, pi, logEmitByTime_.data(), N);
+
+    std::vector<double> maxTerms(N);
+    std::vector<double> log1pTerms(N);
+
+    for (std::size_t t = 1; t < T; ++t) {
+        const double *prevRow = alphaData + (t - 1) * N;
+        double *curRow = alphaData + t * N;
+        const double *emitRow = logEmitByTime_.data() + t * N;
+
+        for (std::size_t j = 0; j < N; ++j) {
+            const double *transCol = logTransT_.data() + j * N;
+            const double m = TK::reduce_max_sum2(prevRow, transCol, N);
+            maxTerms[j] = m;
+            if (std::isfinite(m)) {
+                const double s = TK::sum_exp_sum2_minus_max(prevRow, transCol, N, m);
+                log1pTerms[j] = (s > 1.0) ? (s - 1.0) : 0.0;
+            } else {
+                log1pTerms[j] = 0.0;
+            }
+        }
+
+        TK::log1p_inplace(std::span<double>(log1pTerms.data(), log1pTerms.size()));
+
+        for (std::size_t j = 0; j < N; ++j) {
+            curRow[j] =
+                std::isfinite(maxTerms[j]) ? emitRow[j] + maxTerms[j] + log1pTerms[j] : LOG_ZERO;
+        }
+    }
 }
 
 template <typename Obs>
@@ -428,16 +451,43 @@ void BasicForwardBackwardCalculator<Obs>::computeLogBackwardPairwise(std::size_t
 template <typename Obs>
 void BasicForwardBackwardCalculator<Obs>::computeLogBackwardMaxReduce(std::size_t T) {
     using TK = performance::detail::TranscendentalKernels;
-    compute_backward_impl(numStates_, T, logTrans_.data(), logEmitByTime_.data(), logBeta_,
-                          [](const double *transRow, const double *emitNext, const double *nextBeta,
-                             std::size_t n) noexcept {
-                              const double m = TK::reduce_max_sum3(transRow, emitNext, nextBeta, n);
-                              if (!std::isfinite(m))
-                                  return LOG_ZERO;
-                              const double s =
-                                  TK::sum_exp_sum3_minus_max(transRow, emitNext, nextBeta, n, m);
-                              return (s > 0.0) ? m + std::log(s) : LOG_ZERO;
-                          });
+    const std::size_t N = numStates_;
+    double *betaData = logBeta_.data();
+    init_log_backward(betaData, T, N);
+    if (T <= 1) {
+        return;
+    }
+
+    std::vector<double> maxTerms(N);
+    std::vector<double> log1pTerms(N);
+
+    for (std::size_t t = T - 2;; --t) {
+        double *betaRow = betaData + t * N;
+        const double *nextBetaRow = betaData + (t + 1) * N;
+        const double *emitNextRow = logEmitByTime_.data() + (t + 1) * N;
+
+        for (std::size_t i = 0; i < N; ++i) {
+            const double *transRow = logTrans_.data() + i * N;
+            const double m = TK::reduce_max_sum3(transRow, emitNextRow, nextBetaRow, N);
+            maxTerms[i] = m;
+            if (std::isfinite(m)) {
+                const double s =
+                    TK::sum_exp_sum3_minus_max(transRow, emitNextRow, nextBetaRow, N, m);
+                log1pTerms[i] = (s > 1.0) ? (s - 1.0) : 0.0;
+            } else {
+                log1pTerms[i] = 0.0;
+            }
+        }
+
+        TK::log1p_inplace(std::span<double>(log1pTerms.data(), log1pTerms.size()));
+
+        for (std::size_t i = 0; i < N; ++i) {
+            betaRow[i] = std::isfinite(maxTerms[i]) ? maxTerms[i] + log1pTerms[i] : LOG_ZERO;
+        }
+
+        if (t == 0)
+            break;
+    }
 }
 
 template <typename Obs>

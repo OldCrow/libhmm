@@ -1,10 +1,10 @@
 // tools/fb_crossover_sweep.cpp
 //
 // Measures ForwardBackwardCalculator runtime for Pairwise vs MaxReduce modes
-// at a range of N values using the production calculator (which has SIMD
-// transcendental kernels active in the MaxReduce path).
+// at a grid of sequence lengths (T) and state counts (N) using the production
+// calculator (which has SIMD transcendental kernels active in the MaxReduce path).
 //
-// Output: tab-separated table of N, pairwise_ms, maxreduce_ms, ratio.
+// Output: tab-separated table of T, N, pairwise_ms, maxreduce_ms, ratio.
 
 #include "libhmm/performance/fb_recurrence_policy.h"
 #include "libhmm/calculators/forward_backward_calculator.h"
@@ -28,8 +28,6 @@ namespace {
 
 constexpr int WARMUP_RUNS = 2;
 constexpr int TIMED_RUNS = 8;
-// T large enough that measurement is stable; small enough to finish quickly.
-constexpr int T_DEFAULT = 1000;
 
 std::unique_ptr<Hmm> make_hmm(int n) {
     auto hmm = std::make_unique<Hmm>(n);
@@ -85,33 +83,34 @@ double time_mode(Hmm &hmm, const ObservationSet &obs, FbRecurrenceMode mode) {
 } // anonymous namespace
 
 int main() {
-    const std::vector<int> N_VALUES = {2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 24, 32, 48, 64};
-    const int T = T_DEFAULT;
+    const std::vector<int> T_VALUES = {10, 50, 100, 500, 1000, 5000};
+    const std::vector<int> N_VALUES = {2, 3, 4, 5, 6, 8, 12, 16, 24, 32};
 
-    std::cout << "FB mode crossover sweep  (T=" << T << ", median of " << TIMED_RUNS << " runs, "
-              << WARMUP_RUNS << " warmup)\n";
+    std::cout << "FB mode crossover sweep  (median of " << TIMED_RUNS << " runs, " << WARMUP_RUNS
+              << " warmup)\n";
     std::cout << "Active ISA: " << libhmm::performance::simd::feature_string() << "\n\n";
+    std::cout << std::setw(6) << "T" << std::setw(6) << "N" << std::setw(14) << "Pairwise(ms)"
+              << std::setw(14) << "MaxReduce(ms)" << std::setw(10) << "MR/PW" << std::setw(12)
+              << "Winner" << "\n";
+    std::cout << std::string(62, '-') << "\n";
 
-    std::cout << std::setw(6) << "N" << std::setw(14) << "Pairwise(ms)" << std::setw(14)
-              << "MaxReduce(ms)" << std::setw(10) << "MR/PW" << std::setw(12) << "Winner"
-              << "\n";
-    std::cout << std::string(56, '-') << "\n";
+    for (int t : T_VALUES) {
+        for (int n : N_VALUES) {
+            auto hmm = make_hmm(n);
+            auto obs = make_obs(t, n);
 
-    for (int n : N_VALUES) {
-        auto hmm = make_hmm(n);
-        auto obs = make_obs(T, n);
+            const double pw = time_mode(*hmm, obs, FbRecurrenceMode::Pairwise);
+            const double mr = time_mode(*hmm, obs, FbRecurrenceMode::MaxReduce);
+            const double ratio = mr / pw;
+            const char *winner = (mr < pw) ? "MaxReduce" : "Pairwise";
+            const char *current =
+                (selectFbRecurrenceMode(n, t) == FbRecurrenceMode::MaxReduce) ? " [current]" : "";
 
-        const double pw = time_mode(*hmm, obs, FbRecurrenceMode::Pairwise);
-        const double mr = time_mode(*hmm, obs, FbRecurrenceMode::MaxReduce);
-        const double ratio = mr / pw;
-        const char *winner = (mr < pw) ? "MaxReduce" : "Pairwise";
-        const char *current =
-            (selectFbRecurrenceMode(n, T) == FbRecurrenceMode::MaxReduce) ? " [current]" : "";
-
-        std::cout << std::setw(6) << n << std::setw(14) << std::fixed << std::setprecision(3) << pw
-                  << std::setw(14) << std::fixed << std::setprecision(3) << mr << std::setw(10)
-                  << std::fixed << std::setprecision(3) << ratio << "  " << winner << current
-                  << "\n";
+            std::cout << std::setw(6) << t << std::setw(6) << n << std::setw(14) << std::fixed
+                      << std::setprecision(3) << pw << std::setw(14) << std::fixed
+                      << std::setprecision(3) << mr << std::setw(10) << std::fixed
+                      << std::setprecision(3) << ratio << "  " << winner << current << "\n";
+        }
     }
 
     std::cout << "\n(ratio < 1 = MaxReduce faster; > 1 = Pairwise faster)\n";

@@ -176,6 +176,20 @@ endfunction()
 add_libhmm_benchmark(simple_benchmark src/simple_benchmark.cpp)
 add_libhmm_benchmark(libhmm_discrete_benchmark src/libhmm_discrete_benchmark.cpp)
 add_libhmm_benchmark(diagnostic_accuracy_test src/diagnostic_accuracy_test.cpp)
+
+# Multi-state N×T scaling benchmark: covers the v4.0.3 MaxReduce hot-path (N≥4).
+# Always built with libhmm-only. Comparator libraries attached conditionally:
+#   HMMLib: discrete, header-only, cross-platform
+#   GHMM:   discrete, POSIX/macOS only (autotools dep; excluded on Windows)
+add_libhmm_benchmark(multistate_scaling_benchmark src/multistate_scaling_benchmark.cpp)
+if(LIBHMM_BENCH_ENABLE_HMMLIB AND HMMLIB_READY)
+    enable_hmmlib(multistate_scaling_benchmark)
+    target_compile_definitions(multistate_scaling_benchmark PRIVATE LIBHMM_BENCH_HAS_HMMLIB)
+endif()
+if(LIBHMM_BENCH_ENABLE_GHMM AND GHMM_READY AND NOT WIN32)
+    enable_ghmm(multistate_scaling_benchmark)
+    target_compile_definitions(multistate_scaling_benchmark PRIVATE LIBHMM_BENCH_HAS_GHMM)
+endif()
 if(LIBHMM_BENCH_ENABLE_HTK)
     if(HTK_READY)
         add_libhmm_benchmark(libhmm_vs_htk_benchmark src/libhmm_vs_htk_benchmark.cpp)

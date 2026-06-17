@@ -190,6 +190,7 @@ jobs:
           --suppress=constParameterReference \
           --suppress=noExplicitConstructor \
           --suppress=toomanyconfigs \
+          --suppress=functionStatic \
           --std=c++20 \
           -I include \
           src/

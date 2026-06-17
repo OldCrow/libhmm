@@ -1,12 +1,13 @@
 #pragma once
 
 #include <cstddef>
+#include <span>
 
 /**
  * @file transcendental_kernels.h
  * @brief SIMD-accelerated inner-loop kernels for FB max-reduce and BW xi accumulation.
  *
- * Declares five static methods on TranscendentalKernels. Implementations live in
+ * Declares six static methods on TranscendentalKernels. Implementations live in
  * src/performance/transcendental_kernels.cpp and are compiled with
  * LIBHMM_BEST_SIMD_FLAGS, activating the appropriate #if LIBHMM_HAS_* cascade:
  *   AVX-512  8-wide __m512d
@@ -55,6 +56,10 @@ public:
     /// dst[i] += exp(a[i] + b[i] + bias) for i in [0, size).
     static void accumulate_exp_sum2_bias(double *dst, const double *a, const double *b,
                                          std::size_t size, double bias) noexcept;
+
+    /// In-place log1p(v[i]) for i in [0, size).
+    /// Production callers pass finite values >= 0.0.
+    static void log1p_inplace(std::span<double> values) noexcept;
 };
 
 } // namespace detail

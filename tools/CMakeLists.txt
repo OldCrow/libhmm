@@ -49,8 +49,10 @@ endif()
 # simd_inspection must be compiled with the same SIMD flags as the distribution
 # TUs so that LIBHMM_HAS_AVX512 / AVX2 / NEON are correctly defined and the
 # reported ISA and vector width match what getBatchLogProbabilities actually uses.
+# fb_crossover_sweep also reports the active ISA; compile it with the same flags
+# so its diagnostics match the hot-path TUs it benchmarks.
 if(LIBHMM_BEST_SIMD_FLAGS)
-    set_source_files_properties(simd_inspection.cpp
+    set_source_files_properties(simd_inspection.cpp fb_crossover_sweep.cpp
         PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}")
 endif()
 
