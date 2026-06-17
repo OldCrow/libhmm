@@ -4,6 +4,7 @@
 
 namespace libhmm {
 
+// cppcheck-suppress functionStatic
 void XMLFileWriter::write(const Hmm &hmm, std::string_view filename) {
     if (filename.empty()) {
         throw std::invalid_argument("Filename cannot be empty");
@@ -12,6 +13,7 @@ void XMLFileWriter::write(const Hmm &hmm, std::string_view filename) {
     write(hmm, std::filesystem::path{filename});
 }
 
+// cppcheck-suppress functionStatic
 void XMLFileWriter::write(const Hmm &hmm, const std::filesystem::path &filepath) {
     if (filepath.empty()) {
         throw std::invalid_argument("Filepath cannot be empty");

@@ -30,6 +30,7 @@ static constexpr double K_LOG2E = 1.44269504088896338700;
 static constexpr double K_SQRT2 = 1.41421356237309504880168872420969807;
 static constexpr double K_EXP_UNDERFLOW = constants::probability::MIN_LOG_PROBABILITY; // -700.0
 static constexpr double K_EXPONENT_BIAS = 1023.0;
+static constexpr double K_LOG1P_SMALL_THRESHOLD = 1.0e-4;
 
 // log polynomial: 2y*(c0 + c1*y^2 + ... + c6*y^12), c_k = 1/(2k+1)
 static constexpr double K_LOG_C0 = 1.0;
@@ -106,6 +107,27 @@ static constexpr double K_EXP_C12 = 2.0876756987868099e-9;
     __m512d result = _mm512_fmadd_pd(e, ln2hi_v, _mm512_fmadd_pd(e, ln2lo_v, log_m));
     result = _mm512_mask_blend_pd(invalid, result, neg_inf_v);
     return result;
+}
+
+[[nodiscard]] static inline __m512d k_log1p_pd_avx512(__m512d x) noexcept {
+    const __m512d threshold_v = _mm512_set1_pd(K_LOG1P_SMALL_THRESHOLD);
+    const __m512d neg_threshold_v = _mm512_set1_pd(-K_LOG1P_SMALL_THRESHOLD);
+    const __m512d one_v = _mm512_set1_pd(1.0);
+
+    __m512d p = _mm512_set1_pd(-0.125);
+    p = _mm512_fmadd_pd(p, x, _mm512_set1_pd(1.0 / 7.0));
+    p = _mm512_fmadd_pd(p, x, _mm512_set1_pd(-1.0 / 6.0));
+    p = _mm512_fmadd_pd(p, x, _mm512_set1_pd(0.2));
+    p = _mm512_fmadd_pd(p, x, _mm512_set1_pd(-0.25));
+    p = _mm512_fmadd_pd(p, x, _mm512_set1_pd(1.0 / 3.0));
+    p = _mm512_fmadd_pd(p, x, _mm512_set1_pd(-0.5));
+    p = _mm512_fmadd_pd(p, x, one_v);
+    const __m512d small = _mm512_mul_pd(x, p);
+
+    const __m512d general = k_log_pd_avx512(_mm512_add_pd(one_v, x));
+    const __mmask8 small_mask = _mm512_kand(_mm512_cmp_pd_mask(x, threshold_v, _CMP_LT_OS),
+                                            _mm512_cmp_pd_mask(x, neg_threshold_v, _CMP_GT_OS));
+    return _mm512_mask_blend_pd(small_mask, general, small);
 }
 
 [[nodiscard]] static inline __m512d k_exp_pd_avx512(__m512d x) noexcept {
@@ -207,6 +229,27 @@ static constexpr double K_EXP_C12 = 2.0876756987868099e-9;
     return result;
 }
 
+[[nodiscard]] static inline __m256d k_log1p_pd_avx(__m256d x) noexcept {
+    const __m256d threshold_v = _mm256_set1_pd(K_LOG1P_SMALL_THRESHOLD);
+    const __m256d neg_threshold_v = _mm256_set1_pd(-K_LOG1P_SMALL_THRESHOLD);
+    const __m256d one_v = _mm256_set1_pd(1.0);
+
+    __m256d p = _mm256_set1_pd(-0.125);
+    p = k_fmadd_pd_avx(p, x, _mm256_set1_pd(1.0 / 7.0));
+    p = k_fmadd_pd_avx(p, x, _mm256_set1_pd(-1.0 / 6.0));
+    p = k_fmadd_pd_avx(p, x, _mm256_set1_pd(0.2));
+    p = k_fmadd_pd_avx(p, x, _mm256_set1_pd(-0.25));
+    p = k_fmadd_pd_avx(p, x, _mm256_set1_pd(1.0 / 3.0));
+    p = k_fmadd_pd_avx(p, x, _mm256_set1_pd(-0.5));
+    p = k_fmadd_pd_avx(p, x, one_v);
+    const __m256d small = _mm256_mul_pd(x, p);
+
+    const __m256d general = k_log_pd_avx(_mm256_add_pd(one_v, x));
+    const __m256d small_mask = _mm256_and_pd(_mm256_cmp_pd(x, threshold_v, _CMP_LT_OS),
+                                             _mm256_cmp_pd(x, neg_threshold_v, _CMP_GT_OS));
+    return _mm256_blendv_pd(general, small, small_mask);
+}
+
 [[nodiscard]] static inline __m256d k_exp_pd_avx(__m256d x) noexcept {
     const __m256d uflow_v = _mm256_set1_pd(K_EXP_UNDERFLOW);
     const __m256d log2e_v = _mm256_set1_pd(K_LOG2E);
@@ -297,6 +340,27 @@ static constexpr double K_EXP_C12 = 2.0876756987868099e-9;
     return result;
 }
 
+[[nodiscard]] static inline __m128d k_log1p_pd_sse2(__m128d x) noexcept {
+    const __m128d threshold_v = _mm_set1_pd(K_LOG1P_SMALL_THRESHOLD);
+    const __m128d neg_threshold_v = _mm_set1_pd(-K_LOG1P_SMALL_THRESHOLD);
+    const __m128d one_v = _mm_set1_pd(1.0);
+
+    __m128d p = _mm_set1_pd(-0.125);
+    p = k_fmadd_pd_sse2(p, x, _mm_set1_pd(1.0 / 7.0));
+    p = k_fmadd_pd_sse2(p, x, _mm_set1_pd(-1.0 / 6.0));
+    p = k_fmadd_pd_sse2(p, x, _mm_set1_pd(0.2));
+    p = k_fmadd_pd_sse2(p, x, _mm_set1_pd(-0.25));
+    p = k_fmadd_pd_sse2(p, x, _mm_set1_pd(1.0 / 3.0));
+    p = k_fmadd_pd_sse2(p, x, _mm_set1_pd(-0.5));
+    p = k_fmadd_pd_sse2(p, x, one_v);
+    const __m128d small = _mm_mul_pd(x, p);
+
+    const __m128d general = k_log_pd_sse2(_mm_add_pd(one_v, x));
+    const __m128d small_mask =
+        _mm_and_pd(_mm_cmplt_pd(x, threshold_v), _mm_cmpgt_pd(x, neg_threshold_v));
+    return _mm_or_pd(_mm_and_pd(small_mask, small), _mm_andnot_pd(small_mask, general));
+}
+
 [[nodiscard]] static inline __m128d k_exp_pd_sse2(__m128d x) noexcept {
     const __m128d uflow_v = _mm_set1_pd(K_EXP_UNDERFLOW);
     const __m128d log2e_v = _mm_set1_pd(K_LOG2E);
@@ -371,6 +435,27 @@ static constexpr double K_EXP_C12 = 2.0876756987868099e-9;
     float64x2_t result = vfmaq_f64(vfmaq_f64(log_m, e, ln2lo_v), e, ln2hi_v);
     result = vbslq_f64(invalid, neg_inf_v, result);
     return result;
+}
+
+[[nodiscard]] static inline float64x2_t k_log1p_pd_neon(float64x2_t x) noexcept {
+    const float64x2_t threshold_v = vdupq_n_f64(K_LOG1P_SMALL_THRESHOLD);
+    const float64x2_t neg_threshold_v = vdupq_n_f64(-K_LOG1P_SMALL_THRESHOLD);
+    const float64x2_t one_v = vdupq_n_f64(1.0);
+
+    float64x2_t p = vdupq_n_f64(-0.125);
+    p = vfmaq_f64(vdupq_n_f64(1.0 / 7.0), p, x);
+    p = vfmaq_f64(vdupq_n_f64(-1.0 / 6.0), p, x);
+    p = vfmaq_f64(vdupq_n_f64(0.2), p, x);
+    p = vfmaq_f64(vdupq_n_f64(-0.25), p, x);
+    p = vfmaq_f64(vdupq_n_f64(1.0 / 3.0), p, x);
+    p = vfmaq_f64(vdupq_n_f64(-0.5), p, x);
+    p = vfmaq_f64(one_v, p, x);
+    const float64x2_t small = vmulq_f64(x, p);
+
+    const float64x2_t general = k_log_pd_neon(vaddq_f64(one_v, x));
+    const uint64x2_t small_mask =
+        vandq_u64(vcltq_f64(x, threshold_v), vcgtq_f64(x, neg_threshold_v));
+    return vbslq_f64(small_mask, small, general);
 }
 
 [[nodiscard]] static inline float64x2_t k_exp_pd_neon(float64x2_t x) noexcept {

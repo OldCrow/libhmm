@@ -4,6 +4,7 @@
 
 namespace libhmm {
 
+// cppcheck-suppress functionStatic
 Hmm XMLFileReader::read(std::string_view filename) {
     if (filename.empty()) {
         throw std::invalid_argument("Filename cannot be empty");
@@ -12,6 +13,7 @@ Hmm XMLFileReader::read(std::string_view filename) {
     return read(std::filesystem::path{filename});
 }
 
+// cppcheck-suppress functionStatic
 Hmm XMLFileReader::read(const std::filesystem::path &filepath) {
     if (filepath.empty()) {
         throw std::invalid_argument("Filepath cannot be empty");

@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.3] - 2026-06-16
+
+Hot-path maintenance release for the Forward-Backward MaxReduce recurrence.
+46/46 standard correctness tests pass (`check` target; excludes benchmark/known_broken labels).
+No public API changes; no breaking changes.
+
+### Changed
+
+- **Forward-Backward MaxReduce log step batched with SIMD `log1p`**:
+  the MaxReduce recurrence now accumulates all per-state `acc_j - 1` values for a timestep,
+  calls `TranscendentalKernels::log1p_inplace()` once across the row, then writes
+  `m_j + log1p(acc_j - 1)`. This replaces N sequential scalar `std::log(acc_j)` calls
+  with one vectorized pass and improves numerical behaviour when `acc_j` is close to 1.
+- **New internal SIMD `log1p` kernels**:
+  added `k_log1p_pd_{avx512,avx,avx2,sse2,neon}` helpers in
+  `include/libhmm/detail/simd_kernels_internal.h`. Tiny inputs use a dedicated polynomial
+  path; general inputs reuse the existing vector log kernel via `log(1+x)`.
+- **`fb_crossover_sweep` recalibrated**:
+  the sweep now measures a T/N grid (`T={10,50,100,500,1000,5000}`,
+  `N={2,3,4,5,6,8,12,16,24,32}`) and compiles with `LIBHMM_BEST_SIMD_FLAGS`
+  so its ISA diagnostic matches the hot-path TUs it benchmarks.
+- **`FbRecurrenceMode` policy uses `sequenceLength`**:
+  `selectFbRecurrenceMode()` now returns Pairwise for `T<=1`, then keeps the calibrated
+  N≥4 MaxReduce cutoff for real recurrences. AVX2/Kaby Lake measurements confirm
+  Pairwise for N=2/3 and MaxReduce for N≥4 across the measured T grid.
+
+### Fixed
+
+- **CTest custom target quoting**:
+  added `VERBATIM` to `check`, `check_timing`, and `run_all_tests` so the
+  `known_broken|benchmark` label regex is passed to CTest literally instead of being
+  interpreted as a shell pipe by Makefile generators.
+
+### Tests
+
+- Added `TranscendentalKernels::log1p_inplace()` accuracy tests covering zero, tiny,
+  normal, and large non-negative inputs.
+- Re-ran `test_fb_mode_parity`: Pairwise and MaxReduce still agree on log probability,
+  forward variables, and backward variables.
+
+---
+
 ## [4.0.2] - 2026-06-16
 
 Maintenance release: internal header reorganisation and build-system cleanup.

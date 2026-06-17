@@ -8,9 +8,10 @@
  *   - Pairwise: repeated two-argument log-sum-exp
  *   - MaxReduce: max-then-reduce
  *
- * The only policy decision retained here is an ISA-family cutoff:
- *   - arm64: switch at N>=4
- *   - x86/x64: switch at N>=4
+ * The policy decision retained here is a T-aware trivial-sequence guard plus
+ * a state-count cutoff:
+ *   - T<=1: Pairwise (no recurrence work runs; avoid reporting MaxReduce)
+ *   - T>=2: switch at N>=4
  *
  * Threshold calibrated by fb_crossover_sweep on Zen 4 / MSVC / AVX-512
  * (Ryzen 7 7745HX, T=1000, median 8 runs):
@@ -21,6 +22,13 @@
  *   N=32: MaxReduce 15x faster
  * Previous x86 threshold was N>=5; N=4 was incorrectly left on the slower
  * Pairwise path before the TranscendentalKernels SIMD backends landed.
+ *
+ * Rechecked after v4.0.3 log1p batching on Intel macOS / AVX2
+ * (Kaby Lake, T={10,50,100,500,1000,5000},
+ * N={2,3,4,5,6,8,12,16,24,32}, median 8 runs):
+ *   N=2: Pairwise wins for all T
+ *   N=3: Pairwise wins or ties on most T; keep Pairwise conservatively
+ *   N>=4: MaxReduce wins for every measured T, including T=10
  */
 
 #include <cstddef>
@@ -37,12 +45,13 @@ enum class FbRecurrenceMode {
  * @brief Static recurrence-mode selection from ISA-family evidence.
  *
  * @param numStates       Number of HMM states (`N`).
- * @param sequenceLength  Observation length (`T`). Currently unused except for
- *                         signature stability; reserved for future T-aware bins.
+ * @param sequenceLength  Observation length (`T`).
  */
 constexpr FbRecurrenceMode selectFbRecurrenceMode(std::size_t numStates,
                                                   std::size_t sequenceLength) noexcept {
-    (void)sequenceLength;
+    if (sequenceLength <= 1) {
+        return FbRecurrenceMode::Pairwise;
+    }
     if (numStates < 2) {
         return FbRecurrenceMode::Pairwise;
     }

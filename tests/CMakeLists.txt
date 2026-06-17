@@ -55,6 +55,19 @@ if(GTest_FOUND OR TARGET gtest)
         set(TEST_LIBRARIES ${GTEST_MAIN_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads hmm_static)
         message(STATUS "Using GTest library variables")
     endif()
+    set(LIBHMM_GTEST_SYSTEM_INCLUDE_DIRS ${GTEST_INCLUDE_DIRS})
+    foreach(_GTEST_TARGET GTest::gtest GTest::gtest_main gtest gtest_main)
+        if(TARGET ${_GTEST_TARGET})
+            get_target_property(_GTEST_TARGET_INCLUDES
+                ${_GTEST_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+            if(_GTEST_TARGET_INCLUDES)
+                list(APPEND LIBHMM_GTEST_SYSTEM_INCLUDE_DIRS ${_GTEST_TARGET_INCLUDES})
+            endif()
+        endif()
+    endforeach()
+    if(LIBHMM_GTEST_SYSTEM_INCLUDE_DIRS)
+        list(REMOVE_DUPLICATES LIBHMM_GTEST_SYSTEM_INCLUDE_DIRS)
+    endif()
 
 
     # =========================================================================
@@ -72,25 +85,19 @@ if(GTest_FOUND OR TARGET gtest)
 
         add_executable(${TARGET_NAME} ${SOURCE_FILE})
         target_link_libraries(${TARGET_NAME} ${TEST_LIBRARIES})
-        if(GTest_FOUND AND GTEST_INCLUDE_DIRS)
-            target_include_directories(${TARGET_NAME} SYSTEM PRIVATE ${GTEST_INCLUDE_DIRS})
+        if(LIBHMM_GTEST_SYSTEM_INCLUDE_DIRS)
+            target_include_directories(${TARGET_NAME} SYSTEM
+                PRIVATE ${LIBHMM_GTEST_SYSTEM_INCLUDE_DIRS})
         endif()
         set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
         set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
         # Apply same warning level as the library so test code is held to the
         # same standard. GTest itself is excluded via SYSTEM includes.
-        if(MSVC)
-            target_compile_options(${TARGET_NAME} PRIVATE /W4 /permissive-)
-        elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-            # GTest's printer/comparison templates trigger these warnings under
-            # Clang for otherwise clean test code. Keep suppressions local to
-            # test executables so library, examples, and tools stay fully strict.
-            target_compile_options(${TARGET_NAME} PRIVATE
-                -Wall -Wextra -Wpedantic
-                -Wno-sign-compare)
-        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-            target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wpedantic)
-        endif()
+        target_compile_options(${TARGET_NAME} PRIVATE
+            $<$<CXX_COMPILER_ID:MSVC>:/W4;/permissive->
+            $<$<OR:$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:Clang>>:
+                -Wall;-Wextra;-Wpedantic;-Wno-sign-compare>
+            $<$<CXX_COMPILER_ID:GNU>:-Wall;-Wextra;-Wpedantic>)
         add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
         set_tests_properties(${TARGET_NAME} PROPERTIES
             TIMEOUT 300
@@ -219,6 +226,7 @@ add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -LE "known_broken|benchmark"
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running libhmm correctness suite (excludes known_broken, benchmark)"
+    VERBATIM
 )
 
 # check_timing: run serially for accurate timing measurement.
@@ -226,6 +234,7 @@ add_custom_target(check_timing
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -j1
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running libhmm tests serially (for timing accuracy)"
+    VERBATIM
 )
 
 # run_all_tests: runs everything in parallel (includes known_broken).
@@ -233,6 +242,7 @@ add_custom_target(run_all_tests
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --parallel 4
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running all libhmm tests"
+    VERBATIM
 )
 
 # Install test executables

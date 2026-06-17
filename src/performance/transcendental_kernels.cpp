@@ -9,7 +9,7 @@
 //   NEON     2-wide float64x2_t
 //   scalar   tail and portable fallback
 //
-// Vector exp helpers (k_exp_pd_*) and log helpers (k_log_pd_*) are defined
+// Vector exp helpers (k_exp_pd_*) and log helpers (k_log_pd_*, k_log1p_pd_*) are defined
 // in simd_kernels_internal.h -- the single source of truth shared with
 // Tier-2 distribution TUs (log_normal_distribution.cpp, pareto_distribution.cpp).
 
@@ -428,6 +428,59 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
     // Scalar tail.
     for (; i < size; ++i) {
         dst[i] += std::exp(a[i] + b[i] + bias);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// log1p_inplace: v[i] = log1p(v[i])
+// -----------------------------------------------------------------------------
+void TranscendentalKernels::log1p_inplace(std::span<double> values) noexcept {
+    std::size_t i = 0;
+    double *data = values.data();
+    const std::size_t size = values.size();
+
+#if defined(LIBHMM_HAS_AVX512)
+    {
+        for (; i + 8 <= size; i += 8) {
+            __m512d v = _mm512_loadu_pd(data + i);
+            v = kernels::k_log1p_pd_avx512(v);
+            _mm512_storeu_pd(data + i, v);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_AVX) || defined(LIBHMM_HAS_AVX2)
+    {
+        for (; i + 4 <= size; i += 4) {
+            __m256d v = _mm256_loadu_pd(data + i);
+            v = kernels::k_log1p_pd_avx(v);
+            _mm256_storeu_pd(data + i, v);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_SSE2)
+    {
+        for (; i + 2 <= size; i += 2) {
+            __m128d v = _mm_loadu_pd(data + i);
+            v = kernels::k_log1p_pd_sse2(v);
+            _mm_storeu_pd(data + i, v);
+        }
+    }
+#endif
+
+#if defined(LIBHMM_HAS_NEON)
+    {
+        for (; i + 2 <= size; i += 2) {
+            float64x2_t v = vld1q_f64(data + i);
+            v = kernels::k_log1p_pd_neon(v);
+            vst1q_f64(data + i, v);
+        }
+    }
+#endif
+
+    for (; i < size; ++i) {
+        data[i] = std::log1p(data[i]);
     }
 }
 

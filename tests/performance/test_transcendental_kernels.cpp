@@ -1,10 +1,10 @@
 // tests/performance/test_transcendental_kernels.cpp
 //
-// Parity tests for TranscendentalKernels: verify that each of the five
-// kernel methods agrees with a std::exp-based scalar reference to within
+// Parity tests for TranscendentalKernels: verify that each kernel
+// method agrees with a stdlib-based scalar reference to within
 // 1e-12 relative / 1e-15 absolute tolerance.
 //
-// Ground truth is always computed inline here using std::exp directly — NOT
+// Ground truth is always computed inline here using stdlib functions directly — NOT
 // by calling the kernel's internal scalar variant — so the test is
 // independent of any internal refactor.
 //
@@ -19,6 +19,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <span>
 #include <vector>
 
 namespace {
@@ -28,6 +29,8 @@ using TK = libhmm::performance::detail::TranscendentalKernels;
 constexpr double LOG_ZERO = -std::numeric_limits<double>::infinity();
 constexpr double REL_TOL = 1e-12;
 constexpr double ABS_TOL = 1e-15;
+constexpr double LOG1P_REL_TOL = 1e-10;
+constexpr double LOG1P_ABS_TOL = 1e-14;
 
 // Sizes chosen to cover: scalar-only (1), below SSE2 width (1,3), single
 // SSE2 block (2), single AVX block (4), non-multiple-of-4 (7,15,31),
@@ -67,6 +70,22 @@ static void check_scalar(double got, double ref, const char *label) {
     } else {
         EXPECT_LE(diff, ABS_TOL) << label << ": absolute error too large  got=" << got
                                  << " ref=" << ref;
+    }
+}
+
+static void check_log1p_array(const std::vector<double> &got, const std::vector<double> &ref,
+                              const char *label) {
+    ASSERT_EQ(got.size(), ref.size());
+    for (std::size_t i = 0; i < got.size(); ++i) {
+        const double diff = std::abs(got[i] - ref[i]);
+        if (std::abs(ref[i]) > LOG1P_ABS_TOL) {
+            EXPECT_LE(diff / std::abs(ref[i]), LOG1P_REL_TOL)
+                << label << ": relative error too large at i=" << i << " got=" << got[i]
+                << " ref=" << ref[i];
+        } else {
+            EXPECT_LE(diff, LOG1P_ABS_TOL) << label << ": absolute error too large at i=" << i
+                                           << " got=" << got[i] << " ref=" << ref[i];
+        }
     }
 }
 
@@ -334,7 +353,49 @@ TEST(TranscendentalKernels, AccumulateExpSum2Bias_SmallBias) {
 }
 
 // =========================================================================
-// 6. Consistency: max-reduce round-trip
+// 6. log1p_inplace
+// =========================================================================
+
+TEST(TranscendentalKernels, Log1pInplace_NormalInputs) {
+    for (std::size_t n : TEST_SIZES) {
+        std::vector<double> got(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            got[i] = 0.01 * static_cast<double>(i + 1);
+        }
+        std::vector<double> ref = got;
+        for (double &v : ref) {
+            v = std::log1p(v);
+        }
+
+        TK::log1p_inplace(std::span<double>(got.data(), got.size()));
+        check_log1p_array(got, ref, "log1p_inplace/normal");
+    }
+}
+
+TEST(TranscendentalKernels, Log1pInplace_SmallAndZeroInputs) {
+    std::vector<double> got = {0.0, 1e-16, 1e-14, 1e-12, 1e-10, 1e-8, 1e-6, 1e-5};
+    std::vector<double> ref = got;
+    for (double &v : ref) {
+        v = std::log1p(v);
+    }
+
+    TK::log1p_inplace(std::span<double>(got.data(), got.size()));
+    check_log1p_array(got, ref, "log1p_inplace/small");
+}
+
+TEST(TranscendentalKernels, Log1pInplace_LargeInputs) {
+    std::vector<double> got = {0.1, 0.5, 1.0, 2.0, 10.0, 100.0, 1e6, 1e12};
+    std::vector<double> ref = got;
+    for (double &v : ref) {
+        v = std::log1p(v);
+    }
+
+    TK::log1p_inplace(std::span<double>(got.data(), got.size()));
+    check_log1p_array(got, ref, "log1p_inplace/large");
+}
+
+// =========================================================================
+// 7. Consistency: max-reduce round-trip
 //    reduce_max then sum_exp should reproduce log-sum-exp.
 // =========================================================================
 

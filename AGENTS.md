@@ -6,7 +6,7 @@ This file provides project-scoped guidance to AI agents and contributors working
 
 C++20 Hidden Markov Model library. Zero external dependencies (C++20 standard library only). GTest is fetched via `FetchContent` only for the test suite. Produces both a shared (`hmm`) and static (`hmm_static`) library from a single OBJECT target.
 
-`main` is the stable v4 branch (current release: v4.0.2). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
+`main` is the stable v4 branch (current release: v4.0.3). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
 
 ## Session start
 
@@ -113,7 +113,8 @@ cppcheck --enable=warning,style,performance --error-exitcode=1 \
   --suppress=missingIncludeSystem --suppress=useStlAlgorithm \
   --suppress=shadowFunction --suppress=virtualCallInConstructor \
   --suppress=constParameterReference --suppress=noExplicitConstructor \
-  --suppress=toomanyconfigs --std=c++20 -I include src/
+  --suppress=toomanyconfigs --suppress=functionStatic \
+  --std=c++20 -I include src/
 
 # Install pre-commit hooks
 bash scripts/setup-pre-commit.sh
