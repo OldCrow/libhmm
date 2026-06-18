@@ -1,0 +1,38 @@
+name: JOSS paper draft
+
+on:
+  push:
+    branches: [joss-paper]
+    paths:
+      - 'paper/paper.md'
+      - 'paper/paper.bib'
+      - 'paper/figures/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paper:
+    name: Build JOSS paper draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build draft PDF
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/data" \
+            -u "$(id -u):$(id -g)" \
+            -e JOURNAL=joss \
+            openjournals/inara \
+            -o pdf \
+            paper/paper.md
+
+      - name: Upload draft PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: joss-paper-draft
+          path: paper/paper.pdf
+          if-no-files-found: error
