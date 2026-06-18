@@ -329,6 +329,85 @@ TEST_F(TrainingEdgeCasesTest, MemorySafetyRAII) {
     EXPECT_NO_THROW(gaussianHmm_->validate());
 }
 
+// Tr-1: ViterbiTrainer::runIteration must return -inf (not a stale log-prob)
+// when every sequence has zero probability under the current model.  A stale
+// return value would fool the convergence check into declaring success.
+TEST_F(TrainingEdgeCasesTest, ViterbiTrainerAllInvalidSequencesReturnsNegInf) {
+    // Discrete HMM with alphabet {0,1,2} — feed symbol 99 (outside alphabet)
+    // so every sequence gets log-probability = -inf.
+    ObservationLists badObs;
+    ObservationSet seq(3);
+    seq(0) = 99.0;
+    seq(1) = 99.0;
+    seq(2) = 99.0;
+    badObs.push_back(seq);
+
+    // Clone the discrete HMM so we don't mutate the fixture for later tests.
+    Hmm testHmm(2);
+    {
+        Matrix trans(2, 2);
+        trans(0, 0) = 0.7;
+        trans(0, 1) = 0.3;
+        trans(1, 0) = 0.4;
+        trans(1, 1) = 0.6;
+        testHmm.setTrans(trans);
+        Vector pi(2);
+        pi(0) = 0.6;
+        pi(1) = 0.4;
+        testHmm.setPi(pi);
+        auto d0 = std::make_unique<DiscreteDistribution>(3);
+        d0->setProbability(0, 0.7);
+        d0->setProbability(1, 0.2);
+        d0->setProbability(2, 0.1);
+        auto d1 = std::make_unique<DiscreteDistribution>(3);
+        d1->setProbability(0, 0.1);
+        d1->setProbability(1, 0.3);
+        d1->setProbability(2, 0.6);
+        testHmm.setDistribution(0, std::move(d0));
+        testHmm.setDistribution(1, std::move(d1));
+    }
+
+    ViterbiTrainer trainer(testHmm, badObs);
+    // train() will converge (the window fills with -inf values) but the final
+    // log-probability must signal failure (not a pre-training stale value).
+    ASSERT_NO_THROW(trainer.train());
+    EXPECT_EQ(trainer.getLastLogProbability(), -std::numeric_limits<double>::infinity());
+}
+
+// Tr-2: BaumWelchTrainer must emit a diagnostic to stderr when all valid
+// sequences have length 1 and no transition statistics can be accumulated.
+TEST_F(TrainingEdgeCasesTest, BaumWelchTrainerAllLength1EmitsDiagnostic) {
+    ObservationLists length1Obs;
+    ObservationSet s0(1);
+    s0(0) = 0.0;
+    ObservationLists::value_type s1(1);
+    s1(0) = 1.0;
+    ObservationLists::value_type s2(1);
+    s2(0) = 2.0;
+    length1Obs.push_back(s0);
+    length1Obs.push_back(s1);
+    length1Obs.push_back(s2);
+
+    BaumWelchTrainer trainer(discreteHmm_.get(), length1Obs);
+
+    // Redirect stderr to capture the diagnostic.
+    std::ostringstream captured;
+    std::streambuf *old_cerr = std::cerr.rdbuf(captured.rdbuf());
+    ASSERT_NO_THROW(trainer.train());
+    std::cerr.rdbuf(old_cerr);
+
+    // Verify the diagnostic message was emitted.
+    EXPECT_NE(captured.str().find("length 1"), std::string::npos)
+        << "Expected length-1 diagnostic in stderr, got: " << captured.str();
+
+    // Parameters must be valid (no NaN) despite the degenerate input.
+    for (std::size_t i = 0; i < 2; ++i) {
+        EXPECT_TRUE(std::isfinite(discreteHmm_->getPi()(i)));
+        for (std::size_t j = 0; j < 2; ++j)
+            EXPECT_TRUE(std::isfinite(discreteHmm_->getTrans()(i, j)));
+    }
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

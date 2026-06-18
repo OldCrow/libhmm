@@ -11,7 +11,7 @@ if(APPLE)
 endif()
 
 project(libhmm
-    VERSION 4.0.3
+    VERSION 4.0.4
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -289,9 +289,11 @@ list(APPEND LIBHMM_SIMD_SOURCES
 
 if(LIBHMM_BEST_SIMD_FLAGS)
     foreach(simd_src ${LIBHMM_SIMD_SOURCES})
+        # COMPILE_OPTIONS replaces the deprecated COMPILE_FLAGS property:
+        # it handles lists correctly and supports generator expressions.
         set_source_files_properties(
             ${simd_src}
-            PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}"
+            PROPERTIES COMPILE_OPTIONS "${LIBHMM_BEST_SIMD_FLAGS}"
         )
     endforeach()
     message(STATUS "Applied SIMD flags to ${CMAKE_CURRENT_SOURCE_DIR}")
@@ -424,15 +426,11 @@ set_target_properties(hmm_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 # Enable clang-tidy if requested — applied to the OBJECT library so analysis
 # runs once on all compiled TUs regardless of which library type is built.
 if(ENABLE_CLANG_TIDY)
-    find_program(CLANG_TIDY_EXE
-        NAMES clang-tidy
-        PATHS
-            /usr/local/Cellar/llvm/20.1.7/bin
-            /usr/local/Cellar/llvm@19/19.1.7/bin
-            /opt/homebrew/bin
-            /usr/local/bin
-        NO_DEFAULT_PATH
-    )
+    # Search standard locations; do not pin a version-specific Homebrew Cellar
+    # path — that breaks on CI Linux, Windows, and any macOS with a different
+    # LLVM version.  cmake --preset release -DENABLE_CLANG_TIDY=ON discovers
+    # whatever clang-tidy is first on PATH.
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy)
     if(CLANG_TIDY_EXE)
         message(STATUS "Found clang-tidy: ${CLANG_TIDY_EXE}")
         set_target_properties(hmm_objects PROPERTIES

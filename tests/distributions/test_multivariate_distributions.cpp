@@ -475,6 +475,43 @@ TEST(IndependentComponentsTest, SetComponentNullThrows) {
     EXPECT_THROW(d.setComponent(0, nullptr), std::invalid_argument);
 }
 
+// ============================================================================
+// N-1: fit() commit-on-success — parameters stay consistent after a failed fit
+//
+// Uses reg=0 so that all-identical data (zero empirical covariance) causes
+// Cholesky to fail.  After the failed call, mean_ and cov_ must be unchanged
+// and getLogProbability() must return a finite value (not mixed-state NaN).
+// ============================================================================
+
+TEST(FullCovarianceGaussianTest, FitConsistencyOnFactorizationFailure) {
+    // Disable regularisation so a singular covariance matrix cannot be factorized.
+    FullCovarianceGaussianDistribution dist(2, 0.0);
+
+    // Fit with spread data to establish known good parameters.
+    const std::vector<std::vector<double>> good_raw = {
+        {1.0, 0.0}, {-1.0, 0.0}, {0.0, 1.0}, {0.0, -1.0}};
+    auto good_views = make_views(good_raw);
+    ASSERT_NO_THROW(dist.fit(good_views));
+    const auto mean_after_good_fit = dist.getMean();
+    ASSERT_EQ(mean_after_good_fit.size(), 2u);
+
+    // Now try to fit with all-identical points → zero covariance → singular Cholesky.
+    const std::vector<std::vector<double>> bad_raw(5, {2.0, 3.0});
+    auto bad_views = make_views(bad_raw);
+    ASSERT_NO_THROW(dist.fit(bad_views)); // Must not throw; silently keeps old params.
+
+    // Parameters must be unchanged (commit-on-success rule).
+    const auto &mean_after_bad_fit = dist.getMean();
+    ASSERT_EQ(mean_after_bad_fit.size(), 2u);
+    EXPECT_NEAR(mean_after_bad_fit[0], mean_after_good_fit[0], 1e-14);
+    EXPECT_NEAR(mean_after_bad_fit[1], mean_after_good_fit[1], 1e-14);
+
+    // getLogProbability must return a finite value, not NaN (no mixed-state params).
+    const std::array<double, 2> q = {0.0, 0.0};
+    const ObservationVectorView v(q.data(), q.size());
+    EXPECT_TRUE(std::isfinite(dist.getLogProbability(v)));
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

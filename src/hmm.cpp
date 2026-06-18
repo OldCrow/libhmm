@@ -53,9 +53,10 @@ std::ostream &operator<<(std::ostream &os, const libhmm::Hmm &h) {
 // The branching complexity of each parser is now measured independently by
 // static analysis tools rather than being folded into operator>>'s CC.
 //
-// Known limitation: NegativeBinomial distributions written by operator<< cannot
-// be read back because toString() begins with "Negative Binomial" (two words),
-// so the type dispatch key is "Negative" rather than "NegativeBinomial".
+// NegativeBinomial round-trip: toString() now emits "NegativeBinomial Distribution:"
+// (single-token keyword) so the dispatch table can match it directly.  For
+// backward compatibility with existing XML files that contain the old two-word
+// form "Negative Binomial", the legacy key "Negative" is also registered.
 // =============================================================================
 
 namespace {
@@ -94,6 +95,11 @@ std::unique_ptr<EmissionDistribution> parse_discrete(std::istream &is) {
         const auto n = std::stoull(n_tok);
         if (n == 0)
             throw std::runtime_error("Discrete distribution must have at least one symbol");
+        // Guard against uint64 → int narrowing: values above INT_MAX are
+        // implementation-defined on cast and would corrupt the symbol count.
+        constexpr auto kIntMax = static_cast<unsigned long long>(std::numeric_limits<int>::max());
+        if (n > kIntMax)
+            throw std::runtime_error("Discrete distribution symbol count exceeds INT_MAX");
         auto dist = std::make_unique<DiscreteDistribution>(static_cast<int>(n));
         for (std::size_t k = 0; k < n; ++k) {
             std::string label, eq, val;
@@ -254,21 +260,51 @@ std::unique_ptr<EmissionDistribution> parse_rayleigh(std::istream &is) {
     return std::make_unique<RayleighDistribution>(sigma);
 }
 
-// Map from the first word of each distribution's toString() output to its parser.
-// NegativeBinomial is absent: toString() writes "Negative Binomial Distribution:",
-// so the dispatch key would be "Negative" — a two-word type that cannot be
-// represented by a single-token lookup. Use JSON I/O for NegativeBinomial.
+// NegativeBinomial body reader (called after the type keyword has been consumed).
+std::unique_ptr<EmissionDistribution> parse_negative_binomial(std::istream &is) {
+    std::string s, t;
+    is >> s;                // "Distribution:"
+    is >> s >> s >> s >> t; // "r" "(successes)" "=" VALUE
+    const double r = std::stod(t);
+    is >> s >> s >> s >> s >> t; // "p" "(success" "probability)" "=" VALUE
+    const double p = std::stod(t);
+    is >> s >> s >> t; // skip Mean
+    is >> s >> s >> t; // skip Variance
+    return std::make_unique<NegativeBinomialDistribution>(r, p);
+}
+
+// Legacy fallback: old toString() emitted "Negative Binomial Distribution:",
+// so the dispatch key was "Negative". Consume the second word first.
+std::unique_ptr<EmissionDistribution> parse_negative_binomial_legacy(std::istream &is) {
+    std::string s;
+    is >> s; // consume "Binomial" (second word of the type name)
+    return parse_negative_binomial(is);
+}
+
 /// Returns the stream-parser dispatch map.
-/// Function-local static avoids bugprone-throwing-static-initialization.
+/// Function-local static avoids initialization-order issues.
 const std::unordered_map<std::string, StreamParserFn> &stream_parsers() {
     static const std::unordered_map<std::string, StreamParserFn> s = {
-        {"Gaussian", parse_gaussian},    {"Discrete", parse_discrete},
-        {"Gamma", parse_gamma},          {"Exponential", parse_exponential},
-        {"LogNormal", parse_log_normal}, {"Pareto", parse_pareto},
-        {"Poisson", parse_poisson},      {"Beta", parse_beta},
-        {"Weibull", parse_weibull},      {"Uniform", parse_uniform},
-        {"Binomial", parse_binomial},    {"Rayleigh", parse_rayleigh},
-        {"StudentT", parse_student_t},   {"ChiSquared", parse_chi_squared},
+        {"Gaussian", parse_gaussian},
+        {"Discrete", parse_discrete},
+        {"Gamma", parse_gamma},
+        {"Exponential", parse_exponential},
+        {"LogNormal", parse_log_normal},
+        {"Pareto", parse_pareto},
+        {"Poisson", parse_poisson},
+        {"Beta", parse_beta},
+        {"Weibull", parse_weibull},
+        {"Uniform", parse_uniform},
+        {"Binomial", parse_binomial},
+        {"Rayleigh", parse_rayleigh},
+        {"StudentT", parse_student_t},
+        {"ChiSquared", parse_chi_squared},
+        // NegativeBinomial: single-token key (current toString() output)
+        {"NegativeBinomial", parse_negative_binomial},
+        // Legacy: old toString() emitted "Negative Binomial" (two words); the
+        // HMM operator>> reads one token as the type key, so old XML files
+        // arrive here as "Negative" and need to consume "Binomial" themselves.
+        {"Negative", parse_negative_binomial_legacy},
     };
     return s;
 }

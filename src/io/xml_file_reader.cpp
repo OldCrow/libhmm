@@ -54,20 +54,16 @@ Hmm XMLFileReader::read(const std::filesystem::path &filepath) {
 
 bool XMLFileReader::canReadFromPath(const std::filesystem::path &filepath) noexcept {
     try {
-        // Check if the file exists and is readable
-        if (!std::filesystem::exists(filepath)) {
-            return false;
-        }
-
-        // Check if it's a regular file (not a directory)
+        // Reject non-regular files (directories, devices, sockets, etc.).
         if (!std::filesystem::is_regular_file(filepath)) {
             return false;
         }
-
-        // Check read permissions
-        auto perms = std::filesystem::status(filepath).permissions();
-        return (perms & std::filesystem::perms::owner_read) != std::filesystem::perms::none;
-
+        // Probe with an actual open rather than checking permission bits: the
+        // permission-bit approach only tests owner_read and misses group-readable
+        // or world-readable files not owned by the current user (e.g. shared
+        // model files on NFS, or files with ACLs).  The OS open() is definitive.
+        std::ifstream probe(filepath, std::ios::in | std::ios::binary);
+        return probe.is_open();
     } catch (...) {
         return false;
     }

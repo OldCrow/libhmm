@@ -5,6 +5,99 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.4] - 2026-06-18
+
+Safety, robustness, and build-system cleanup release.
+46/46 standard correctness tests pass. No public API changes; no breaking changes.
+
+### Fixed
+
+- **`FullCovarianceGaussianDistribution` copy constructor data race (M-2)**:
+  the copy constructor read `chol_L_`, `log_det_`, and other cached fields from `other`
+  without holding `other.cache_mutex_`, racing against a concurrent `getLogProbability()`
+  call on the same source object. All non-atomic field copies are now performed under the
+  lock in the constructor body (the `DistributionBase` copy only touches the atomic flag).
+- **`FullCovarianceGaussianDistribution::fit()` parameter inconsistency on Cholesky
+  failure (N-1)**: both `fit()` overloads wrote `mean_` unconditionally before attempting
+  Cholesky factorisation. A failed factorisation left `mean_` from the new data with
+  `chol_L_` and `cov_` from old data, causing the next `getLogProbability()` to compute
+  the Mahalanobis distance with mismatched parameters. Both overloads now compute into
+  temporaries, call `invalidateCache()` at entry, and commit all four fields (`mean_`,
+  `cov_`, `chol_L_`, `log_det_`) atomically only on success.
+- **`chol::solve_lower` assert-only bounds check (M-1)**:
+  `assert(L.rows() == n && L.cols() == n)` was stripped in release builds (`-DNDEBUG`),
+  allowing a mismatched factor to read out-of-bounds memory silently. Replaced with a
+  release-mode shape check that returns a NaN-filled result. Same guard added to
+  `inv_quad_form_mv` before its inline forward-substitution loop.
+- **`parse_discrete` unchecked `uint64_t` → `int` narrowing (T-1)**:
+  `std::stoull` accepts values up to `UINT64_MAX`; the subsequent `static_cast<int>` was
+  implementation-defined for values above `INT_MAX`. A range check now rejects values
+  above `INT_MAX` with `std::runtime_error`.
+- **`ViterbiTrainer::runIteration()` returns stale log-probability on all-invalid
+  sequences (Tr-1)**: when every sequence had zero probability under the current model,
+  `runIteration` returned the previous iteration's `lastLogProb_` — fooling the convergence
+  loop into declaring premature convergence. Now returns `-inf` so callers can detect
+  the failure signal.
+- **`XMLFileReader::canReadFromPath` owner-only permission check (M-3)**:
+  the permission-bit test only checked `owner_read`, silently rejecting group-readable or
+  world-readable files not owned by the current user. Replaced with an `ifstream` open probe;
+  the OS access-control decision is authoritative.
+- **`NegativeBinomialDistribution` stream round-trip broken (A-1)**:
+  `toString()` began with `"Negative Binomial"` (two words) so the single-token stream
+  dispatch key `"Negative"` was not registered. Changed `toString()` to emit
+  `"NegativeBinomial Distribution:"` and added the `"NegativeBinomial"` key to the
+  HMM-level stream parser dispatch table. A legacy `"Negative"` key is also registered
+  so old XML files containing the two-word form continue to parse correctly.
+
+### Changed
+
+- **Baum-Welch length-1 sequence diagnostic (Tr-2)**:
+  when all valid sequences have length 1, `transDen` stays zero and `m_step_transitions`
+  silently reset every row to uniform. `train()` now emits a `std::cerr` diagnostic
+  before calling `m_step_transitions` in this case.
+- **`decodePosterior()` score normalisation (N-2)**:
+  posterior scores are now normalised by `logProbability_` before the argmax. The
+  correction is argmax-neutral for well-behaved models but prevents mis-ordering in
+  degenerate models where some states have log-posterior = -∞.
+- **Baum-Welch `m_step_pi` denormal guard (N-3)**:
+  the `piSum > 0.0` guard now uses `>= constants::precision::ZERO` to reject denormal
+  sums that would cause NaN/Inf after division.
+- **NEON intrinsics restricted to AArch64 (S-2)**:
+  `vcvtq_f64_s64` and `vcvtq_s64_f64` are AArch64-only. The NEON kernel block in
+  `detail/simd_kernels_internal.h` is now guarded `#if defined(LIBHMM_HAS_NEON) && defined(__aarch64__)`.
+- **`COMPILE_FLAGS` replaced by `COMPILE_OPTIONS` (B-1)**:
+  the deprecated `COMPILE_FLAGS` source-file property (does not handle lists or generator
+  expressions) is replaced by `COMPILE_OPTIONS`.
+- **clang-tidy discovery simplified (B-2)**:
+  the hard-coded versioned Homebrew Cellar paths and `NO_DEFAULT_PATH` are removed;
+  `find_program(CLANG_TIDY_EXE NAMES clang-tidy)` now uses standard PATH search.
+- **CMake preset schema bumped to version 3 (B-3)**:
+  preset schema version 2 requires a `generator` field; version 3 (CMake ≥ 3.21)
+  makes `generator` optional, allowing each platform to use its default. Minimum
+  preset-parser version is now 3.21 (the library itself still requires CMake 3.20).
+- **Stale `include/libhmm/performance/simd_kernels_internal.h` deleted (S-1)**:
+  the pre-v4.0.3 copy was diverged from `include/libhmm/detail/simd_kernels_internal.h`
+  and was being installed to downstream consumers missing the v4.0.3 `log1p` kernels.
+  No source file included it.
+
+### Tests
+
+- Added `FullCovarianceGaussianTest.FitConsistencyOnFactorizationFailure`:
+  verifies parameters are unchanged and `getLogProbability()` is finite after a
+  failed Cholesky fit.
+- Added `HmmStreamIOTest.ParseDiscreteSymbolCountOverflowThrows`:
+  verifies `std::runtime_error` on a symbol count above `INT_MAX`.
+- Added `TrainingEdgeCasesTest.ViterbiTrainerAllInvalidSequencesReturnsNegInf`:
+  verifies `-inf` log-probability (not a stale value) when all sequences fail.
+- Added `TrainingEdgeCasesTest.BaumWelchTrainerAllLength1EmitsDiagnostic`:
+  verifies the length-1 diagnostic is written to `stderr` and parameters stay finite.
+- Added `HmmStreamIOTest.NegativeBinomialStreamRoundTrip`:
+  verifies the new single-token format serialises and parses back without throwing.
+- Added `HmmStreamIOTest.NegativeBinomialLegacyStreamParsing`:
+  verifies the old two-word `"Negative Binomial"` form is still parseable.
+
+---
+
 ## [4.0.3] - 2026-06-16
 
 Hot-path maintenance release for the Forward-Backward MaxReduce recurrence.

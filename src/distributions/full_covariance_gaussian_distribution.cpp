@@ -17,11 +17,22 @@ namespace libhmm {
 // =============================================================================
 
 // Copy constructor: each object gets its own independent mutex.
+// DistributionBase(other) above reads only the atomic cacheValid_ flag, which
+// is self-synchronizing. All non-atomic fields (including the mutable chol_L_
+// and log_det_ that updateCache() writes) are copied in the constructor body
+// under other.cache_mutex_ to prevent a data race with a concurrent
+// getLogProbability() call that triggers updateCache() on the source object.
 FullCovarianceGaussianDistribution::FullCovarianceGaussianDistribution(
     const FullCovarianceGaussianDistribution &other)
-    : DistributionBase(other), dim_(other.dim_), mean_(other.mean_), cov_(other.cov_),
-      chol_L_(other.chol_L_), log_det_(other.log_det_), reg_(other.reg_),
-      half_d_log2pi_(other.half_d_log2pi_) {
+    : DistributionBase(other) {
+    std::lock_guard lock(other.cache_mutex_);
+    dim_ = other.dim_;
+    mean_ = other.mean_;
+    cov_ = other.cov_;
+    chol_L_ = other.chol_L_;
+    log_det_ = other.log_det_;
+    reg_ = other.reg_;
+    half_d_log2pi_ = other.half_d_log2pi_;
     // cache_mutex_ is default-constructed; each copy owns its own mutex.
 }
 
@@ -206,17 +217,23 @@ void FullCovarianceGaussianDistribution::fit(std::span<const ObservationVectorVi
         if (x.size() != dim_)
             throw std::invalid_argument(
                 "FullCovarianceGaussianDistribution::fit: observation dimension mismatch");
-    mean_ = compute_mean(data, dim_);
-    auto new_cov = compute_cov(data, mean_, dim_);
+    // Invalidate before computing: if factorization fails, getLogProbability()
+    // will safely recompute from the unchanged pre-fit parameters rather than
+    // returning a log-probability with a mismatched mean_ and old chol_L_.
+    invalidateCache();
+    auto new_mean = compute_mean(data, dim_);
+    auto new_cov = compute_cov(data, new_mean, dim_);
     auto tmp = new_cov; // scratch copy for regularisation; new_cov stays unregularised
     auto res = regularise_and_factorize(tmp, dim_, reg_);
     if (res.success) {
+        mean_ = std::move(new_mean);
         cov_ = std::move(new_cov); // store unregularised empirical covariance
         chol_L_ = std::move(res.L);
         log_det_ = chol::log_det(chol_L_);
         markCacheValid();
     }
-    // On failure: keep current parameters.
+    // On failure: mean_/cov_/chol_L_ are unchanged; cache stays invalid so the
+    // next getLogProbability() recomputes from the pre-fit parameters.
 }
 
 // =============================================================================
@@ -232,11 +249,13 @@ void FullCovarianceGaussianDistribution::fit(std::span<const ObservationVectorVi
         if (x.size() != dim_)
             throw std::invalid_argument(
                 "FullCovarianceGaussianDistribution::fit: observation dimension mismatch");
-    mean_ = compute_weighted_mean(data, weights, sumW, dim_);
-    auto new_cov = compute_weighted_cov(data, weights, mean_, 1.0 / sumW, dim_);
+    invalidateCache();
+    auto new_mean = compute_weighted_mean(data, weights, sumW, dim_);
+    auto new_cov = compute_weighted_cov(data, weights, new_mean, 1.0 / sumW, dim_);
     auto tmp = new_cov; // scratch copy for regularisation; new_cov stays unregularised
     auto res = regularise_and_factorize(tmp, dim_, reg_);
     if (res.success) {
+        mean_ = std::move(new_mean);
         cov_ = std::move(new_cov); // store unregularised empirical covariance
         chol_L_ = std::move(res.L);
         log_det_ = chol::log_det(chol_L_);

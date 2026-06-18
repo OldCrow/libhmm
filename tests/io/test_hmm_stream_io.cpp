@@ -284,14 +284,10 @@ TEST_F(HmmStreamIOTest, ChiSquaredDistributionParameterParsing) {
 // Verifies that every distribution type that operator<< can write can be
 // correctly parsed back by operator>>. Uses EXPECT_NEAR with 1e-5 tolerance
 // because toString() formats values to 6 decimal places, not max_digits10.
-//
-// NegativeBinomial is excluded: toString() begins with "Negative Binomial"
-// (two words), so the single-token dispatch key is "Negative" which is absent
-// from kStreamParsers. See NegativeBinomialStreamLimitation below.
 // =============================================================================
 
 TEST_F(HmmStreamIOTest, AllDistributionsStreamRoundTrip) {
-    constexpr std::size_t N = 14; // all distributions except NegativeBinomial
+    constexpr std::size_t N = 14; // all distributions except NegativeBinomial (tested separately)
     Matrix trans(N, N);
     Vector pi(N);
     for (std::size_t i = 0; i < N; ++i) {
@@ -447,11 +443,11 @@ TEST_F(HmmStreamIOTest, AllDistributionsStreamRoundTrip) {
     }
 }
 
-// NegativeBinomial cannot round-trip through operator>>(Hmm) because
-// toString() starts with "Negative Binomial" (two tokens), so the dispatch
-// key read by operator>> is "Negative" — absent from kStreamParsers.
-// Use JSON I/O (hmm_json.h) for HMMs with NegativeBinomial distributions.
-TEST_F(HmmStreamIOTest, NegativeBinomialStreamLimitation) {
+// NegativeBinomial now round-trips correctly through the stream format.
+// toString() emits "NegativeBinomial Distribution:" (single-token keyword)
+// which the dispatch table resolves directly.  The legacy two-word form
+// "Negative Binomial" (old XML files) is also handled via a separate key.
+TEST_F(HmmStreamIOTest, NegativeBinomialStreamRoundTrip) {
     Hmm hmm(1);
     Vector pi(1);
     pi[0] = 1.0;
@@ -463,11 +459,67 @@ TEST_F(HmmStreamIOTest, NegativeBinomialStreamLimitation) {
 
     std::ostringstream oss;
     oss << hmm;
+    const std::string s = oss.str();
 
-    std::istringstream iss(oss.str());
+    // Verify the single-token keyword is present in the output.
+    EXPECT_NE(s.find("NegativeBinomial"), std::string::npos);
+
+    // Round-trip must succeed without throwing.
+    std::istringstream iss(s);
     Hmm restored(1);
-    // "Negative" is not a recognised dispatch key — must throw.
-    EXPECT_THROW(iss >> restored, std::runtime_error);
+    ASSERT_NO_THROW(iss >> restored);
+
+    ASSERT_EQ(restored.getNumStatesModern(), 1u);
+    const auto *d =
+        dynamic_cast<const NegativeBinomialDistribution *>(&restored.getDistribution(0));
+    ASSERT_NE(d, nullptr);
+    EXPECT_NEAR(d->getR(), 5.0, 1e-5);
+    EXPECT_NEAR(d->getP(), 0.4, 1e-5);
+}
+
+// Legacy backward-compat: old XML files contain "Negative Binomial" (two words).
+// The HMM operator>> dispatches on the first token ("Negative") which now
+// maps to a legacy parser that consumes "Binomial" before reading the body.
+TEST_F(HmmStreamIOTest, NegativeBinomialLegacyStreamParsing) {
+    // Manually construct the old-format stream string.
+    const std::string old_stream = R"(Hidden Markov Model parameters
+  States: 1
+  Pi: [ 1.000000 ]
+  Transmission matrix:
+   [ 1.000000 ]
+  Emissions:
+   State 0: Negative Binomial Distribution:
+      r (successes) = 5.000000
+      p (success probability) = 0.400000
+      Mean = 7.500000
+      Variance = 18.750000
+)";
+    std::istringstream iss(old_stream);
+    Hmm restored(1);
+    ASSERT_NO_THROW(iss >> restored);
+    const auto *d =
+        dynamic_cast<const NegativeBinomialDistribution *>(&restored.getDistribution(0));
+    ASSERT_NE(d, nullptr);
+    EXPECT_NEAR(d->getR(), 5.0, 1e-5);
+    EXPECT_NEAR(d->getP(), 0.4, 1e-5);
+}
+
+// T-1: parse_discrete must throw on symbol count above INT_MAX (narrowing guard).
+TEST_F(HmmStreamIOTest, ParseDiscreteSymbolCountOverflowThrows) {
+    // 2147483648 = INT_MAX + 1 — triggers the uint64 → int range check.
+    const std::string stream_str = R"(Hidden Markov Model parameters
+  States: 1
+  Pi: [ 1.000000 ]
+  Transmission matrix:
+   [ 1.000000 ]
+  Emissions:
+   State 0: Discrete Distribution:
+  Number of symbols = 2147483648
+  P(0) = 1.000000
+)";
+    std::istringstream iss(stream_str);
+    Hmm hmm(1);
+    EXPECT_THROW(iss >> hmm, std::runtime_error);
 }
 
 TEST_F(HmmStreamIOTest, MultipleDistributionTypesInSameHMM) {
