@@ -494,11 +494,15 @@ template <typename Obs>
 StateSequence BasicForwardBackwardCalculator<Obs>::decodePosterior() const {
     const std::size_t T = logAlpha_.size1();
     StateSequence result(T);
+    // Subtract logProbability_ before the argmax.  The constant cancels in the
+    // comparison for well-behaved models, but removing it avoids misorderings
+    // in degenerate models where some log-posteriors are -inf.
+    const double logP = logProbability_;
     for (std::size_t t = 0; t < T; ++t) {
         std::size_t best = 0;
-        double bestScore = logAlpha_(t, 0) + logBeta_(t, 0);
+        double bestScore = logAlpha_(t, 0) + logBeta_(t, 0) - logP;
         for (std::size_t i = 1; i < numStates_; ++i) {
-            const double score = logAlpha_(t, i) + logBeta_(t, i);
+            const double score = logAlpha_(t, i) + logBeta_(t, i) - logP;
             if (score > bestScore) {
                 bestScore = score;
                 best = i;

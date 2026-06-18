@@ -249,7 +249,10 @@ double BasicViterbiTrainer<Obs>::runIteration() {
     }
 
     if (validSeqs == 0)
-        return lastLogProb_;
+        // All sequences had zero probability under the current model.
+        // Return -inf so the convergence loop detects a failure signal
+        // rather than declaring convergence on a stale log-probability.
+        return -std::numeric_limits<double>::infinity();
 
     normalize_and_commit(hmm, N, pi, trans);
 

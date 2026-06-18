@@ -223,7 +223,7 @@ void NegativeBinomialDistribution::reset() noexcept {
 std::string NegativeBinomialDistribution::toString() const {
     std::ostringstream oss{};
     oss << std::fixed << std::setprecision(6);
-    oss << "Negative Binomial Distribution:\n";
+    oss << "NegativeBinomial Distribution:\n";
     oss << "      r (successes) = " << r_ << "\n";
     oss << "      p (success probability) = " << p_ << "\n";
     oss << "      Mean = " << getMean() << "\n";
@@ -293,7 +293,7 @@ bool NegativeBinomialDistribution::operator==(const NegativeBinomialDistribution
 std::istream &operator>>(std::istream &is, libhmm::NegativeBinomialDistribution &distribution) {
     try {
         std::string s, t;
-        is >> s >> s >> s;      // "Negative" "Binomial" "Distribution:"
+        is >> s >> s;           // "NegativeBinomial" "Distribution:"
         is >> s >> s >> s >> t; // "r" "(successes)" "=" VALUE
         const double r = std::stod(t);
         is >> s >> s >> s >> s >> t; // "p" "(success" "probability)" "=" VALUE

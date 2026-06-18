@@ -75,7 +75,16 @@ double log_det(const BasicMatrix<double> &L) noexcept {
 
 BasicVector<double> solve_lower(const BasicMatrix<double> &L, std::span<const double> b) noexcept {
     const std::size_t n = b.size();
-    assert(L.rows() == n && L.cols() == n);
+    // Release-mode shape guard: a mismatched L would silently read out-of-bounds
+    // memory in an optimised build where assert() is stripped. Return NaN-filled
+    // result instead so callers propagate a detectable invalid value.
+    if (L.rows() != n || L.cols() != n) {
+        BasicVector<double> nan_result(n);
+        constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+        for (std::size_t i = 0; i < n; ++i)
+            nan_result[i] = kNaN;
+        return nan_result;
+    }
 
     BasicVector<double> x(n);
     for (std::size_t i = 0; i < n; ++i) {
@@ -114,6 +123,9 @@ double inv_quad_form(const BasicMatrix<double> &L, std::span<const double> x) no
 double inv_quad_form_mv(const BasicMatrix<double> &L, const std::vector<double> &mu,
                         std::span<const double> x) noexcept {
     const std::size_t n = mu.size();
+    // Shape guard: mismatched L would silently access out-of-bounds memory.
+    if (L.rows() != n || L.cols() != n)
+        return std::numeric_limits<double>::quiet_NaN();
     // One allocation per thread; buffer only grows, never shrinks.
     thread_local std::vector<double> v;
     if (v.size() < n)

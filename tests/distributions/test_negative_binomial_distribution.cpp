@@ -151,8 +151,8 @@ TEST(NegativeBinomialDistributionTest, StringRepresentation) {
     std::string str = negbinom.toString();
 
     // Should contain key information based on standardized format:
-    // "Negative Binomial Distribution:\n      r (successes) = 8.0\n      p (success probability) = 0.4\n      Mean = 12.0\n      Variance = 30.0\n"
-    EXPECT_NE(str.find("Negative Binomial"), std::string::npos);
+    // "NegativeBinomial Distribution:\n      r (successes) = 8.0\n      p (success probability) = 0.4\n      Mean = 12.0\n      Variance = 30.0\n"
+    EXPECT_NE(str.find("NegativeBinomial"), std::string::npos);
     EXPECT_NE(str.find("Distribution"), std::string::npos);
     EXPECT_NE(str.find("8.0"), std::string::npos);
     EXPECT_NE(str.find("0.4"), std::string::npos);
@@ -452,7 +452,7 @@ TEST(NegativeBinomialDistributionTest, StreamOperators) {
     oss << original;
     std::string output = oss.str();
 
-    EXPECT_NE(output.find("Negative Binomial"), std::string::npos);
+    EXPECT_NE(output.find("NegativeBinomial"), std::string::npos);
     EXPECT_NE(output.find("7.5"), std::string::npos);
     EXPECT_NE(output.find("0.35"), std::string::npos);
 

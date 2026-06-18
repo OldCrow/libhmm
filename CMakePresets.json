@@ -1,8 +1,8 @@
 {
-  "version": 2,
+  "version": 3,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 20,
+    "minor": 21,
     "patch": 0
   },
   "configurePresets": [
@@ -10,7 +10,6 @@
       "name": "release",
       "displayName": "Release",
       "description": "Optimised release build.",
-      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
@@ -20,7 +19,6 @@
       "name": "debug",
       "displayName": "Debug",
       "description": "Debug build with full symbols.",
-      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
@@ -30,7 +28,6 @@
       "name": "rel-with-debug",
       "displayName": "Release with Debug Info",
       "description": "Optimised build with debug symbols \u2014 preferred for profiling.",
-      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build-relwithdebinfo",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo"

@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <span>
 #include <stdexcept>
@@ -178,6 +180,18 @@ void BasicBaumWelchTrainer<Obs>::train() {
                                  "(all had zero probability under the current model)");
     }
 
+    // Diagnostic: transDen[i] accumulates gamma only for t < T-1, so
+    // length-1 sequences contribute nothing.  If all sequences had T=1,
+    // transDen stays zero and m_step_transitions silently resets every row
+    // to uniform — discarding any prior transition information.
+    const bool allTransDenZero = std::all_of(
+        transDen.begin(), transDen.end(), [](double v) { return v < constants::precision::ZERO; });
+    if (allTransDenZero) {
+        std::cerr << "BaumWelchTrainer: all " << validSeqs
+                  << " valid sequence(s) have length 1; transition statistics cannot be "
+                     "accumulated and the transition matrix will be reset to uniform.\n";
+    }
+
     m_step_pi(hmm, N, piNum);
     m_step_transitions(hmm, N, transNumT, transDen);
 
@@ -291,7 +305,11 @@ void BasicBaumWelchTrainer<Obs>::m_step_pi(HmmType &hmm, std::size_t N,
         piSum += piNum[i];
     Vector pi(N);
     for (std::size_t i = 0; i < N; ++i) {
-        pi(i) = (piSum > 0.0) ? piNum[i] / piSum : 1.0 / static_cast<double>(N);
+        // Use precision::ZERO threshold to reject denormal piSum values that
+        // can arise when all gamma terms underflow — plain > 0.0 admits
+        // denormals and the subsequent division can produce NaN/inf.
+        pi(i) =
+            (piSum >= constants::precision::ZERO) ? piNum[i] / piSum : 1.0 / static_cast<double>(N);
     }
     hmm.setPi(pi);
 }

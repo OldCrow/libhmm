@@ -400,9 +400,13 @@ static constexpr double K_EXP_C12 = 2.0876756987868099e-9;
 #endif // LIBHMM_HAS_SSE2
 
 // ---------------------------------------------------------------------------
-// NEON helpers
+// NEON helpers (AArch64 only)
+//
+// vcvtq_f64_s64 and vcvtq_s64_f64 are AArch64-exclusive intrinsics.
+// Restricting the whole block to __aarch64__ prevents compilation errors on
+// 32-bit ARMv7 targets that expose __ARM_NEON but lack 64-bit FP conversions.
 // ---------------------------------------------------------------------------
-#if defined(LIBHMM_HAS_NEON)
+#if defined(LIBHMM_HAS_NEON) && defined(__aarch64__)
 
 [[nodiscard]] static inline float64x2_t k_log_pd_neon(float64x2_t x) noexcept {
     const float64x2_t neg_inf_v = vdupq_n_f64(-std::numeric_limits<double>::infinity());
