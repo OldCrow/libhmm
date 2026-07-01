@@ -23,6 +23,8 @@ namespace libhmm {
  * - α > β: Skewed toward 1
  */
 class BetaDistribution : public DistributionBase<BetaDistribution> {
+    friend class DistributionBase<BetaDistribution>;
+
 private:
     /**
      * Shape parameter α (alpha) - must be positive

@@ -18,9 +18,7 @@ double GaussianDistribution::getProbability(double x) const {
     if (std::isnan(x) || std::isinf(x)) {
         return 0.0;
     }
-    if (!isCacheValid()) {
-        updateCache();
-    }
+    ensureCache();
 
     const double exponent = (x - mean_) * (x - mean_) * negHalfSigmaSquaredInv_;
     return normalizationConstant_ * std::exp(exponent);
@@ -36,9 +34,7 @@ double GaussianDistribution::getLogProbability(double x) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
 
-    if (!isCacheValid()) {
-        updateCache();
-    }
+    ensureCache();
     // Use cached values for maximum performance
     const double z = (x - mean_) * invStandardDeviation_;
     const double logPdf = -0.5 * math::LN_2PI - logStandardDeviation_ - 0.5 * z * z;
@@ -65,9 +61,7 @@ double GaussianDistribution::getCumulativeProbability(double x) const noexcept {
         return (x >= mean_) ? 1.0 : 0.0;
     }
 
-    if (!isCacheValid()) {
-        updateCache();
-    }
+    ensureCache();
     // Use cached sigma*sqrt(2) for efficiency
     const double y = 0.5 * (1 + std::erf((x - mean_) / sigmaSqrt2_));
 
@@ -327,8 +321,7 @@ double GaussianDistribution::sample(std::mt19937_64 &rng) const {
 
 void GaussianDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double log_norm = -0.5 * math::LN_2PI - logStandardDeviation_;
     detail::gaussian_logpdf_batch(observations.data(), out.data(), observations.size(), mean_,
                                   negHalfSigmaSquaredInv_, log_norm);

@@ -30,6 +30,8 @@ namespace libhmm {
  * - Materials science (strength of materials)
  */
 class WeibullDistribution : public DistributionBase<WeibullDistribution> {
+    friend class DistributionBase<WeibullDistribution>;
+
 private:
     /**
      * Shape parameter k - must be positive

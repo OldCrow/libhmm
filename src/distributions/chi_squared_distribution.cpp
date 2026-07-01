@@ -9,8 +9,7 @@ using namespace libhmm::constants;
 namespace libhmm {
 
 double ChiSquaredDistribution::getProbability(double value) const {
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double x = value;
     if (!std::isfinite(x))
         return math::ZERO_DOUBLE;
@@ -39,8 +38,7 @@ double ChiSquaredDistribution::getProbability(double value) const {
 }
 
 double ChiSquaredDistribution::getLogProbability(double value) const noexcept {
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double x = value;
 
     // Handle invalid inputs
@@ -165,8 +163,7 @@ void ChiSquaredDistribution::getBatchLogProbabilities(std::span<const double> ob
     // lgamma(k/2) is precomputed in the cache, but the per-element (k/2-1)*log(x)
     // term needs vectorised log(x)): available via Intel SVML or platform-specific
     // math libraries, but not portably available without a math-library dependency.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = ChiSquaredDistribution::getLogProbability(observations[i]);
     }

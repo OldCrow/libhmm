@@ -17,9 +17,6 @@ set(LIBHMM_LIBRARIES libhmm::hmm)
 # Check that all required components are available
 check_required_components(libhmm)
 
-# Find required dependencies
-find_dependency(Boost REQUIRED)
-
 # Set include directories
 if(NOT TARGET libhmm::hmm)
   add_library(libhmm::hmm INTERFACE IMPORTED)

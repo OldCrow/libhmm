@@ -35,8 +35,7 @@ double ExponentialDistribution::getProbability(double value) const {
         return lambda_;
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return lambda_ * std::exp(negLambda_ * value);
 }
 
@@ -54,8 +53,7 @@ double ExponentialDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return logLambda_ - lambda_ * value;
 }
 
@@ -281,8 +279,7 @@ void exponential_logpdf_batch(const double *obs, double *out, std::size_t n, dou
 
 void ExponentialDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                        std::span<double> out) const {
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     detail::exponential_logpdf_batch(observations.data(), out.data(), observations.size(),
                                      logLambda_, negLambda_);
 }

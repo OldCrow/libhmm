@@ -20,8 +20,7 @@ double GammaDistribution::getProbability(double x) const {
         return 0.0;
     if (x == 0.0)
         return (k_ < 1.0) ? std::numeric_limits<double>::infinity() : 0.0;
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     // Use log space for numerical stability then exponentiate
     const double logPdf = getLogProbability(x);
@@ -51,8 +50,7 @@ double GammaDistribution::getLogProbability(double x) const noexcept {
                           : -std::numeric_limits<double>::infinity();
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     // log PDF(x) = (k-1)*ln(x) - x/θ - k*ln(θ) - ln(Γ(k))
     const double logPdf = kMinus1_ * std::log(x) - x / theta_ - kLogTheta_ - logGammaK_;
 
@@ -243,8 +241,7 @@ void GammaDistribution::getBatchLogProbabilities(std::span<const double> observa
     // (k-1)*log(x) - x/θ, which needs a vectorised log — available via Intel SVML,
     // GNU libmvec, or Apple Accelerate vvlog, but not portably without a
     // math-library dependency.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = GammaDistribution::getLogProbability(observations[i]);
     }

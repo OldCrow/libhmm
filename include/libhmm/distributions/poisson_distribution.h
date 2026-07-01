@@ -18,6 +18,8 @@ namespace libhmm {
  * where λ (lambda) is the rate parameter (mean number of events per interval)
  */
 class PoissonDistribution : public DistributionBase<PoissonDistribution> {
+    friend class DistributionBase<PoissonDistribution>;
+
 private:
     /**
      * Rate parameter λ (lambda) - average number of events per interval.
@@ -171,8 +173,7 @@ public:
      * @return Standard deviation
      */
     double getStandardDeviation() const noexcept {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return sqrtLambda_;
     }
 

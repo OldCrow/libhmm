@@ -340,7 +340,7 @@ Use **Doxygen-style comments** for all public interfaces:
  * @return Probability density at the given value
  * @throws std::invalid_argument if value is NaN or infinite
  *
- * @note This method is thread-safe and uses cached normalization constants
+ * @note Thread-safe for concurrent reads; cache fills are serialized by an internal mutex
  * @complexity O(1) - constant time computation
  *
  * @example
@@ -370,7 +370,7 @@ double getProbability(double value) override;
  * - Support: x ∈ (-∞, ∞)
  * - Symmetry: Symmetric around μ
  *
- * @note Thread-safe for read operations, not thread-safe for modifications
+ * @note Thread-safe for concurrent read operations; modifications are not thread-safe
  * @note Uses efficient caching for repeated probability calculations
  *
  * @example Basic usage:

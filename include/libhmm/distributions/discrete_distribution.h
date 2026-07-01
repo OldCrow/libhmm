@@ -31,6 +31,8 @@ namespace libhmm {
  * - Any scenario with discrete, mutually exclusive outcomes
  */
 class DiscreteDistribution : public DistributionBase<DiscreteDistribution> {
+    friend class DistributionBase<DiscreteDistribution>;
+
 private:
     /**
      * Number of discrete symbols/categories
@@ -238,18 +240,15 @@ public:
      * @return Sum of all probabilities
      */
     double getProbabilitySum() const {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return cachedSum_;
     }
     double getEntropy() const {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return cachedEntropy_;
     }
     std::size_t getMode() const {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return cachedMode_;
     }
 
@@ -295,8 +294,7 @@ public:
      * Useful after manual probability modifications.
      */
     void normalize() {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         if (cachedSum_ > 0.0) {
             for (double &p : pdf_)
                 p /= cachedSum_;

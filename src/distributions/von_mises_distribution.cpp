@@ -125,16 +125,14 @@ void VonMisesDistribution::updateCache() const noexcept {
 double VonMisesDistribution::getProbability(double value) const {
     if (std::isnan(value) || std::isinf(value))
         return 0.0;
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return std::exp(kappa_ * std::cos(value - mu_) - logNormaliser_);
 }
 
 double VonMisesDistribution::getLogProbability(double value) const noexcept {
     if (std::isnan(value) || std::isinf(value))
         return -std::numeric_limits<double>::infinity();
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return kappa_ * std::cos(value - mu_) - logNormaliser_;
 }
 
@@ -143,8 +141,7 @@ void VonMisesDistribution::getBatchLogProbabilities(std::span<const double> obse
     // Tier 1 — concrete non-virtual loop; inner cos() is the bottleneck.
     // The hot path is: kappa * cos(x - mu) - logNormaliser
     // Both kappa and mu are loop-invariant; compilers can hoist them.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         const double x = observations[i];
         out[i] = (std::isnan(x) || std::isinf(x)) ? -std::numeric_limits<double>::infinity()
@@ -157,8 +154,7 @@ void VonMisesDistribution::getBatchLogProbabilities(std::span<const double> obse
 // ---------------------------------------------------------------------------
 
 double VonMisesDistribution::sample(std::mt19937_64 &rng) const {
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     // Near-uniform case (kappa ≈ 0): sample uniformly on the circle.
     if (kappa_ < 1e-9) {
@@ -210,8 +206,7 @@ double VonMisesDistribution::getCumulativeProbability(double value) const noexce
     if (!std::isfinite(value))
         return std::isnan(value) ? 0.0 : 1.0;
     const double v = wrap_angle(value);
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     // Integrate f(x) from -π to v using trapezoidal rule with 512 steps.
     constexpr int N = 512;

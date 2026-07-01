@@ -19,8 +19,7 @@ double PoissonDistribution::logFactorial(int k) const noexcept {
     if (k < 0)
         return -std::numeric_limits<double>::infinity();
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     if (k <= 12) {
         return std::log(smallFactorials_[k]);
     }
@@ -35,8 +34,7 @@ double PoissonDistribution::getProbability(double value) const {
     if (!isValidCount(value))
         return 0.0;
     const auto k = static_cast<int>(value);
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     // Handle edge cases - use cached exp(-lambda) for efficiency
     if (k == 0) {
@@ -138,8 +136,7 @@ double PoissonDistribution::getLogProbability(double value) const noexcept {
 
     const auto k = static_cast<int>(value);
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double logProb = k * logLambda_ - lambda_ - logFactorial(k);
 
     return logProb;
@@ -164,8 +161,7 @@ double PoissonDistribution::getCumulativeProbability(double k) const noexcept {
     // For very large k or lambda, the cumulative sum becomes computationally expensive
     // and numerically unstable. In such cases, use normal approximation.
     if (kInt > 100 && lambda_ > 100.0) {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         // Normal approximation with continuity correction
         // Use cached sqrt(lambda) for efficiency
         const double z = (static_cast<double>(kInt) + 0.5 - lambda_) * invSqrtLambda_;
@@ -228,8 +224,7 @@ void PoissonDistribution::getBatchLogProbabilities(std::span<const double> obser
     // via Intel SVML or platform-specific math libraries, but not portably
     // without a math-library dependency. A small-k lookup table (k ≤ 20) could
     // serve as a portable partial optimisation.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = PoissonDistribution::getLogProbability(observations[i]);
     }

@@ -23,8 +23,7 @@ namespace libhmm {
 double ParetoDistribution::getProbability(double x) const {
     if (std::isnan(x) || std::isinf(x) || x < xm_)
         return math::ZERO_DOUBLE;
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     // Direct PDF calculation: f(x) = (k * x_m^k) / x^(k+1)
     // Using cached kXmPowK_ = k * x_m^k and kPlus1_ = k + 1 for efficiency
@@ -51,16 +50,14 @@ double ParetoDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return logK_ + kLogXm_ - kPlus1_ * std::log(value);
 }
 
 double ParetoDistribution::getCumulativeProbability(double value) const noexcept {
     if (std::isnan(value) || value < xm_)
         return math::ZERO_DOUBLE;
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     return math::ONE - std::pow(xm_ / value, k_);
 }
@@ -288,8 +285,7 @@ void pareto_logpdf_batch(const double *obs, double *out, std::size_t n, double x
 void ParetoDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                   std::span<double> out) const {
     // Tier 2 — explicit SIMD via simd_kernels_internal.h
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     // logK_ + kLogXm_ is a single scalar constant — compute once.
     detail::pareto_logpdf_batch(observations.data(), out.data(), observations.size(), xm_,
                                 logK_ + kLogXm_, kPlus1_);

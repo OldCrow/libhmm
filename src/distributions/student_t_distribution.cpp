@@ -28,8 +28,7 @@ StudentTDistribution::StudentTDistribution(double degrees_of_freedom, double loc
 }
 
 double StudentTDistribution::getProbability(double value) const {
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     if (!std::isfinite(value))
         return math::ZERO_DOUBLE;
     const double x = value;
@@ -52,8 +51,7 @@ double StudentTDistribution::getProbability(double value) const {
 double StudentTDistribution::getLogProbability(double value) const noexcept {
     if (!std::isfinite(value))
         return -std::numeric_limits<double>::infinity();
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double z = (value - location_) * cached_inv_scale_;
     // Optimized log PDF
     // log(f(x|ν,μ,σ)) = cached_log_normalization - ((ν+1)/2) * log(1 + z²/ν)
@@ -76,8 +74,7 @@ double StudentTDistribution::getCumulativeProbability(double value) const noexce
         return (std::isnan(value) || value < math::ZERO_DOUBLE) ? math::ZERO_DOUBLE : math::ONE;
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double t = (value - location_) * cached_inv_scale_;
 
     // Exact CDF via regularised incomplete beta:
@@ -396,8 +393,7 @@ void StudentTDistribution::getBatchLogProbabilities(std::span<const double> obse
     // so the per-element work is log(1 + t²/ν) — requires vectorised log.
     // Available via Intel SVML, GNU libmvec, or Apple Accelerate vvlog, but
     // not portably without a math-library dependency.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = StudentTDistribution::getLogProbability(observations[i]);
     }

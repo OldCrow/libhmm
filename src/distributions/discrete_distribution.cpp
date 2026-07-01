@@ -126,8 +126,7 @@ double DiscreteDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return cachedLogProbs_[index];
 }
 
@@ -152,8 +151,7 @@ double DiscreteDistribution::getCumulativeProbability(double value) const noexce
         return math::ONE;
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return cachedCDF_[k];
 }
 
@@ -218,8 +216,7 @@ void DiscreteDistribution::getBatchLogProbabilities(std::span<const double> obse
     // the index lookups, but the per-element index-validation branch limits
     // vectorization benefit. The cached log-probability table is already optimal
     // for the scalar case.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = DiscreteDistribution::getLogProbability(observations[i]);
     }
