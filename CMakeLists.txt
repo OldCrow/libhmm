@@ -4,10 +4,27 @@ if(POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
 endif()
 
-# Set macOS deployment target before project() so the SDK and libc++ version
-# floor are established correctly. v4.0.0 requires macOS 13 (Ventura) or later.
+# libhmm v4.x requires macOS 13 Ventura or newer.  Do not force every local
+# build to target the minimum: when CMAKE_OSX_DEPLOYMENT_TARGET is unset, let
+# AppleClang/CMake use the host/compiler default.  This avoids linker warnings
+# when local dependencies such as Homebrew GTest were built for the host macOS
+# version (for example 15.0).  Packagers who need Ventura-compatible binaries
+# should set -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 explicitly.
+set(LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET "13.0")
 if(APPLE)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0")
+    if(DEFINED CMAKE_OSX_DEPLOYMENT_TARGET AND NOT "${CMAKE_OSX_DEPLOYMENT_TARGET}" STREQUAL "")
+        if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET)
+            message(FATAL_ERROR
+                "libhmm v4.x requires CMAKE_OSX_DEPLOYMENT_TARGET >= "
+                "${LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET}; got ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+        endif()
+        message(STATUS "macOS deployment target: ${CMAKE_OSX_DEPLOYMENT_TARGET} "
+                       "(minimum supported: ${LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET})")
+    else()
+        message(STATUS "macOS deployment target: compiler default "
+                       "(minimum supported: ${LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET}; "
+                       "set -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 for Ventura-compatible binaries)")
+    endif()
 endif()
 
 project(libhmm
@@ -135,15 +152,14 @@ if(MSVC)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wpointer-arith")
+    add_compile_options(-Wall -Wextra -Wpedantic -Wpointer-arith)
     # Note: -Wno-deprecated-declarations and -Wno-defaulted-function-deleted removed
     # to surface all warnings. Re-add with justification if specific cases cannot be fixed.
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+    # GCC/Clang build-type defaults (Debug: -g; Release: -O3 -DNDEBUG) are used as-is.
 
     # Position-independent code for shared libraries on Unix platforms
     if(APPLE OR LINUX OR UNIX)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+        add_compile_options(-fPIC)
     endif()
 
     if(APPLE)
