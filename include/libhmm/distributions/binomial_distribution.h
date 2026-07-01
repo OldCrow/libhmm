@@ -18,6 +18,8 @@ namespace libhmm {
  * - Support: k ∈ {0, 1, 2, ..., n}
  */
 class BinomialDistribution : public DistributionBase<BinomialDistribution> {
+    friend class DistributionBase<BinomialDistribution>;
+
 private:
     /** Number of trials n - must be a positive integer */
     int n_{10};
@@ -52,8 +54,7 @@ private:
     double logBinomialCoefficient(int n, int k) const {
         if (k < 0 || k > n)
             return -std::numeric_limits<double>::infinity();
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         const auto un = static_cast<std::size_t>(n);
         const auto uk = static_cast<std::size_t>(k);
         return logFactorialCache_[un] - logFactorialCache_[uk] - logFactorialCache_[un - uk];

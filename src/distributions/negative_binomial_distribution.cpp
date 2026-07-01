@@ -36,8 +36,7 @@ double NegativeBinomialDistribution::getProbability(double value) const {
         return (k == 0) ? math::ONE : math::ZERO_DOUBLE;
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double logCoeff = logGeneralizedBinomialCoefficient(k);
     const double logProb = logCoeff + r_ * logP_ + static_cast<double>(k) * log1MinusP_;
     const double prob = std::exp(logProb);
@@ -248,8 +247,7 @@ double NegativeBinomialDistribution::getLogProbability(double value) const noexc
         return (k == 0) ? math::ZERO_DOUBLE : -std::numeric_limits<double>::infinity();
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double logCoeff = logGeneralizedBinomialCoefficient(k);
     return logCoeff + r_ * logP_ + static_cast<double>(k) * log1MinusP_;
 }
@@ -322,8 +320,7 @@ void NegativeBinomialDistribution::getBatchLogProbabilities(std::span<const doub
     // Tier 2 upgrade requires vectorised generalised log-binomial-coefficient
     // (uses lgamma internally): available via Intel SVML or platform-specific
     // math libraries, but not portably without a math-library dependency.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = NegativeBinomialDistribution::getLogProbability(observations[i]);
     }

@@ -30,6 +30,8 @@ namespace libhmm {
  * - Likelihood ratio tests
  */
 class ChiSquaredDistribution : public DistributionBase<ChiSquaredDistribution> {
+    friend class DistributionBase<ChiSquaredDistribution>;
+
 private:
     /**
      * Degrees of freedom parameter k - must be positive

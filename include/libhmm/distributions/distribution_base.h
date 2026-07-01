@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <mutex>
 #include <cstddef>
 #include <memory>
 #include <span>
@@ -142,12 +143,25 @@ protected:
     // =========================================================================
     // Thread-safe cache management
     //
-    // Use std::atomic<bool> rather than plain mutable bool because the
-    // calculator thread pool can trigger concurrent const reads of the same
-    // distribution. Plain bool would be a data race under concurrent reads
-    // that cause a cache fill.
+    // cacheValid_ is a std::atomic<bool> (not a plain bool) so that the
+    // fast-path check in ensureCache() is a lock-free acquire load visible
+    // to all threads. cacheMutex_ serializes concurrent first-fills: two
+    // threads racing on a cold cache both pass the atomic check, then one
+    // acquires the mutex and fills while the other blocks; the second
+    // re-checks under the lock and skips the fill. After the fill,
+    // markCacheValid() does a release store so subsequent acquire loads
+    // from any thread see all cached fields written by updateCache().
+    //
+    // Memory ordering:
+    //   - isCacheValid() load: acquire — cached values visible before flag
+    //   - markCacheValid() store: release — updateCache() writes visible to readers
+    //   - invalidateCache() store: relaxed — invalidation needs no ordering
+    //
+    // cacheMutex_ is not copied or moved: each object constructs its own
+    // independent mutex via the explicit copy/move constructors below.
     // =========================================================================
     mutable std::atomic<bool> cacheValid_{false};
+    mutable std::mutex cacheMutex_;
 
     /** Mark cache as stale. Call from setters and fit(). */
     void invalidateCache() noexcept { cacheValid_.store(false, std::memory_order_relaxed); }
@@ -159,6 +173,27 @@ protected:
 
     /** Mark cache as valid. Call at end of updateCache(). */
     void markCacheValid() const noexcept { cacheValid_.store(true, std::memory_order_release); }
+
+    // =========================================================================
+    // ensureCache() — CRTP double-checked-locking fill helper
+    //
+    // Replace every `if (!isCacheValid()) updateCache();` in derived-class
+    // const methods with a single `ensureCache();` call. The atomic fast
+    // path avoids lock acquisition once the cache is warm; the mutex
+    // serializes concurrent first-fills so cached fields are never written
+    // by two threads simultaneously.
+    //
+    // Derived-class updateCache() must call markCacheValid() at the end and
+    // must not call ensureCache() itself (would deadlock on cacheMutex_).
+    // =========================================================================
+    void ensureCache() const noexcept {
+        if (!cacheValid_.load(std::memory_order_acquire)) {
+            std::lock_guard<std::mutex> lock(cacheMutex_);
+            if (!cacheValid_.load(std::memory_order_acquire)) {
+                static_cast<const Derived *>(this)->updateCache();
+            }
+        }
+    }
 };
 
 } // namespace libhmm

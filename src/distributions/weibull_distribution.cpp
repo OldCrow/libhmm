@@ -12,8 +12,7 @@ namespace libhmm {
 double WeibullDistribution::getProbability(double value) const {
     if (value < math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value))
         return math::ZERO_DOUBLE;
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     // Handle boundary case
     if (value == math::ZERO_DOUBLE) {
@@ -36,8 +35,7 @@ double WeibullDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     if (value == math::ZERO_DOUBLE)
         return (k_ == math::ONE) ? logK_ - logLambda_ : -std::numeric_limits<double>::infinity();
 
@@ -104,12 +102,14 @@ void weibull_mom_init(double mean, double var, double &k_out, double &lambda_out
         double s1 = 0.0; // Σ w_i x_i^k log(x_i)
         double s2 = 0.0; // Σ w_i x_i^k (log x_i)^2
         for (std::size_t i = 0; i < n; ++i) {
-            const double wxk = (unit_w ? 1.0 : w[i]) * std::exp(k * log_x[i]);
+            // Clamp exponent to avoid std::exp overflow to inf on outlier data.
+            const double exponent = std::clamp(k * log_x[i], -700.0, 700.0);
+            const double wxk = (unit_w ? 1.0 : w[i]) * std::exp(exponent);
             s0 += wxk;
             s1 += wxk * log_x[i];
             s2 += wxk * log_x2[i];
         }
-        if (s0 <= 0.0)
+        if (!std::isfinite(s0) || s0 <= 0.0)
             break;
 
         const double c1 = s1 / s0;               // E_k[log x]
@@ -127,10 +127,16 @@ void weibull_mom_init(double mean, double var, double &k_out, double &lambda_out
             break;
     }
 
+    // Fall back to the MoM seed rather than returning a garbage k.
+    if (!std::isfinite(k) || k <= 0.0)
+        k = init_k;
+
     // λ = (Σ w_i x_i^k / sumW)^(1/k)
     double s0f = 0.0;
-    for (std::size_t i = 0; i < n; ++i)
-        s0f += (unit_w ? 1.0 : w[i]) * std::exp(k * log_x[i]);
+    for (std::size_t i = 0; i < n; ++i) {
+        const double exponent = std::clamp(k * log_x[i], -700.0, 700.0);
+        s0f += (unit_w ? 1.0 : w[i]) * std::exp(exponent);
+    }
     const double lambda = (s0f > 0.0 && sumW > 0.0) ? std::exp(std::log(s0f / sumW) / k) : 1.0;
     return {k, lambda};
 }
@@ -273,8 +279,7 @@ double WeibullDistribution::CDF(double x) const noexcept {
     if (x <= math::ZERO_DOUBLE)
         return math::ZERO_DOUBLE;
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     // CDF(x) = 1 - exp(-(x/λ)^k)
     const double xTimesInvLambda = x * invLambda_; // Use cached reciprocal
 
@@ -335,8 +340,7 @@ void WeibullDistribution::getBatchLogProbabilities(std::span<const double> obser
     // Intel SVML (_mm512_log_pd + _mm512_pow_pd), but not portably without a
     // math-library dependency. The k=1 (exponential) and k=2 (Rayleigh) special
     // cases eliminate pow and could be handled without SVML.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = WeibullDistribution::getLogProbability(observations[i]);
     }

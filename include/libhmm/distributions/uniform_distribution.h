@@ -25,6 +25,8 @@ namespace libhmm {
  * - Support: x ∈ [a, b]
  */
 class UniformDistribution : public DistributionBase<UniformDistribution> {
+    friend class DistributionBase<UniformDistribution>;
+
 private:
     double a_; ///< Lower bound
     double b_; ///< Upper bound

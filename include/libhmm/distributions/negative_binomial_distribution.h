@@ -26,6 +26,8 @@ namespace libhmm {
  * - Support: k ∈ {0, 1, 2, ...}
  */
 class NegativeBinomialDistribution : public DistributionBase<NegativeBinomialDistribution> {
+    friend class DistributionBase<NegativeBinomialDistribution>;
+
 private:
     /**
      * Number of successes r - must be positive
@@ -83,8 +85,7 @@ private:
             return -std::numeric_limits<double>::infinity();
 
         // Ensure cache is valid
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         // log C(k+r-1, k) = log Γ(k+r) - log Γ(k+1) - log Γ(r)
         //                 = log Γ(k+r) - log k! - log Γ(r)
         const double logGammaKPlusR = std::lgamma(k + r_);

@@ -23,8 +23,7 @@ double BetaDistribution::getProbability(double value) const {
     }
 
     // Update cache if needed
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     // Handle boundary cases - use cached invBeta_
     if (value == math::ZERO_DOUBLE) {
         return (alpha_ == math::ONE) ? invBeta_ : math::ZERO_DOUBLE;
@@ -100,8 +99,7 @@ double BetaDistribution::getLogProbability(double value) const noexcept {
     }
 
     // Update cache if needed
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     // Handle boundary cases carefully
     if (value == 0.0) {
         if (alpha_ == 1.0) {
@@ -369,8 +367,7 @@ void BetaDistribution::getBatchLogProbabilities(std::span<const double> observat
     // Tier 2 upgrade requires vectorised lgamma (log B(α,β) = lgamma(α)+lgamma(β)-lgamma(α+β)):
     // available via Intel SVML or platform-specific math libraries, but not
     // portably available without a dedicated math-library dependency.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = BetaDistribution::getLogProbability(observations[i]);
     }

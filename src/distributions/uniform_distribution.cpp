@@ -44,8 +44,7 @@ double UniformDistribution::getProbability(double val) const {
     if (std::isnan(val) || std::isinf(val))
         return math::ZERO_DOUBLE;
     if (val >= a_ && val <= b_) {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return cached_pdf_;
     }
     return math::ZERO_DOUBLE;
@@ -55,8 +54,7 @@ double UniformDistribution::getLogProbability(double val) const noexcept {
     if (std::isnan(val) || std::isinf(val))
         return -std::numeric_limits<double>::infinity();
     if (val >= a_ && val <= b_) {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return cached_log_pdf_;
     }
     return -std::numeric_limits<double>::infinity();
@@ -170,20 +168,17 @@ void UniformDistribution::setParameters(double a, double b) {
 }
 
 double UniformDistribution::getMean() const {
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return cached_mean_;
 }
 
 double UniformDistribution::getVariance() const {
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return cached_variance_;
 }
 
 double UniformDistribution::getStandardDeviation() const {
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return cached_std_dev_;
 }
 
@@ -227,8 +222,7 @@ void UniformDistribution::getBatchLogProbabilities(std::span<const double> obser
     // blend under -march=native / /arch:AVX512.
     // Tier 2 with explicit intrinsics would replicate that same compare/blend
     // pattern for marginal gain; the auto-vectorized version is near-optimal.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = UniformDistribution::getLogProbability(observations[i]);
     }

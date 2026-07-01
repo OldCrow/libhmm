@@ -19,8 +19,7 @@ using namespace constants;
 double RayleighDistribution::getProbability(double value) const {
     if (value < constants::math::ZERO_DOUBLE || std::isnan(value) || std::isinf(value))
         return constants::math::ZERO_DOUBLE;
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     // PDF calculation
     return (value * invSigmaSquared_) * std::exp(negHalfInvSigmaSquared_ * value * value);
@@ -39,8 +38,7 @@ double RayleighDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     return std::log(value) - constants::math::TWO * logSigma_ +
            negHalfInvSigmaSquared_ * value * value;
 }
@@ -48,8 +46,7 @@ double RayleighDistribution::getLogProbability(double value) const noexcept {
 double RayleighDistribution::getCumulativeProbability(double value) const noexcept {
     if (value < constants::math::ZERO_DOUBLE)
         return constants::math::ZERO_DOUBLE;
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     return constants::math::ONE - std::exp(negHalfInvSigmaSquared_ * value * value);
 }
@@ -165,8 +162,7 @@ void RayleighDistribution::getBatchLogProbabilities(std::span<const double> obse
     // Gaussian tier 2 but with an extra log(x) term. Available via Intel SVML,
     // GNU libmvec, or Apple Accelerate vvlog, but not portably without a
     // math-library dependency.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = RayleighDistribution::getLogProbability(observations[i]);
     }

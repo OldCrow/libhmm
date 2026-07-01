@@ -102,6 +102,34 @@ jobs:
       run: ctest --test-dir build -C Release --output-on-failure --timeout 60 -LE "known_broken|benchmark"
 
   # ---------------------------------------------------------------------------
+  # ThreadSanitizer — catches data races (e.g. concurrent cache fills).
+  # Linux/GCC only: TSan on macOS/AppleClang is unreliable with system libraries.
+  # -O1 keeps stack frames intact for readable reports; BUILD_TESTS=ON required.
+  # ---------------------------------------------------------------------------
+  tsan:
+    name: ThreadSanitizer (Linux / GCC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Configure with TSan
+      run: |
+        cmake -B build-tsan \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          -DCMAKE_CXX_FLAGS="-fsanitize=thread -g -O1" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DBUILD_EXAMPLES=OFF \
+          -DBUILD_TOOLS=OFF
+
+    - name: Build
+      run: cmake --build build-tsan --parallel
+
+    - name: Test
+      run: ctest --test-dir build-tsan -C RelWithDebInfo --output-on-failure --timeout 120 -LE "known_broken|benchmark"
+
+  # ---------------------------------------------------------------------------
   # Quality jobs — ubuntu only; run independently of the build matrix.
   # pre-commit mirrors local hook policy. cppcheck remains a dedicated analysis step.
   # ---------------------------------------------------------------------------

@@ -29,6 +29,8 @@ namespace libhmm {
  * - Robust regression analysis
  */
 class StudentTDistribution : public DistributionBase<StudentTDistribution> {
+    friend class DistributionBase<StudentTDistribution>;
+
 private:
     /**
      * Degrees of freedom parameter ν - must be positive

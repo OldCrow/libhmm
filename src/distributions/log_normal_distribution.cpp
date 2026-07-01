@@ -24,8 +24,7 @@ namespace libhmm {
 double LogNormalDistribution::getProbability(double x) const {
     if (std::isnan(x) || std::isinf(x) || x <= math::ZERO_DOUBLE)
         return math::ZERO_DOUBLE;
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
 
     // Use direct PDF calculation for better performance
     // f(x) = 1/(x*σ*√(2π)) * exp(-½*((ln(x)-μ)/σ)²)
@@ -55,8 +54,7 @@ double LogNormalDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
 
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double logX = std::log(value);
     const double delta = logX - mean_;
     return -logX - logNormalizationConstant_ + negHalfSigmaSquaredInv_ * delta * delta;
@@ -311,8 +309,7 @@ void lognormal_logpdf_batch(const double *obs, double *out, std::size_t n, doubl
 void LogNormalDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                      std::span<double> out) const {
     // Tier 2 — explicit SIMD via simd_kernels_internal.h
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     detail::lognormal_logpdf_batch(observations.data(), out.data(), observations.size(), mean_,
                                    negHalfSigmaSquaredInv_, logNormalizationConstant_);
 }

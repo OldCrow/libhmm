@@ -38,8 +38,7 @@ double BinomialDistribution::getProbability(double value) const {
     }
 
     // Ensure cache is valid
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double logCoeff = logBinomialCoefficient(n_, k);
     const double logProb =
         logCoeff + static_cast<double>(k) * logP_ + static_cast<double>(n_ - k) * log1MinusP_;
@@ -173,8 +172,7 @@ double BinomialDistribution::getLogProbability(double value) const noexcept {
     }
 
     // Ensure cache is valid
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     const double logCoeff = logBinomialCoefficient(n_, k);
     return logCoeff + static_cast<double>(k) * logP_ + static_cast<double>(n_ - k) * log1MinusP_;
 }
@@ -246,8 +244,7 @@ void BinomialDistribution::getBatchLogProbabilities(std::span<const double> obse
     // Tier 2 upgrade requires vectorised log-binomial-coefficient (uses lgamma internally):
     // available via Intel SVML or platform-specific math libraries, but not
     // portably available without a dedicated math-library dependency.
-    if (!isCacheValid())
-        updateCache();
+    ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = BinomialDistribution::getLogProbability(observations[i]);
     }

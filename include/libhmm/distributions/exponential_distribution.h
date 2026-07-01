@@ -24,6 +24,8 @@ namespace libhmm {
  * - Memoryless property: P(X > s+t | X > s) = P(X > t)
  */
 class ExponentialDistribution : public DistributionBase<ExponentialDistribution> {
+    friend class DistributionBase<ExponentialDistribution>;
+
 private:
     /**
      * Rate parameter λ - must be positive
@@ -167,23 +169,19 @@ public:
      * @return Mean value
      */
     double getMean() const noexcept {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return invLambda_;
     }
     double getVariance() const noexcept {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return invLambdaSquared_;
     }
     double getStandardDeviation() const noexcept {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return invLambda_;
     }
     double getScale() const noexcept {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return invLambda_;
     }
 

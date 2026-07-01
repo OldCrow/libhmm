@@ -34,6 +34,8 @@ namespace libhmm {
  * - Communications (fading channel modeling)
  */
 class RayleighDistribution : public DistributionBase<RayleighDistribution> {
+    friend class DistributionBase<RayleighDistribution>;
+
 private:
     /**
      * Scale parameter σ (sigma) - must be positive
@@ -182,13 +184,11 @@ public:
      * @return Mean value
      */
     double getMean() const noexcept {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return mean_;
     }
     double getVariance() const noexcept {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return variance_;
     }
 

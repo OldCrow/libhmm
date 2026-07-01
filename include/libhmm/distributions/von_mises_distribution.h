@@ -38,6 +38,8 @@ namespace libhmm {
  * - Speech / audio phase modelling
  */
 class VonMisesDistribution : public DistributionBase<VonMisesDistribution> {
+    friend class DistributionBase<VonMisesDistribution>;
+
 private:
     /**
      * Mean direction μ — maintained in (−π, π].
@@ -162,8 +164,7 @@ public:
      * 0 = perfectly concentrated; 1 = uniform.
      */
     [[nodiscard]] double getCircularVariance() const noexcept {
-        if (!isCacheValid())
-            updateCache();
+        ensureCache();
         return circularVariance_;
     }
 
