@@ -23,6 +23,7 @@
 
 #include <gtest/gtest.h>
 #include "libhmm/platform/simd_platform.h"
+#include "libhmm/platform/cpu_detection.h"
 
 #include <cstring>
 
@@ -166,4 +167,49 @@ TEST(SimdPlatformConstants, FloatSimdWidthMatchesFunction) {
 
 TEST(SimdPlatformConstants, SimdAlignmentMatchesFunction) {
     EXPECT_EQ(SIMD_ALIGNMENT, optimal_alignment());
+}
+
+// ============================================================================
+// Runtime CPUID detection logical invariants (H-3)
+//
+// Tests the logical consistency of the detection API itself: ISA tier
+// hierarchy, mutual exclusivity of x86 and ARM, and that AVX implies SSE2.
+// Intentionally independent of compile-time LIBHMM_HAS_* macros — those are
+// only defined in TUs compiled with SIMD flags, not in this test binary.
+// ============================================================================
+
+TEST(CpuDetectionConsistency, X86AndNEONAreMutuallyExclusive) {
+    // SSE2 (x86) and NEON (AArch64) cannot both be present on the same CPU.
+    EXPECT_FALSE(libhmm::platform::supports_sse2() && libhmm::platform::supports_neon());
+}
+
+TEST(CpuDetectionConsistency, AVX2ImpliesSSE2) {
+    // AVX2 is a superset of SSE2 — if AVX2 is available, SSE2 must be too.
+    if (libhmm::platform::supports_avx2()) {
+        EXPECT_TRUE(libhmm::platform::supports_sse2());
+    }
+}
+
+TEST(CpuDetectionConsistency, AVX512ImpliesAVX2) {
+    // AVX-512F is a superset of AVX2.
+    if (libhmm::platform::supports_avx512()) {
+        EXPECT_TRUE(libhmm::platform::supports_avx2());
+    }
+}
+
+TEST(CpuDetectionConsistency, AArch64AlwaysReportsNEON) {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    EXPECT_TRUE(libhmm::platform::supports_neon());
+    EXPECT_FALSE(libhmm::platform::supports_sse2());
+    EXPECT_FALSE(libhmm::platform::supports_avx2());
+    EXPECT_FALSE(libhmm::platform::supports_avx512());
+#endif
+}
+
+TEST(CpuDetectionConsistency, X86_64AlwaysReportsSSE2) {
+#if defined(__x86_64__) || defined(_M_X64)
+    // SSE2 is mandated by the x86-64 ABI — all x86-64 CPUs have it.
+    EXPECT_TRUE(libhmm::platform::supports_sse2());
+    EXPECT_FALSE(libhmm::platform::supports_neon());
+#endif
 }

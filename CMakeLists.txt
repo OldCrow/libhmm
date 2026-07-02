@@ -303,6 +303,13 @@ list(APPEND LIBHMM_SIMD_SOURCES
     src/training/map_baum_welch_trainer_mv.cpp
 )
 
+# gaussian_distribution.cpp and exponential_distribution.cpp no longer contain
+# SIMD intrinsics — they call through the runtime dispatch table. Remove them
+# from LIBHMM_SIMD_SOURCES so -march=native is not applied to them.
+list(REMOVE_ITEM LIBHMM_SIMD_SOURCES
+    src/distributions/gaussian_distribution.cpp
+    src/distributions/exponential_distribution.cpp)
+
 if(LIBHMM_BEST_SIMD_FLAGS)
     foreach(simd_src ${LIBHMM_SIMD_SOURCES})
         # COMPILE_OPTIONS replaces the deprecated COMPILE_FLAGS property:
@@ -313,6 +320,66 @@ if(LIBHMM_BEST_SIMD_FLAGS)
         )
     endforeach()
     message(STATUS "Applied SIMD flags to ${CMAKE_CURRENT_SOURCE_DIR}")
+endif()
+
+# =============================================================================
+# Runtime SIMD dispatch infrastructure (H-3)
+#
+# Each ISA tier is compiled into its own TU with a targeted per-file flag
+# (-mavx512f, -mavx2, etc.) so the resulting binary contains code for every
+# compiled tier without requiring -march=native on the consuming machine.
+#
+# simd_dispatch.cpp receives COMPILE_DEFINITIONS (LIBHMM_BUILD_*_KERNEL)
+# indicating which per-ISA TUs were compiled in; it forward-declares and
+# references only those symbols, avoiding linker errors on unavailable tiers.
+# =============================================================================
+
+set(LIBHMM_DISPATCH_DEFINES "")
+# LIBHMM_DISPATCH_SOURCES accumulates new TUs here; appended to LIBHMM_SOURCES
+# AFTER the set(LIBHMM_SOURCES ...) block resets it below.
+set(LIBHMM_DISPATCH_SOURCES
+    src/platform/cpu_detection.cpp
+    src/performance/simd_double_ops_scalar.cpp
+    src/performance/simd_dispatch.cpp
+)
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+    # AArch64: NEON is the mandatory baseline — no extra compile flag needed.
+    list(APPEND LIBHMM_DISPATCH_SOURCES src/performance/simd_double_ops_neon.cpp)
+    list(APPEND LIBHMM_DISPATCH_DEFINES "LIBHMM_BUILD_NEON_KERNEL")
+    message(STATUS "Runtime dispatch: NEON (AArch64 baseline)")
+else()
+    # x86/x64: add each ISA tier if the compiler supports it.
+    # SSE2 is the x86-64 ABI baseline — always available.
+    list(APPEND LIBHMM_DISPATCH_SOURCES src/performance/simd_double_ops_sse2.cpp)
+    list(APPEND LIBHMM_DISPATCH_DEFINES "LIBHMM_BUILD_SSE2_KERNEL")
+    set_source_files_properties(src/performance/simd_double_ops_sse2.cpp
+        PROPERTIES COMPILE_OPTIONS
+            "$<IF:$<CXX_COMPILER_ID:MSVC>,,-msse2>")
+
+    if(COMPILER_SUPPORTS_AVX2)
+        list(APPEND LIBHMM_DISPATCH_SOURCES src/performance/simd_double_ops_avx2.cpp)
+        list(APPEND LIBHMM_DISPATCH_DEFINES "LIBHMM_BUILD_AVX2_KERNEL")
+        set_source_files_properties(src/performance/simd_double_ops_avx2.cpp
+            PROPERTIES COMPILE_OPTIONS
+                "$<IF:$<CXX_COMPILER_ID:MSVC>,/arch:AVX2,-mavx2;-mfma>")
+    endif()
+
+    if(COMPILER_SUPPORTS_AVX512F)
+        list(APPEND LIBHMM_DISPATCH_SOURCES src/performance/simd_double_ops_avx512.cpp)
+        list(APPEND LIBHMM_DISPATCH_DEFINES "LIBHMM_BUILD_AVX512_KERNEL")
+        set_source_files_properties(src/performance/simd_double_ops_avx512.cpp
+            PROPERTIES COMPILE_OPTIONS
+                "$<IF:$<CXX_COMPILER_ID:MSVC>,/arch:AVX512,-mavx512f;-mavx512dq>")
+    endif()
+
+    message(STATUS "Runtime dispatch tiers: ${LIBHMM_DISPATCH_DEFINES}")
+endif()
+
+# Communicate compiled-in tiers to simd_dispatch.cpp only (not globally).
+if(LIBHMM_DISPATCH_DEFINES)
+    set_source_files_properties(src/performance/simd_dispatch.cpp
+        PROPERTIES COMPILE_DEFINITIONS "${LIBHMM_DISPATCH_DEFINES}")
 endif()
 # Note: MSVC with /arch:AVX512 emits 2 × C4244 from <memory> internal templates
 # when AVX-512 register types are instantiated. /external:anglebrackets /external:W0
@@ -370,6 +437,9 @@ set(LIBHMM_SOURCES
     src/distributions/diagonal_gaussian_distribution.cpp
     src/distributions/full_covariance_gaussian_distribution.cpp
 )
+
+# Append runtime dispatch TUs (computed before set() reset above).
+list(APPEND LIBHMM_SOURCES ${LIBHMM_DISPATCH_SOURCES})
 
 # ── Library targets ───────────────────────────────────────────────────────────
 # Sources are compiled once into an OBJECT library, then linked into both a
