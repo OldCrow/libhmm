@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <chrono>
 
@@ -371,6 +372,22 @@ TEST_F(TrainingEdgeCasesTest, ViterbiTrainerAllInvalidSequencesReturnsNegInf) {
     // train() will converge (the window fills with -inf values) but the final
     // log-probability must signal failure (not a pre-training stale value).
     ASSERT_NO_THROW(trainer.train());
+    EXPECT_EQ(trainer.getLastLogProbability(), -std::numeric_limits<double>::infinity());
+}
+// Tr-1b: BaumWelchTrainer should expose -inf when training fails because every
+// sequence has zero probability under the current model.
+TEST_F(TrainingEdgeCasesTest, BaumWelchTrainerAllInvalidSequencesLeavesNegInf) {
+    ObservationLists badObs;
+    ObservationSet seq(3);
+    seq(0) = 99.0;
+    seq(1) = 99.0;
+    seq(2) = 99.0;
+    badObs.push_back(seq);
+
+    BaumWelchTrainer trainer(discreteHmm_.get(), badObs);
+    EXPECT_EQ(trainer.getLastLogProbability(), -std::numeric_limits<double>::infinity());
+
+    EXPECT_THROW(trainer.train(), std::runtime_error);
     EXPECT_EQ(trainer.getLastLogProbability(), -std::numeric_limits<double>::infinity());
 }
 

@@ -2,6 +2,7 @@
 #include "libhmm/math/bessel.h"
 #include "libhmm/math/constants.h"
 #include "libhmm/io/json_utils.h"
+#include "libhmm/performance/simd_double_ops.h" // runtime dispatch
 
 #include <cmath>
 #include <iomanip>
@@ -138,15 +139,9 @@ double VonMisesDistribution::getLogProbability(double value) const noexcept {
 
 void VonMisesDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
-    // Tier 1 — concrete non-virtual loop; inner cos() is the bottleneck.
-    // The hot path is: kappa * cos(x - mu) - logNormaliser
-    // Both kappa and mu are loop-invariant; compilers can hoist them.
     ensureCache();
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        const double x = observations[i];
-        out[i] = (std::isnan(x) || std::isinf(x)) ? -std::numeric_limits<double>::infinity()
-                                                  : kappa_ * std::cos(x - mu_) - logNormaliser_;
-    }
+    performance::get_double_vec_ops().vonmises_batch(
+        observations.data(), out.data(), observations.size(), mu_, kappa_, logNormaliser_);
 }
 
 // ---------------------------------------------------------------------------

@@ -60,9 +60,13 @@ public:
 
     /** @brief Execute one full EM pass, updating the HMM in place. */
     void train() override;
+    /** @return Total E-step log-probability from the last train() call. */
+    [[nodiscard]] double getLastLogProbability() const noexcept { return lastLogProb_; }
 
 private:
     static constexpr double LOG_ZERO = detail::LOG_ZERO;
+
+    double lastLogProb_{-std::numeric_limits<double>::infinity()};
 
     // -------------------------------------------------------------------------
     // Emission accumulator types
@@ -95,13 +99,13 @@ private:
      * (emission data/weights, π numerator, transition denominator) and
      * xi statistics (expected transition counts) into @p bufs.
      *
-     * @return true if the sequence contributed (finite log-probability);
-     *         false if the sequence was skipped (empty or zero probability).
+     * @return finite log-probability if the sequence contributed; -∞ if the
+     *         sequence was skipped (empty or zero probability).
      */
-    [[nodiscard]] static bool accum_one_sequence(const HmmType &hmm, const SeqType &obs,
-                                                 std::size_t N,
-                                                 const std::vector<double> &logTransT,
-                                                 bool hasZeroTransitions, EStepBuffers &bufs);
+    [[nodiscard]] static double accum_one_sequence(const HmmType &hmm, const SeqType &obs,
+                                                   std::size_t N,
+                                                   const std::vector<double> &logTransT,
+                                                   bool hasZeroTransitions, EStepBuffers &bufs);
 
     /**
      * @brief Accumulate expected transition counts (xi) for one sequence.
@@ -144,6 +148,7 @@ template <typename Obs>
 void BasicBaumWelchTrainer<Obs>::train() {
     HmmType &hmm = this->getHmmRef();
     const std::size_t N = hmm.getNumStatesModern();
+    lastLogProb_ = -std::numeric_limits<double>::infinity();
 
     std::vector<double> logTransT(N * N);
     bool hasZeroTransitions = false;
@@ -170,15 +175,20 @@ void BasicBaumWelchTrainer<Obs>::train() {
 
     EStepBuffers bufs{emisAccum, emisWts, piNum, transDen, transNumT};
     std::size_t validSeqs = 0;
+    double totalLogProb = 0.0;
     for (const auto &obs : this->getObservationLists()) {
-        if (accum_one_sequence(hmm, obs, N, logTransT, hasZeroTransitions, bufs))
+        const double logP = accum_one_sequence(hmm, obs, N, logTransT, hasZeroTransitions, bufs);
+        if (std::isfinite(logP)) {
+            totalLogProb += logP;
             ++validSeqs;
+        }
     }
 
     if (validSeqs == 0) {
         throw std::runtime_error("BaumWelchTrainer: no valid observation sequences "
                                  "(all had zero probability under the current model)");
     }
+    lastLogProb_ = totalLogProb;
 
     // Diagnostic: transDen[i] accumulates gamma only for t < T-1, so
     // length-1 sequences contribute nothing.  If all sequences had T=1,
@@ -213,18 +223,18 @@ void BasicBaumWelchTrainer<Obs>::train() {
 // ---------------------------------------------------------------------------
 
 template <typename Obs>
-bool BasicBaumWelchTrainer<Obs>::accum_one_sequence(const HmmType &hmm, const SeqType &obs,
-                                                    std::size_t N,
-                                                    const std::vector<double> &logTransT,
-                                                    bool hasZeroTransitions, EStepBuffers &bufs) {
+double BasicBaumWelchTrainer<Obs>::accum_one_sequence(const HmmType &hmm, const SeqType &obs,
+                                                      std::size_t N,
+                                                      const std::vector<double> &logTransT,
+                                                      bool hasZeroTransitions, EStepBuffers &bufs) {
     const std::size_t T = ObsSeqTraits<Obs>::sequence_length(obs);
     if (T == 0)
-        return false;
+        return -std::numeric_limits<double>::infinity();
 
     BasicForwardBackwardCalculator<Obs> fbc(hmm, obs);
     const double logP = fbc.getLogProbability();
     if (!std::isfinite(logP))
-        return false;
+        return -std::numeric_limits<double>::infinity();
 
     const double *alphaData = fbc.getLogForwardVariables().data();
     const double *betaData = fbc.getLogBackwardVariables().data();
@@ -253,7 +263,7 @@ bool BasicBaumWelchTrainer<Obs>::accum_one_sequence(const HmmType &hmm, const Se
     // Reuse the FBC's emission buffer — avoids a second emission evaluation.
     accumulate_xi(alphaData, betaData, fbc.getLogEmitByTime(), logTransT, logP, T, N,
                   hasZeroTransitions, bufs.transNumT);
-    return true;
+    return logP;
 }
 
 // ---------------------------------------------------------------------------

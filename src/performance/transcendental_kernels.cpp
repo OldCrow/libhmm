@@ -9,12 +9,12 @@
 //   NEON     2-wide float64x2_t
 //   scalar   tail and portable fallback
 //
-// Vector exp helpers (k_exp_pd_*) and log helpers (k_log_pd_*, k_log1p_pd_*) are defined
-// in simd_kernels_internal.h -- the single source of truth shared with
-// Tier-2 distribution TUs (log_normal_distribution.cpp, pareto_distribution.cpp).
+// Vector exp/log/log1p helpers sourced from simd_math_helpers.h (SLEEF-based,
+// < 1 ULP for exp/log). Replaces simd_kernels_internal.h (older polynomial).
+// Using-declaration brings log_pd / exp_pd / log1p_pd into scope below.
 
 #include "libhmm/performance/transcendental_kernels.h"
-#include "libhmm/detail/simd_kernels_internal.h"
+#include "libhmm/detail/simd_math_helpers.h"
 #include "libhmm/math/constants.h"
 #include "libhmm/platform/simd_platform.h"
 
@@ -26,6 +26,7 @@
 namespace libhmm {
 namespace performance {
 namespace detail {
+using namespace libhmm::detail::simd; // exp_pd, log_pd, log1p_pd
 
 namespace {
 
@@ -154,7 +155,7 @@ double TranscendentalKernels::sum_exp_sum2_minus_max(const double *a, const doub
             __m512d va = _mm512_loadu_pd(a + i);
             __m512d vb = _mm512_loadu_pd(b + i);
             __m512d term = _mm512_sub_pd(_mm512_add_pd(va, vb), vmaxv);
-            vsum = _mm512_add_pd(vsum, kernels::k_exp_pd_avx512(term));
+            vsum = _mm512_add_pd(vsum, exp_pd(term));
         }
         sum += _mm512_reduce_add_pd(vsum);
     }
@@ -168,7 +169,7 @@ double TranscendentalKernels::sum_exp_sum2_minus_max(const double *a, const doub
             __m256d va = _mm256_loadu_pd(a + i);
             __m256d vb = _mm256_loadu_pd(b + i);
             __m256d term = _mm256_sub_pd(_mm256_add_pd(va, vb), vmaxv);
-            vsum = _mm256_add_pd(vsum, kernels::k_exp_pd_avx(term));
+            vsum = _mm256_add_pd(vsum, exp_pd(term));
         }
         sum += hadd_pd_avx(vsum);
     }
@@ -182,7 +183,7 @@ double TranscendentalKernels::sum_exp_sum2_minus_max(const double *a, const doub
             __m128d va = _mm_loadu_pd(a + i);
             __m128d vb = _mm_loadu_pd(b + i);
             __m128d term = _mm_sub_pd(_mm_add_pd(va, vb), vmaxv);
-            vsum = _mm_add_pd(vsum, kernels::k_exp_pd_sse2(term));
+            vsum = _mm_add_pd(vsum, exp_pd(term));
         }
         sum += hadd_pd_sse2(vsum);
     }
@@ -196,7 +197,7 @@ double TranscendentalKernels::sum_exp_sum2_minus_max(const double *a, const doub
             float64x2_t va = vld1q_f64(a + i);
             float64x2_t vb = vld1q_f64(b + i);
             float64x2_t term = vsubq_f64(vaddq_f64(va, vb), vmaxv);
-            vsum = vaddq_f64(vsum, kernels::k_exp_pd_neon(term));
+            vsum = vaddq_f64(vsum, exp_pd(term));
         }
         sum += vaddvq_f64(vsum);
     }
@@ -302,7 +303,7 @@ double TranscendentalKernels::sum_exp_sum3_minus_max(const double *a, const doub
             __m512d vb = _mm512_loadu_pd(b + i);
             __m512d vc = _mm512_loadu_pd(c + i);
             __m512d term = _mm512_sub_pd(_mm512_add_pd(_mm512_add_pd(va, vb), vc), vmaxv);
-            vsum = _mm512_add_pd(vsum, kernels::k_exp_pd_avx512(term));
+            vsum = _mm512_add_pd(vsum, exp_pd(term));
         }
         sum += _mm512_reduce_add_pd(vsum);
     }
@@ -317,7 +318,7 @@ double TranscendentalKernels::sum_exp_sum3_minus_max(const double *a, const doub
             __m256d vb = _mm256_loadu_pd(b + i);
             __m256d vc = _mm256_loadu_pd(c + i);
             __m256d term = _mm256_sub_pd(_mm256_add_pd(_mm256_add_pd(va, vb), vc), vmaxv);
-            vsum = _mm256_add_pd(vsum, kernels::k_exp_pd_avx(term));
+            vsum = _mm256_add_pd(vsum, exp_pd(term));
         }
         sum += hadd_pd_avx(vsum);
     }
@@ -332,7 +333,7 @@ double TranscendentalKernels::sum_exp_sum3_minus_max(const double *a, const doub
             __m128d vb = _mm_loadu_pd(b + i);
             __m128d vc = _mm_loadu_pd(c + i);
             __m128d term = _mm_sub_pd(_mm_add_pd(_mm_add_pd(va, vb), vc), vmaxv);
-            vsum = _mm_add_pd(vsum, kernels::k_exp_pd_sse2(term));
+            vsum = _mm_add_pd(vsum, exp_pd(term));
         }
         sum += hadd_pd_sse2(vsum);
     }
@@ -347,7 +348,7 @@ double TranscendentalKernels::sum_exp_sum3_minus_max(const double *a, const doub
             float64x2_t vb = vld1q_f64(b + i);
             float64x2_t vc = vld1q_f64(c + i);
             float64x2_t term = vsubq_f64(vaddq_f64(vaddq_f64(va, vb), vc), vmaxv);
-            vsum = vaddq_f64(vsum, kernels::k_exp_pd_neon(term));
+            vsum = vaddq_f64(vsum, exp_pd(term));
         }
         sum += vaddvq_f64(vsum);
     }
@@ -377,7 +378,7 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
             __m512d va = _mm512_loadu_pd(a + i);
             __m512d vb = _mm512_loadu_pd(b + i);
             __m512d arg = _mm512_add_pd(_mm512_add_pd(va, vb), vbias);
-            vd = _mm512_add_pd(vd, kernels::k_exp_pd_avx512(arg));
+            vd = _mm512_add_pd(vd, exp_pd(arg));
             _mm512_storeu_pd(dst + i, vd);
         }
     }
@@ -391,7 +392,7 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
             __m256d va = _mm256_loadu_pd(a + i);
             __m256d vb = _mm256_loadu_pd(b + i);
             __m256d arg = _mm256_add_pd(_mm256_add_pd(va, vb), vbias);
-            vd = _mm256_add_pd(vd, kernels::k_exp_pd_avx(arg));
+            vd = _mm256_add_pd(vd, exp_pd(arg));
             _mm256_storeu_pd(dst + i, vd);
         }
     }
@@ -405,7 +406,7 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
             __m128d va = _mm_loadu_pd(a + i);
             __m128d vb = _mm_loadu_pd(b + i);
             __m128d arg = _mm_add_pd(_mm_add_pd(va, vb), vbias);
-            vd = _mm_add_pd(vd, kernels::k_exp_pd_sse2(arg));
+            vd = _mm_add_pd(vd, exp_pd(arg));
             _mm_storeu_pd(dst + i, vd);
         }
     }
@@ -419,7 +420,7 @@ void TranscendentalKernels::accumulate_exp_sum2_bias(double *dst, const double *
             float64x2_t va = vld1q_f64(a + i);
             float64x2_t vb = vld1q_f64(b + i);
             float64x2_t arg = vaddq_f64(vaddq_f64(va, vb), vbias);
-            vd = vaddq_f64(vd, kernels::k_exp_pd_neon(arg));
+            vd = vaddq_f64(vd, exp_pd(arg));
             vst1q_f64(dst + i, vd);
         }
     }
@@ -443,7 +444,7 @@ void TranscendentalKernels::log1p_inplace(std::span<double> values) noexcept {
     {
         for (; i + 8 <= size; i += 8) {
             __m512d v = _mm512_loadu_pd(data + i);
-            v = kernels::k_log1p_pd_avx512(v);
+            v = log1p_pd(v);
             _mm512_storeu_pd(data + i, v);
         }
     }
@@ -453,7 +454,7 @@ void TranscendentalKernels::log1p_inplace(std::span<double> values) noexcept {
     {
         for (; i + 4 <= size; i += 4) {
             __m256d v = _mm256_loadu_pd(data + i);
-            v = kernels::k_log1p_pd_avx(v);
+            v = log1p_pd(v);
             _mm256_storeu_pd(data + i, v);
         }
     }
@@ -463,7 +464,7 @@ void TranscendentalKernels::log1p_inplace(std::span<double> values) noexcept {
     {
         for (; i + 2 <= size; i += 2) {
             __m128d v = _mm_loadu_pd(data + i);
-            v = kernels::k_log1p_pd_sse2(v);
+            v = log1p_pd(v);
             _mm_storeu_pd(data + i, v);
         }
     }
@@ -473,7 +474,7 @@ void TranscendentalKernels::log1p_inplace(std::span<double> values) noexcept {
     {
         for (; i + 2 <= size; i += 2) {
             float64x2_t v = vld1q_f64(data + i);
-            v = kernels::k_log1p_pd_neon(v);
+            v = log1p_pd(v);
             vst1q_f64(data + i, v);
         }
     }

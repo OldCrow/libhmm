@@ -43,8 +43,11 @@ if(NOT GTest_FOUND AND NOT TARGET gtest)
     # the build log stays clean for warnings we actually own.
     foreach(_gt_target gtest gtest_main gmock gmock_main)
         if(TARGET ${_gt_target})
-            target_compile_options(${_gt_target} PRIVATE
-                $<$<CXX_COMPILER_ID:AppleClang>:-Wno-character-conversion>)
+        target_compile_options(${_gt_target} PRIVATE
+                # -Wno-unknown-warning-option must come first: AppleClang (which lags
+                # upstream Clang) does not recognise -Wno-character-conversion and
+                # would itself warn about the unknown flag without this prefix.
+                $<$<CXX_COMPILER_ID:AppleClang>:-Wno-unknown-warning-option;-Wno-character-conversion>)
         endif()
     endforeach()
 endif()
@@ -107,6 +110,8 @@ if(GTest_FOUND OR TARGET gtest)
             $<$<CXX_COMPILER_ID:MSVC>:/W4;/permissive->
             $<$<OR:$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:Clang>>:
                 -Wall;-Wextra;-Wpedantic;-Wno-sign-compare>
+            $<$<OR:$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:Clang>>:
+                -Wno-unknown-warning-option;-Wno-character-conversion>
             $<$<CXX_COMPILER_ID:GNU>:-Wall;-Wextra;-Wpedantic>)
         add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
         set_tests_properties(${TARGET_NAME} PROPERTIES

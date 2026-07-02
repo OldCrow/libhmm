@@ -1,5 +1,6 @@
 #include "libhmm/distributions/rayleigh_distribution.h"
 #include "libhmm/io/json_utils.h"
+#include "libhmm/performance/simd_double_ops.h" // runtime dispatch
 // Header already includes: <iostream>, <cmath>, <cassert>, <stdexcept>, <sstream>, <iomanip> via common.h
 #include <limits>  // For std::numeric_limits (not in common.h)
 #include <numeric> // For std::accumulate
@@ -154,18 +155,12 @@ std::istream &operator>>(std::istream &is, RayleighDistribution &distribution) {
 
 void RayleighDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
-    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native. Index loop preserved: a std::ranges::transform
-    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
-    // Tier 2 upgrade requires vectorised log(x): inner loop is
-    // log(x) - 2*log(σ) + negHalfInvSigmaSquared_*x² — structurally close to
-    // Gaussian tier 2 but with an extra log(x) term. Available via Intel SVML,
-    // GNU libmvec, or Apple Accelerate vvlog, but not portably without a
-    // math-library dependency.
     ensureCache();
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        out[i] = RayleighDistribution::getLogProbability(observations[i]);
-    }
+    // inv2sigma_sq = 1/(2σ²) = -negHalfInvSigmaSquared_ (negate cached negative value)
+    // log_norm = -2*log(σ)
+    performance::get_double_vec_ops().rayleigh_batch(observations.data(), out.data(),
+                                                     observations.size(), -negHalfInvSigmaSquared_,
+                                                     -2.0 * logSigma_);
 }
 
 std::string RayleighDistribution::to_json() const {

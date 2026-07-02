@@ -1,5 +1,6 @@
 #include "libhmm/distributions/weibull_distribution.h"
 #include "libhmm/io/json_utils.h"
+#include "libhmm/performance/simd_double_ops.h" // runtime dispatch
 // Header already includes: <iostream>, <sstream>, <iomanip>, <cmath>, <cassert>, <stdexcept> via common.h
 #include <algorithm> // For std::max, std::min (exists in common.h, included for clarity)
 #include <numeric>   // For std::accumulate (not in common.h)
@@ -332,18 +333,12 @@ std::istream &operator>>(std::istream &is, WeibullDistribution &distribution) {
 
 void WeibullDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                    std::span<double> out) const {
-    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native. Index loop preserved: a std::ranges::transform
-    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
-    // Tier 2 upgrade requires both vectorised log(x) and vectorised pow(x, k):
-    // inner loop is log(k) - k*log(λ) + (k-1)*log(x) - (x/λ)^k. Available via
-    // Intel SVML (_mm512_log_pd + _mm512_pow_pd), but not portably without a
-    // math-library dependency. The k=1 (exponential) and k=2 (Rayleigh) special
-    // cases eliminate pow and could be handled without SVML.
     ensureCache();
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        out[i] = WeibullDistribution::getLogProbability(observations[i]);
-    }
+    // log_norm = log(k) - k*log(λ);  neg_k_log_lambda = -k*log(λ)
+    // pow term: exp(k*log(x) + neg_k_log_lambda) = exp(k*(log(x) - log(λ))) = (x/λ)^k
+    performance::get_double_vec_ops().weibull_batch(observations.data(), out.data(),
+                                                    observations.size(), kMinus1_, k_,
+                                                    logK_ - k_ * logLambda_, -k_ * logLambda_);
 }
 
 std::string WeibullDistribution::to_json() const {

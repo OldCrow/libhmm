@@ -1,5 +1,6 @@
 #include "libhmm/distributions/student_t_distribution.h"
 #include "libhmm/io/json_utils.h"
+#include "libhmm/performance/simd_double_ops.h" // runtime dispatch
 #include "libhmm/math/psi_functions.h"
 #include <algorithm>
 #include <limits>
@@ -387,16 +388,10 @@ void StudentTDistribution::updateCache() const noexcept {
 
 void StudentTDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
-    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native / /arch:AVX512.
-    // Tier 2 upgrade: the log-normalisation constant is precomputed in the cache,
-    // so the per-element work is log(1 + t²/ν) — requires vectorised log.
-    // Available via Intel SVML, GNU libmvec, or Apple Accelerate vvlog, but
-    // not portably without a math-library dependency.
     ensureCache();
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        out[i] = StudentTDistribution::getLogProbability(observations[i]);
-    }
+    performance::get_double_vec_ops().student_t_batch(
+        observations.data(), out.data(), observations.size(), location_, cached_inv_scale_,
+        cached_half_nu_plus_one_, cached_log_normalization_, 1.0 / degrees_of_freedom_);
 }
 
 std::string StudentTDistribution::to_json() const {

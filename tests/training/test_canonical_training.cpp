@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include "libhmm/calculators/basic_forward_backward_calculator.h"
 #include "libhmm/training/baum_welch_trainer.h"
 #include "libhmm/training/viterbi_trainer.h"
 #include "libhmm/training/segmental_kmeans_trainer.h"
@@ -6,6 +7,7 @@
 #include "libhmm/distributions/gaussian_distribution.h"
 #include "libhmm/distributions/discrete_distribution.h"
 #include <cmath>
+#include <limits>
 #include <memory>
 
 using namespace libhmm;
@@ -161,6 +163,21 @@ TEST(BaumWelchTrainerTest, TrainPreservesHmmValidity) {
     BaumWelchTrainer trainer(hmm.get(), obs);
     trainer.train();
     EXPECT_NO_THROW(hmm->validate());
+}
+TEST(BaumWelchTrainerTest, ExposesLastLogProbability) {
+    auto hmm = makeDiscreteHmm();
+    auto obs = makeDiscreteObs();
+    double expectedLogProb = 0.0;
+    for (const auto &seq : obs) {
+        BasicForwardBackwardCalculator<double> fbc(*hmm, seq);
+        expectedLogProb += fbc.getLogProbability();
+    }
+
+    BaumWelchTrainer trainer(hmm.get(), obs);
+    EXPECT_EQ(trainer.getLastLogProbability(), -std::numeric_limits<double>::infinity());
+
+    ASSERT_NO_THROW(trainer.train());
+    EXPECT_NEAR(trainer.getLastLogProbability(), expectedLogProb, 1e-10);
 }
 
 TEST(BaumWelchTrainerTest, MultipleRoundsStayValid) {

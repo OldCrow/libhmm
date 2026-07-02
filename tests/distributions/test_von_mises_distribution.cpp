@@ -220,7 +220,10 @@ TEST(VonMisesDistribution, BatchMatchesScalar) {
 
     d.getBatchLogProbabilities(obs, out);
     for (std::size_t i = 0; i < obs.size(); ++i)
-        EXPECT_NEAR(out[i], d.getLogProbability(obs[i]), 1e-12) << "i=" << i;
+        // 7-term Horner cos has max error ~2e-10; use 1e-9 so the test is
+        // robust across all ISA tiers (SSE2/AVX2/AVX-512/NEON) while still
+        // catching gross numerical errors.
+        EXPECT_NEAR(out[i], d.getLogProbability(obs[i]), 1e-9) << "i=" << i;
 }
 
 // ============================================================================

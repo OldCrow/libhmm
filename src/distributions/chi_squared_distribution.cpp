@@ -1,6 +1,7 @@
 #include "libhmm/distributions/chi_squared_distribution.h"
 #include "libhmm/io/json_utils.h"
 #include "libhmm/math/weighted_stats.h"
+#include "libhmm/performance/simd_double_ops.h" // runtime dispatch
 #include <algorithm>
 #include <span>
 
@@ -156,17 +157,10 @@ std::istream &operator>>(std::istream &is, ChiSquaredDistribution &dist) {
 
 void ChiSquaredDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                       std::span<double> out) const {
-    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native. Index loop preserved: a std::ranges::transform
-    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
-    // Tier 2 upgrade requires vectorised lgamma (the log-normalisation constant
-    // lgamma(k/2) is precomputed in the cache, but the per-element (k/2-1)*log(x)
-    // term needs vectorised log(x)): available via Intel SVML or platform-specific
-    // math libraries, but not portably available without a math-library dependency.
     ensureCache();
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        out[i] = ChiSquaredDistribution::getLogProbability(observations[i]);
-    }
+    performance::get_double_vec_ops().chisq_batch(observations.data(), out.data(),
+                                                  observations.size(), cached_half_k_minus_one_,
+                                                  cached_log_normalization_);
 }
 
 std::string ChiSquaredDistribution::to_json() const {
