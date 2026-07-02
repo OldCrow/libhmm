@@ -28,7 +28,7 @@ if(APPLE)
 endif()
 
 project(libhmm
-    VERSION 4.0.4
+    VERSION 4.1.0
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -265,9 +265,10 @@ else()
     endif()
 endif()
 
-# All distribution sources with getBatchLogProbabilities() overrides.
-# Gaussian has explicit SIMD intrinsics (tier 2); all others have concrete
-# non-virtual loops that the compiler can auto-vectorize (tier 1).
+# Distribution sources with getBatchLogProbabilities() overrides that still
+# compile with LIBHMM_BEST_SIMD_FLAGS for compiler auto-vectorization or
+# recurrence helper use. Runtime-dispatched tier-2 distribution kernels live
+# in the per-ISA simd_double_ops_*.cpp TUs below.
 set(LIBHMM_SIMD_SOURCES
     src/distributions/beta_distribution.cpp
     src/distributions/binomial_distribution.cpp
@@ -287,9 +288,8 @@ set(LIBHMM_SIMD_SOURCES
     src/distributions/von_mises_distribution.cpp
 )
 
-# Additional TUs that include detail/simd_kernels_internal.h or transcendental_kernels.h
-# and therefore need LIBHMM_BEST_SIMD_FLAGS to activate the #if LIBHMM_HAS_* cascade.
-# (log_normal and pareto are already in LIBHMM_SIMD_SOURCES above.)
+# Additional TUs that include transcendental_kernels.h and therefore need
+# LIBHMM_BEST_SIMD_FLAGS to activate the #if LIBHMM_HAS_* cascade.
 # Both scalar and MV explicit-instantiation TUs are compiled with SIMD flags so the
 # shared transition recurrence and xi accumulation kernel benefit from vectorisation.
 list(APPEND LIBHMM_SIMD_SOURCES
@@ -303,9 +303,9 @@ list(APPEND LIBHMM_SIMD_SOURCES
     src/training/map_baum_welch_trainer_mv.cpp
 )
 
-# gaussian_distribution.cpp and exponential_distribution.cpp no longer contain
-# SIMD intrinsics — they call through the runtime dispatch table. Remove them
-# from LIBHMM_SIMD_SOURCES so -march=native is not applied to them.
+# Runtime-dispatched distribution wrappers no longer contain SIMD intrinsics;
+# they call through the DoubleVecOps table. Remove them from LIBHMM_SIMD_SOURCES
+# so -march=native is not applied to those wrapper TUs.
 list(REMOVE_ITEM LIBHMM_SIMD_SOURCES
     src/distributions/gaussian_distribution.cpp
     src/distributions/exponential_distribution.cpp)

@@ -3,7 +3,7 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-4.0.4-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Version](https://img.shields.io/badge/Version-4.1.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
 [![Tests](https://img.shields.io/badge/Tests-46%2F46_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
@@ -31,7 +31,7 @@ needs to run *inside* a C++ application or pipeline.
 
 ### Training Algorithms
 
-- **Baum-Welch** — canonical log-space EM; works with any `EmissionDistribution` via weighted `fit()`
+- **Baum-Welch** — canonical log-space EM; works with any `EmissionDistribution` via weighted `fit()` and exposes `getLastLogProbability()` for per-iteration convergence tracking
 - **MAP Baum-Welch** — adds symmetric Dirichlet priors on A, π, and discrete emissions; prevents
   degenerate zero-probability transitions on sparse data. `c = 0` recovers standard MLE exactly.
   Use `computeLogPrior()` for the correct convergence criterion (likelihood alone is not monotone
@@ -150,6 +150,7 @@ hmm.setDistribution(1, std::make_unique<GaussianDistribution>(5.0, 1.5));
 ObservationLists obs = { /* your sequences */ };
 BaumWelchTrainer trainer(&hmm, obs);
 trainer.train();
+double train_log_p = trainer.getLastLogProbability(); // total E-step log-probability
 
 // Evaluate
 ForwardBackwardCalculator fbc(hmm, obs[0]);

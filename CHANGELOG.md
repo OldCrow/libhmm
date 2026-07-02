@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-07-02
+
+SIMD distribution backend expansion and Baum-Welch observability release.
+46/46 standard correctness tests pass. No breaking changes.
+
+### Added
+
+- **`BasicBaumWelchTrainer::getLastLogProbability()`**:
+  exposes the total finite E-step log-probability already computed during `train()`.
+  This lets C++ and binding callers monitor Baum-Welch convergence without running a
+  second Forward-Backward pass after each iteration. The value resets to `-inf` before
+  each `train()` call and remains `-inf` if all sequences have zero probability.
+- **Runtime CPU detection and `DoubleVecOps` dispatch table**:
+  adds runtime selection across scalar, SSE2, AVX2, AVX-512, and AArch64 NEON kernels
+  for distribution batch log-probability backends.
+
+### Changed
+
+- **9 additional scalar distributions upgraded to tier-2 runtime-dispatched SIMD**:
+  LogNormal, Gamma, ChiSquared, Rayleigh, Pareto, Weibull, Beta, StudentT, and
+  VonMises now route `getBatchLogProbabilities()` through `DoubleVecOps`. Combined
+  with Gaussian and Exponential, 11 of 16 scalar distributions are now tier 2.
+- **SIMD math helpers consolidated**:
+  duplicated vector log/exp/cos/log1p implementations were replaced by
+  `include/libhmm/detail/simd_math_helpers.h`, shared by distribution kernels and
+  `TranscendentalKernels`. `include/libhmm/detail/simd_kernels_internal.h` was removed.
+- **Per-ISA SIMD code moved into dedicated translation units**:
+  runtime-dispatched kernels now live in `src/performance/simd_double_ops_*.cpp`, each
+  compiled with the narrow ISA flag it requires rather than inheriting `-march=native`.
+
+### Fixed
+
+- **Small-input SIMD `log1p` precision**:
+  `log1p_pd` now uses an 8-term polynomial path for `|x| < 1e-4`, avoiding the
+  catastrophic cancellation from computing `log(1+x)` when `x` is tiny.
+- **Clean rebuild warnings**:
+  suppresses the external GTest `char8_t` conversion diagnostic for Clang-family test
+  targets and only compiles the 32-bit x86 `detect_sse2()` helper on platforms where
+  it is used.
+
+### Tests
+
+- Added Baum-Welch regression coverage for `getLastLogProbability()` after normal
+  training and after all-invalid training failures.
+- Added SIMD platform consistency coverage for runtime CPU detection.
+- CI passes on Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC, ThreadSanitizer,
+  pre-commit, and cppcheck.
+
+---
+
 ## [4.0.4] - 2026-06-18
 
 Safety, robustness, and build-system cleanup release.

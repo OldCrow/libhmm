@@ -29,7 +29,7 @@
  * Included by Tier-2 distribution TUs, performance kernel TUs
  * (transcendental_kernels.cpp, forward_backward_calculator.cpp,
  * baum_welch_trainer.cpp), and diagnostic tools (simd_inspection.cpp).
- * Also included transitively via simd_kernels_internal.h.
+ * Also included by the shared SIMD math helper header.
  *
  * Features:
  * - Cross-platform SIMD intrinsics inclusion

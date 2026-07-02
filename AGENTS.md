@@ -6,7 +6,7 @@ This file provides project-scoped guidance to AI agents and contributors working
 
 C++20 Hidden Markov Model library. Zero external dependencies (C++20 standard library only). GTest is fetched via `FetchContent` only for the test suite. Produces both a shared (`hmm`) and static (`hmm_static`) library from a single OBJECT target.
 
-`main` is the stable v4 branch (current release: v4.0.4). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
+`main` is the stable v4 branch (current release: v4.1.0). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
 
 ## Session start
 
@@ -137,7 +137,7 @@ Dependencies flow strictly downward:
 | 4a | `calculators/` | `ForwardBackwardCalculator`, `ViterbiCalculator` |
 | 4b | `training/` | `BaumWelchTrainer`, `MapBaumWelchTrainer`, `ViterbiTrainer`, `SegmentalKMeansTrainer` |
 | — | `io/` | JSON (`hmm_json.h`, recommended), legacy XML, `FileIOManager` |
-| — | `performance/` | `TranscendentalKernels` (FB recurrence), `simd_kernels_internal.h` (SIMD math helpers for `TranscendentalKernels`), `fb_recurrence_policy.h`, `simd_double_ops.h` (runtime-dispatch distribution batch kernels) |
+| — | `performance/` | `TranscendentalKernels` (FB recurrence), `detail/simd_math_helpers.h` (shared SIMD math helpers), `fb_recurrence_policy.h`, `simd_double_ops.h` (runtime-dispatch distribution batch kernels) |
 
 `libhmm.h` is the single umbrella include.
 
@@ -157,14 +157,14 @@ SIMD compile flags (`LIBHMM_BEST_SIMD_FLAGS` = `-march=native` on GCC/Clang, CPU
 
 There are two tiers of SIMD implementation:
 
-- **Tier 2 (explicit intrinsics, runtime-dispatched)**: 11 of 16 scalar distributions route `getBatchLogProbabilities` through the `DoubleVecOps` dispatch table (`performance/simd_double_ops.h`). The table is built once at startup via CPUID and caches function pointers into 5 per-ISA TUs (`simd_double_ops_{scalar,sse2,avx2,avx512,neon}.cpp`), each compiled with a targeted flag rather than `-march=native`. The 5 remaining scalar distributions (Discrete, Poisson, Binomial, NegativeBinomial, Uniform) are tier-1 only. `ForwardBackwardCalculator` and `BaumWelchTrainer` also have explicit recurrence kernels via `TranscendentalKernels`, which use a different (compile-time) dispatch path via `simd_kernels_internal.h`.
+- **Tier 2 (explicit intrinsics, runtime-dispatched)**: 11 of 16 scalar distributions route `getBatchLogProbabilities` through the `DoubleVecOps` dispatch table (`performance/simd_double_ops.h`). The table is built once at startup via CPUID and caches function pointers into 5 per-ISA TUs (`simd_double_ops_{scalar,sse2,avx2,avx512,neon}.cpp`), each compiled with a targeted flag rather than `-march=native`. The 5 remaining scalar distributions (Discrete, Poisson, Binomial, NegativeBinomial, Uniform) are tier-1 only. `ForwardBackwardCalculator` and `BaumWelchTrainer` also have explicit recurrence kernels via `TranscendentalKernels`, using the shared helpers in `detail/simd_math_helpers.h`.
 - **Tier 1 (compiler auto-vectorization)**: Five scalar distributions remain tier-1 by design — the same assessment as libstats, which marks them `SIMD deferred` for identical reasons:
     - **Poisson, Binomial, NegativeBinomial**: `lgamma(k)` must be evaluated per element; no portable vectorized lgamma exists without a math-library dependency (SVML, libmvec, or Accelerate vvlgamma). Would become tier-2 if a vectorized lgamma is added to `simd_double_ops_*.cpp`.
     - **Discrete**: per-element integer floor + range check and table lookup by symbol index. Vectorizable in principle via AVX2 gather, but complex index arithmetic and no performance data justifying the effort.
     - **Uniform**: the entire batch evaluates to a single constant (log(1/(b−a))) inside bounds or −∞ outside. Already ~2 instructions per element; SIMD buys nothing.
   MV distributions (`DiagonalGaussian`, `FullCovGaussian`, `IndependentComponents`) call `getLogProbability(row_view(obs, t))` per timestep rather than a batch interface and are not in `LIBHMM_SIMD_SOURCES`.
 
-**Planned cleanup — tracked in GitHub issue #35**: `simd_kernels_internal.h` and `simd_double_ops_*.cpp` contain duplicate implementations of vectorized log/exp/log1p (different polynomial algorithms). The intended fix is to extract the SLEEF-based helpers from the per-ISA distribution TUs into a replacement shared header (`detail/simd_math_helpers.h`), update `TranscendentalKernels` to use the same helpers, then delete `simd_kernels_internal.h`. This also upgrades the FB recurrence exp/log accuracy to SLEEF quality.
+`detail/simd_math_helpers.h` is the single source of truth for vectorized log/exp/cos/log1p helpers shared by the per-ISA distribution kernels and `TranscendentalKernels`. Tiny `log1p` inputs use a polynomial path for accuracy; general inputs reuse the shared vector log helper.
 
 `getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values.
 
