@@ -4,7 +4,7 @@
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-4.0.4-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-47%2F47_Passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-46%2F46_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
@@ -75,8 +75,11 @@ std::cout << "AIC: " << mc.aic << "  BIC: " << mc.bic << "\n";
 `DiagonalGaussianDistribution`, `FullCovarianceGaussianDistribution`, `IndependentComponentsDistribution`
 
 All distributions implement `getBatchLogProbabilities()` for SIMD-accelerated batch evaluation.
-`GaussianDistribution` and `ExponentialDistribution` have explicit AVX-512/AVX2/SSE2/NEON intrinsics (tier 2);
-the remaining scalar distributions use concrete non-virtual loops that the compiler auto-vectorizes under `-march=native`.
+11 of 16 scalar distributions route through a **runtime-dispatched SIMD kernel table** (tier 2)
+selected at startup via CPUID — AVX-512 (8-wide), AVX2 (4-wide), SSE2 (2-wide), NEON (2-wide), scalar.
+The 5 remaining distributions (Discrete, Poisson, Binomial, NegativeBinomial, Uniform) use
+concrete non-virtual loops that the compiler auto-vectorizes under `-march=native` (tier 1);
+explicit SIMD is deferred because `lgamma` per element has no portable vectorized form.
 
 ### I/O
 
@@ -94,9 +97,13 @@ the remaining scalar distributions use concrete non-virtual loops that the compi
 
 ### Performance
 
-- **Compile-time SIMD dispatch**: each machine builds for its own CPU
-  - GCC/Clang: `-march=native` (AVX-512 on capable x86, NEON on AArch64)
-  - MSVC: `/arch:AVX512`, `/arch:AVX2`, or `/arch:AVX` (CPU-verified at configure time)
+- **Runtime SIMD dispatch for distribution kernels**: ISA tier selected at startup via CPUID;
+  the same binary gracefully degrades from AVX-512 to SSE2 or scalar on older CPUs.
+  Each ISA tier is compiled into its own TU with a targeted flag (`-mavx2`, `-mavx512f`, etc.)
+  rather than `-march=native`, so prebuilt binaries are safe to distribute.
+- **`-march=native` for auto-vectorization**: tier-1 distributions and the FB recurrence
+  kernel still use compiler auto-vectorization under the native ISA for that build machine.
+- **MSVC**: `/arch:AVX512`, `/arch:AVX2`, or `/arch:AVX` (CPU-verified at configure time)
 - **Log-space throughout**: no numerical underflow on long sequences
 - **Pre-computed log transition matrices**: amortised once per `compute()` call
 
@@ -189,16 +196,20 @@ std::cout << "Converged: " << precise_trainer.hasConverged() << "\n";
 ```
 libhmm/
 ├── include/libhmm/    # Public headers (layered architecture)
-│   ├── platform/      # Layer 0: SIMD detection
+│   ├── platform/      # Layer 0: SIMD CPU detection (compile-time + runtime CPUID)
 │   ├── math/          # Layer 1: constants, log-space, numerics
 │   ├── linalg/        # Layer 2: Matrix, Vector, ObservationMatrix types
 │   ├── distributions/ # Layer 3: 16 scalar + 3 multivariate distributions
+│   ├── performance/   # Runtime dispatch table (simd_double_ops.h) + FB recurrence policy
 │   ├── basic_hmm.h    # BasicHmm<Obs> template; Hmm and HmmMV aliases
 │   ├── calculators/   # Layer 4: ForwardBackward, Viterbi (scalar + MV)
 │   ├── training/      # Layer 4: BaumWelch, MapBaumWelch, Viterbi, kmeans_init
 │   └── io/            # JSON (hmm_json.h, scalar + MV) + legacy XML I/O
-├── src/               # Implementation (mirrors include/)
-├── tests/             # 47-test GTest suite
+├── src/
+│   ├── distributions/ # Distribution implementations
+│   ├── performance/   # simd_double_ops_{scalar,sse2,avx2,avx512,neon}.cpp + simd_dispatch.cpp
+│   └── platform/      # cpu_detection.cpp (runtime CPUID)
+├── tests/             # 46-test GTest suite
 ├── examples/          # 20 usage demonstrations
 ├── tools/             # simd_inspection, batch_performance, hmm_validator (.json/.xml)
 ├── samples/           # Reference HMM files (two_state_gaussian, casino) in JSON and XML

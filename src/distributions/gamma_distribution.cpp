@@ -1,6 +1,7 @@
 #include "libhmm/distributions/gamma_distribution.h"
 #include "libhmm/io/json_utils.h"
 #include "libhmm/math/psi_functions.h"
+#include "libhmm/performance/simd_double_ops.h" // runtime dispatch
 #include <numeric>
 #include <span>
 
@@ -234,17 +235,10 @@ bool GammaDistribution::operator==(const GammaDistribution &other) const {
 
 void GammaDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                  std::span<double> out) const {
-    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native. Index loop preserved: a std::ranges::transform
-    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
-    // Tier 2 upgrade requires vectorised log(x): the inner loop contains
-    // (k-1)*log(x) - x/θ, which needs a vectorised log — available via Intel SVML,
-    // GNU libmvec, or Apple Accelerate vvlog, but not portably without a
-    // math-library dependency.
     ensureCache();
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        out[i] = GammaDistribution::getLogProbability(observations[i]);
-    }
+    performance::get_double_vec_ops().gamma_batch(observations.data(), out.data(),
+                                                  observations.size(), kMinus1_, 1.0 / theta_,
+                                                  -(kLogTheta_ + logGammaK_));
 }
 
 std::string GammaDistribution::to_json() const {

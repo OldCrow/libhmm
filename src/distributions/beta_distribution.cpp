@@ -1,5 +1,6 @@
 #include "libhmm/distributions/beta_distribution.h"
 #include "libhmm/io/json_utils.h"
+#include "libhmm/performance/simd_double_ops.h" // runtime dispatch
 #include "libhmm/math/psi_functions.h"
 #include "libhmm/math/weighted_stats.h"
 #include <algorithm>
@@ -361,16 +362,9 @@ std::istream &operator>>(std::istream &is, BetaDistribution &distribution) {
 
 void BetaDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                 std::span<double> out) const {
-    // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
-    // terms under -march=native. Index loop preserved: a std::ranges::transform
-    // lambda would add an indirect call boundary that inhibits auto-vectorisation.
-    // Tier 2 upgrade requires vectorised lgamma (log B(α,β) = lgamma(α)+lgamma(β)-lgamma(α+β)):
-    // available via Intel SVML or platform-specific math libraries, but not
-    // portably available without a dedicated math-library dependency.
     ensureCache();
-    for (std::size_t i = 0; i < observations.size(); ++i) {
-        out[i] = BetaDistribution::getLogProbability(observations[i]);
-    }
+    performance::get_double_vec_ops().beta_batch(
+        observations.data(), out.data(), observations.size(), alphaMinus1_, betaMinus1_, -logBeta_);
 }
 
 std::string BetaDistribution::to_json() const {

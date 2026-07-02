@@ -33,11 +33,48 @@ struct DoubleVecOps {
                               double neg_lambda) noexcept;
 
     // -------------------------------------------------------------------------
-    // Generic math primitives — add here as tier-1 distributions are uplifted.
-    // Each new entry requires one function per existing ISA file; no new TUs.
+    // Generic math primitives
     // -------------------------------------------------------------------------
-    // void (*log_batch)(const double *in, double *out, std::size_t n) noexcept;
-    // void (*exp_batch)(const double *in, double *out, std::size_t n) noexcept;
+    /// log(x): x ≤ 0 → −∞, NaN → NaN. SLEEF xlog_u1 core, < 1 ULP.
+    void (*log_batch)(const double *in, double *out, std::size_t n) noexcept;
+    /// exp(x): clamped to [−708, 709.8]. SLEEF-inspired, < 1 ULP.
+    void (*exp_batch)(const double *in, double *out, std::size_t n) noexcept;
+    /// cos(x): all finite x, 7-term Horner, |error| < 2×10⁻¹⁰.
+    void (*cos_batch)(const double *in, double *out, std::size_t n) noexcept;
+    /// log(1+x): accurate for |x| ≪ 1. Implemented as SIMD(1+x) then log core.
+    void (*log1p_batch)(const double *in, double *out, std::size_t n) noexcept;
+
+    // -------------------------------------------------------------------------
+    // Tier-1 distribution kernels (single-pass, inline primitives, no temp buf)
+    // -------------------------------------------------------------------------
+    /// LogNormal: −logNormConst + neg_half_inv_sq*(log(x)−mean_log)²; x≤0 → −∞.
+    void (*lognormal_batch)(const double *obs, double *out, std::size_t n, double mean_log,
+                            double neg_half_inv_sq, double log_norm_const) noexcept;
+    /// Gamma: const_term + (k−1)*log(x) − x/θ; x≤0 → −∞.
+    void (*gamma_batch)(const double *obs, double *out, std::size_t n, double k_minus_1,
+                        double inv_theta, double const_term) noexcept;
+    /// Chi-squared: const_term + (k/2−1)*log(x) − x/2; x≤0 → −∞.
+    void (*chisq_batch)(const double *obs, double *out, std::size_t n, double half_k_minus_1,
+                        double const_term) noexcept;
+    /// Rayleigh: log_norm + log(x) − x²*inv2sigma_sq; x≤0 → −∞.
+    void (*rayleigh_batch)(const double *obs, double *out, std::size_t n, double inv2sigma_sq,
+                           double log_norm) noexcept;
+    /// Pareto: log_norm − (k+1)*log(x); x<xm → −∞.
+    void (*pareto_batch)(const double *obs, double *out, std::size_t n, double k_plus_1, double xm,
+                         double log_norm) noexcept;
+    /// Weibull: log_norm + (k−1)*log(x) − exp(k*log(x)+neg_k_log_lambda); x≤0 → −∞.
+    void (*weibull_batch)(const double *obs, double *out, std::size_t n, double k_minus_1, double k,
+                          double log_norm, double neg_k_log_lambda) noexcept;
+    /// Beta: neg_log_beta + (α−1)*log(x) + (β−1)*log1p(−x); x∉(0,1) → −∞.
+    void (*beta_batch)(const double *obs, double *out, std::size_t n, double alpha_minus_1,
+                       double beta_minus_1, double neg_log_beta) noexcept;
+    /// StudentT: log_norm − half_nu_plus_1*log1p(((x−loc)*inv_scale)²*inv_nu).
+    void (*student_t_batch)(const double *obs, double *out, std::size_t n, double location,
+                            double inv_scale, double half_nu_plus_1, double log_norm,
+                            double inv_nu) noexcept;
+    /// VonMises: κ*cos(x−μ) − log_normaliser; NaN/Inf → −∞.
+    void (*vonmises_batch)(const double *obs, double *out, std::size_t n, double mu, double kappa,
+                           double log_normaliser) noexcept;
 };
 
 /// @brief Returns the runtime-selected dispatch table.

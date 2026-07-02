@@ -70,16 +70,13 @@ bool os_and_cpu_support_avx() noexcept {
     return (xcr0 & 0x6ULL) == 0x6ULL;
 }
 
+#if !defined(__x86_64__) && !defined(_M_X64)
 bool detect_sse2() noexcept {
-    // SSE2 is guaranteed by the x86-64 ABI; always available on 64-bit x86.
-#if defined(__x86_64__) || defined(_M_X64)
-    return true;
-#else
     int info[4] = {};
     run_cpuid(1, 0, info);
     return (info[3] >> 26) & 1; // EDX bit 26: SSE2
-#endif
 }
+#endif
 
 bool detect_avx2() noexcept {
     if (!os_and_cpu_support_avx())

@@ -12,17 +12,20 @@ according to the "Gold Standard" requirements, plus a fit quality survey added i
 All distributions must implement the `EmissionDistribution` abstract interface. New in v3.0:
 
 - ✅ **`getBatchLogProbabilities(std::span<const double> obs, std::span<double> out) const override`**
-  - **Tier 1 (all 16)**: Concrete non-virtual loop using cached parameters directly.
-    Virtual dispatch in the `DistributionBase` default defeats compiler auto-vectorization.
-    The override removes that overhead and allows `-march=native` / `/arch:AVX2` to vectorize.
-  - **Tier 2 (Gaussian, Exponential)**: Explicit SIMD intrinsics via `detail::` free function
-    taking only plain data pointers. AVX-512 (8-wide), AVX2 (4-wide), SSE2 (2-wide), NEON (2-wide),
-    scalar tail. NaN inputs yield `-Inf` to match scalar behaviour.
-  - **Tier 2 upgrade paths for other distributions** are documented inline in each `.cpp` file.
-    Distributions with `log(x)` (LogNormal, Rayleigh, Pareto, Weibull, Gamma) require vectorised log
-    (Intel SVML / GNU libmvec / Apple Accelerate vvlog). Distributions with `lgamma` (Beta,
-    ChiSquared, StudentT, Poisson, Binomial, NegBinomial) require vectorised lgamma. Defer until
-    a portable math-library dependency is chosen.
+  - **Tier 1 (5 distributions)**: Concrete non-virtual loop using cached parameters. The
+    override removes virtual-dispatch overhead so `-march=native` can auto-vectorize the loop.
+    Applies to: Discrete, Poisson, Binomial, NegativeBinomial, Uniform.
+    SIMD is deferred for these: `lgamma` per element (Poisson, Binomial, NegBinomial) has no
+    portable vectorized form; Discrete requires integer gather; Uniform is already ~2 instructions
+    per element with no arithmetic to vectorize.
+  - **Tier 2 (11 distributions)**: Routes through the `DoubleVecOps` runtime dispatch table
+    (`include/libhmm/performance/simd_double_ops.h`), which selects the best ISA at startup via
+    CPUID — AVX-512 (8-wide), AVX2 (4-wide), SSE2 (2-wide), NEON (2-wide), scalar. Each ISA
+    tier is a separate TU compiled with a targeted flag rather than `-march=native`, so prebuilt
+    binaries degrade gracefully on older CPUs rather than SIGILL.
+    Primitives available: `log`, `exp`, `cos`, `log1p` (SLEEF-based, < 1 ULP for log/exp).
+    Applies to: Gaussian, Exponential, LogNormal, Gamma, ChiSquared, Rayleigh, Pareto, Weibull,
+    Beta, StudentT, VonMises.
 
 - ✅ **`fit(std::span<const double> data, std::span<const double> weights) override`**
   - Weighted MLE (or MOM approximation — see Fit Quality section) for the Baum-Welch M-step.
@@ -132,7 +135,7 @@ These converge to a valid local optimum but may arrive at a suboptimal one.
 
 ## Current Status Matrix (16 distributions)
 
-All 16 scalar distributions meet the Gold Standard v4.0 interface. 47/47 tests pass on all platforms.
+All 16 scalar distributions meet the Gold Standard v4.0 interface. 46/46 tests pass on all platforms.
 The 3 MV distributions (DiagonalGaussian, FullCovGaussian, IndependentComponents) implement
 `BasicEmissionDistribution<ObservationVectorView>` and are covered by `test_multivariate_distributions`.
 
@@ -205,11 +208,14 @@ Each distribution `.cpp` file uses `using namespace constants;` inside `namespac
 All numeric literals are replaced with named constants from `libhmm::constants`.
 
 ### Performance tiers
-- Tier 1 (all 16): concrete non-virtual `getBatchLogProbabilities` loop
-- Tier 2 (Gaussian, Exponential): explicit SIMD intrinsics
-- Tier 2 upgrades for other distributions deferred until a portable vectorised math library
-  (log, lgamma) is available
+- **Tier 1 (5)**: Discrete, Poisson, Binomial, NegativeBinomial, Uniform — concrete non-virtual
+  loop; compiler auto-vectorizes under `-march=native`. SIMD permanently deferred: `lgamma` has
+  no portable vectorized form; Discrete needs integer gather; Uniform has trivial per-element work.
+- **Tier 2 (11)**: Gaussian, Exponential, LogNormal, Gamma, ChiSquared, Rayleigh, Pareto,
+  Weibull, Beta, StudentT, VonMises — runtime-dispatched via `DoubleVecOps` CPUID table.
+  Primitives: `log`/`exp`/`cos`/`log1p` (SLEEF-based, < 1 ULP for log/exp; see issue #35
+  for planned consolidation of the duplicate log/exp in `simd_kernels_internal.h`).
 
 ---
 
-*Last updated: 2026-05-13 (libhmm v3.6.0 current; VonMisesDistribution and EM fixes targeting v3.7.0)*
+*Last updated: 2026-07-02 (libhmm v4.0.5; 11/16 scalar distributions tier-2 SIMD-dispatched)*
