@@ -621,7 +621,7 @@ namespace libhmm::detail::simd {
 
     uint64x2_t is_le_zero = vcleq_f64(x, zero);
     uint64x2_t is_inf = vceqq_f64(x, pos_inf);
-    uint64x2_t is_not_nan = vreinterpretq_u64_f64(vceqq_f64(x, x));
+    uint64x2_t is_not_nan = vceqq_f64(x, x);
     uint64x2_t is_nan = veorq_u64(is_not_nan, vdupq_n_u64(~0ULL));
 
     const float64x2_t min_normal = vdupq_n_f64(2.2250738585072014e-308);

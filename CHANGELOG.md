@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.1] - 2026-07-02
+
+AArch64 Linux build fix release. No API changes; no breaking changes.
+
+### Fixed
+
+- **NEON `log_pd` compile failure on GCC/aarch64**:
+  `vceqq_f64(x, x)` already returns `uint64x2_t`; wrapping it in
+  `vreinterpretq_u64_f64` is a type error on GCC 14 for aarch64 Linux.
+  Removed the spurious reinterpret so the NEON SIMD math helpers compile on
+  the linux-aarch64 wheel build.
+
+### Tests
+
+- Re-ran Release build and 46/46 standard correctness tests on macOS x86_64.
+- Added an arm64 Clang syntax smoke check for `detail/simd_math_helpers.h`.
+
+---
+
 ## [4.1.0] - 2026-07-02
 
 SIMD distribution backend expansion and Baum-Welch observability release.
