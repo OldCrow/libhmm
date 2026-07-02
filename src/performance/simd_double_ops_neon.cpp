@@ -318,7 +318,7 @@ void beta_batch_neon(const double *obs, double *out, std::size_t n, double alpha
     for (; i + 2 <= n; i += 2) {
         float64x2_t x = vld1q_f64(obs + i);
         // invalid = x≤0 OR x≥1 OR NaN
-        uint64x2_t is_nan = veorq_u64(vreinterpretq_u64_f64(vceqq_f64(x, x)), all_ones);
+        uint64x2_t is_nan = veorq_u64(vceqq_f64(x, x), all_ones);
         uint64x2_t invalid =
             vorrq_u64(vorrq_u64(vcleq_f64(x, zero_v), vcgeq_f64(x, one_v)), is_nan);
         float64x2_t lx = neon_log_2pd(x);

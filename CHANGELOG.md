@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.2] - 2026-07-02
+
+AArch64 Linux build fix release. No API changes; no breaking changes.
+
+### Fixed
+
+- **Remaining NEON `vceqq_f64` wrapper compile failures**:
+  removed three invalid `vreinterpretq_u64_f64(vceqq_f64(...))` wrappers in
+  `src/performance/simd_double_ops_neon.cpp`. These appeared in the Beta,
+  StudentT, and VonMises batch kernels and were rejected by GCC 14 for aarch64
+  Linux wheel builds.
+
+### Tests
+
+- Re-ran Release build and 46/46 standard correctness tests on macOS x86_64.
+- Re-ran arm64 Clang syntax smoke checks for the NEON SIMD headers and source.
+
+---
+
 ## [4.1.1] - 2026-07-02
 
 AArch64 Linux build fix release. No API changes; no breaking changes.
