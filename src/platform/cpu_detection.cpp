@@ -111,7 +111,11 @@ bool detect_avx512() noexcept {
 // ============================================================================
 
 bool supports_sse2() noexcept {
-#ifdef LIBHMM_CPU_X86
+    // SSE2 is mandated by the x86-64 ABI — always present on 64-bit x86.
+    // Return true directly so static analysis tools can see the invariant.
+#if defined(__x86_64__) || defined(_M_X64)
+    return true;
+#elif defined(LIBHMM_CPU_X86)
     static const bool v = detect_sse2();
     return v;
 #else

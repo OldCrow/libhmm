@@ -53,7 +53,13 @@ void exponential_batch_neon(const double *, double *, std::size_t, double, doubl
 static DoubleVecOps build_table() noexcept {
     DoubleVecOps t{};
 
-    // Start at the lowest tier; each subsequent check overwrites with better.
+#if defined(LIBHMM_BUILD_NEON_KERNEL)
+    // AArch64: NEON is mandatory and the only SIMD tier compiled in.
+    // Assign directly — no scalar overwrite needed.
+    t.gaussian_batch = &detail::gaussian_batch_neon;
+    t.exponential_batch = &detail::exponential_batch_neon;
+#else
+    // x86: start at scalar, overwrite up to the highest CPUID-detected tier.
     t.gaussian_batch = &detail::gaussian_batch_scalar;
     t.exponential_batch = &detail::exponential_batch_scalar;
 
@@ -63,26 +69,19 @@ static DoubleVecOps build_table() noexcept {
         t.exponential_batch = &detail::exponential_batch_sse2;
     }
 #endif
-
 #if defined(LIBHMM_BUILD_AVX2_KERNEL)
     if (libhmm::platform::supports_avx2()) {
         t.gaussian_batch = &detail::gaussian_batch_avx2;
         t.exponential_batch = &detail::exponential_batch_avx2;
     }
 #endif
-
 #if defined(LIBHMM_BUILD_AVX512_KERNEL)
     if (libhmm::platform::supports_avx512()) {
         t.gaussian_batch = &detail::gaussian_batch_avx512;
         t.exponential_batch = &detail::exponential_batch_avx512;
     }
 #endif
-
-    // AArch64: NEON is always available; unconditionally takes precedence over scalar.
-#if defined(LIBHMM_BUILD_NEON_KERNEL)
-    t.gaussian_batch = &detail::gaussian_batch_neon;
-    t.exponential_batch = &detail::exponential_batch_neon;
-#endif
+#endif // LIBHMM_BUILD_NEON_KERNEL
 
     return t;
 }
