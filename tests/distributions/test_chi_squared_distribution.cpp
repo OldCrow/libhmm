@@ -139,19 +139,8 @@ TEST(ChiSquaredDistributionTest, Fitting) {
 TEST(ChiSquaredDistributionTest, ParameterValidation) {
 
     // Test invalid constructor parameters
-    try {
-        ChiSquaredDistribution chi_dist(0.0); // Zero degrees of freedom
-        ADD_FAILURE();                        // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
-
-    try {
-        ChiSquaredDistribution chi_dist(-1.0); // Negative degrees of freedom
-        ADD_FAILURE();                         // Should not reach here
-    } catch (const std::invalid_argument &) {
-        // Expected behavior
-    }
+    EXPECT_THROW(ChiSquaredDistribution(0.0), std::invalid_argument);  // zero df
+    EXPECT_THROW(ChiSquaredDistribution(-1.0), std::invalid_argument); // negative df
 
     // Test invalid parameters with NaN and infinity
     double nan_val = std::numeric_limits<double>::quiet_NaN();
@@ -519,6 +508,53 @@ TEST(ChiSquaredDistributionTest, CDFAccuracy) {
         EXPECT_EQ(d.getCumulativeProbability(-1.0), 0.0);
         EXPECT_GT(d.getCumulativeProbability(1e6), 1.0 - 1e-9);
     }
+}
+
+// =============================================================================
+// Tests added to close L-5 audit gap: weighted fit, batch log-prob, JSON type.
+// =============================================================================
+
+TEST(ChiSquaredDistributionTest, WeightedFit) {
+    // Weighted MOM estimator: k̂ = Σ(w_i * x_i) / Σw_i
+    ChiSquaredDistribution chi;
+
+    // Equal weights: weighted mean == sample mean.
+    std::vector<double> data = {2.0, 4.0, 6.0, 8.0};
+    std::vector<double> weights = {1.0, 1.0, 1.0, 1.0};
+    chi.fit(data, weights);
+    EXPECT_NEAR(chi.getDegreesOfFreedom(), 5.0, 1e-10);
+
+    // Unequal weights: k̂ = (0*2 + 0*4 + 1*6 + 0*8) / 1 = 6.
+    std::vector<double> w2 = {0.0, 0.0, 1.0, 0.0};
+    chi.fit(data, w2);
+    EXPECT_NEAR(chi.getDegreesOfFreedom(), 6.0, 1e-10);
+
+    // All-zero weights: sumW = 0 triggers the EM-collapse guard and parameters must
+    // not change (same contract as all other distributions with zero weight).
+    ChiSquaredDistribution chi2(3.0);
+    std::vector<double> zero = {0.0, 0.0, 0.0, 0.0};
+    chi2.fit(data, zero);
+    EXPECT_NEAR(chi2.getDegreesOfFreedom(), 3.0, 1e-10);
+}
+
+TEST(ChiSquaredDistributionTest, BatchLogProbabilityMatchesScalar) {
+    ChiSquaredDistribution chi(5.0);
+    std::vector<double> obs = {0.5, 1.0, 2.0, 5.0, 10.0, 20.0};
+    std::vector<double> out(obs.size());
+    chi.getBatchLogProbabilities(obs, out);
+    for (std::size_t i = 0; i < obs.size(); ++i)
+        EXPECT_NEAR(out[i], chi.getLogProbability(obs[i]), 1e-12)
+            << "Batch vs scalar mismatch at index " << i;
+}
+
+TEST(ChiSquaredDistributionTest, JsonTypeField) {
+    // to_json() must open with {"type":"ChiSquared" (exact format required by from_json).
+    ChiSquaredDistribution chi(7.5);
+    const std::string j = chi.to_json();
+    // Mirror the prefix check used in test_hmm_json.cpp's TypeFieldPrefix test.
+    const std::string prefix = std::string(R"({"type":")") + "ChiSquared" + "\"";
+    EXPECT_EQ(j.substr(0, prefix.size()), prefix);
+    EXPECT_NE(j.find("7.5"), std::string::npos);
 }
 
 /**

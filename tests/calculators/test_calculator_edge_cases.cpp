@@ -193,6 +193,42 @@ TEST_F(CalculatorEdgeCasesTest, LongSequence_Viterbi_NoErrors) {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Very long sequences — log P << −700, exercises the full underflow-protection
+// path in log-space FB/Viterbi at scale (audit finding M-3).
+// ---------------------------------------------------------------------------
+
+TEST_F(CalculatorEdgeCasesTest, VeryLongSequence_FB_DeepNegativeLogP) {
+    // T = 2000 uniform 4-symbol single-state HMM.
+    // log P = 2000 * log(0.25) ≈ −2773, well below −700.
+    auto hmm = make_single_state_hmm();
+    ObservationSet obs(2000);
+    for (std::size_t i = 0; i < 2000; ++i)
+        obs(i) = static_cast<double>(i % 4);
+
+    ForwardBackwardCalculator fbc(*hmm, obs);
+    const double logP = fbc.getLogProbability();
+    EXPECT_TRUE(std::isfinite(logP)) << "log P must be finite, not ±inf or NaN";
+    EXPECT_LT(logP, -700.0) << "log P must be below −700 to exercise underflow path";
+    EXPECT_GT(logP, -std::numeric_limits<double>::infinity());
+    // Exact value: each symbol drawn with prob 0.25, all independent.
+    EXPECT_NEAR(logP, 2000.0 * std::log(0.25), 1e-6);
+}
+
+TEST_F(CalculatorEdgeCasesTest, VeryLongSequence_Viterbi_Stable) {
+    // T = 2000; Viterbi must complete without overflow/underflow errors.
+    auto hmm = make_single_state_hmm();
+    ObservationSet obs(2000);
+    for (std::size_t i = 0; i < 2000; ++i)
+        obs(i) = static_cast<double>(i % 4);
+
+    ViterbiCalculator vc(*hmm, obs);
+    const auto &seq = vc.getStateSequence();
+    EXPECT_EQ(seq.size(), obs.size());
+    for (std::size_t i = 0; i < seq.size(); ++i)
+        EXPECT_EQ(seq(i), 0) << "Single-state HMM: all states must be 0";
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
