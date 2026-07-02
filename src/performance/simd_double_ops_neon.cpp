@@ -355,7 +355,7 @@ void student_t_batch_neon(const double *obs, double *out, std::size_t n, double 
     for (; i + 2 <= n; i += 2) {
         float64x2_t x = vld1q_f64(obs + i);
         // invalid = NaN or ±Inf
-        uint64x2_t is_nan = veorq_u64(vreinterpretq_u64_f64(vceqq_f64(x, x)), all_ones);
+        uint64x2_t is_nan = veorq_u64(vceqq_f64(x, x), all_ones);
         uint64x2_t is_inf = vceqq_f64(vabsq_f64(x), pos_inf_v);
         uint64x2_t invalid = vorrq_u64(is_nan, is_inf);
         float64x2_t t = vmulq_f64(vsubq_f64(x, loc_v), iscale_v);
@@ -389,7 +389,7 @@ void vonmises_batch_neon(const double *obs, double *out, std::size_t n, double m
     std::size_t i = 0;
     for (; i + 2 <= n; i += 2) {
         float64x2_t x = vld1q_f64(obs + i);
-        uint64x2_t is_nan = veorq_u64(vreinterpretq_u64_f64(vceqq_f64(x, x)), all_ones);
+        uint64x2_t is_nan = veorq_u64(vceqq_f64(x, x), all_ones);
         uint64x2_t is_inf = vceqq_f64(vabsq_f64(x), pos_inf_v);
         uint64x2_t invalid = vorrq_u64(is_nan, is_inf);
         float64x2_t res = vfmaq_f64(neg_ln_v, kappa_v, neon_cos_2pd(vsubq_f64(x, mu_v)));

@@ -28,7 +28,7 @@ if(APPLE)
 endif()
 
 project(libhmm
-    VERSION 4.1.2
+    VERSION 4.1.3
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
