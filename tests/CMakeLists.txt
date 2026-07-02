@@ -37,6 +37,16 @@ if(NOT GTest_FOUND AND NOT TARGET gtest)
     # On Windows, prevent GTest from overriding the project's CRT choice
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
+    # Suppress Apple Clang's -Wcharacter-conversion warning in GTest's own headers.
+    # gtest-printers.h:528 casts char8_t to char32_t, which is valid C++ but triggers
+    # this diagnostic on AppleClang + C++20. Not a libhmm issue; suppressed here so
+    # the build log stays clean for warnings we actually own.
+    foreach(_gt_target gtest gtest_main gmock gmock_main)
+        if(TARGET ${_gt_target})
+            target_compile_options(${_gt_target} PRIVATE
+                $<$<CXX_COMPILER_ID:AppleClang>:-Wno-character-conversion>)
+        endif()
+    endforeach()
 endif()
 
 # Check if Google Test is available

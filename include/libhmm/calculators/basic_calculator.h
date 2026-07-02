@@ -20,6 +20,11 @@ namespace libhmm {
  *
  * For the scalar alias:
  *   using Calculator = BasicCalculator<double>;
+ *
+ * @note Passing a temporary observation sequence is a compile error (the
+ *       `SeqType&&` constructor overload is deleted). Bind the sequence to a
+ *       named variable with sufficient lifetime before constructing a calculator;
+ *       the reference must remain valid for the calculator's entire lifetime.
  */
 template <typename Obs>
 class BasicCalculator {

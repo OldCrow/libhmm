@@ -323,9 +323,9 @@ void BasicMapBaumWelchTrainer<Obs>::train() {
     std::vector<std::vector<double>> emisWts(N);
 
     if constexpr (std::is_same_v<Obs, double>) {
-        std::size_t totalLen = 0;
-        for (const auto &obs : this->getObservationLists())
-            totalLen += obs.size();
+        const std::size_t totalLen = std::accumulate(
+            this->getObservationLists().begin(), this->getObservationLists().end(), std::size_t{0},
+            [](std::size_t s, const auto &obs) { return s + obs.size(); });
         for (std::size_t i = 0; i < N; ++i) {
             emisAccum[i].reserve(totalLen);
             emisWts[i].reserve(totalLen);
