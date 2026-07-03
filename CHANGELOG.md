@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.4] - 2026-07-02
+
+Windows MSVC warning cleanup release. No API changes; no breaking changes.
+
+### Fixed
+
+- **MSVC C4267 (`std::size_t` → `int`) in `examples/support/two_state_hmm.h`**:
+  added `static_cast<int>` for `dishonest_casino::num_symbols` passed to the
+  `DiscreteDistribution` constructor and `setProbability`.
+- **MSVC C4244 (mask narrowing) in `include/libhmm/detail/simd_math_helpers.h`**:
+  replaced `_mm512_kand` with `_kand_mask8` in the AVX-512 `log1p_pd` blending
+  mask to use the correctly-typed 8-bit mask intrinsic.
+- **MSVC C4267 in `tests/calculators/test_fb_mode_parity.cpp`**:
+  suppressed implicit narrowing conversion warning in the test helper.
+
+### Tests
+
+- Re-ran Release build and 46/46 standard correctness tests on macOS x86_64.
+
+---
+
 ## [4.1.3] - 2026-07-02
 
 AArch64 Linux build fix release. No API changes; no breaking changes.
