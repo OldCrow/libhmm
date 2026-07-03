@@ -219,7 +219,7 @@ namespace libhmm::detail::simd {
     p = _mm512_fmadd_pd(p, x, one);
     const __m512d small = _mm512_mul_pd(x, p);
     const __m512d general = log_pd(_mm512_add_pd(one, x));
-    const __mmask8 sm = _mm512_kand(_mm512_cmp_pd_mask(x, thr, _CMP_LT_OS),
+    const __mmask8 sm = _kand_mask8(_mm512_cmp_pd_mask(x, thr, _CMP_LT_OS),
                                     _mm512_cmp_pd_mask(x, nthr, _CMP_GT_OS));
     return _mm512_mask_blend_pd(sm, general, small);
 }

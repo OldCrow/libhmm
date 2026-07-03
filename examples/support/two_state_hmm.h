@@ -45,13 +45,15 @@ inline void prepare_two_state_hmm(Hmm &hmm) {
     hmm.setPi(pi);
     hmm.setTrans(trans);
 
-    auto fairDist = std::make_unique<DiscreteDistribution>(dishonest_casino::num_symbols);
+    auto fairDist =
+        std::make_unique<DiscreteDistribution>(static_cast<int>(dishonest_casino::num_symbols));
     for (std::size_t i = 0; i < dishonest_casino::num_symbols; ++i) {
         fairDist->setProbability(static_cast<int>(i), dishonest_casino::fair_emission_prob);
     }
     hmm.setDistribution(dishonest_casino::fair_state, std::move(fairDist));
 
-    auto loadedDist = std::make_unique<DiscreteDistribution>(dishonest_casino::num_symbols);
+    auto loadedDist =
+        std::make_unique<DiscreteDistribution>(static_cast<int>(dishonest_casino::num_symbols));
     for (std::size_t i = 0; i < dishonest_casino::num_symbols - 1; ++i) {
         loadedDist->setProbability(static_cast<int>(i), dishonest_casino::loaded_normal_prob);
     }

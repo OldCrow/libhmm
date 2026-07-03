@@ -78,7 +78,7 @@ std::unique_ptr<Hmm> makeDiscreteCasinoHmm(std::size_t numStates) {
 
     constexpr std::size_t kAlphabet = 6;
     for (std::size_t i = 0; i < numStates; ++i) {
-        auto dist = std::make_unique<DiscreteDistribution>(kAlphabet);
+        auto dist = std::make_unique<DiscreteDistribution>(static_cast<int>(kAlphabet));
         std::array<double, kAlphabet> weights{};
         double sum = 0.0;
         for (std::size_t s = 0; s < kAlphabet; ++s) {
