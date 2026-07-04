@@ -12,8 +12,8 @@
 #include "libhmm/calculators/basic_forward_backward_calculator.h"
 #include "libhmm/detail/log_utils.h"
 #include "libhmm/linalg/linalg_types.h"
-#include "libhmm/performance/transcendental_kernels.h"
 #include "libhmm/training/basic_trainer.h"
+#include "libhmm/training/detail/bw_estep.h"
 
 namespace libhmm {
 
@@ -64,60 +64,9 @@ public:
     [[nodiscard]] double getLastLogProbability() const noexcept { return lastLogProb_; }
 
 private:
-    static constexpr double LOG_ZERO = detail::LOG_ZERO;
-
     double lastLogProb_{-std::numeric_limits<double>::infinity()};
 
-    // -------------------------------------------------------------------------
-    // Emission accumulator types
-    //
-    // EmisElem adapts to the observation type:
-    //   Obs=double             → double              (scalar observation value)
-    //   Obs=ObservationVectorView → ObservationVectorView (non-owning row span)
-    // EmisAccumType is a per-state vector-of-vectors of these elements.
-    // -------------------------------------------------------------------------
-    using EmisElem = std::conditional_t<std::is_same_v<Obs, double>, double, ObservationVectorView>;
-    using EmisAccumType = std::vector<std::vector<EmisElem>>;
-
-    /// Mutable accumulators passed through the E-step as a single aggregate.
-    struct EStepBuffers {
-        EmisAccumType &emisAccum;
-        std::vector<std::vector<double>> &emisWts;
-        std::vector<double> &piNum;
-        std::vector<double> &transDen;
-        std::vector<double> &transNumT;
-    };
-
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
-    /**
-     * @brief Run the E-step for one observation sequence.
-     *
-     * Runs BasicForwardBackwardCalculator, accumulates gamma statistics
-     * (emission data/weights, π numerator, transition denominator) and
-     * xi statistics (expected transition counts) into @p bufs.
-     *
-     * @return finite log-probability if the sequence contributed; -∞ if the
-     *         sequence was skipped (empty or zero probability).
-     */
-    [[nodiscard]] static double accum_one_sequence(const HmmType &hmm, const SeqType &obs,
-                                                   std::size_t N,
-                                                   const std::vector<double> &logTransT,
-                                                   bool hasZeroTransitions, EStepBuffers &bufs);
-
-    /**
-     * @brief Accumulate expected transition counts (xi) for one sequence.
-     *
-     * Dispatches to a branch-free SIMD path (dense model) or a zero-skip path
-     * (sparse model) based on @p hasZeroTransitions.
-     */
-    static void accumulate_xi(const double *logAlphaData, const double *logBetaData,
-                              const std::vector<double> &logEmitByTime,
-                              const std::vector<double> &logTransT, double logP, std::size_t T,
-                              std::size_t N, bool hasZeroTransitions,
-                              std::vector<double> &transNumT) noexcept;
+    using EmisElem = BwEmisElem<Obs>;
 
     /// M-step: normalise piNum and update the HMM initial-state distribution.
     static void m_step_pi(HmmType &hmm, std::size_t N, const std::vector<double> &piNum);
@@ -154,30 +103,28 @@ void BasicBaumWelchTrainer<Obs>::train() {
     bool hasZeroTransitions = false;
     this->precompute_log_trans_flat(hmm, N, logTransT, hasZeroTransitions);
 
-    // Accumulators for π, transitions (shared), and emissions (type-specific).
+    // Accumulators for π, transitions, and emissions.
+    // emisObs: one shared copy of all observation values across all sequences.
+    // emisWts[i]: per-state gamma weights at matching positions.
     std::vector<double> piNum(N, 0.0);
     std::vector<double> transDen(N, 0.0);
     std::vector<double> transNumT(N * N, 0.0);
-    EmisAccumType emisAccum(N);
+    std::vector<EmisElem> emisObs;
     std::vector<std::vector<double>> emisWts(N);
 
-    // Pre-allocate emission buffers on the scalar path to avoid repeated
-    // reallocations when accumulating over many sequences.
-    if constexpr (std::is_same_v<Obs, double>) {
-        const std::size_t totalLen = std::accumulate(
-            this->getObservationLists().begin(), this->getObservationLists().end(), std::size_t{0},
-            [](std::size_t s, const auto &obs) { return s + obs.size(); });
-        for (std::size_t i = 0; i < N; ++i) {
-            emisAccum[i].reserve(totalLen);
-            emisWts[i].reserve(totalLen);
-        }
-    }
+    // Pre-allocate to avoid repeated reallocations.
+    const std::size_t totalLen = std::accumulate(
+        this->getObservationLists().begin(), this->getObservationLists().end(), std::size_t{0},
+        [](std::size_t s, const auto &seq) { return s + ObsSeqTraits<Obs>::sequence_length(seq); });
+    emisObs.reserve(totalLen);
+    for (std::size_t i = 0; i < N; ++i)
+        emisWts[i].reserve(totalLen);
 
-    EStepBuffers bufs{emisAccum, emisWts, piNum, transDen, transNumT};
+    BwEStepBuffers<Obs> bufs{emisObs, emisWts, piNum, transDen, transNumT};
     std::size_t validSeqs = 0;
     double totalLogProb = 0.0;
     for (const auto &obs : this->getObservationLists()) {
-        const double logP = accum_one_sequence(hmm, obs, N, logTransT, hasZeroTransitions, bufs);
+        const double logP = bw_accum_one_sequence(hmm, obs, N, logTransT, hasZeroTransitions, bufs);
         if (std::isfinite(logP)) {
             totalLogProb += logP;
             ++validSeqs;
@@ -205,105 +152,17 @@ void BasicBaumWelchTrainer<Obs>::train() {
     m_step_pi(hmm, N, piNum);
     m_step_transitions(hmm, N, transNumT, transDen);
 
-    // Emission M-step: EmisElem resolves to double (scalar) or
-    // ObservationVectorView (MV), selecting the correct fit() overload.
+    // Emission M-step: emisObs is the shared observation buffer; emisWts[i]
+    // holds the matching per-state gamma weights.  EmisElem resolves to
+    // double (scalar) or ObservationVectorView (MV).
+    const std::size_t M = emisObs.size();
     for (std::size_t i = 0; i < N; ++i) {
-        const std::size_t M = emisAccum[i].size();
         if (M == 0) {
             hmm.getDistribution(i).reset();
             continue;
         }
-        hmm.getDistribution(i).fit(std::span<const EmisElem>(emisAccum[i].data(), M),
+        hmm.getDistribution(i).fit(std::span<const EmisElem>(emisObs.data(), M),
                                    std::span<const double>(emisWts[i].data(), M));
-    }
-}
-
-// ---------------------------------------------------------------------------
-// accum_one_sequence — E-step for a single observation sequence
-// ---------------------------------------------------------------------------
-
-template <typename Obs>
-double BasicBaumWelchTrainer<Obs>::accum_one_sequence(const HmmType &hmm, const SeqType &obs,
-                                                      std::size_t N,
-                                                      const std::vector<double> &logTransT,
-                                                      bool hasZeroTransitions, EStepBuffers &bufs) {
-    const std::size_t T = ObsSeqTraits<Obs>::sequence_length(obs);
-    if (T == 0)
-        return -std::numeric_limits<double>::infinity();
-
-    BasicForwardBackwardCalculator<Obs> fbc(hmm, obs);
-    const double logP = fbc.getLogProbability();
-    if (!std::isfinite(logP))
-        return -std::numeric_limits<double>::infinity();
-
-    const double *alphaData = fbc.getLogForwardVariables().data();
-    const double *betaData = fbc.getLogBackwardVariables().data();
-
-    for (std::size_t t = 0; t < T; ++t) {
-        const double *aRow = alphaData + t * N;
-        const double *bRow = betaData + t * N;
-        // Compute observation value/view once per timestep, outside the state loop.
-        const EmisElem obs_t = [&]() -> EmisElem {
-            if constexpr (std::is_same_v<Obs, double>)
-                return obs(t);
-            else
-                return row_view(obs, t);
-        }();
-        for (std::size_t i = 0; i < N; ++i) {
-            const double g = std::exp(aRow[i] + bRow[i] - logP);
-            bufs.emisAccum[i].push_back(obs_t);
-            bufs.emisWts[i].push_back(g);
-            if (t == 0)
-                bufs.piNum[i] += g;
-            if (t < T - 1)
-                bufs.transDen[i] += g;
-        }
-    }
-
-    // Reuse the FBC's emission buffer — avoids a second emission evaluation.
-    accumulate_xi(alphaData, betaData, fbc.getLogEmitByTime(), logTransT, logP, T, N,
-                  hasZeroTransitions, bufs.transNumT);
-    return logP;
-}
-
-// ---------------------------------------------------------------------------
-// Shared static helpers
-// ---------------------------------------------------------------------------
-
-template <typename Obs>
-void BasicBaumWelchTrainer<Obs>::accumulate_xi(
-    const double *logAlphaData, const double *logBetaData, const std::vector<double> &logEmitByTime,
-    const std::vector<double> &logTransT, double logP, std::size_t T, std::size_t N,
-    bool hasZeroTransitions, std::vector<double> &transNumT) noexcept {
-    if (hasZeroTransitions) {
-        for (std::size_t t = 0; t + 1 < T; ++t) {
-            const double *alphaRow = logAlphaData + t * N;
-            const double *betaNextRow = logBetaData + (t + 1) * N;
-            const double *emitNextRow = logEmitByTime.data() + (t + 1) * N;
-            for (std::size_t j = 0; j < N; ++j) {
-                const double emitBetaNext = emitNextRow[j] + betaNextRow[j] - logP;
-                const double *transCol = logTransT.data() + j * N;
-                double *transNumCol = transNumT.data() + j * N;
-                for (std::size_t i = 0; i < N; ++i) {
-                    if (transCol[i] == LOG_ZERO)
-                        continue;
-                    transNumCol[i] += std::exp(alphaRow[i] + transCol[i] + emitBetaNext);
-                }
-            }
-        }
-    } else {
-        for (std::size_t t = 0; t + 1 < T; ++t) {
-            const double *alphaRow = logAlphaData + t * N;
-            const double *betaNextRow = logBetaData + (t + 1) * N;
-            const double *emitNextRow = logEmitByTime.data() + (t + 1) * N;
-            for (std::size_t j = 0; j < N; ++j) {
-                const double emitBetaNext = emitNextRow[j] + betaNextRow[j] - logP;
-                const double *transCol = logTransT.data() + j * N;
-                double *transNumCol = transNumT.data() + j * N;
-                performance::detail::TranscendentalKernels::accumulate_exp_sum2_bias(
-                    transNumCol, alphaRow, transCol, N, emitBetaNext);
-            }
-        }
     }
 }
 
