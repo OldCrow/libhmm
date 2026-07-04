@@ -213,7 +213,8 @@ if(GTest_FOUND OR TARGET gtest)
     # =========================================================================
     # Multivariate training and kmeans_init (Phase K)
     # =========================================================================
-    add_hmm_test(test_mv_training training/test_mv_training.cpp)
+    add_hmm_test(test_mv_training          training/test_mv_training.cpp)
+    add_hmm_test(test_segmental_kmeans_mv  training/test_segmental_kmeans_mv.cpp)
 
     # =========================================================================
     # IO & Integration

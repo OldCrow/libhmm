@@ -30,8 +30,9 @@ add_hmm_example(baum_welch_example baum_welch_example.cpp)
 # Viterbi training with TrainingConfig presets
 add_hmm_example(viterbi_trainer_example viterbi_trainer_example.cpp)
 
-# Segmental k-means training (discrete-only; useful as a Baum-Welch warm-start)
-add_hmm_example(segmental_kmeans_example segmental_kmeans_example.cpp)
+# Segmental k-means training — scalar (any distribution) and MV warm-start pattern
+add_hmm_example(segmental_kmeans_example    segmental_kmeans_example.cpp)
+add_hmm_example(segmental_kmeans_mv_example segmental_kmeans_mv_example.cpp)
 
 # Continuous distributions
 add_hmm_example(poisson_hmm_example              poisson_hmm_example.cpp)
@@ -85,6 +86,7 @@ install(TARGETS
     baum_welch_example
     viterbi_trainer_example
     segmental_kmeans_example
+    segmental_kmeans_mv_example
     poisson_hmm_example
     financial_hmm_example
     reliability_hmm_example

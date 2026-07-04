@@ -6,7 +6,7 @@ This file provides project-scoped guidance to AI agents and contributors working
 
 C++20 Hidden Markov Model library. Zero external dependencies (C++20 standard library only). GTest is fetched via `FetchContent` only for the test suite. Produces both a shared (`hmm`) and static (`hmm_static`) library from a single OBJECT target.
 
-`main` is the stable v4 branch (current release: v4.1.0). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
+`main` is the stable v4 branch (current release: v4.2.0). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
 
 ## Session start
 
@@ -135,7 +135,7 @@ Dependencies flow strictly downward:
 | 2 | `linalg/` | `BasicMatrix<T>`, `BasicVector<T>`, `BasicMatrix3D<T>`; `linalg_types.h` defines `Matrix`, `Vector`, `ObservationList`, etc. |
 | 3 | `distributions/` | `BasicEmissionDistribution<Obs>` abstract base (in `basic_emission_distribution.h`); 16 concrete distributions; `distribution_traits.h`, `emission_concepts.h` |
 | 4a | `calculators/` | `ForwardBackwardCalculator`, `ViterbiCalculator` |
-| 4b | `training/` | `BaumWelchTrainer`, `MapBaumWelchTrainer`, `ViterbiTrainer`, `SegmentalKMeansTrainer` |
+| 4b | `training/` | `BaumWelchTrainer`, `MapBaumWelchTrainer`, `ViterbiTrainer`; `BasicSegmentalKMeansTrainer<Obs>` with aliases `SegmentalKMeansTrainer` (scalar) and `SegmentalKMeansTrainerMV` (MV) |
 | — | `io/` | JSON (`hmm_json.h`, recommended), legacy XML, `FileIOManager` |
 | — | `performance/` | `TranscendentalKernels` (FB recurrence), `detail/simd_math_helpers.h` (shared SIMD math helpers), `fb_recurrence_policy.h`, `simd_double_ops.h` (runtime-dispatch distribution batch kernels) |
 
