@@ -76,6 +76,14 @@ public:
     [[nodiscard]] double getPseudoCount() const noexcept { return pseudo_count_; }
 
     /**
+     * @return Total finite E-step log-probability from the last train() call:
+     *         Σ log P(O_k | λ) over all sequences with finite probability.
+     *         Reset to −∞ before each train() call; remains −∞ if no valid
+     *         sequences were found.
+     */
+    [[nodiscard]] double getLastLogProbability() const noexcept { return lastLogProb_; }
+
+    /**
      * @brief Unnormalised log-prior of current HMM parameters.
      *
      * Returns  c · (Σ_{i,j} log A(i,j) + Σ_i log π_i)
@@ -88,6 +96,7 @@ public:
 
 private:
     double pseudo_count_;
+    double lastLogProb_{-std::numeric_limits<double>::infinity()};
 
     static constexpr double LOG_ZERO = detail::LOG_ZERO;
 
@@ -106,12 +115,12 @@ private:
 
     /**
      * @brief Run the E-step for one sequence (same logic as BaumWelchTrainer).
-     * @return true if the sequence contributed; false if skipped.
+     * @return Finite log P(O|λ) if the sequence contributed; −∞ if skipped.
      */
-    [[nodiscard]] static bool accum_one_sequence(const HmmType &hmm, const SeqType &obs,
-                                                 std::size_t N,
-                                                 const std::vector<double> &logTransT,
-                                                 bool hasZeroTransitions, EStepBuffers &bufs);
+    [[nodiscard]] static double accum_one_sequence(const HmmType &hmm, const SeqType &obs,
+                                                   std::size_t N,
+                                                   const std::vector<double> &logTransT,
+                                                   bool hasZeroTransitions, EStepBuffers &bufs);
 
     /**
      * @brief Dirichlet-smoothed log-prior over discrete emission distributions.
@@ -268,18 +277,18 @@ void BasicMapBaumWelchTrainer<Obs>::apply_discrete_smoothing(HmmType &hmm, std::
 }
 
 template <typename Obs>
-bool BasicMapBaumWelchTrainer<Obs>::accum_one_sequence(const HmmType &hmm, const SeqType &obs,
-                                                       std::size_t N,
-                                                       const std::vector<double> &logTransT,
-                                                       bool hasZeroTransitions,
-                                                       EStepBuffers &bufs) {
+double BasicMapBaumWelchTrainer<Obs>::accum_one_sequence(const HmmType &hmm, const SeqType &obs,
+                                                         std::size_t N,
+                                                         const std::vector<double> &logTransT,
+                                                         bool hasZeroTransitions,
+                                                         EStepBuffers &bufs) {
     const std::size_t T = ObsSeqTraits<Obs>::sequence_length(obs);
     if (T == 0)
-        return false;
+        return -std::numeric_limits<double>::infinity();
     BasicForwardBackwardCalculator<Obs> fbc(hmm, obs);
     const double logP = fbc.getLogProbability();
     if (!std::isfinite(logP))
-        return false;
+        return -std::numeric_limits<double>::infinity();
     const double *alphaData = fbc.getLogForwardVariables().data();
     const double *betaData = fbc.getLogBackwardVariables().data();
     for (std::size_t t = 0; t < T; ++t) {
@@ -303,7 +312,7 @@ bool BasicMapBaumWelchTrainer<Obs>::accum_one_sequence(const HmmType &hmm, const
     }
     accumulate_xi(alphaData, betaData, fbc.getLogEmitByTime(), logTransT, logP, T, N,
                   hasZeroTransitions, bufs.transNumT);
-    return true;
+    return logP;
 }
 
 template <typename Obs>
@@ -334,15 +343,21 @@ void BasicMapBaumWelchTrainer<Obs>::train() {
 
     EStepBuffers bufs{emisAccum, emisWts, piNum, transDen, transNumT};
     std::size_t validSeqs = 0;
+    lastLogProb_ = -std::numeric_limits<double>::infinity();
+    double totalLogProb = 0.0;
     for (const auto &obs : this->getObservationLists()) {
-        if (accum_one_sequence(hmm, obs, N, logTransT, hasZeroTransitions, bufs))
+        const double logP = accum_one_sequence(hmm, obs, N, logTransT, hasZeroTransitions, bufs);
+        if (std::isfinite(logP)) {
+            totalLogProb += logP;
             ++validSeqs;
+        }
     }
 
     if (validSeqs == 0) {
         throw std::runtime_error("MapBaumWelchTrainer: no valid observation sequences "
                                  "(all had zero probability under the current model)");
     }
+    lastLogProb_ = totalLogProb;
 
     m_step_pi_map(hmm, N, piNum, c);
     m_step_transitions_map(hmm, N, transNumT, transDen, c);

@@ -195,6 +195,38 @@ TEST(MapBaumWelchTest, LogPriorFiniteAndNonPositive) {
 }
 
 // ---------------------------------------------------------------------------
+// getLastLogProbability
+// ---------------------------------------------------------------------------
+
+TEST(MapBaumWelchTest, LastLogProbabilityIsNegInfBeforeTrain) {
+    auto hmm = make_uniform_hmm();
+    auto obs = make_casino_obs();
+    MapBaumWelchTrainer trainer(*hmm, obs, 1.0);
+    EXPECT_EQ(trainer.getLastLogProbability(), -std::numeric_limits<double>::infinity());
+}
+
+TEST(MapBaumWelchTest, LastLogProbabilityFiniteAfterTrain) {
+    auto hmm = make_uniform_hmm();
+    auto obs = make_casino_obs();
+    MapBaumWelchTrainer trainer(*hmm, obs, 1.0);
+    trainer.train();
+    EXPECT_TRUE(std::isfinite(trainer.getLastLogProbability()));
+    EXPECT_LT(trainer.getLastLogProbability(), 0.0);
+}
+
+TEST(MapBaumWelchTest, LastLogProbabilityMatchesManualSum) {
+    // getLastLogProbability() stores the E-step log P(O|\u03bb) computed on the
+    // PRE-M-step model. Evaluate total_logL before calling train() to compare.
+    auto hmm = make_uniform_hmm();
+    auto obs = make_casino_obs();
+    MapBaumWelchTrainer trainer(*hmm, obs, 1.0);
+    const double logL_before = total_logL(*hmm, obs); // pre-train model
+    trainer.train();
+    // getLastLogProbability() must equal the pre-train likelihood.
+    EXPECT_NEAR(trainer.getLastLogProbability(), logL_before, 1e-8);
+}
+
+// ---------------------------------------------------------------------------
 // MAP objective is monotone over multiple iterations
 // ---------------------------------------------------------------------------
 
