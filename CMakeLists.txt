@@ -87,6 +87,13 @@ option(BUILD_BENCHMARKS "Build comparison benchmarks (requires external HMM libr
 option(ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" ON)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis during build" OFF)
 option(ENABLE_CPPCHECK "Enable cppcheck analysis" ON)
+# LIBHMM_PORTABLE: swap -march=native for a portable baseline ISA on LIBHMM_SIMD_SOURCES.
+# Use this when building distributable wheels so they do not SIGILL on machines
+# with a lower ISA than the build host.  Runtime-dispatched tier-2 distribution
+# kernels (DoubleVecOps) are unaffected and continue to dispatch at full speed.
+# Local builds should leave this OFF.  See GitHub issue #58 for the long-term
+# plan to extend tier-2 dispatch to the affected TUs (no performance trade-off).
+option(LIBHMM_PORTABLE "Portable baseline ISA for LIBHMM_SIMD_SOURCES (for distributable wheels; OFF by default)" OFF)
 include(CheckCXXSourceCompiles)
 
 # Platform detection and setup
@@ -183,6 +190,11 @@ endif()
 # the compiler ACCEPTS a flag (always true for /arch:AVX512 on modern MSVC),
 # NOT whether the build machine's CPU can execute the resulting instructions.
 # check_cxx_source_runs compiles and runs a tiny test, verifying both.
+#
+# LIBHMM_PORTABLE=ON: skip CPU probing and use a portable baseline ISA instead
+# of -march=native, so LIBHMM_SIMD_SOURCES TUs are safe to distribute.
+# GCC/Clang: -msse2 (x86) or -march=armv8-a (AArch64).
+# MSVC: empty (SSE2 is the x64 ABI baseline; no further /arch flag).
 # =============================================================================
 include(CheckCXXCompilerFlag)
 
@@ -216,52 +228,70 @@ endif()
 # mirroring what -march=native does automatically on GCC/Clang.
 # Falls back to SSE2 baseline in cross-compilation (can't run tests).
 # =============================================================================
-if(MSVC AND NOT CMAKE_CROSSCOMPILING)
-    include(CheckCXXSourceRuns)
-    set(_saved_req_flags "${CMAKE_REQUIRED_FLAGS}")
-
-    set(CMAKE_REQUIRED_FLAGS "/arch:AVX512")
-    check_cxx_source_runs(
-        "#include <intrin.h>\nint main(){__m512d x=_mm512_setzero_pd();(void)x;return 0;}"
-        CPU_SUPPORTS_AVX512F)
-
-    set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
-    check_cxx_source_runs(
-        "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
-        CPU_SUPPORTS_AVX2)
-
-    set(CMAKE_REQUIRED_FLAGS "/arch:AVX")
-    check_cxx_source_runs(
-        "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
-        CPU_SUPPORTS_AVX)
-
-    set(CMAKE_REQUIRED_FLAGS "${_saved_req_flags}")
-
-    if(CPU_SUPPORTS_AVX512F)
-        set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX512")
-        message(STATUS "SIMD optimization: /arch:AVX512 (CPU verified)")
-    elseif(CPU_SUPPORTS_AVX2)
-        set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX2")
-        message(STATUS "SIMD optimization: /arch:AVX2 (CPU verified)")
-    elseif(CPU_SUPPORTS_AVX)
-        set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX")
-        message(STATUS "SIMD optimization: /arch:AVX (CPU verified)")
-    else()
+if(MSVC)
+    if(LIBHMM_PORTABLE OR CMAKE_CROSSCOMPILING)
+        # Portable or cross-compilation: use SSE2 baseline (x64 ABI minimum).
         set(LIBHMM_BEST_SIMD_FLAGS "")
-        message(STATUS "SIMD optimization: (SSE2 baseline)")
-    endif()
-elseif(MSVC)
-    # Cross-compilation: cannot run tests; fall back to SSE2 baseline.
-    set(LIBHMM_BEST_SIMD_FLAGS "")
-    message(STATUS "SIMD optimization: (cross-compilation — SSE2 baseline)")
-else()
-    # GCC/Clang on all platforms: -march=native selects the best ISA for the
-    # build machine (NEON on AArch64; AVX-512/AVX2/AVX/SSE2 on x86_64).
-    set(LIBHMM_BEST_SIMD_FLAGS "-march=native")
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
-        message(STATUS "SIMD optimization: -march=native (AArch64/NEON)")
+        if(LIBHMM_PORTABLE)
+            message(STATUS "SIMD optimization: (SSE2 baseline — portable mode)")
+        else()
+            message(STATUS "SIMD optimization: (cross-compilation — SSE2 baseline)")
+        endif()
     else()
-        message(STATUS "SIMD optimization: -march=native")
+        include(CheckCXXSourceRuns)
+        set(_saved_req_flags "${CMAKE_REQUIRED_FLAGS}")
+
+        set(CMAKE_REQUIRED_FLAGS "/arch:AVX512")
+        check_cxx_source_runs(
+            "#include <intrin.h>\nint main(){__m512d x=_mm512_setzero_pd();(void)x;return 0;}"
+            CPU_SUPPORTS_AVX512F)
+
+        set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
+        check_cxx_source_runs(
+            "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
+            CPU_SUPPORTS_AVX2)
+
+        set(CMAKE_REQUIRED_FLAGS "/arch:AVX")
+        check_cxx_source_runs(
+            "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
+            CPU_SUPPORTS_AVX)
+
+        set(CMAKE_REQUIRED_FLAGS "${_saved_req_flags}")
+
+        if(CPU_SUPPORTS_AVX512F)
+            set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX512")
+            message(STATUS "SIMD optimization: /arch:AVX512 (CPU verified)")
+        elseif(CPU_SUPPORTS_AVX2)
+            set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX2")
+            message(STATUS "SIMD optimization: /arch:AVX2 (CPU verified)")
+        elseif(CPU_SUPPORTS_AVX)
+            set(LIBHMM_BEST_SIMD_FLAGS "/arch:AVX")
+            message(STATUS "SIMD optimization: /arch:AVX (CPU verified)")
+        else()
+            set(LIBHMM_BEST_SIMD_FLAGS "")
+            message(STATUS "SIMD optimization: (SSE2 baseline)")
+        endif()
+    endif()
+else()
+    if(LIBHMM_PORTABLE)
+        # Portable mode: use a stable baseline ISA so the built TUs are safe
+        # to distribute.  Runtime-dispatched tier-2 kernels are unaffected.
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+            set(LIBHMM_BEST_SIMD_FLAGS "-march=armv8-a")
+            message(STATUS "SIMD optimization: -march=armv8-a (AArch64 — portable mode)")
+        else()
+            set(LIBHMM_BEST_SIMD_FLAGS "-msse2")
+            message(STATUS "SIMD optimization: -msse2 (portable mode)")
+        endif()
+    else()
+        # GCC/Clang: -march=native selects the best ISA for the build machine
+        # (NEON on AArch64; AVX-512/AVX2/AVX/SSE2 on x86_64).
+        set(LIBHMM_BEST_SIMD_FLAGS "-march=native")
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+            message(STATUS "SIMD optimization: -march=native (AArch64/NEON)")
+        else()
+            message(STATUS "SIMD optimization: -march=native")
+        endif()
     endif()
 endif()
 
