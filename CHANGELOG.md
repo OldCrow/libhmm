@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.4] - 2026-07-04
+
+Infrastructure and refactoring release. 47/47 tests pass. No API changes.
+
+### Added
+
+- **`LIBHMM_PORTABLE` CMake option** (Finding 9, libhmm half): when `ON`,
+  swaps `-march=native` for a portable baseline ISA (`-msse2` / `-march=armv8-a`)
+  on `LIBHMM_SIMD_SOURCES` TUs, so wheels do not SIGILL on machines with a lower
+  ISA than the build host. Runtime-dispatched tier-2 distribution kernels
+  (`DoubleVecOps`) are unaffected. Default: `OFF`. See issue #58 for the
+  long-term plan to extend tier-2 dispatch to these TUs.
+- **ASan/UBSan CI job** (Finding 2, libhmm half): Linux/GCC `asan` job in
+  `ci.yml` mirroring the existing `tsan` job. `-fsanitize=address,undefined`
+  with `-fno-omit-frame-pointer`; `detect_leaks=1`. Would have caught the
+  pylibhmm calculator UAF (Finding 1) at the native layer.
+
+### Refactored
+
+- **E-step deduplication** (Finding 4): extracted `EStepBuffers`,
+  `accum_one_sequence`, and `accumulate_xi` from `BasicBaumWelchTrainer` and
+  `BasicMapBaumWelchTrainer` into `include/libhmm/training/detail/bw_estep.h`.
+  The ~150-line near-verbatim duplication had already caused drift; v4.2.2 was
+  released solely to restore `getLastLogProbability()` parity between copies.
+  `bw_accumulate_xi` is now a single `inline` non-template function.
+- **Per-state observation copy elimination** (Finding 5): `BwEStepBuffers<Obs>`
+  holds one shared `emisObs` vector instead of N identical per-state copies.
+  For a 10-state scalar model over T=1000, E-step observation storage drops
+  from 10,000 doubles to 1,000. Pre-allocation extended to both scalar and MV
+  paths (was scalar-only).
+
+---
+
 ## [4.2.3] - 2026-07-04
 
 Security / correctness patch. 47/47 tests pass. No API additions; one narrow
