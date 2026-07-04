@@ -53,6 +53,12 @@ public:
     BasicViterbiCalculator &operator=(BasicViterbiCalculator &&) = default;
     ~BasicViterbiCalculator() override = default;
 
+    /// Deleted: passing a temporary observation sequence is UB (dangling reference).
+    /// The base-class deletion is bypassed when a temporary binds to `const SeqType&`
+    /// in a derived constructor; this overload closes that gap on the derived class.
+    BasicViterbiCalculator(const HmmType &, SeqType &&) = delete;
+    BasicViterbiCalculator(HmmType *, SeqType &&) = delete;
+
     /**
      * @brief Run (or re-run) Viterbi decoding on the current observation sequence.
      * @return The most likely state sequence (length T).

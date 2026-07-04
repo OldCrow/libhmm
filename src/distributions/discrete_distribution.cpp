@@ -66,7 +66,9 @@ void DiscreteDistribution::fit(std::span<const double> data) {
 }
 
 void DiscreteDistribution::fit(std::span<const double> data, std::span<const double> weights) {
-    // Weighted empirical probabilities: P(X=k) = Σ(w_i for x_i=k) / Σ(w_i)
+    // Weighted empirical probabilities: P(X=k) = Σ(w_i | x_i=k) / Σ(w_i | x_i in-range)
+    // Dividing by total sumW (including out-of-range observations) would leave the
+    // pmf summing to < 1 when any observations fall outside the symbol range.
     const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
     // Guard: keep current parameters when effective weight is near zero.
     // Calling reset() would destroy valid parameters and cause state collapse in EM.
@@ -74,15 +76,23 @@ void DiscreteDistribution::fit(std::span<const double> data, std::span<const dou
         return;
 
     std::fill(pdf_.begin(), pdf_.end(), 0.0);
+    double binnedW = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
         if (data[i] >= 0.0) {
             const auto index = static_cast<std::size_t>(data[i]);
-            if (isValidIndex(index))
+            if (isValidIndex(index)) {
                 pdf_[index] += weights[i];
+                binnedW += weights[i];
+            }
         }
     }
+    // All weight fell outside the symbol range; keep current parameters.
+    if (binnedW < precision::ZERO) {
+        std::fill(pdf_.begin(), pdf_.end(), 0.0); // undo partial accumulation
+        return;
+    }
     for (double &p : pdf_)
-        p /= sumW;
+        p /= binnedW;
     invalidateCache();
 }
 

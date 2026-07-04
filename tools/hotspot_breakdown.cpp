@@ -272,7 +272,7 @@ ForwardBreakdown profile_forward_backward(const Hmm &hmm, const ObservationSet &
             log_probability = log_sum_exp(log_probability, log_alpha(t - 1, i));
         }
         const double reduction_time = elapsed_ms(stage_start);
-        g_sink_double += log_probability;
+        g_sink_double = g_sink_double + log_probability;
 
         if (iter >= warmup) {
             transition_ms.push_back(trans_time);
@@ -403,8 +403,8 @@ ViterbiBreakdown profile_viterbi(const Hmm &hmm, const ObservationSet &obs, cons
             }
         }
         const double backtrack_time = elapsed_ms(stage_start);
-        g_sink_double += best_val;
-        g_sink_int += sequence[0];
+        g_sink_double = g_sink_double + best_val;
+        g_sink_int = g_sink_int + sequence[0];
 
         if (iter >= warmup) {
             transition_ms.push_back(trans_time);

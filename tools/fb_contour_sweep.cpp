@@ -263,7 +263,7 @@ Timings run_once(const Hmm &hmm, const ObservationSet &obs) {
         log_probability = log_sum_exp_pairwise(log_probability, log_alpha(t - 1, i));
     }
     out.reduction_ms = elapsed_ms(stage_start);
-    g_sink_double += log_probability;
+    g_sink_double = g_sink_double + log_probability;
 
     out.total_ms = elapsed_ms(total_start);
     return out;

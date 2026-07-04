@@ -221,7 +221,7 @@ BwBreakdown profile_bw(const Hmm &hmm, const ObservationSet &obs, int warmup, in
         const double xi_time = elapsed_ms(t0);
 
         // Sink to prevent elision.
-        g_sink += piNum[0] + transDen[0] + transNum[0] + emisWts[0];
+        g_sink = g_sink + piNum[0] + transDen[0] + transNum[0] + emisWts[0];
 
         if (iter >= warmup) {
             fb_ms_v.push_back(fb_time);

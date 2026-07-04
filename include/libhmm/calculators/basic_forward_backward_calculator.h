@@ -66,6 +66,12 @@ public:
     BasicForwardBackwardCalculator &operator=(BasicForwardBackwardCalculator &&) = default;
     ~BasicForwardBackwardCalculator() override = default;
 
+    /// Deleted: passing a temporary observation sequence is UB (dangling reference).
+    /// The base-class deletion is bypassed when a temporary binds to `const SeqType&`
+    /// in a derived constructor; this overload closes that gap on the derived class.
+    BasicForwardBackwardCalculator(const HmmType &, SeqType &&) = delete;
+    BasicForwardBackwardCalculator(HmmType *, SeqType &&) = delete;
+
     /**
      * @brief Re-run with a new observation sequence.
      * Reuses the precomputed log-transition matrices.
@@ -492,6 +498,10 @@ void BasicForwardBackwardCalculator<Obs>::computeLogBackwardMaxReduce(std::size_
 
 template <typename Obs>
 StateSequence BasicForwardBackwardCalculator<Obs>::decodePosterior() const {
+    if (!std::isfinite(logProbability_)) {
+        throw std::runtime_error("decodePosterior: sequence has zero probability under this model "
+                                 "(logP = -inf); posterior decoding is undefined");
+    }
     const std::size_t T = logAlpha_.size1();
     StateSequence result(T);
     // Subtract logProbability_ before the argmax.  The constant cancels in the

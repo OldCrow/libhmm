@@ -1,4 +1,5 @@
 # Build directories
+install/
 build/
 build-*/
 build*/
