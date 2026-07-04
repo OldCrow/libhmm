@@ -28,7 +28,7 @@ if(APPLE)
 endif()
 
 project(libhmm
-    VERSION 4.1.4
+    VERSION 4.2.0
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -423,6 +423,7 @@ set(LIBHMM_SOURCES
     src/training/viterbi_trainer.cpp
     src/training/viterbi_trainer_mv.cpp
     src/training/segmental_kmeans_trainer.cpp
+    src/training/segmental_kmeans_trainer_mv.cpp
     src/training/kmeans_init.cpp
     src/io/file_io_manager.cpp
     src/io/json_utils.cpp

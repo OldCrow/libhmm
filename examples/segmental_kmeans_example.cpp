@@ -1,20 +1,21 @@
 /**
- * segmental_kmeans_example — Segmental k-means training for discrete HMMs.
+ * segmental_kmeans_example — Segmental k-means training.
  *
- * SegmentalKMeansTrainer is a hard-assignment training algorithm for HMMs
- * with DiscreteDistribution emissions on every state. Relative to Baum-Welch,
- * it is faster but cruder: each observation is assigned to a single state via
- * Viterbi decoding, and parameters are re-estimated from those hard assignments
- * directly. It is most useful as an initialisation step before further
- * refinement with BaumWelchTrainer.
+ * SegmentalKMeansTrainer is a hard-assignment training algorithm for HMMs.
+ * Relative to Baum-Welch, it is faster but cruder: each observation is
+ * assigned to a single state via Viterbi decoding, and parameters are
+ * re-estimated from those hard assignments directly using the generic fit()
+ * M-step. It works with any scalar EmissionDistribution — not just
+ * DiscreteDistribution — and is most useful as an initialisation step before
+ * further refinement with BaumWelchTrainer.
  *
  * This example shows:
  *   1. A 2-state discrete HMM modelling biased dice (one fair, one loaded).
  *   2. Path A — segmental k-means alone.
  *   3. Path B — segmental k-means warm-start followed by Baum-Welch refinement
  *               (the "init then refine" pattern).
- *   4. Constraint: SegmentalKMeansTrainer requires DiscreteDistribution on every
- *               state and throws std::runtime_error otherwise.
+ *   4. Path C — segmental k-means on a Gaussian-emission scalar HMM,
+ *               demonstrating the lifted discrete-only restriction.
  */
 #include <iomanip>
 #include <iostream>
@@ -149,24 +150,44 @@ int main() {
     print_emissions(*hmm_b, "Final emissions (Path B):");
 
     // -------------------------------------------------------------------------
-    // Constraint: SegmentalKMeansTrainer requires DiscreteDistribution.
-    // Constructing it on a Gaussian-emission HMM throws.
+    // Path C: SegmentalKMeansTrainer with Gaussian emissions.
+    // The discrete-only restriction was removed in v4.2.0; any scalar
+    // EmissionDistribution works via the generic fit() M-step.
     // -------------------------------------------------------------------------
-    std::cout << "\nConstraint demonstration: Gaussian emissions are rejected\n";
-    std::cout << "---------------------------------------------------------\n";
+    std::cout << "\nPath C: SegmentalKMeansTrainer with Gaussian emissions\n";
+    std::cout << "------------------------------------------------------\n";
     auto hmm_c = std::make_unique<Hmm>(2);
-    hmm_c->setTrans(hmm_a->getTrans());
-    hmm_c->setPi(hmm_a->getPi());
+    {
+        Matrix t(2, 2);
+        t(0, 0) = 0.8;
+        t(0, 1) = 0.2;
+        t(1, 0) = 0.3;
+        t(1, 1) = 0.7;
+        hmm_c->setTrans(t);
+        Vector p(2);
+        p(0) = 0.5;
+        p(1) = 0.5;
+        hmm_c->setPi(p);
+    }
     hmm_c->setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
     hmm_c->setDistribution(1, std::make_unique<GaussianDistribution>(5.0, 1.0));
 
-    try {
-        SegmentalKMeansTrainer skm_c(hmm_c.get(), obs);
-        std::cout << "  ERROR: expected std::runtime_error but none was thrown\n";
-        return 1;
-    } catch (const std::runtime_error &e) {
-        std::cout << "  Caught expected error: " << e.what() << "\n";
+    // Two clusters: values near 0 and near 5.
+    ObservationLists gobs;
+    {
+        ObservationSet s(20);
+        for (std::size_t i = 0; i < 10; ++i)
+            s(i) = static_cast<double>(i) * 0.15;
+        for (std::size_t i = 10; i < 20; ++i)
+            s(i) = 5.0 + static_cast<double>(i - 10) * 0.1;
+        gobs.push_back(s);
     }
+
+    std::cout << "  Initial log-likelihood: " << total_ll(*hmm_c, gobs) << "\n";
+    SegmentalKMeansTrainer skm_c(hmm_c.get(), gobs);
+    skm_c.train();
+    std::cout << "  Converged: " << (skm_c.isTerminated() ? "yes" : "no") << "\n";
+    std::cout << "  Log-likelihood: " << total_ll(*hmm_c, gobs) << "\n";
 
     return 0;
 }

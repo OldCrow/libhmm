@@ -289,10 +289,13 @@ TEST(SegmentalKMeansTrainerTest, EmptyObsThrows) {
     EXPECT_THROW(SegmentalKMeansTrainer(hmm.get(), empty), std::invalid_argument);
 }
 
-TEST(SegmentalKMeansTrainerTest, RequiresDiscreteDistributions) {
+TEST(SegmentalKMeansTrainerTest, AcceptsAnyScalarDistribution) {
+    // The discrete-only restriction was removed in favour of the generic fit()
+    // M-step. SegmentalKMeansTrainer now works with any scalar EmissionDistribution,
+    // including Gaussian. Construction must not throw.
     auto hmm = makeGaussianHmm();
     auto obs = makeGaussianObs();
-    EXPECT_THROW(SegmentalKMeansTrainer(hmm.get(), obs), std::runtime_error);
+    EXPECT_NO_THROW(SegmentalKMeansTrainer(hmm.get(), obs));
 }
 
 TEST(SegmentalKMeansTrainerTest, InitialState) {

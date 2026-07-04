@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-07-04
+
+Multivariate segmental k-means release. 47/47 standard correctness tests pass.
+
+### Added
+
+- **`BasicSegmentalKMeansTrainer<Obs>`** (`include/libhmm/training/basic_segmental_kmeans_trainer.h`):
+  generic hard-assignment EM trainer parameterised on observation type, following the
+  same `BasicTrainer<Obs>` pattern as `BasicBaumWelchTrainer` and `BasicViterbiTrainer`.
+  Uses a per-sequence, per-timestep assignment representation (replacing the `Clusters`
+  hash-map), which correctly handles the case where the same observation value maps to
+  different states at different times.
+- **`SegmentalKMeansTrainerMV`** (`= BasicSegmentalKMeansTrainer<ObservationVectorView>`):
+  trains `HmmMV` with any MV emission distribution (`DiagonalGaussianDistribution`,
+  `FullCovarianceGaussianDistribution`, `IndependentComponentsDistribution`).
+  Recommended use: `kmeans_init` → `SegmentalKMeansTrainerMV` → `BasicBaumWelchTrainer<OVV>`.
+- **`maxIterations` parameter** on both constructors (default 100): bounds iteration count
+  for continuous data where Viterbi hard-assignment may not converge in a fixed number
+  of steps. `isTerminated()` returns `true` only on genuine convergence (no assignment
+  change), `false` if the cap was reached.
+- **New test** `tests/training/test_segmental_kmeans_mv.cpp` (12 test cases): construction,
+  null/empty guards, `DiagonalGaussian` and `FullCovarianceGaussian` training, log-prob
+  non-degradation on well-separated data, and scalar alias regression.
+- **New example** `examples/segmental_kmeans_mv_example.cpp`: demonstrates the full MV
+  warm-start workflow and compares cold vs warm-start final log-probability.
+
+### Changed
+
+- **`SegmentalKMeansTrainer`** is now `using SegmentalKMeansTrainer = BasicSegmentalKMeansTrainer<double>`.
+  The discrete-only restriction (`validateDiscreteDistributions()` throwing `std::runtime_error`)
+  is removed: the generic `fit()` M-step accepts any scalar `EmissionDistribution`. Existing
+  code using `SegmentalKMeansTrainer` with `DiscreteDistribution` is unaffected.
+- **`segmental_kmeans_example.cpp`**: the constraint-demonstration section (which returned
+  exit code 1 after the restriction was lifted) is replaced by a Path C showing Gaussian
+  training.
+- **`test_canonical_training.cpp`**: `RequiresDiscreteDistributions` test renamed
+  `AcceptsAnyScalarDistribution` and changed from `EXPECT_THROW` to `EXPECT_NO_THROW`.
+
+---
+
 ## [4.1.4] - 2026-07-02
 
 Windows MSVC warning cleanup release. No API changes; no breaking changes.

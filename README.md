@@ -3,8 +3,8 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-4.1.4-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
-[![Tests](https://img.shields.io/badge/Tests-46%2F46_Passing-success.svg)](tests/)
+[![Version](https://img.shields.io/badge/Version-4.2.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Tests](https://img.shields.io/badge/Tests-47%2F47_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)
 
@@ -37,7 +37,8 @@ needs to run *inside* a C++ application or pipeline.
   Use `computeLogPrior()` for the correct convergence criterion (likelihood alone is not monotone
   when `c > 0`).
 - **Viterbi Training** — hard-assignment with `TrainingConfig` presets (`fast`, `balanced`, `precise`)
-- **Segmental K-Means** — for discrete HMMs; useful as initialiser before EM
+- **Segmental K-Means** — hard-assignment EM for any scalar distribution (`SegmentalKMeansTrainer`) or
+  multivariate HMM (`SegmentalKMeansTrainerMV`); useful as initialiser before Baum-Welch
 
 ### Inference
 

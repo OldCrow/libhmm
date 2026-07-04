@@ -1,6 +1,6 @@
 # libhmm Examples
 
-23 examples in two categories: algorithm and distribution demonstrations using
+24 examples in two categories: algorithm and distribution demonstrations using
 synthetic data (including the v4 multivariate examples), and real-world benchmarks
 against published datasets and established R packages.
 
@@ -66,8 +66,16 @@ Hard-assignment training with `TrainingConfig` presets (`fast`, `balanced`,
 
 #### [segmental_kmeans_example.cpp](segmental_kmeans_example.cpp)
 `SegmentalKMeansTrainer` standalone and as a Baum-Welch warm-start.
-Demonstrates the discrete-only constraint.
-**Distributions:** Discrete
+Shows discrete (biased-dice) and Gaussian paths; demonstrates the generic fit()
+M-step that accepts any scalar EmissionDistribution.
+**Distributions:** Discrete, Gaussian
+
+#### [segmental_kmeans_mv_example.cpp](segmental_kmeans_mv_example.cpp)
+`SegmentalKMeansTrainerMV` on a 2D DiagonalGaussian HMM. Demonstrates the
+recommended MV warm-start workflow: `kmeans_init` → `SegmentalKMeansTrainerMV`
+→ `BasicBaumWelchTrainer<ObservationVectorView>`. Compares a cold (segmental
+k-means only) vs warm-start path on two well-separated synthetic clusters.
+**Distributions:** DiagonalGaussianDistribution (2D)
 
 #### [posterior_decoding_example.cpp](posterior_decoding_example.cpp)
 `decodePosterior()` vs `ViterbiCalculator::decode()` on the casino HMM.
@@ -289,7 +297,8 @@ correctly.
 | Standard fitting | `BaumWelchTrainer` |
 | Sparse data / prevent zero transitions | `MapBaumWelchTrainer` |
 | Fast convergence, well-separated states | `ViterbiTrainer` |
-| Discrete HMM initialisation | `SegmentalKMeansTrainer` |
+| Scalar HMM initialisation (any distribution) | `SegmentalKMeansTrainer` |
+| MV HMM warm-start before Baum-Welch | `SegmentalKMeansTrainerMV` |
 
 **Choosing a decoder:**
 

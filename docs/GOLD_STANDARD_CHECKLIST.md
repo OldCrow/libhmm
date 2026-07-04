@@ -135,7 +135,7 @@ These converge to a valid local optimum but may arrive at a suboptimal one.
 
 ## Current Status Matrix (16 distributions)
 
-All 16 scalar distributions meet the Gold Standard v4.1 interface. 46/46 tests pass on all platforms.
+All 16 scalar distributions meet the Gold Standard v4.1 interface. 47/47 tests pass on all platforms.
 The 3 MV distributions (DiagonalGaussian, FullCovGaussian, IndependentComponents) implement
 `BasicEmissionDistribution<ObservationVectorView>` and are covered by `test_multivariate_distributions`.
 
@@ -218,4 +218,4 @@ All numeric literals are replaced with named constants from `libhmm::constants`.
 
 ---
 
-*Last updated: 2026-07-02 (libhmm v4.1.0; 11/16 scalar distributions tier-2 SIMD-dispatched)*
+*Last updated: 2026-07-04 (libhmm v4.2.0; 11/16 scalar distributions tier-2 SIMD-dispatched)*
