@@ -331,8 +331,12 @@ void BasicBaumWelchTrainer<Obs>::m_step_transitions(HmmType &hmm, std::size_t N,
     Matrix newTrans(N, N);
     for (std::size_t i = 0; i < N; ++i) {
         for (std::size_t j = 0; j < N; ++j) {
-            newTrans(i, j) = (transDen[i] > 0.0) ? transNumT[j * N + i] / transDen[i]
-                                                 : 1.0 / static_cast<double>(N);
+            // Use precision::ZERO (same threshold as m_step_pi) to reject denormal
+            // transDen values — plain > 0.0 admits denormals and the division can
+            // produce NaN/inf when all gamma terms underflow.
+            newTrans(i, j) = (transDen[i] >= constants::precision::ZERO)
+                                 ? transNumT[j * N + i] / transDen[i]
+                                 : 1.0 / static_cast<double>(N);
         }
     }
     hmm.setTrans(newTrans);

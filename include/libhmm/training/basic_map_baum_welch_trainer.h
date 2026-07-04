@@ -261,18 +261,6 @@ void BasicMapBaumWelchTrainer<Obs>::apply_discrete_smoothing(HmmType &hmm, std::
             dd.setProbability(static_cast<double>(k),
                               (dd.getSymbolProbability(k) * sumW + c) / denom);
         }
-        // Re-normalize: guards against un-normalized probabilities when
-        // DiscreteDistribution::fit() used an inflated sumW denominator
-        // (e.g. out-of-range observations counted in weight sum but not in
-        // per-symbol bins), which leaves the pre-smoothing pdf summing to < 1.
-        double total = 0.0;
-        for (std::size_t k = 0; k < K; ++k)
-            total += dd.getSymbolProbability(k);
-        if (total > 0.0 && std::isfinite(total)) {
-            const double inv_total = 1.0 / total;
-            for (std::size_t k = 0; k < K; ++k)
-                dd.setProbability(static_cast<double>(k), dd.getSymbolProbability(k) * inv_total);
-        }
     }
 }
 
@@ -427,7 +415,8 @@ void BasicMapBaumWelchTrainer<Obs>::m_step_pi_map(HmmType &hmm, std::size_t N,
     const double denom = piSum + static_cast<double>(N) * c;
     Vector pi(N);
     for (std::size_t i = 0; i < N; ++i)
-        pi(i) = (denom > 0.0) ? (piNum[i] + c) / denom : 1.0 / static_cast<double>(N);
+        pi(i) = (denom >= constants::precision::ZERO) ? (piNum[i] + c) / denom
+                                                      : 1.0 / static_cast<double>(N);
     hmm.setPi(pi);
 }
 
@@ -441,8 +430,9 @@ void BasicMapBaumWelchTrainer<Obs>::m_step_transitions_map(HmmType &hmm, std::si
     for (std::size_t i = 0; i < N; ++i) {
         const double denom = transDen[i] + Nc;
         for (std::size_t j = 0; j < N; ++j) {
-            newTrans(i, j) =
-                (denom > 0.0) ? (transNumT[j * N + i] + c) / denom : 1.0 / static_cast<double>(N);
+            newTrans(i, j) = (denom >= constants::precision::ZERO)
+                                 ? (transNumT[j * N + i] + c) / denom
+                                 : 1.0 / static_cast<double>(N);
         }
     }
     hmm.setTrans(newTrans);
