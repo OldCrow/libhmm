@@ -6,7 +6,7 @@ This file provides project-scoped guidance to AI agents and contributors working
 
 C++20 Hidden Markov Model library. Zero external dependencies (C++20 standard library only). GTest is fetched via `FetchContent` only for the test suite. Produces both a shared (`hmm`) and static (`hmm_static`) library from a single OBJECT target.
 
-`main` is the stable v4 branch (current release: v4.2.2). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
+`main` is the stable v4 branch (current release: v4.2.3). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
 
 ## Session start
 
@@ -174,9 +174,10 @@ Threading is **not used** in the production path. `ThreadPool` exists in `platfo
 
 The weighted `fit(data, weights)` method is the Baum-Welch M-step. Fit quality varies by distribution:
 
-- **Tier A — exact weighted MLE**: Gaussian, Exponential, Poisson, Discrete, LogNormal, Pareto, Rayleigh, VonMises, Binomial
-- **Tier B — MOM ≈ MLE**: ChiSquared
-- **Tier C — MOM (gap can be material)**: Gamma, Weibull, NegativeBinomial, Uniform, Beta, StudentT
+- **Tier A — exact weighted MLE/EM**: Gaussian, Exponential, Poisson, Discrete, LogNormal, Pareto,
+  Rayleigh, VonMises, Binomial, ChiSquared (Newton MLE, v4.2.1), Gamma, Weibull, NegativeBinomial,
+  Beta, StudentT (Newton/ECME, corrected in v4.2.1 — were implemented before v4.2.0 but mis-labelled)
+- **Tier C — MOM (defensible in EM context)**: Uniform (fixed-range; MOM is exact for uniform support)
 
 Priority M-step improvements are documented in `docs/GOLD_STANDARD_CHECKLIST.md`.
 
