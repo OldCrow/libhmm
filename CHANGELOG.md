@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.2] - 2026-07-04
+
+MapBaumWelchTrainer convergence observability release. 47/47 tests pass.
+No API changes; no breaking changes.
+
+### Fixed
+
+- **`BasicMapBaumWelchTrainer::getLastLogProbability()`**: adds the missing
+  convergence telemetry method, matching the parity already present on
+  `BasicBaumWelchTrainer`. `accum_one_sequence` now returns `double` (the
+  sequence log-probability) instead of `bool`; `train()` accumulates the
+  total and exposes it via `getLastLogProbability()`. Semantics: pre-M-step
+  E-step log P(O|\u03bb), reset to `\u2212\u221e` before each `train()` call. Closes #55.
+
+---
+
 ## [4.2.1] - 2026-07-04
 
 Fit quality audit and ChiSquared Newton MLE release. 47/47 standard correctness tests pass.
