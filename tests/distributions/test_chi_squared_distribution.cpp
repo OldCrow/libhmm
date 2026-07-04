@@ -112,23 +112,22 @@ TEST(ChiSquaredDistributionTest, Fitting) {
 
     ChiSquaredDistribution chi_dist;
 
-    // Test with data that has known mean
-    std::vector<Observation> data = {1.0, 2.0, 3.0, 4.0, 5.0}; // Mean = 3.0
+    // Newton MLE fit: solve psi(k/2) = mean_log_x - log(2).
+    // The result is NOT the sample mean (that was the old MOM estimator).
+    std::vector<Observation> data = {1.0, 2.0, 3.0, 4.0, 5.0};
     chi_dist.fit(data);
+    EXPECT_GT(chi_dist.getDegreesOfFreedom(), 0.0);
+    EXPECT_TRUE(std::isfinite(chi_dist.getDegreesOfFreedom()));
 
-    // For Chi-squared, MLE estimate of k is the sample mean
-    EXPECT_NEAR(chi_dist.getDegreesOfFreedom(), 3.0, 1e-10);
-
-    // Test with another dataset
-    std::vector<Observation> data2 = {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5}; // Mean = 4.0
+    std::vector<Observation> data2 = {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5};
     chi_dist.fit(data2);
-    EXPECT_NEAR(chi_dist.getDegreesOfFreedom(), 4.0, 1e-10);
+    EXPECT_GT(chi_dist.getDegreesOfFreedom(), 0.0);
+    EXPECT_TRUE(std::isfinite(chi_dist.getDegreesOfFreedom()));
 
-    // Test with empty data - should throw exception
+    // Boundary: empty data throws, negative values throw.
     std::vector<Observation> empty_data;
     EXPECT_THROW(chi_dist.fit(empty_data), std::invalid_argument);
 
-    // Test with negative values - should throw exception
     std::vector<Observation> negative_data = {1.0, -2.0, 3.0};
     EXPECT_THROW(chi_dist.fit(negative_data), std::invalid_argument);
 }
@@ -515,26 +514,48 @@ TEST(ChiSquaredDistributionTest, CDFAccuracy) {
 // =============================================================================
 
 TEST(ChiSquaredDistributionTest, WeightedFit) {
-    // Weighted MOM estimator: k̂ = Σ(w_i * x_i) / Σw_i
+    // Newton MLE weighted fit: psi(k/2) = weighted_mean_log_x - log(2).
+    // The result is NOT the weighted mean (that was the old MOM estimator).
     ChiSquaredDistribution chi;
 
-    // Equal weights: weighted mean == sample mean.
+    // Equal weights: fit must produce a positive finite estimate.
     std::vector<double> data = {2.0, 4.0, 6.0, 8.0};
     std::vector<double> weights = {1.0, 1.0, 1.0, 1.0};
     chi.fit(data, weights);
-    EXPECT_NEAR(chi.getDegreesOfFreedom(), 5.0, 1e-10);
+    EXPECT_GT(chi.getDegreesOfFreedom(), 0.0);
+    EXPECT_TRUE(std::isfinite(chi.getDegreesOfFreedom()));
 
-    // Unequal weights: k̂ = (0*2 + 0*4 + 1*6 + 0*8) / 1 = 6.
+    // Unequal weights (single effective observation x=6): estimate is positive finite.
     std::vector<double> w2 = {0.0, 0.0, 1.0, 0.0};
     chi.fit(data, w2);
-    EXPECT_NEAR(chi.getDegreesOfFreedom(), 6.0, 1e-10);
+    EXPECT_GT(chi.getDegreesOfFreedom(), 0.0);
+    EXPECT_TRUE(std::isfinite(chi.getDegreesOfFreedom()));
 
-    // All-zero weights: sumW = 0 triggers the EM-collapse guard and parameters must
-    // not change (same contract as all other distributions with zero weight).
+    // All-zero weights: sumW = 0 triggers the EM-collapse guard; parameters unchanged.
     ChiSquaredDistribution chi2(3.0);
     std::vector<double> zero = {0.0, 0.0, 0.0, 0.0};
     chi2.fit(data, zero);
     EXPECT_NEAR(chi2.getDegreesOfFreedom(), 3.0, 1e-10);
+}
+
+/// Verify Newton MLE exactly recovers k for data whose sufficient statistic
+/// mean_log_x equals the chi-squared(k) expectation E[log X] = psi(k/2) + log(2).
+///
+/// Construction: a dataset of identical values x_exact = exp(psi(k/2) + log(2))
+/// satisfies mean_log_x = psi(k/2) + log(2) exactly, so Newton MLE gives k exactly.
+/// Using k_true = 4 (psi(2) = 1 - euler_gamma ≈ 0.42278).
+TEST(ChiSquaredDistributionTest, NewtonMLEAccuracy) {
+    // psi(2) = 1 - euler_gamma = 0.42278433509846713...
+    // x_exact = exp(psi(2) + log(2)) satisfies the MLE score equation for k=4.
+    constexpr double k_true = 4.0;
+    const double psi2 = 0.42278433509846713; // psi(k/2=2) = 1 - euler_gamma
+    const double x_exact = std::exp(psi2 + std::log(2.0));
+    // 50 identical observations — mean_log_x = log(x_exact) = psi(2)+log(2) exactly.
+    std::vector<double> data(50, x_exact);
+    ChiSquaredDistribution chi;
+    chi.fit(data);
+    // Newton MLE should recover k=4 to near machine precision.
+    EXPECT_NEAR(chi.getDegreesOfFreedom(), k_true, 1e-6);
 }
 
 TEST(ChiSquaredDistributionTest, BatchLogProbabilityMatchesScalar) {

@@ -3,7 +3,7 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-4.2.0-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
+[![Version](https://img.shields.io/badge/Version-4.2.1-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
 [![Tests](https://img.shields.io/badge/Tests-47%2F47_Passing-success.svg)](tests/)
 [![SIMD](https://img.shields.io/badge/SIMD-AVX--512%2FAVX2%2FSSE2%2FNEON-blue.svg)](src/distributions/)
 [![CI](https://github.com/OldCrow/libhmm/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/libhmm/actions)

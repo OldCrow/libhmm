@@ -1,4 +1,4 @@
-# LibHMM Gold Standard Distribution Implementation Checklist
+﻿# LibHMM Gold Standard Distribution Implementation Checklist
 
 This document tracks the implementation status of all probability distributions in libhmm
 according to the "Gold Standard" requirements, plus a fit quality survey added in May 2026.
@@ -89,53 +89,39 @@ These distributions have closed-form weighted MLE. The M-step is correct and opt
 | VonMisesDistribution | μ via atan2, κ via Mardia-Jupp + Newton | Near-optimal; Mardia-Jupp error < 0.003 |
 | BinomialDistribution | p = weighted_mean / n | Exact MLE for p (n fixed as max observation) |
 
-### Tier B — MOM ≈ MLE: gap is small in practice
+### Tier B
 
-Single-parameter distributions where MOM and MLE are very close for typical parameter values.
-
-| Distribution | M-step estimate | Gap to MLE |
-|---|---|---|
-| ChiSquaredDistribution | k = weighted_mean | MOM (E[X]=k). True MLE requires ψ(k/2) = log(mean) − mean_of_log. Gap is small for k > 2. |
+No distributions remain in Tier B as of v4.2.1.
 
 ### Tier C — MOM: gap can be material
 
-Multi-parameter distributions where MOM diverges from MLE for certain parameter ranges.
-These converge to a valid local optimum but may arrive at a suboptimal one.
+One distribution remains Tier C.
 
-| Distribution | M-step estimate | Known limitation |
-|---|---|---|
-| GammaDistribution | k = mean²/var, θ = var/mean | MOM. MLE for k requires solving log(k) − ψ(k) = log(mean) − mean_of_log. MOM is close for k > 1; degrades for k < 0.5. |
-| NegativeBinomialDistribution | p = mean/var, r = mean²/(var−mean) | MOM. MLE for r has no closed form; needs profile likelihood or Newton. |
-| UniformDistribution | a = mean − √(3·var), b = mean + √(3·var) | MOM. MLE (weighted min/max) is unstable in EM context; MOM is defensible. |
-| BetaDistribution | α = mean·f, β = (1−mean)·f | MOM. Degrades when α or β < 0.5. MLE requires digamma Newton. |
-| WeibullDistribution | k and λ from weighted mean/variance | MOM. Gap is significant for k outside [0.5, 3]. MLE for k needs Newton. |
-| StudentTDistribution | μ = weighted_mean, σ = corrected_std, ν from kurtosis | Kurtosis-based ν is noisy when a state covers few observations. ECM algorithm would give exact joint (μ, σ, ν) updates. |
+| Distribution | M-step estimate | Notes |
+||---|---|---|
+|| UniformDistribution | a = mean - sqrt(3*var), b = mean + sqrt(3*var) | MOM. MLE (weighted min/max) is numerically unstable under EM weights; MOM is defensible. |
 
-### Outstanding M-step improvements (priority order)
+### Previously Tier B/C — promoted to Tier A (all resolved by v4.2.1)
 
-1. **StudentTDistribution — ECM algorithm**: Replace kurtosis MOM with the Gaussian scale-mixture
-   EM (Dempster 1977; Murphy 2012 §11.4.5). Per-observation scale weights u_i = (ν+1)/(ν + z_i²/σ²)
-   give closed-form μ and σ updates; ν requires a Newton step. Directly improves financial HMM
-   quality (demonstrated on DAX 2000–2022 vs fHMM benchmark).
+| Distribution | Algorithm | Since |
+||---|---|---|
+|| ChiSquaredDistribution | Newton on psi(k/2) = mean_log_x - log(2) | v4.2.1 |
+|| GammaDistribution | Cheng & Feast (1979) starter + Newton on log(k) - psi(k) = s | pre-v4.2 |
+|| WeibullDistribution | MOM seed + Newton on profile score for k (100 iters) | pre-v4.2 |
+|| NegativeBinomialDistribution | MOM seed + digamma/trigamma Newton for r (200 iters) | pre-v4.2 |
+|| BetaDistribution | MOM seed + digamma Newton for (alpha, beta) (200 iters) | pre-v4.2 |
+|| StudentTDistribution | Full ECM: closed-form mu, sigma; Newton for nu (Liu & Rubin 1994) | pre-v4.2 |
 
-2. **GammaDistribution — Newton MLE for k**: One Newton step from the MOM starting point:
-   k_new = k − (log k − ψ(k) − s) / (1/k − ψ'(k)), s = log(mean) − mean_of_log.
-   Improves ecological movement models (step-length fitting) for sparse states with k < 1.
+### Outstanding M-step work
 
-3. **WeibullDistribution — Newton MLE for k**: Analogous single Newton step. Relevant for
-   reliability and predictive-maintenance HMMs.
-
-4. **NegativeBinomialDistribution — profile likelihood for r**: One-dimensional numerical
-   optimisation starting from MOM estimate. Relevant for count-data HMMs with high dispersion.
-
-5. **BetaDistribution — digamma Newton for (α, β)**: Standard two-parameter iterative MLE.
-   Low priority since Beta is rarely the primary emission in EM-fitted HMMs.
+None. All 15 non-Uniform scalar distributions are Tier A.
 
 ---
 
 ## Current Status Matrix (16 distributions)
 
 All 16 scalar distributions meet the Gold Standard v4.1 interface. 47/47 tests pass on all platforms.
+15 of 16 are Tier A (exact weighted MLE). UniformDistribution is the sole Tier C (MOM defensible in EM context).
 The 3 MV distributions (DiagonalGaussian, FullCovGaussian, IndependentComponents) implement
 `BasicEmissionDistribution<ObservationVectorView>` and are covered by `test_multivariate_distributions`.
 
@@ -151,7 +137,7 @@ The 3 MV distributions (DiagonalGaussian, FullCovGaussian, IndependentComponents
 | JSON I/O | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Rule of Five | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Thread-safe cache | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Fit quality tier | A | A | C | C | B | C | A | A | C | C | C | A | A | A | A | A |
+| Fit quality tier | A | A | A | C | A | A | A | A | A | A | A | A | A | A | A | A |
 
 Key: G=Gaussian, E=Exponential, Ga=Gamma, U=Uniform, Chi=ChiSquared, W=Weibull, Ra=Rayleigh,
 Bi=Binomial, NB=NegativeBinomial, T=StudentT, Be=Beta, LN=LogNormal, Pa=Pareto, Po=Poisson,
@@ -173,22 +159,22 @@ Fit tiers: **A** = exact weighted MLE; **B** = MOM ≈ MLE; **C** = MOM, gap can
 ### Discrete (4)
 1. ✅ DiscreteDistribution — Tier A fit
 2. ✅ BinomialDistribution — Tier A fit
-3. ✅ NegativeBinomialDistribution — ⚠️ Tier C fit (MOM for r)
+3. ✅ NegativeBinomialDistribution — Tier A fit (Newton MLE for r)
 4. ✅ PoissonDistribution — Tier A fit
 
 ### Continuous (12)
 
 5. ✅ GaussianDistribution — Tier A fit
 6. ✅ ExponentialDistribution — Tier A fit
-7. ✅ GammaDistribution — ⚠️ Tier C fit (MOM for k)
+7. ✅ GammaDistribution — Tier A fit (Newton MLE for k)
 8. ✅ LogNormalDistribution — Tier A fit
-9. ✅ BetaDistribution — ⚠️ Tier C fit (MOM for α, β)
-10. ✅ UniformDistribution — ⚠️ Tier C fit (MOM is defensible for uniform)
-11. ✅ WeibullDistribution — ⚠️ Tier C fit (MOM for k)
+9. ✅ BetaDistribution — Tier A fit (digamma Newton for α, β)
+10. ✅ UniformDistribution — Tier C fit (MOM defensible; MLE min/max unstable in EM)
+11. ✅ WeibullDistribution — Tier A fit (Newton MLE for k)
 12. ✅ ParetoDistribution — Tier A fit
 13. ✅ RayleighDistribution — Tier A fit
-14. ✅ StudentTDistribution — ⚠️ Tier C fit (ECM is the priority improvement)
-15. ✅ ChiSquaredDistribution — Tier B fit
+14. ✅ StudentTDistribution — Tier A fit (ECM, Liu & Rubin 1994)
+15. ✅ ChiSquaredDistribution — Tier A fit (Newton MLE, v4.2.1)
 16. ✅ VonMisesDistribution — Tier A fit (Mardia-Jupp ≈ MLE)
 
 ---
@@ -218,4 +204,4 @@ All numeric literals are replaced with named constants from `libhmm::constants`.
 
 ---
 
-*Last updated: 2026-07-04 (libhmm v4.2.0; 11/16 scalar distributions tier-2 SIMD-dispatched)*
+*Last updated: 2026-07-04 (libhmm v4.2.1; 11/16 scalar distributions tier-2 SIMD-dispatched; 15/16 Tier A fit quality)*

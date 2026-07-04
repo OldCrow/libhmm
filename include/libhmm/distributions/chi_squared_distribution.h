@@ -103,7 +103,7 @@ public:
     [[nodiscard]] double getCumulativeProbability(double x) const noexcept;
 
     void fit(std::span<const double> data) override;
-    /** Weighted MOM: k̂ = weighted_mean. */
+    /** Weighted MLE: Newton–Raphson on ψ(k/2) = mean_w[log x] − log(2). */
     void fit(std::span<const double> data, std::span<const double> weights) override;
     [[nodiscard]] bool isDiscrete() const noexcept override { return false; }
     [[nodiscard]] std::size_t getNumParameters() const noexcept override { return 1; }
