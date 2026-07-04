@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.3] - 2026-07-04
+
+Security / correctness patch. 47/47 tests pass. No API additions; one narrow
+behavior change (see `decodePosterior` below).
+
+### Fixed
+
+- **Compile-time guard against temporary observation sequences** (Finding 3):
+  `BasicForwardBackwardCalculator` and `BasicViterbiCalculator` now declare
+  deleted `SeqType&&` constructor overloads on the *derived* classes. The
+  base-class deletion alone was bypassed when a temporary bound to
+  `const SeqType&` in a derived constructor; the named parameter then reached
+  the base as an lvalue, so the deleted overload never participated. The new
+  derived-class overloads close the gap. This change makes passing a temporary
+  to any calculator constructor a hard compile error, causing the pylibhmm
+  UAF binding sites (`_core.cpp`) to self-announce at compile time.
+- **Denormal guard inconsistency in M-step** (Finding 6):
+  `m_step_transitions` (BW trainer) used `> 0.0` where `m_step_pi` correctly
+  uses `>= precision::ZERO`. The same hazard applied to `m_step_pi_map` and
+  `m_step_transitions_map` in `BasicMapBaumWelchTrainer`. All three now use
+  `>= precision::ZERO`, preventing NaN/inf from denormal gamma underflow.
+- **`DiscreteDistribution::fit(data, weights)` under-normalization** (Finding 7):
+  The weighted fit divided by `sumW` (total weight, including out-of-range
+  observations), leaving the pmf summing to < 1 when any observation fell
+  outside the symbol range. Now accumulates `binnedW` (weight that landed in
+  bins) and divides by that. Removes the compensating renormalization pass from
+  `BasicMapBaumWelchTrainer::apply_discrete_smoothing` that worked around this.
+- **`decodePosterior()` silent failure on zero-probability sequences** (Finding 8):
+  When `logP = -inf`, `logAlpha + logBeta - logP` was NaN; all comparisons
+  returned false, silently producing an all-state-0 sequence. Now throws
+  `std::runtime_error` with a descriptive message when
+  `!std::isfinite(logProbability_)`. **Behavior change**: callers that passed
+  zero-probability sequences to `decodePosterior()` will now receive an
+  exception instead of a garbage result.
+- **Deprecated `volatile` compound assignment** (C++20): five instances of
+  `volatile T += value` in `tools/hotspot_breakdown.cpp`, `tools/bw_hotspot.cpp`,
+  and `tools/fb_contour_sweep.cpp` replaced with explicit read-modify-write.
+- **HMMLib Boost detection in benchmark CMake**: `HMMLIB_READY` was set
+  unconditionally when `hmm.hpp` existed; HMMLib uses `boost::shared_ptr`
+  internally. Now guards with `find_package(Boost QUIET)` and propagates
+  `${Boost_INCLUDE_DIRS}` through `enable_hmmlib()`.
+
+### Hygiene
+
+- `install/` added to `.gitignore`.
+
+---
+
 ## [4.2.2] - 2026-07-04
 
 MapBaumWelchTrainer convergence observability release. 47/47 tests pass.
