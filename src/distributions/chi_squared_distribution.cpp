@@ -1,5 +1,6 @@
 #include "libhmm/distributions/chi_squared_distribution.h"
 #include "libhmm/io/json_utils.h"
+#include "libhmm/math/psi_functions.h"
 #include "libhmm/math/weighted_stats.h"
 #include "libhmm/performance/simd_double_ops.h" // runtime dispatch
 #include <algorithm>
@@ -93,28 +94,73 @@ double ChiSquaredDistribution::sample(std::mt19937_64 &rng) const {
     return dist(rng);
 }
 
+namespace {
+
+/// MLE for Chi-squared(k) via Newton–Raphson on the score equation:
+///   ψ(γ) = s,  γ = k/2,  s = mean_log_x − log(2)
+/// (follows directly from χ²(k) = Gamma(k/2, 2))
+/// Starting estimate: γ₀ = mean_x/2  (MOM seed).
+/// Returns unclamped k = 2·γ; caller applies distribution bounds.
+[[nodiscard]] double chi_squared_mle_solve(double mean_x, double mean_log_x) noexcept {
+    const double s = mean_log_x - std::log(2.0);
+    double gamma = std::max(mean_x * 0.5, 0.5); // MOM seed for γ = k/2
+    for (int i = 0; i < 20; ++i) {
+        const double f = detail::digamma(gamma) - s;
+        const double fp = detail::trigamma(gamma);
+        if (std::fabs(fp) < 1e-15)
+            break;
+        const double dg = f / fp;
+        gamma -= dg;
+        if (gamma <= 0.0)
+            gamma = 1e-10;
+        if (std::fabs(dg) < 1e-10 * gamma)
+            break;
+    }
+    return 2.0 * gamma;
+}
+
+} // anonymous namespace
+
 void ChiSquaredDistribution::fit(std::span<const double> data) {
     if (data.empty())
         throw std::invalid_argument("Cannot fit distribution to empty data");
-    double sum = 0.0;
+    double sum = 0.0, sum_log = 0.0;
+    std::size_t count = 0;
     for (const double v : data) {
         if (!std::isfinite(v) || v < 0.0)
             throw std::invalid_argument(
                 "Chi-squared distribution requires non-negative finite values");
-        sum += v;
+        if (v > 0.0) {
+            sum += v;
+            sum_log += std::log(v);
+            ++count;
+        }
     }
-    double est = std::max(MIN_DEGREES_OF_FREEDOM,
-                          std::min(MAX_DEGREES_OF_FREEDOM, sum / static_cast<double>(data.size())));
-    setDegreesOfFreedom(est);
+    if (count == 0) {
+        reset();
+        return;
+    }
+    const double n = static_cast<double>(count);
+    const double k = chi_squared_mle_solve(sum / n, sum_log / n);
+    setDegreesOfFreedom(std::clamp(k, MIN_DEGREES_OF_FREEDOM, MAX_DEGREES_OF_FREEDOM));
 }
 
 void ChiSquaredDistribution::fit(std::span<const double> data, std::span<const double> weights) {
-    const auto mean = detail::compute_weighted_mean(data, weights);
-    // Guard: near-zero weight → keep current parameters (not reset).
-    if (!mean)
+    double sumW = 0.0, sum_wx = 0.0, sum_wlogx = 0.0;
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        const double v = data[i];
+        const double w = weights[i];
+        if (!std::isfinite(v) || v <= 0.0 || !std::isfinite(w) || w <= 0.0)
+            continue;
+        sumW += w;
+        sum_wx += w * v;
+        sum_wlogx += w * std::log(v);
+    }
+    // Guard: keep current parameters when effective weight is near zero.
+    if (sumW < precision::ZERO || std::isnan(sumW))
         return;
-    double est = std::max(MIN_DEGREES_OF_FREEDOM, std::min(MAX_DEGREES_OF_FREEDOM, *mean));
-    setDegreesOfFreedom(est);
+    const double k = chi_squared_mle_solve(sum_wx / sumW, sum_wlogx / sumW);
+    setDegreesOfFreedom(std::clamp(k, MIN_DEGREES_OF_FREEDOM, MAX_DEGREES_OF_FREEDOM));
 }
 
 void ChiSquaredDistribution::reset() noexcept {

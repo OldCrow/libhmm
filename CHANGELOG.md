@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.1] - 2026-07-04
+
+Fit quality audit and ChiSquared Newton MLE release. 47/47 standard correctness tests pass.
+No API changes; no breaking changes.
+
+### Fixed
+
+- **`ChiSquaredDistribution::fit()` — Newton MLE for k** (Tier B → A): replaced the weighted
+  mean (MOM) estimator with Newton–Raphson on the score equation `ψ(k/2) = mean_log_x − log(2)`,
+  using the MOM value as the starting point. Promotes ChiSquared to Tier A alongside the other
+  15 scalar distributions.
+
+### Documentation
+
+- **`docs/GOLD_STANDARD_CHECKLIST.md`** corrected: five distributions (Gamma, Weibull,
+  NegativeBinomial, Beta, StudentT) were already Tier A via Newton/ECM algorithms implemented
+  before v4.2.0; the checklist incorrectly still listed them as Tier C. All six are now
+  accurately documented as Tier A. UniformDistribution is the sole remaining Tier C
+  (MOM defensible in EM context).
+
+---
+
 ## [4.2.0] - 2026-07-04
 
 Multivariate segmental k-means release. 47/47 standard correctness tests pass.
