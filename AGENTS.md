@@ -43,7 +43,14 @@ cmake --preset debug && cmake --build build-debug
 
 # RelWithDebInfo — preferred for profiling (output in build-relwithdebinfo/)
 cmake --preset rel-with-debug && cmake --build build-relwithdebinfo
+```
 
+`RelWithDebInfo` uses the same optimization flags as `Release`, adding only
+debug symbols for profiler resolution — measured performance numbers are
+equivalent to Release; use RelWithDebInfo only when the profiler needs
+symbol information.
+
+```bash
 # Manual configure (no preset)
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
@@ -158,7 +165,7 @@ There are two tiers of SIMD implementation:
 
 `getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values.
 
-Threading is **not used** in the production path. `ThreadPool` exists in `platform/thread_pool.h` but is consumed only by two diagnostic tools in `tools/`.
+Threading is **not used** in the production path — a deliberate, settled decision since the Phase 4 refactor replaced the Plan-A `WorkStealingPool`-based hierarchy with per-distribution batch SIMD (Plan B). `ThreadPool` was subsequently moved out of the library entirely, from `libhmm/platform/thread_pool.h` into `tools/thread_pool.h`, since no production code (calculators, trainers, distributions, HMM core) ever instantiated it; today it is consumed only by two diagnostic tools in `tools/`. See PLAN.md for the tracked GitHub issue proposing to revisit this for parallel E-step accumulation.
 
 ### Distribution fit quality
 
@@ -244,3 +251,9 @@ Use an existing distribution (e.g. `src/distributions/rayleigh_distribution.cpp`
 ## CI / Validation
 
 Four parallel jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC 2022. Two additional jobs: pre-commit (ubuntu) and cppcheck (ubuntu). Tests run with `-LE "known_broken|benchmark"`. `clang-tidy` is available but disabled in CI (`ENABLE_CLANG_TIDY=OFF`); enable locally when needed.
+
+## Open Items
+See PLAN.md for current status, in-progress work, and open questions.
+Distribution fit-quality roadmap specifically lives in
+docs/GOLD_STANDARD_CHECKLIST.md — PLAN.md points to it rather than
+duplicating it.
