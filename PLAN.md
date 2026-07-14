@@ -60,6 +60,7 @@ Last reconciled against live GitHub state: 2026-07-14.
 - Open issues without milestone:
   - #50 OPEN — feat: Hidden Semi-Markov Model (HSMM) with explicit duration distributions.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
+  - #62 OPEN — chore: decide whether to enable clang-tidy in CI.
 - Closed issues without milestone: 19 as of 2026-07-14 (fetch via
   `gh issue list --state closed --json number,title,milestone -q
   '.[] | select(.milestone == null)'` if ever needed).
@@ -75,7 +76,7 @@ Last reconciled against live GitHub state: 2026-07-14.
   tracking only, with no broader project task-tracking that should move
   here instead).
 - clang-tidy is available but disabled in CI (`ENABLE_CLANG_TIDY=OFF`) —
-  no decision recorded on whether/when to enable it.
+  tracked as GitHub issue #62 (2026-07-14).
 
 ## Cross-Repo Dependencies [OPEN]
 pylibhmm pins this repo via `FetchContent` (`GIT_TAG v4.2.4` in
@@ -85,6 +86,18 @@ side-by-side development). Confirmed in sync as of 2026-07-14: libhmm
 new libhmm release or making a breaking API change, verify pylibhmm's pin
 is updated to match — check pylibhmm's PLAN.md for its current pinned tag
 rather than assuming it's current.
+
+## Local Machine State [DERIVED]
+Confirmed 2026-07-14: `main` fully in sync with `origin/main` (clean,
+no ahead/behind). `joss-paper` branch (open PR #20, held back pending
+JOSS review per their process, not a repo omission) matches
+`origin/joss-paper` exactly. A local-only stash on `joss-paper`
+containing only regenerated LaTeX build artifacts (`.aux`, `.blg`,
+`.fdb_latexmk`, `.fls`, `.pdf` — no `.tex` source changes) was dropped
+as safe-to-discard output. 8 stale local branches left over from
+squash-merged PRs (#30, #31, #33, #34, #57, #59, #60, #61) were deleted
+locally — confirmed merged via `gh pr list` before deletion, not
+unmerged work.
 
 ## Next Steps
 - Work through the v4.3.0 — Training & Core Usability backlog (6 open
