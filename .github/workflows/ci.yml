@@ -308,3 +308,44 @@ jobs:
           --std=c++20 \
           -I include \
           src/
+
+  # ---------------------------------------------------------------------------
+  # clang-tidy — advisory (non-blocking) for now. See issue #62: the full
+  # default check set produces ~3765 warnings dominated by checks that
+  # conflict with libhmm's documented architecture (pragma-once convention,
+  # intentional SIMD intrinsics/pointer arithmetic in hot paths, the v4
+  # template+virtual pattern) — those six checks are disabled in .clang-tidy.
+  # The ~1344 residual warnings are dominated by a mechanical
+  # modernize-use-nodiscard cluster in the linalg headers (tracked in #63)
+  # rather than real defects, so this job reports findings without failing
+  # the build. Revisit blocking status once that cluster is fixed and the
+  # job has run noise-free for a few cycles (see PLAN.md).
+  # ---------------------------------------------------------------------------
+  clang-tidy:
+    name: clang-tidy (advisory, ubuntu / Clang)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install clang-tidy
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends clang-tidy
+
+    - name: Configure (export compile commands)
+      env:
+        CC: clang
+        CXX: clang++
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          -DLIBHMM_PORTABLE=ON \
+          -DLIBHMM_BUILD_EXAMPLES=OFF \
+          -DLIBHMM_BUILD_TOOLS=OFF \
+          -DLIBHMM_BUILD_TESTS=OFF
+
+    - name: clang-tidy (advisory — does not fail the job)
+      continue-on-error: true
+      run: run-clang-tidy -p build -quiet src/

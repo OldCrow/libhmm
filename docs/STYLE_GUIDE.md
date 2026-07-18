@@ -494,13 +494,12 @@ rather than nesting loops and conditionals in a single body.
 - **Undefined Behavior Sanitizer**: UB detection
 
 ### 2. Enabled Checks
-See the static analysis configuration in `.clang-tidy` and CMake integration.
+See the static analysis configuration in `.clang-tidy` and CMake integration. Six checks are disabled as architecturally mismatched with libhmm's documented design rather than because they find real defects (pragma-once convention, intentional SIMD intrinsics/pointer arithmetic in perf-critical hot paths, the v4 template+virtual pattern, and a false-positive move-ctor idiom) — see the comment block in `.clang-tidy` for the full rationale (issue #62).
 
 ### 3. CI Integration
-All static analysis tools run automatically on:
-- Pull requests
-- Main branch commits
-- Release builds
+cppcheck and pre-commit run on every pull request and main-branch commit and are blocking.
+
+clang-tidy runs in a dedicated CI job (`run-clang-tidy` against `compile_commands.json`) but is currently **advisory (non-blocking)**: `continue-on-error: true`. The residual ~1344 warnings (after disabling the six mismatched checks above) are dominated by a mechanical `modernize-use-nodiscard` cluster in the linalg headers, tracked in issue #63. Once that's fixed and the job runs noise-free for a few cycles, promoting it to blocking will be reconsidered (see AGENTS.md CI / Validation and PLAN.md).
 
 ## Performance Guidelines
 

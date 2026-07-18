@@ -30,7 +30,7 @@
   LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
 
 ## GitHub Synchronization [DERIVED]
-Last reconciled against live GitHub state: 2026-07-14.
+Last reconciled against live GitHub state: 2026-07-18.
 - GitHub is the collaborator-facing source for issues and milestones; this
   PLAN.md is the agent-facing durable project state. Keep both in sync.
 - When creating, closing, reopening, retitling, or moving a GitHub issue or
@@ -67,8 +67,11 @@ Last reconciled against live GitHub state: 2026-07-14.
 - Open issues without milestone:
   - #50 OPEN — feat: Hidden Semi-Markov Model (HSMM) with explicit duration distributions.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
-  - #62 OPEN — chore: decide whether to enable clang-tidy in CI.
-- Closed issues without milestone: 19 as of 2026-07-14 (fetch via
+  - #63 OPEN — chore: bulk-apply `[[nodiscard]]` in the three linalg headers
+    (clang-tidy `modernize-use-nodiscard` cluster surfaced by #62's advisory
+    CI job); a prerequisite for reconsidering blocking clang-tidy CI.
+- Closed issues without milestone: 20 as of 2026-07-18 (#62 closed — clang-tidy
+  CI decision recorded, see Known Gaps below; fetch full list via
   `gh issue list --state closed --json number,title,milestone -q
   '.[] | select(.milestone == null)'` if ever needed).
 
@@ -82,8 +85,17 @@ Last reconciled against live GitHub state: 2026-07-14.
   2026-07-14 that its scope is narrowly fit-quality/interface-completeness
   tracking only, with no broader project task-tracking that should move
   here instead).
-- clang-tidy is available but disabled in CI (`LIBHMM_ENABLE_CLANG_TIDY=OFF`) —
-  tracked as GitHub issue #62 (2026-07-14).
+- clang-tidy CI job (advisory, non-blocking, `continue-on-error: true`)
+  per the #62 decision; the build-integration option is
+  `LIBHMM_ENABLE_CLANG_TIDY` (`OFF` by default) after the Phase 3A option
+  rename. Six checks were
+  disabled in `.clang-tidy` as architecturally mismatched with libhmm's
+  design (pragma-once convention, intentional SIMD intrinsics/pointer
+  arithmetic, the v4 template+virtual pattern, a false-positive move-ctor
+  idiom); see AGENTS.md CI/Validation for the full rationale. Residual
+  warnings (~1344) are dominated by a mechanical `modernize-use-nodiscard`
+  cluster in the linalg headers, tracked as #63 — promoting the job to
+  blocking is contingent on that landing and a few noise-free cycles.
 - JOSS submission deferred (2026-07-19): JOSS rejected the paper for
   insufficient open-source/research uptake of libhmm (newer scope
   requirement), with an explicit invitation to resubmit once the library

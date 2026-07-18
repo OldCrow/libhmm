@@ -273,7 +273,9 @@ Use an existing distribution (e.g. `src/distributions/rayleigh_distribution.cpp`
 
 ## CI / Validation
 
-Four parallel jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC 2022. Two additional jobs: pre-commit (ubuntu) and cppcheck (ubuntu). Tests run with `-LE "known_broken|benchmark"`. `clang-tidy` is available but disabled in CI (`LIBHMM_ENABLE_CLANG_TIDY=OFF`); enable locally when needed.
+Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC 2022. Additional quality jobs (ubuntu): pre-commit, cppcheck, and clang-tidy. Tests run with `-LE "known_broken|benchmark"`.
+
+`LIBHMM_ENABLE_CLANG_TIDY` (CMake option, `OFF` by default) wires clang-tidy into the normal build via the `CXX_CLANG_TIDY` target property; enable locally with `cmake --preset release -DLIBHMM_ENABLE_CLANG_TIDY=ON` when needed. The dedicated CI `clang-tidy` job instead runs `run-clang-tidy` against `compile_commands.json` as a single fast analysis pass and is **advisory (non-blocking)**: `continue-on-error: true`. Decision record (issue #62): the full default check set produces ~3765 warnings dominated by checks that conflict with libhmm's documented architecture — six checks are disabled in `.clang-tidy` (see that file for the full rationale) covering the pragma-once convention, intentional SIMD intrinsics/pointer arithmetic in perf-critical hot paths, the v4 template+virtual pattern, and a false-positive move-ctor idiom. The ~1344 residual warnings are dominated by a mechanical `modernize-use-nodiscard` cluster in the linalg headers, tracked in issue #63; once that's fixed and the job runs noise-free for a few cycles, revisit promoting it to blocking (see PLAN.md).
 
 ## Open Items
 See PLAN.md for current status, in-progress work, and open questions.

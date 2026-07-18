@@ -128,7 +128,45 @@ Checks: >-
   -readability-identifier-length,
   -readability-magic-numbers,
   -readability-named-parameter,
-  -readability-uppercase-literal-suffix
+  -readability-uppercase-literal-suffix,
+  -portability-avoid-pragma-once,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -portability-simd-intrinsics,
+  -bugprone-crtp-constructor-accessibility,
+  -portability-template-virtual-member-function,
+  -bugprone-use-after-move
+
+# NOTE: `Checks:` above is a YAML folded block scalar (`>-`) — '#' inside it
+# is literal text, not a comment. Keep it a plain comma-separated list and
+# put any explanatory comments here, below the scalar, instead.
+#
+# The following six checks are disabled as architecturally mismatched with
+# libhmm's documented design (see issue #62 evaluation, AGENTS.md,
+# docs/STYLE_GUIDE.md) rather than because they find real defects:
+#   - portability-avoid-pragma-once: contradicts the project convention of
+#     always using #pragma once (AGENTS.md Coding Conventions), enforced
+#     separately by a pre-commit hook.
+#   - cppcoreguidelines-pro-bounds-pointer-arithmetic: fires almost
+#     exclusively in perf-critical hot paths (calculators,
+#     training/detail/bw_estep.h, performance/ SIMD kernels,
+#     linalg_types.h) where raw pointer arithmetic is intentional
+#     (AGENTS.md SIMD strategy).
+#   - portability-simd-intrinsics: fires exclusively in the tier-2
+#     explicit-intrinsics SIMD kernels (simd_math_helpers.h,
+#     simd_double_ops_*.cpp, transcendental_kernels.cpp) that exist
+#     precisely because portability is handled via per-ISA TU separation
+#     (AGENTS.md Architecture / SIMD strategy).
+#   - bugprone-crtp-constructor-accessibility: misfires on DistributionBase,
+#     which uses ordinary virtual-dispatch inheritance, not CRTP.
+#   - portability-template-virtual-member-function: flags the documented v4
+#     template+virtual pattern (STYLE_GUIDE.md "v4 Template Patterns":
+#     BasicEmissionDistribution<Obs>, BasicHmm<Obs>, basic_*_trainer.h)
+#     rather than a real portability issue.
+#   - bugprone-use-after-move: verified false positives on the standard
+#     multi-member move-ctor idiom — the base class is moved first in the
+#     init list, then trivial scalar members of the *derived* object (e.g.
+#     dim_, log_normalizer_) are read directly. Safe in practice, but the
+#     check can't see that the base move doesn't touch derived scalars.
 
 # Treat warnings as errors to enforce code quality
 # WarningsAsErrors: '*'  # Temporarily disabled for assessment
