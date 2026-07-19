@@ -14,80 +14,79 @@ namespace libhmm {
 
 double DistributionMathHelper::gammap(double a, double x) noexcept {
     using namespace libhmm::constants;
-    if (x < math::ZERO_DOUBLE || a <= math::ZERO_DOUBLE) {
+    // Regularized lower incomplete gamma P(a, x) = γ(a, x) / Γ(a).
+    //
+    // Reference: Abramowitz & Stegun, "Handbook of Mathematical Functions" §6.5;
+    // NIST DLMF §8.  Evaluation splits at x = a+1, where each branch converges
+    // fastest:
+    //   x < a+1 : power series for γ(a, x)                 (DLMF 8.7.1)
+    //   x >= a+1: continued fraction for Q(a, x) = 1 − P   (DLMF 8.9.2)
+    if (!(x > math::ZERO_DOUBLE) || !(a > math::ZERO_DOUBLE)) {
+        // Domain guard (also rejects NaN): a > 0 required and P(a, 0) = 0.
         return math::ZERO_DOUBLE;
     }
-
-    if (x < (a + math::ONE)) {
-        double gamser = 0.0, gln = 0.0;
-        gser(gamser, a, x, gln);
-        return gamser;
-    } else {
-        double gammcf = 0.0, gln = 0.0;
-        gcf(gammcf, a, x, gln);
-        return math::ONE - gammcf;
+    if (x < a + math::ONE) {
+        return lowerGammaSeries(a, x);
     }
+    return math::ONE - upperGammaContinuedFraction(a, x);
 }
 
-void DistributionMathHelper::gcf(double &gammcf, double a, double x, double &gln) noexcept {
+double DistributionMathHelper::lowerGammaSeries(double a, double x) noexcept {
     using namespace libhmm::constants;
-
-    gln = std::lgamma(a);
-    double b = x + math::ONE - a;
-    double c = math::ONE / precision::ZERO;
-    double d = math::ONE / b;
-    double h = d;
-
-    for (std::size_t i = 1; i <= iterations::ITMAX; ++i) {
-        const double an = -static_cast<double>(i) * (static_cast<double>(i) - a);
-        b += math::TWO;
-        d = an * d + b;
-        if (std::abs(d) < precision::ZERO)
-            d = precision::ZERO;
-        c = b + an / c;
-        if (std::abs(c) < precision::ZERO)
-            c = precision::ZERO;
-        d = math::ONE / d;
-        const double del = d * c;
-        h *= del;
-        if (std::abs(del - math::ONE) < precision::BW_TOLERANCE)
-            break;
-    }
-
-    gammcf = std::exp(-x + a * std::log(x) - gln) * h;
-}
-
-void DistributionMathHelper::gser(double &gamser, double a, double x, double &gln) noexcept {
-    using namespace libhmm::constants;
-
-    gln = std::lgamma(a);
-
-    if (x <= math::ZERO_DOUBLE) {
-        gamser = math::ZERO_DOUBLE;
-        return;
-    }
-
-    double ap = a;
-    double sum = math::ONE / a;
-    double del = sum;
-
+    // Power series (DLMF 8.7.1):
+    //   P(a, x) = e^{-x} x^a / Γ(a) · Σ_{n>=0} x^n / (a)_{n+1}
+    // The bracketed sum starts at 1/a; each term multiplies the previous by
+    // x/(a+n).  Converges rapidly for x < a+1.
+    const double logPrefactor = a * std::log(x) - x - std::lgamma(a);
+    double term = math::ONE / a;
+    double sum = term;
+    double denom = a;
     for (std::size_t n = 1; n <= iterations::ITMAX; ++n) {
-        ++ap;
-        del *= x / ap;
-        sum += del;
-        if (std::abs(del) < std::abs(sum) * precision::BW_TOLERANCE) {
-            gamser = sum * std::exp(-x + a * std::log(x) - gln);
-            return;
+        denom += math::ONE;
+        term *= x / denom;
+        sum += term;
+        if (std::abs(term) < std::abs(sum) * precision::BW_TOLERANCE) {
+            break;
         }
     }
-    // Convergence not reached — return best estimate
-    gamser = sum * std::exp(-x + a * std::log(x) - gln);
+    return sum * std::exp(logPrefactor);
+}
+
+double DistributionMathHelper::upperGammaContinuedFraction(double a, double x) noexcept {
+    using namespace libhmm::constants;
+    // Continued fraction for Q(a, x) = Γ(a, x) / Γ(a) (DLMF 8.9.2), evaluated
+    // with the modified Lentz algorithm (W. J. Lentz, Appl. Opt. 15, 1976).
+    // Returns Q; the caller forms P = 1 − Q.  Used for x >= a+1.
+    const double logPrefactor = a * std::log(x) - x - std::lgamma(a);
+    double bTerm = x + math::ONE - a;            // b_1
+    double cLentz = math::ONE / precision::ZERO; // C_1 (large; precision::ZERO is Lentz's tiny)
+    double dLentz = math::ONE / bTerm;           // D_1
+    double frac = dLentz;                        // running fraction value
+    for (std::size_t n = 1; n <= iterations::ITMAX; ++n) {
+        const double aTerm = -static_cast<double>(n) * (static_cast<double>(n) - a);
+        bTerm += math::TWO;
+        dLentz = aTerm * dLentz + bTerm;
+        if (std::abs(dLentz) < precision::ZERO)
+            dLentz = precision::ZERO;
+        cLentz = bTerm + aTerm / cLentz;
+        if (std::abs(cLentz) < precision::ZERO)
+            cLentz = precision::ZERO;
+        dLentz = math::ONE / dLentz;
+        const double delta = dLentz * cLentz;
+        frac *= delta;
+        if (std::abs(delta - math::ONE) < precision::BW_TOLERANCE)
+            break;
+    }
+    return std::exp(logPrefactor) * frac;
 }
 
 double DistributionMathHelper::incompleteBeta(double x, double a, double b) noexcept {
-    // Regularized incomplete beta function I_x(a, b).
-    // Continued-fraction algorithm (Numerical Recipes §6.4) with symmetry
-    // relation I_x(a,b) = 1 - I_{1-x}(b,a) for improved convergence.
+    // Regularized incomplete beta function I_x(a, b) = B(x; a, b) / B(a, b).
+    //
+    // Reference: Abramowitz & Stegun §6.6 / §26.5.8; NIST DLMF §8.17.  The
+    // continued fraction (DLMF 8.17.22) is evaluated with the modified Lentz
+    // algorithm (Lentz, 1976).  The symmetry relation I_x(a,b) = 1 − I_{1−x}(b,a)
+    // (DLMF 8.17.4) keeps the fraction in its fast-converging regime.
     if (x <= 0.0)
         return 0.0;
     if (x >= 1.0)
@@ -95,131 +94,94 @@ double DistributionMathHelper::incompleteBeta(double x, double a, double b) noex
     if (a <= 0.0 || b <= 0.0)
         return 0.0;
 
-    // Apply symmetry for better convergence when x is large.
-    const bool use_symmetry = (x > (a + 1.0) / (a + b + 2.0));
-    const double rx = use_symmetry ? 1.0 - x : x;
-    const double ra = use_symmetry ? b : a;
-    const double rb = use_symmetry ? a : b;
+    // Evaluate on whichever side of the symmetry relation converges faster.
+    const bool flip = (x > (a + 1.0) / (a + b + 2.0));
+    const double xx = flip ? 1.0 - x : x;
+    const double aa = flip ? b : a;
+    const double bb = flip ? a : b;
 
-    const double log_beta_ab = std::lgamma(ra) + std::lgamma(rb) - std::lgamma(ra + rb);
-    const double log_prefix =
-        ra * std::log(rx) + rb * std::log(1.0 - rx) - std::log(ra) - log_beta_ab;
-    const double prefix = std::exp(log_prefix);
+    // Prefactor x^a (1−x)^b / (a · B(a, b)), formed in log space for stability.
+    const double logBeta = std::lgamma(aa) + std::lgamma(bb) - std::lgamma(aa + bb);
+    const double logPrefactor =
+        aa * std::log(xx) + bb * std::log(1.0 - xx) - std::log(aa) - logBeta;
+    const double prefactor = std::exp(logPrefactor);
 
-    // Evaluate continued fraction.
     constexpr int kMaxIter = 200;
-    constexpr double kTol = 1e-12;
-    constexpr double kTiny = 1e-30;
+    constexpr double kTolerance = 1.0e-12;
+    constexpr double kTiny = 1.0e-30;
 
-    double c = 1.0;
-    double d = 1.0 - (ra + rb) * rx / (ra + 1.0);
-    if (std::abs(d) < kTiny)
-        d = kTiny;
-    d = 1.0 / d;
-    double cf = d;
+    // Modified Lentz evaluation with coefficients from DLMF 8.17.22.
+    double cLentz = 1.0;
+    double dLentz = 1.0 - (aa + bb) * xx / (aa + 1.0);
+    if (std::abs(dLentz) < kTiny)
+        dLentz = kTiny;
+    dLentz = 1.0 / dLentz;
+    double frac = dLentz;
 
     for (int m = 1; m <= kMaxIter; ++m) {
-        // Even step (2m)
-        double num = m * (rb - m) * rx / ((ra + 2.0 * m - 1.0) * (ra + 2.0 * m));
-        d = 1.0 + num * d;
-        if (std::abs(d) < kTiny)
-            d = kTiny;
-        c = 1.0 + num / c;
-        if (std::abs(c) < kTiny)
-            c = kTiny;
-        d = 1.0 / d;
-        cf *= d * c;
+        const double m2 = 2.0 * m;
+        // Even-indexed coefficient d_{2m}.
+        double coeff = m * (bb - m) * xx / ((aa + m2 - 1.0) * (aa + m2));
+        dLentz = 1.0 + coeff * dLentz;
+        if (std::abs(dLentz) < kTiny)
+            dLentz = kTiny;
+        cLentz = 1.0 + coeff / cLentz;
+        if (std::abs(cLentz) < kTiny)
+            cLentz = kTiny;
+        dLentz = 1.0 / dLentz;
+        frac *= dLentz * cLentz;
 
-        // Odd step (2m+1)
-        num = -(ra + m) * (ra + rb + m) * rx / ((ra + 2.0 * m) * (ra + 2.0 * m + 1.0));
-        d = 1.0 + num * d;
-        if (std::abs(d) < kTiny)
-            d = kTiny;
-        c = 1.0 + num / c;
-        if (std::abs(c) < kTiny)
-            c = kTiny;
-        d = 1.0 / d;
-        const double delta = d * c;
-        cf *= delta;
-        if (std::abs(delta - 1.0) < kTol)
+        // Odd-indexed coefficient d_{2m+1}.
+        coeff = -(aa + m) * (aa + bb + m) * xx / ((aa + m2) * (aa + m2 + 1.0));
+        dLentz = 1.0 + coeff * dLentz;
+        if (std::abs(dLentz) < kTiny)
+            dLentz = kTiny;
+        cLentz = 1.0 + coeff / cLentz;
+        if (std::abs(cLentz) < kTiny)
+            cLentz = kTiny;
+        dLentz = 1.0 / dLentz;
+        const double delta = dLentz * cLentz;
+        frac *= delta;
+        if (std::abs(delta - 1.0) < kTolerance)
             break;
     }
 
-    const double result = prefix * cf;
-    return use_symmetry ? 1.0 - result : result;
+    const double result = prefactor * frac;
+    return flip ? 1.0 - result : result;
 }
 
 double DistributionMathHelper::errorf_inv(double y) noexcept {
     using namespace libhmm::constants;
-
+    // Inverse error function erf⁻¹(y) for y ∈ (−1, 1).
+    //
+    // Initial estimate: Winitzki, S. (2008), "A handy approximation for the
+    // error function and its inverse" — a closed form accurate to a few ×10⁻³.
+    // It is then refined to full double precision with two Newton iterations on
+    // f(x) = erf(x) − y, using f'(x) = (2/√π) e^{−x²} and std::erf (C++11).
+    if (std::isnan(y))
+        return std::numeric_limits<double>::quiet_NaN();
+    if (y >= math::ONE)
+        return std::numeric_limits<double>::infinity();
+    if (y <= -math::ONE)
+        return -std::numeric_limits<double>::infinity();
     if (y == math::ZERO_DOUBLE)
         return math::ZERO_DOUBLE;
-    if (y > math::ONE)
-        return std::numeric_limits<double>::infinity();
-    if (y < -math::ONE)
-        return -std::numeric_limits<double>::infinity();
 
-    const double k = y;
-    if (y < 0)
-        y = -y;
+    // Winitzki closed-form initial approximation.
+    constexpr double kShape = 0.147; // fitting constant a
+    const double ln1my2 = std::log(math::ONE - y * y);
+    const double t = math::TWO / (math::PI * kShape) + math::HALF * ln1my2;
+    double x = std::copysign(std::sqrt(std::sqrt(t * t - ln1my2 / kShape) - t), y);
 
-    const double z = math::ONE - y;
-    const double w = 0.916461398268964 - std::log(z);
-    const double u = std::sqrt(w);
-    const double s = (std::log(u) + 0.488826640273108) / w;
-    double t = math::ONE / (u + 0.231729200323405);
-    double x = u * (math::ONE - s * (s * 0.124610454613712 + math::HALF)) -
-               ((((-0.0728846765585675 * t + 0.269999308670029) * t + 0.150689047360223) * t +
-                 0.116065025341614) *
-                    t +
-                0.499999303439796) *
-                   t;
-
-    t = 3.97886080735226 / (x + 3.97886080735226);
-    const double u2 = t - math::HALF;
-    double sv = (((((((((0.00112648096188977922 * u2 + 1.05739299623423047e-4) * u2 -
-                        0.00351287146129100025) *
-                           u2 -
-                       7.71708358954120939e-4) *
-                          u2 +
-                      0.00685649426074558612) *
-                         u2 +
-                     0.00339721910367775861) *
-                        u2 -
-                    0.011274916933250487) *
-                       u2 -
-                   0.0118598117047771104) *
-                      u2 +
-                  0.0142961988697898018) *
-                     u2 +
-                 0.0346494207789099922) *
-                    u2 +
-                0.00220995927012179067;
-    sv = ((((((((((((sv * u2 - 0.0743424357241784861) * u2 - 0.105872177941595488) * u2 +
-                   0.0147297938331485121) *
-                      u2 +
-                  0.316847638520135944) *
-                     u2 +
-                 0.713657635868730364) *
-                    u2 +
-                1.05375024970847138) *
-                   u2 +
-               1.21448730779995237) *
-                  u2 +
-              1.16374581931560831) *
-                 u2 +
-             0.956464974744799006) *
-                u2 +
-            0.686265948274097816) *
-               u2 +
-           0.434397492331430115) *
-              u2 +
-          0.244044510593190935) *
-             t -
-         z * std::exp(x * x - 0.120782237635245222);
-
-    x += sv * (x * sv + math::ONE);
-    return k < 0 ? -x : x;
+    // Newton refinement; two steps reach machine precision from a ~10⁻³ start.
+    constexpr double kTwoOverSqrtPi = 1.1283791670955126158634; // 2/√π
+    for (int i = 0; i < 2; ++i) {
+        const double deriv = kTwoOverSqrtPi * std::exp(-x * x);
+        if (deriv < precision::ZERO)
+            break; // derivative underflow near saturation; keep current estimate
+        x -= (std::erf(x) - y) / deriv;
+    }
+    return x;
 }
 
 } // namespace libhmm

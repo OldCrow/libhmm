@@ -612,8 +612,9 @@ TEST(GammaDistributionTest, Performance) {
 /**
  * Accuracy tests for GammaDistribution::getCumulativeProbability().
  *
- * Exercises DistributionBase::gammap() (and its internal gcf/gser helpers)
- * against exact closed-form CDFs.  For integer shape parameter k the
+ * Exercises DistributionBase::gammap() (and its internal series and
+ * continued-fraction helpers) against exact closed-form CDFs.  For integer
+ * shape parameter k the
  * regularised incomplete gamma has a Poisson-series exact form:
  *
  *   P(k, x) = 1 − e^(−x) · ∑_{j=0}^{k-1} x^j / j!

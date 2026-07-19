@@ -42,11 +42,11 @@ protected:
     static double errorf_inv(double y) noexcept;
 
 private:
-    /** Incomplete gamma via continued fraction (used by gammap). */
-    static void gcf(double &gammcf, double a, double x, double &gln) noexcept;
+    /** Lower incomplete gamma P(a,x) via power series (used by gammap when x < a+1). */
+    static double lowerGammaSeries(double a, double x) noexcept;
 
-    /** Incomplete gamma via series representation (used by gammap). */
-    static void gser(double &gamser, double a, double x, double &gln) noexcept;
+    /** Upper incomplete gamma Q(a,x)=1-P via continued fraction (used by gammap when x >= a+1). */
+    static double upperGammaContinuedFraction(double a, double x) noexcept;
 };
 
 // =============================================================================
