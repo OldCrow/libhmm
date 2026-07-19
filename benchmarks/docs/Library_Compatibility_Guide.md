@@ -948,7 +948,7 @@ cmake -S . -B build -DLAMP_DIR=C:/path/to/LAMP_HMM/build/Release
 ```
 
 **Key Windows porting changes summary:**
-- `utils.h`: switched from `SUN` (POSIX `drand48`) to `LOCAL_RAND` (built-in Numerical Recipes RNG); added `<iosfwd>` and `using` declarations for `ostream`, `ifstream`, `cout`, `cerr`, `endl`.
+- `utils.h`: switched from `SUN` (POSIX `drand48`) to `LOCAL_RAND` (LAMP_HMM's built-in portable RNG); added `<iosfwd>` and `using` declarations for `ostream`, `ifstream`, `cout`, `cerr`, `endl`.
 - `hmmFind.C`: replaced `assert(sequenceFile != NULL)` with an `if (!sequenceFile)` guard.
 - `CMakeLists.txt`: added minimal CMake build targeting MSVC with `/W3 /wd4996`.
 - No algorithm changes; numerical output is identical to the Unix build.

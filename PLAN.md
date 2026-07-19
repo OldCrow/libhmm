@@ -21,6 +21,13 @@
   *prospective* future reintroduction of threading for parallel E-step
   accumulation — that issue is open/unstarted, not a contradiction of this
   decision.
+- Special functions (regularized incomplete gamma/beta, inverse erf) are
+  implemented from public-domain references only — Abramowitz & Stegun, NIST
+  DLMF, Lentz (1976), Winitzki (2008) — never Numerical Recipes, whose code is
+  proprietary and non-redistributable. Keeps the distributed tree MIT-clean
+  (`src/distributions/distribution_base.cpp`). Residual "Numerical Recipes"
+  strings in `CHANGELOG.md` and `benchmarks/docs/` describe the external
+  LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
 
 ## GitHub Synchronization [DERIVED]
 Last reconciled against live GitHub state: 2026-07-14.
