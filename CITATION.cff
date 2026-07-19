@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use libhmm in your research or software, please cite the arXiv paper below (preferred) or this repository."
+title: "libhmm"
+type: software
+authors:
+  - family-names: Wolfman
+    given-names: Gary
+    orcid: "https://orcid.org/0009-0009-6077-1337"
+repository-code: "https://github.com/OldCrow/libhmm"
+url: "https://github.com/OldCrow/libhmm"
+license: MIT
+version: 4.2.5
+date-released: "2026-07-19"
+keywords:
+  - hidden Markov models
+  - Baum-Welch
+  - Viterbi
+  - C++20
+  - SIMD
+  - time series
+preferred-citation:
+  type: article
+  title: "libhmm: A Modern C++20 Library for Hidden Markov Models with Correct MLE Emission M-Steps"
+  authors:
+    - family-names: Wolfman
+      given-names: Gary
+      orcid: "https://orcid.org/0009-0009-6077-1337"
+  year: 2026
+  journal: "arXiv preprint"
+  url: "https://arxiv.org/abs/2605.29208"
+  identifiers:
+    - type: other
+      value: "arXiv:2605.29208"
+      description: "arXiv preprint identifier"
