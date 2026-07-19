@@ -261,6 +261,29 @@ No external dependencies. GTest is fetched automatically via CMake `FetchContent
 - [docs/GOLD_STANDARD_CHECKLIST.md](docs/GOLD_STANDARD_CHECKLIST.md) — distribution implementation requirements
 - [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) — coding conventions
 
+## Citing libhmm
+
+If you use libhmm in your research or software, please cite the technical paper:
+
+> Wolfman, G. (2026). *libhmm: A Modern C++20 Library for Hidden Markov Models with
+> Correct MLE Emission M-Steps*. arXiv:2605.29208. https://arxiv.org/abs/2605.29208
+
+```bibtex
+@article{wolfman2026libhmm,
+  author = {Wolfman, Gary},
+  title  = {libhmm: A Modern C++20 Library for Hidden Markov Models
+            with Correct MLE Emission M-Steps},
+  year   = {2026},
+  journal = {arXiv preprint},
+  eprint = {2605.29208},
+  archivePrefix = {arXiv},
+  url    = {https://arxiv.org/abs/2605.29208}
+}
+```
+
+A [CITATION.cff](CITATION.cff) file is included — GitHub's "Cite this repository"
+button generates BibTeX/APA from it automatically.
+
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.

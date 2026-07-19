@@ -84,6 +84,17 @@ Last reconciled against live GitHub state: 2026-07-14.
   here instead).
 - clang-tidy is available but disabled in CI (`ENABLE_CLANG_TIDY=OFF`) —
   tracked as GitHub issue #62 (2026-07-14).
+- JOSS submission deferred (2026-07-19): JOSS rejected the paper for
+  insufficient open-source/research uptake of libhmm (newer scope
+  requirement), with an explicit invitation to resubmit once the library
+  is in use in open-source or research projects. PR #20 closed without
+  merging; `joss-paper` retained as a long-lived paper branch (JOSS
+  accepts submission from a named branch). Published arXiv paper:
+  arXiv:2605.29208 (v2, 2026-06-13), source tagged `arxiv-v2` on
+  `joss-paper`. Resubmission checklist when uptake exists: merge `main`
+  into `joss-paper`, refresh benchmarks/figures/version references,
+  gather citation/usage evidence (CITATION.cff on `main` supports this),
+  open new PR + JOSS submission.
 
 ## Cross-Repo Dependencies [OPEN]
 pylibhmm pins this repo via `FetchContent` (`GIT_TAG v4.2.4` in
@@ -97,8 +108,8 @@ verify pylibhmm's pin rather than assuming it's current.
 
 ## Local Machine State [DERIVED]
 Confirmed 2026-07-14: `main` fully in sync with `origin/main` (clean,
-no ahead/behind). `joss-paper` branch (open PR #20, held back pending
-JOSS review per their process, not a repo omission) matches
+no ahead/behind). `joss-paper` branch (PR #20 closed 2026-07-19 after
+JOSS deferral — see Known Gaps; branch retained for resubmission) matches
 `origin/joss-paper` exactly. A local-only stash on `joss-paper`
 containing only regenerated LaTeX build artifacts (`.aux`, `.blg`,
 `.fdb_latexmk`, `.fls`, `.pdf` — no `.tex` source changes) was dropped
