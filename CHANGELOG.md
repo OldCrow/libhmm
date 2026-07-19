@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.5] - 2026-07-19
+
+License-hygiene release. 47/47 tests pass. No API or behavior changes;
+numerical results are identical.
+
+### Changed
+
+- **Special functions reimplemented from public-domain references**
+  (`src/distributions/distribution_base.cpp`): the regularized incomplete
+  gamma (`gammap` and its series / continued-fraction helpers), the
+  regularized incomplete beta (`incompleteBeta`), and the inverse error
+  function (`errorf_inv`) previously were transcribed from or cited Numerical
+  Recipes, whose code is proprietary and not redistributable under libhmm's
+  MIT license. All three are now independent implementations derived from
+  Abramowitz & Stegun, NIST DLMF, the Lentz (1976) continued-fraction
+  algorithm, and Winitzki (2008). Public `gammap()` / `incompleteBeta()`
+  signatures are unchanged, so Gamma, ChiSquared, Beta, and StudentT CDFs are
+  unaffected; the CDF-accuracy tests (1e-6 gamma/chi, 1e-10 beta) confirm
+  identical results. The private NR-named helpers `gser` / `gcf` were renamed
+  `lowerGammaSeries` / `upperGammaContinuedFraction`.
+
+---
+
 ## [4.2.4] - 2026-07-04
 
 Infrastructure and refactoring release. 47/47 tests pass. No API changes.

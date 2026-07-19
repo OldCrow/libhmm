@@ -88,11 +88,12 @@ Last reconciled against live GitHub state: 2026-07-14.
 ## Cross-Repo Dependencies [OPEN]
 pylibhmm pins this repo via `FetchContent` (`GIT_TAG v4.2.4` in
 `pylibhmm/CMakeLists.txt`, with a local-source-tree override for
-side-by-side development). Confirmed in sync as of 2026-07-14: libhmm
-`main` is at tag v4.2.4, matching pylibhmm's pin exactly. Before cutting a
-new libhmm release or making a breaking API change, verify pylibhmm's pin
-is updated to match — check pylibhmm's PLAN.md for its current pinned tag
-rather than assuming it's current.
+side-by-side development). As of the v4.2.5 release (2026-07-19) libhmm
+`main` is at tag v4.2.5, so pylibhmm's pin now lags by one patch release.
+v4.2.5 is a license-hygiene patch with no API or behavior change, so the
+lag is safe; bump pylibhmm's `GIT_TAG` to v4.2.5 at the next convenient
+sync. Before cutting a new libhmm release or making a breaking API change,
+verify pylibhmm's pin rather than assuming it's current.
 
 ## Local Machine State [DERIVED]
 Confirmed 2026-07-14: `main` fully in sync with `origin/main` (clean,

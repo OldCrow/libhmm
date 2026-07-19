@@ -28,7 +28,7 @@
  * For large projects or when compilation time is critical, consider including
  * only the specific headers you need instead of this master header.
  *
- * @version 4.2.4
+ * @version 4.2.5
  * @author libhmm development team
  */
 
