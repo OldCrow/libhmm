@@ -30,6 +30,11 @@ uname -s
 [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
 ```
 
+## Agent Workflow
+
+- When reviewing repository state or "what's changed" (e.g., syncing after time away, catching up on a branch), start with `git diff --stat` and `git log` rather than reading full file contents. Read complete files only for items you've determined are directly relevant to the task at hand.
+- For any subagent expected to run more than ~30 minutes, structure its brief to report interim progress at natural milestones (e.g., after each major deliverable) rather than running silently to a single final report.
+
 ## Build Commands
 
 CMake presets map to fixed binary directories:
