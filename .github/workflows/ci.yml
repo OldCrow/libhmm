@@ -84,6 +84,7 @@ jobs:
     # -------------------------------------------------------------------------
     - name: Configure (Windows / MSVC)
       if: matrix.msvc
+      shell: pwsh
       run: |
         cmake -B build `
           -G "Ninja" `
