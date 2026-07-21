@@ -517,6 +517,15 @@ set_property(TARGET hmm_objects PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # Shared library
 add_library(hmm SHARED $<TARGET_OBJECTS:hmm_objects>)
+add_library(libhmm::hmm ALIAS hmm)
+# Directory-scope include_directories(include) above covers in-tree/build-tree
+# consumers, but install(EXPORT) only captures properties set directly on the
+# target — without this, the exported libhmm::hmm target carries no include
+# path at all and downstream find_package(libhmm) consumers fail to compile.
+target_include_directories(hmm PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
 # MSVC does not generate an import .lib for a DLL unless symbols are explicitly
 # exported or WINDOWS_EXPORT_ALL_SYMBOLS is set. The latter is the pragmatic
@@ -539,6 +548,11 @@ else()
     set_target_properties(hmm_static PROPERTIES OUTPUT_NAME "hmm")
 endif()
 set_target_properties(hmm_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+add_library(libhmm::hmm_static ALIAS hmm_static)
+target_include_directories(hmm_static PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
 # Enable clang-tidy if requested — applied to the OBJECT library so analysis
 # runs once on all compiled TUs regardless of which library type is built.
@@ -593,14 +607,20 @@ endif()
 # Install both library types. RUNTIME covers the .dll on Windows (placed in bin/
 # by convention so it is found at runtime without PATH manipulation).
 install(TARGETS hmm hmm_static
+    EXPORT libhmm-targets
     LIBRARY DESTINATION lib          # .so / .dylib
     ARCHIVE DESTINATION lib          # .a / .lib (static archive + Windows import lib)
     RUNTIME DESTINATION bin          # .dll (Windows)
     PUBLIC_HEADER DESTINATION include/libhmm
 )
 
-install(DIRECTORY include/libhmm DESTINATION include
-    PATTERN "detail" EXCLUDE)
+install(EXPORT libhmm-targets
+    NAMESPACE libhmm::
+    FILE libhmm-targets.cmake
+    DESTINATION lib/cmake/libhmm
+)
+
+install(DIRECTORY include/libhmm DESTINATION include)
 
 # Examples
 if(BUILD_EXAMPLES)
@@ -626,7 +646,7 @@ include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/libhmmConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
-    COMPATIBILITY AnyNewerVersion
+    COMPATIBILITY SameMajorVersion
 )
 
 configure_package_config_file(
