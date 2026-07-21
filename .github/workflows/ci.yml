@@ -74,8 +74,8 @@ jobs:
     - name: Set compiler environment (Unix)
       if: ${{ !matrix.msvc }}
       run: |
-        echo "CC=${{ matrix.cc }}" >> $GITHUB_ENV
-        echo "CXX=${{ matrix.cxx }}" >> $GITHUB_ENV
+        echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
+        echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
 
     # -------------------------------------------------------------------------
     # Configure
