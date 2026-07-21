@@ -1,0 +1,7 @@
+# Keeps GitHub Actions versions fresh; zero runner cost, weekly cadence.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
