@@ -56,17 +56,5 @@ if(LIBHMM_BEST_SIMD_FLAGS)
         PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}")
 endif()
 
-install(TARGETS
-    analyze_overhead
-    debug_parallel
-    simd_inspection
-    batch_performance
-    hmm_validator
-    hotspot_breakdown
-    fb_contour_sweep
-    bw_hotspot
-    RUNTIME DESTINATION bin/tools
-    COMPONENT tools
-)
 
 message(STATUS "Tools: analyze_overhead debug_parallel simd_inspection batch_performance hmm_validator hotspot_breakdown fb_contour_sweep bw_hotspot")

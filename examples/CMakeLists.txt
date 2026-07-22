@@ -79,33 +79,3 @@ add_hmm_example(earthquake_example earthquake_example.cpp)
 
 # Meteorology: wind direction regimes via VonMisesDistribution (NOAA ISD)
 add_hmm_example(wind_direction_example wind_direction_example.cpp)
-
-# Install all examples
-install(TARGETS
-    basic_hmm_example
-    baum_welch_example
-    viterbi_trainer_example
-    segmental_kmeans_example
-    segmental_kmeans_mv_example
-    poisson_hmm_example
-    financial_hmm_example
-    reliability_hmm_example
-    quality_control_hmm_example
-    economics_hmm_example
-    queuing_theory_hmm_example
-    statistical_process_control_hmm_example
-    student_t_hmm_example
-    swarm_coordination_example
-    posterior_decoding_example
-    map_baum_welch_example
-    elk_movement_example
-    elk_mv_example
-    mv_regime_example
-    zeek_anomaly_poc
-    dax_regime_example
-    sp500_regime_example
-    earthquake_example
-    mv_gaussian_example
-    wind_direction_example
-    RUNTIME DESTINATION bin/examples
-)

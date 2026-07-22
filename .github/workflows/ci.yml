@@ -117,6 +117,33 @@ jobs:
     - name: Test
       run: ctest --test-dir build -C Release --output-on-failure --timeout 60 -LE "known_broken|benchmark"
 
+    # -------------------------------------------------------------------------
+    # Install-contract smoke test — Linux/GCC/Release only (cheapest runner;
+    # exercises the installed-package path via find_package + pkg-config).
+    # -------------------------------------------------------------------------
+    - name: Install to prefix
+      if: matrix.name == 'Linux / GCC / Release'
+      run: cmake --install build --prefix "$GITHUB_WORKSPACE/_install"
+
+    - name: Configure consumer_example against installed prefix
+      if: matrix.name == 'Linux / GCC / Release'
+      run: |
+        cmake -S consumer_example -B consumer_example/build \
+          -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/_install"
+
+    - name: Build and run consumer_example
+      if: matrix.name == 'Linux / GCC / Release'
+      run: |
+        cmake --build consumer_example/build
+        ./consumer_example/build/consumer_demo
+
+    - name: pkg-config smoke test
+      if: matrix.name == 'Linux / GCC / Release'
+      run: |
+        export PKG_CONFIG_PATH="$GITHUB_WORKSPACE/_install/lib/pkgconfig"
+        pkg-config --exists --print-errors libhmm
+        pkg-config --cflags --libs libhmm
+
   # ---------------------------------------------------------------------------
   # ThreadSanitizer — catches data races (e.g. concurrent cache fills).
   # Linux/GCC only: TSan on macOS/AppleClang is unreliable with system libraries.

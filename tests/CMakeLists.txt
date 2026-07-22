@@ -261,10 +261,5 @@ add_custom_target(run_all_tests
     VERBATIM
 )
 
-# Install test executables
-install(TARGETS ${ALL_TEST_TARGETS}
-    RUNTIME DESTINATION bin/tests
-    COMPONENT tests
-)
 
 message(STATUS "Test configuration: ${ALL_TEST_TARGETS}")

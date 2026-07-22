@@ -33,6 +33,15 @@ project(libhmm
     LANGUAGES CXX
 )
 
+# GNUInstallDirs gives platform-correct, packager-overridable destinations
+# (e.g. lib64 on some Linux distros) instead of hardcoded lib/bin/include.
+# Included here (rather than down by the install() rules) because the
+# $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> genexes on the hmm/
+# hmm_static targets substitute CMAKE_INSTALL_INCLUDEDIR as a plain variable
+# at the target_include_directories() call site — it must already be set by
+# then, or it silently expands to an empty install interface.
+include(GNUInstallDirs)
+
 # C++20 standard — required for std::span, concepts, and constexpr improvements
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -524,7 +533,7 @@ add_library(libhmm::hmm ALIAS hmm)
 # path at all and downstream find_package(libhmm) consumers fail to compile.
 target_include_directories(hmm PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 # MSVC does not generate an import .lib for a DLL unless symbols are explicitly
@@ -551,7 +560,7 @@ set_target_properties(hmm_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 add_library(libhmm::hmm_static ALIAS hmm_static)
 target_include_directories(hmm_static PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 # Enable clang-tidy if requested — applied to the OBJECT library so analysis
@@ -608,19 +617,36 @@ endif()
 # by convention so it is found at runtime without PATH manipulation).
 install(TARGETS hmm hmm_static
     EXPORT libhmm-targets
-    LIBRARY DESTINATION lib          # .so / .dylib
-    ARCHIVE DESTINATION lib          # .a / .lib (static archive + Windows import lib)
-    RUNTIME DESTINATION bin          # .dll (Windows)
-    PUBLIC_HEADER DESTINATION include/libhmm
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}          # .so / .dylib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}          # .a / .lib (static archive + Windows import lib)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}          # .dll (Windows)
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libhmm
 )
 
 install(EXPORT libhmm-targets
     NAMESPACE libhmm::
     FILE libhmm-targets.cmake
-    DESTINATION lib/cmake/libhmm
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libhmm
 )
 
-install(DIRECTORY include/libhmm DESTINATION include)
+install(DIRECTORY include/libhmm DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# pkg-config support (UNIX, including APPLE — mirrors libstats).
+if(UNIX)
+    if(LINUX)
+        set(LIBHMM_PC_LIBS_PRIVATE "-lm")
+    else()
+        set(LIBHMM_PC_LIBS_PRIVATE "")
+    endif()
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/libhmm.pc.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/libhmm.pc"
+        @ONLY
+    )
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libhmm.pc"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+    )
+endif()
 
 # Examples
 if(BUILD_EXAMPLES)
@@ -644,21 +670,27 @@ endif()
 # Package configuration
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/libhmmConfigVersion.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/libhmm-config-version.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
 )
 
+# PATH_VARS INCLUDE_INSTALL_DIR is required so @PACKAGE_INCLUDE_INSTALL_DIR@ in
+# the template expands to a real, install-relocatable path instead of being
+# left unexpanded (configure_package_config_file only substitutes variables
+# named in PATH_VARS).
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR})
 configure_package_config_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/libhmmConfig.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/libhmmConfig.cmake"
-    INSTALL_DESTINATION lib/cmake/libhmm
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/libhmm-config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/libhmm-config.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libhmm
+    PATH_VARS INCLUDE_INSTALL_DIR
 )
 
 install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/libhmmConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/libhmmConfigVersion.cmake"
-    DESTINATION lib/cmake/libhmm
+    "${CMAKE_CURRENT_BINARY_DIR}/libhmm-config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/libhmm-config-version.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libhmm
 )
 
 # Platform and configuration summary

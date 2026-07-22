@@ -1,0 +1,14 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: libhmm
+Description: Modern C++20 Hidden Markov Model library
+Version: @PROJECT_VERSION@
+URL: https://github.com/OldCrow/libhmm
+
+Requires:
+Libs: -L${libdir} -lhmm
+Libs.private: @LIBHMM_PC_LIBS_PRIVATE@
+Cflags: -I${includedir} -std=c++20
