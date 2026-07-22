@@ -63,6 +63,23 @@ cmake --build build
 
 Build options: `BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS` (all `ON` by default), `BUILD_BENCHMARKS` (`OFF`), `ENABLE_CLANG_TIDY` (`OFF`).
 
+### CMake standard
+
+Full rules: `CMAKE-HOUSE-STYLE.md` in the Development root on dev machines (master copy, not checked in); this section is self-sufficient for this repo. Deviations from that
+standard, current as of Phase 2 (presets):
+- Target-first scoping and `LIBHMM_`-prefixed options are Phase 3 work, not
+  yet landed: `include_directories(include)` and global
+  `add_compile_options(-Wall ...)`/`-fPIC` are still directory-scope, and
+  options (`BUILD_TESTS`, `BUILD_TOOLS`, ...) are still unprefixed.
+- `BUILD_SHARED_LIBS` is a documented no-op (both `hmm`/`hmm_static` always
+  build from one OBJECT target); disposition tracked as an open item in
+  BUILD-STANDARDIZATION-PLAN.md.
+- Install contract already conforms: GNUInstallDirs, `libhmm-targets` export
+  (namespace `libhmm::`), kebab `libhmm-config.cmake`, `SameMajorVersion`.
+- Presets (`CMakePresets.json`, schema 6, min CMake 3.25): `release` →
+  `build/`, `debug` → `build-debug/`, `rel-with-debug` →
+  `build-relwithdebinfo/`. No project-specific extras.
+
 ## Test Commands
 
 ```bash
@@ -89,7 +106,7 @@ Tests use the `known_broken` label for pre-existing failures and `benchmark` for
 
 **Compiler prerequisites:**
 - **macOS:** Xcode Command Line Tools (`xcode-select --install`) provides AppleClang. Full Xcode is not required for the library build. macOS 13 (Ventura) is the minimum supported version in v4. macOS 12 and earlier are not supported; use v3.8.0 or fork. See MIGRATION.md.
-- **Linux:** GCC ≥ 12 (`apt install g++-12`) or Clang ≥ 14 (`apt install clang-14`) for C++20 support. CMake ≥ 3.20 (`apt install cmake` or from cmake.org).
+- **Linux:** GCC ≥ 12 (`apt install g++-12`) or Clang ≥ 14 (`apt install clang-14`) for C++20 support. CMake ≥ 3.25 (`apt install cmake` or from cmake.org).
 - **Windows:** Visual Studio 2022 (Build Tools or full IDE) with the C++ workload. VS 2022 Build Tools or full VS is sufficient. Install from https://aka.ms/vs/17/release/vs_buildtools.exe, or `winget install Microsoft.VisualStudio.2022.BuildTools`, or `choco install visualstudio2022buildtools`. GTest is fetched automatically via `FetchContent`; no vcpkg needed.
 
 ### Windows toolchain setup
@@ -122,7 +139,7 @@ cmake --build build
   - Build Tools default path: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\`
   - Full VS default path: `C:\Program Files\Microsoft Visual Studio\2022\{edition}\`
 - **Smart App Control must be Off** (Windows Security → App & Browser Control → SAC settings). SAC blocks locally compiled executables and cannot be re-enabled without a Windows reset.
-- CMake ≥ 3.20: https://cmake.org/download/, `winget install Kitware.CMake`, or `choco install cmake`.
+- CMake ≥ 3.25: https://cmake.org/download/, `winget install Kitware.CMake`, or `choco install cmake`.
 
 ## Architecture
 

@@ -6,7 +6,7 @@ All four platforms are verified by CI on every push.
 ## Requirements
 
 - **C++20** compiler: GCC 12+, Clang 14+, Apple Clang 14+ (Xcode 14, macOS 13+), MSVC 2022 17.x
-- **CMake 3.20+**
+- **CMake 3.25+**
 - **Zero external dependencies** at runtime — GTest is fetched automatically via FetchContent
 
 ## Platforms

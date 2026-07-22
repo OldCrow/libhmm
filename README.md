@@ -1,7 +1,7 @@
 # libhmm — C++20 Hidden Markov Model Library
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
-[![CMake](https://img.shields.io/badge/CMake-3.20%2B-blue.svg)](https://cmake.org/)
+[![CMake](https://img.shields.io/badge/CMake-3.25%2B-blue.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-4.2.5-brightgreen.svg)](https://github.com/OldCrow/libhmm/releases)
 [![Tests](https://img.shields.io/badge/Tests-47%2F47_Passing-success.svg)](tests/)
@@ -249,7 +249,7 @@ See [examples/](examples/) for demonstrations:
 ## Requirements
 
 - **C++20** compiler: GCC 12+, Apple Clang 14+ (macOS 13+), Clang 14+, MSVC 2022 17.x
-- **CMake 3.20+**
+- **CMake 3.25+**
 
 No external dependencies. GTest is fetched automatically via CMake `FetchContent` for the test suite.
 
