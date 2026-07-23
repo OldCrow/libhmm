@@ -154,6 +154,12 @@ function(add_libhmm_benchmark target_name source_file)
     if(NOT APPLE AND NOT MSVC)
         target_link_libraries(${target_name} PRIVATE m)
     endif()
+    # LIBHMM_WARN_FLAGS (set in the top-level CMakeLists.txt) is a
+    # target-scope variable, not directory-scope add_compile_options; apply
+    # explicitly when building in-tree (empty/undefined when benchmarks/ is
+    # configured standalone, which is harmless — this dir keeps its own
+    # -Wall -Wextra -O3 for that case, above).
+    target_compile_options(${target_name} PRIVATE ${LIBHMM_WARN_FLAGS})
 endfunction()
 
 function(enable_hmmlib target_name)

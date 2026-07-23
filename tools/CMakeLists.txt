@@ -18,6 +18,11 @@ function(add_hmm_tool TARGET_NAME)
         target_link_libraries(${TARGET_NAME} hmm)
     endif()
 
+    # LIBHMM_WARN_FLAGS (set in top-level CMakeLists.txt) is a target-scope
+    # variable, not directory-scope add_compile_options — apply explicitly or
+    # tools silently build with no warnings enabled.
+    target_compile_options(${TARGET_NAME} PRIVATE ${LIBHMM_WARN_FLAGS})
+
     set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
     set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
     set_target_properties(${TARGET_NAME} PROPERTIES

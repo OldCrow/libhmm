@@ -113,6 +113,10 @@ if(GTest_FOUND OR TARGET gtest)
             $<$<OR:$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:Clang>>:
                 -Wno-unknown-warning-option;-Wno-character-conversion>
             $<$<CXX_COMPILER_ID:GNU>:-Wall;-Wextra;-Wpedantic>)
+        # LIBHMM_WARN_FLAGS (top-level CMakeLists.txt) is a target-scope
+        # variable, not directory-scope add_compile_options — apply explicitly
+        # so tests pick up -Wpointer-arith and (when LIBHMM_WERROR) -Werror.
+        target_compile_options(${TARGET_NAME} PRIVATE ${LIBHMM_WARN_FLAGS})
         add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
         set_tests_properties(${TARGET_NAME} PROPERTIES
             TIMEOUT 300

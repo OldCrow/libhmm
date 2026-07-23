@@ -16,6 +16,11 @@ function(add_hmm_example target_name source_file)
         target_link_libraries(${target_name} hmm_static)
     endif()
 
+    # LIBHMM_WARN_FLAGS (set in top-level CMakeLists.txt) is a target-scope
+    # variable, not directory-scope add_compile_options — apply explicitly or
+    # examples silently build with no warnings enabled.
+    target_compile_options(${target_name} PRIVATE ${LIBHMM_WARN_FLAGS})
+
     # Ensure C++20 standard
     set_property(TARGET ${target_name} PROPERTY CXX_STANDARD 20)
     set_property(TARGET ${target_name} PROPERTY CXX_STANDARD_REQUIRED ON)

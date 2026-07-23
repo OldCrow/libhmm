@@ -47,6 +47,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# compile_commands.json for clangd/IDEs; top-level only (house style §10).
+if(PROJECT_IS_TOP_LEVEL)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif()
+
 # =============================================================================
 # Minimum compiler version enforcement.
 # v4.0.0 uses C++20 concepts, std::ranges, and std::span without fallback.
@@ -83,19 +88,55 @@ elseif(MSVC)
     endif()
 endif()
 
+# =============================================================================
+# Deprecated option-name shim.
+# libhmm renamed its unprefixed BUILD_*/ENABLE_* options to LIBHMM_*-prefixed
+# names (unprefixed names collide with sibling options in superprojects that
+# add_subdirectory/FetchContent this repo — see CMAKE-HOUSE-STYLE.md §2). Old
+# spellings are honored for one release with a deprecation warning.
+# REMOVE THIS WHOLE SHIM BLOCK at the next minor release (v4.3.0).
+# =============================================================================
+if(DEFINED BUILD_EXAMPLES AND NOT DEFINED LIBHMM_BUILD_EXAMPLES)
+    message(DEPRECATION "BUILD_EXAMPLES is deprecated; use LIBHMM_BUILD_EXAMPLES instead")
+    set(LIBHMM_BUILD_EXAMPLES ${BUILD_EXAMPLES} CACHE BOOL "Build example programs")
+endif()
+if(DEFINED BUILD_TESTS AND NOT DEFINED LIBHMM_BUILD_TESTS)
+    message(DEPRECATION "BUILD_TESTS is deprecated; use LIBHMM_BUILD_TESTS instead")
+    set(LIBHMM_BUILD_TESTS ${BUILD_TESTS} CACHE BOOL "Build test programs")
+endif()
+if(DEFINED BUILD_TOOLS AND NOT DEFINED LIBHMM_BUILD_TOOLS)
+    message(DEPRECATION "BUILD_TOOLS is deprecated; use LIBHMM_BUILD_TOOLS instead")
+    set(LIBHMM_BUILD_TOOLS ${BUILD_TOOLS} CACHE BOOL "Build performance inspection and validation tools")
+endif()
+if(DEFINED BUILD_BENCHMARKS AND NOT DEFINED LIBHMM_BUILD_BENCHMARKS)
+    message(DEPRECATION "BUILD_BENCHMARKS is deprecated; use LIBHMM_BUILD_BENCHMARKS instead")
+    set(LIBHMM_BUILD_BENCHMARKS ${BUILD_BENCHMARKS} CACHE BOOL "Build comparison benchmarks (requires external HMM libraries)")
+endif()
+if(DEFINED ENABLE_CLANG_TIDY AND NOT DEFINED LIBHMM_ENABLE_CLANG_TIDY)
+    message(DEPRECATION "ENABLE_CLANG_TIDY is deprecated; use LIBHMM_ENABLE_CLANG_TIDY instead")
+    set(LIBHMM_ENABLE_CLANG_TIDY ${ENABLE_CLANG_TIDY} CACHE BOOL "Enable clang-tidy analysis during build")
+endif()
+# ENABLE_STATIC_ANALYSIS / ENABLE_CPPCHECK were declared but never consumed by
+# any CMakeLists in this repo (cppcheck runs from CI/scripts directly) — dead
+# options, deleted rather than renamed. Old spellings map to nothing; a stale
+# -D flag surfaces via this message instead of silently no-op'ing.
+if(DEFINED ENABLE_STATIC_ANALYSIS)
+    message(DEPRECATION "ENABLE_STATIC_ANALYSIS was removed (never consumed); cppcheck runs from CI/scripts")
+endif()
+if(DEFINED ENABLE_CPPCHECK)
+    message(DEPRECATION "ENABLE_CPPCHECK was removed (never consumed); cppcheck runs from CI/scripts")
+endif()
+
 # Build options
 # Both static and shared libraries are always built (sources compiled once via
-# an OBJECT library). BUILD_SHARED_LIBS is retained for CMake convention
-# compatibility but has no effect — hmm (shared) and hmm_static (static) are
-# always produced regardless of this flag.
-option(BUILD_SHARED_LIBS "Build shared library in addition to static" ON)
-option(BUILD_EXAMPLES "Build example programs" ON)
-option(BUILD_TESTS "Build test programs" ON)
-option(BUILD_TOOLS      "Build performance inspection and validation tools" ON)
-option(BUILD_BENCHMARKS "Build comparison benchmarks (requires external HMM libraries)" OFF)
-option(ENABLE_STATIC_ANALYSIS "Enable static analysis with clang-tidy" ON)
-option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis during build" OFF)
-option(ENABLE_CPPCHECK "Enable cppcheck analysis" ON)
+# an OBJECT library) — there is no BUILD_SHARED_LIBS toggle; see the hmm /
+# hmm_static target definitions below.
+option(LIBHMM_BUILD_EXAMPLES "Build example programs" ${PROJECT_IS_TOP_LEVEL})
+option(LIBHMM_BUILD_TESTS "Build test programs" ${PROJECT_IS_TOP_LEVEL})
+option(LIBHMM_BUILD_TOOLS "Build performance inspection and validation tools" ${PROJECT_IS_TOP_LEVEL})
+option(LIBHMM_BUILD_BENCHMARKS "Build comparison benchmarks (requires external HMM libraries)" OFF)
+option(LIBHMM_ENABLE_CLANG_TIDY "Enable clang-tidy analysis during build" OFF)
+option(LIBHMM_WERROR "Treat compiler warnings as errors (-Werror / /WX)" OFF)
 # LIBHMM_PORTABLE: swap -march=native for a portable baseline ISA on LIBHMM_SIMD_SOURCES.
 # Use this when building distributable wheels so they do not SIGILL on machines
 # with a lower ISA than the build host.  Runtime-dispatched tier-2 distribution
@@ -149,10 +190,6 @@ endif()
 
 # find_package(Boost REQUIRED)  # REMOVED: No longer needed after Phase 8.3 Boost replacement
 
-# Include directories - use modern target-based approach
-include_directories(include)
-# include_directories(${Boost_INCLUDE_DIRS})  # REMOVED: No longer needed
-
 # Platform-specific compiler flags
 # NOTE: MSVC flags are applied per-target (see after add_library below) so that
 # FetchContent dependencies like GTest are not compiled with /W4.
@@ -167,21 +204,33 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
+# LIBHMM_WARN_FLAGS / LIBHMM_SHARED_LINK_OPTIONS are applied PRIVATE, per
+# target (hmm_objects below; hmm for the link options; tests/tools/examples/
+# benchmarks in their own subdir CMakeLists apply LIBHMM_WARN_FLAGS too)
+# rather than via directory-scope add_compile_options/CMAKE_SHARED_LINKER_FLAGS,
+# so a consumer embedding libhmm via add_subdirectory/FetchContent never
+# inherits our warnings or link flags. The warning set is gated on
+# PROJECT_IS_TOP_LEVEL for the same reason.
+set(LIBHMM_WARN_FLAGS "")
+set(LIBHMM_SHARED_LINK_OPTIONS "")
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic -Wpointer-arith)
-    # Note: -Wno-deprecated-declarations and -Wno-defaulted-function-deleted removed
-    # to surface all warnings. Re-add with justification if specific cases cannot be fixed.
-    # GCC/Clang build-type defaults (Debug: -g; Release: -O3 -DNDEBUG) are used as-is.
-
-    # Position-independent code for shared libraries on Unix platforms
-    if(APPLE OR LINUX OR UNIX)
-        add_compile_options(-fPIC)
+    if(PROJECT_IS_TOP_LEVEL)
+        set(LIBHMM_WARN_FLAGS -Wall -Wextra -Wpedantic -Wpointer-arith)
+        # Note: -Wno-deprecated-declarations and -Wno-defaulted-function-deleted removed
+        # to surface all warnings. Re-add with justification if specific cases cannot be fixed.
+        # GCC/Clang build-type defaults (Debug: -g; Release: -O3 -DNDEBUG) are used as-is.
+        if(LIBHMM_WERROR)
+            list(APPEND LIBHMM_WARN_FLAGS -Werror)
+        endif()
     endif()
 
+    # Position-independent code comes from the POSITION_INDEPENDENT_CODE
+    # target property on hmm_objects (below), not a global -fPIC flag.
+
     if(APPLE)
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
+        set(LIBHMM_SHARED_LINK_OPTIONS -undefined dynamic_lookup)
     elseif(LINUX)
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
+        set(LIBHMM_SHARED_LINK_OPTIONS -Wl,--no-undefined)
     endif()
 endif()
 
@@ -488,6 +537,11 @@ list(APPEND LIBHMM_SOURCES ${LIBHMM_DISPATCH_SOURCES})
 
 add_library(hmm_objects OBJECT ${LIBHMM_SOURCES})
 
+# Target-scope include dir for the library's own TUs — final libs (hmm,
+# hmm_static) get their own PUBLIC BUILD_INTERFACE/INSTALL_INTERFACE include
+# dirs below; this one is PRIVATE and only for compiling the object library.
+target_include_directories(hmm_objects PRIVATE include)
+
 # MSVC compiler flags — applied to the OBJECT library so they affect all
 # compiled TUs regardless of which library type is ultimately consumed.
 # /W4: strong warnings. /permissive-: strict standards conformance.
@@ -496,7 +550,11 @@ add_library(hmm_objects OBJECT ${LIBHMM_SOURCES})
 if(MSVC)
     target_compile_options(hmm_objects PRIVATE
         /W4 /permissive- /external:anglebrackets /external:W0)
+    if(LIBHMM_WERROR)
+        target_compile_options(hmm_objects PRIVATE /WX)
+    endif()
 endif()
+target_compile_options(hmm_objects PRIVATE ${LIBHMM_WARN_FLAGS})
 
 # =============================================================================
 # Probe for C++17 std::cyl_bessel_i (modified Bessel function of the first kind).
@@ -527,14 +585,18 @@ set_property(TARGET hmm_objects PROPERTY POSITION_INDEPENDENT_CODE ON)
 # Shared library
 add_library(hmm SHARED $<TARGET_OBJECTS:hmm_objects>)
 add_library(libhmm::hmm ALIAS hmm)
-# Directory-scope include_directories(include) above covers in-tree/build-tree
-# consumers, but install(EXPORT) only captures properties set directly on the
+# PUBLIC include dirs are required directly on hmm (not just hmm_objects):
+# install(EXPORT) only captures properties set directly on the exported
 # target — without this, the exported libhmm::hmm target carries no include
 # path at all and downstream find_package(libhmm) consumers fail to compile.
 target_include_directories(hmm PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+# Shared-library link flags — see LIBHMM_SHARED_LINK_OPTIONS definition above
+# (deferred symbol resolution on macOS; explicit --no-undefined on Linux so a
+# missing symbol fails the link rather than only surfacing at load time).
+target_link_options(hmm PRIVATE ${LIBHMM_SHARED_LINK_OPTIONS})
 
 # MSVC does not generate an import .lib for a DLL unless symbols are explicitly
 # exported or WINDOWS_EXPORT_ALL_SYMBOLS is set. The latter is the pragmatic
@@ -565,10 +627,10 @@ target_include_directories(hmm_static PUBLIC
 
 # Enable clang-tidy if requested — applied to the OBJECT library so analysis
 # runs once on all compiled TUs regardless of which library type is built.
-if(ENABLE_CLANG_TIDY)
+if(LIBHMM_ENABLE_CLANG_TIDY)
     # Search standard locations; do not pin a version-specific Homebrew Cellar
     # path — that breaks on CI Linux, Windows, and any macOS with a different
-    # LLVM version.  cmake --preset release -DENABLE_CLANG_TIDY=ON discovers
+    # LLVM version.  cmake --preset release -DLIBHMM_ENABLE_CLANG_TIDY=ON discovers
     # whatever clang-tidy is first on PATH.
     find_program(CLANG_TIDY_EXE NAMES clang-tidy)
     if(CLANG_TIDY_EXE)
@@ -649,22 +711,22 @@ if(UNIX)
 endif()
 
 # Examples
-if(BUILD_EXAMPLES)
+if(LIBHMM_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
 # Tests
-if(BUILD_TESTS)
+if(LIBHMM_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
 # Benchmarks (comparative and internal performance suites)
-if(BUILD_BENCHMARKS)
+if(LIBHMM_BUILD_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
 
 # Performance inspection and validation tools
-if(BUILD_TOOLS)
+if(LIBHMM_BUILD_TOOLS)
     add_subdirectory(tools)
 endif()
 # Package configuration
@@ -714,9 +776,9 @@ else()
     message(STATUS "  Shared:  platform-default shared library")
     message(STATUS "  Static:  platform-default static library")
 endif()
-message(STATUS "Examples:     ${BUILD_EXAMPLES}")
-message(STATUS "Tests:        ${BUILD_TESTS}")
-message(STATUS "Tools:        ${BUILD_TOOLS}")
-message(STATUS "Benchmarks:   ${BUILD_BENCHMARKS}")
+message(STATUS "Examples:     ${LIBHMM_BUILD_EXAMPLES}")
+message(STATUS "Tests:        ${LIBHMM_BUILD_TESTS}")
+message(STATUS "Tools:        ${LIBHMM_BUILD_TOOLS}")
+message(STATUS "Benchmarks:   ${LIBHMM_BUILD_BENCHMARKS}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "=")

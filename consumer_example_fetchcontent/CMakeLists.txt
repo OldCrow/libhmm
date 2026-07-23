@@ -15,13 +15,13 @@ FetchContent_Declare(
 # To use a local checkout instead of fetching from GitHub, replace the FetchContent_Declare above
 # with: FetchContent_Declare(libhmm SOURCE_DIR /path/to/libhmm)
 
-# libhmm's BUILD_EXAMPLES/BUILD_TESTS/BUILD_TOOLS options are not gated on
-# PROJECT_IS_TOP_LEVEL, so force them off here — otherwise this consumer
-# build would also compile libhmm's full example/test/tool suite (and
-# transitively FetchContent GTest for the tests).
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+# libhmm's LIBHMM_BUILD_* options default off when embedded
+# (PROJECT_IS_TOP_LEVEL), so no forcing is needed for current main.
+# Kept as explicit OFF for clarity and to protect against fetching an
+# older ref where the defaults were unconditionally ON.
+set(LIBHMM_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(LIBHMM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LIBHMM_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(libhmm)
 
