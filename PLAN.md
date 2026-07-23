@@ -82,7 +82,7 @@ Last reconciled against live GitHub state: 2026-07-14.
   2026-07-14 that its scope is narrowly fit-quality/interface-completeness
   tracking only, with no broader project task-tracking that should move
   here instead).
-- clang-tidy is available but disabled in CI (`ENABLE_CLANG_TIDY=OFF`) —
+- clang-tidy is available but disabled in CI (`LIBHMM_ENABLE_CLANG_TIDY=OFF`) —
   tracked as GitHub issue #62 (2026-07-14).
 - JOSS submission deferred (2026-07-19): JOSS rejected the paper for
   insufficient open-source/research uptake of libhmm (newer scope
@@ -117,6 +117,19 @@ as safe-to-discard output. 8 stale local branches left over from
 squash-merged PRs (#30, #31, #33, #34, #57, #59, #60, #61) were deleted
 locally — confirmed merged via `gh pr list` before deletion, not
 unmerged work.
+
+## Build-Stack Standardization (2026-07-23) [DERIVED]
+Cross-repo effort tracked in `~/Development/BUILD-STANDARDIZATION-PLAN.md`
+(house style: `~/Development/CMAKE-HOUSE-STYLE.md`). Phases 0-3A complete,
+CI-green, no library API/behavior change: `66a7568` (install-export repair —
+`install(TARGETS ... EXPORT)`, GNUInstallDirs, `AnyNewerVersion` ->
+`SameMajorVersion`), `610cdf4` (GNUInstallDirs + pkg-config + kebab
+`libhmm-config.cmake` + consumer-example CI smoke test), `5445a0a`
+(CMakePresets.json schema 6, CMake minimum 3.25, AGENTS.md CMake-standard
+section), `8b0b6f7` (`LIBHMM_*`-prefixed options with one-release
+deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
+`BUILD_SHARED_LIBS` removed — coordinated with pylibhmm `7a06b42`). CHANGELOG.md
+`[Unreleased]` section and AGENTS.md CMake-standard section updated to match.
 
 ## Next Steps
 - Work through the v4.3.0 — Training & Core Usability backlog (6 open

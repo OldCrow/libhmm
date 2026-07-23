@@ -14,7 +14,7 @@ At the start of every session, perform these steps in order:
 
 1. Verify machine architecture before making SIMD assumptions — SIMD flag selection (`-march=native` on GCC/Clang, CPU-probed `/arch:` on MSVC) is automatic at compile time, but active tier affects which code paths run.
 2. Select the matching build path (see Platform-Specific Notes).
-3. On first use on a new machine, run `cmake --preset release && cmake --build build`, then verify the detected SIMD tier with `./build/tools/system_inspector` (if built with `BUILD_TOOLS=ON`).
+3. On first use on a new machine, run `cmake --preset release && cmake --build build`, then verify the detected SIMD tier with `./build/tools/system_inspector` (if built with `LIBHMM_BUILD_TOOLS=ON`).
 
 Quick architecture checks:
 
@@ -61,19 +61,20 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Build options: `BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS` (all `ON` by default), `BUILD_BENCHMARKS` (`OFF`), `ENABLE_CLANG_TIDY` (`OFF`).
+Build options: `LIBHMM_BUILD_EXAMPLES`, `LIBHMM_BUILD_TESTS`, `LIBHMM_BUILD_TOOLS` (all `ON` by default, i.e. `${PROJECT_IS_TOP_LEVEL}`), `LIBHMM_BUILD_BENCHMARKS` (`OFF`), `LIBHMM_ENABLE_CLANG_TIDY` (`OFF`), `LIBHMM_WERROR` (`OFF`). The old unprefixed names (`BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS`, `BUILD_BENCHMARKS`, `ENABLE_CLANG_TIDY`) still work via a deprecation shim (warns, maps to the new name) — removal planned at v4.3.0.
 
 ### CMake standard
 
 Full rules: `CMAKE-HOUSE-STYLE.md` in the Development root on dev machines (master copy, not checked in); this section is self-sufficient for this repo. Deviations from that
-standard, current as of Phase 2 (presets):
-- Target-first scoping and `LIBHMM_`-prefixed options are Phase 3 work, not
-  yet landed: `include_directories(include)` and global
-  `add_compile_options(-Wall ...)`/`-fPIC` are still directory-scope, and
-  options (`BUILD_TESTS`, `BUILD_TOOLS`, ...) are still unprefixed.
-- `BUILD_SHARED_LIBS` is a documented no-op (both `hmm`/`hmm_static` always
-  build from one OBJECT target); disposition tracked as an open item in
-  BUILD-STANDARDIZATION-PLAN.md.
+standard, current as of Phase 3A (target-first + option rename):
+- Target-first scoping and `LIBHMM_`-prefixed options are landed: includes
+  and warning flags are applied via `target_include_directories`/
+  `target_compile_options` on `hmm_objects` (and per-target on tests/tools/
+  examples), gated on `PROJECT_IS_TOP_LEVEL`; component-toggle options
+  default `${PROJECT_IS_TOP_LEVEL}`. `LIBHMM_WERROR` (default `OFF`) is the
+  `-Werror`/`/WX` vehicle, enabled by CI.
+- `BUILD_SHARED_LIBS` is removed (both `hmm`/`hmm_static` always build from
+  one OBJECT target — there was never a real toggle to preserve).
 - Install contract already conforms: GNUInstallDirs, `libhmm-targets` export
   (namespace `libhmm::`), kebab `libhmm-config.cmake`, `SameMajorVersion`.
 - Presets (`CMakePresets.json`, schema 6, min CMake 3.25): `release` →
@@ -272,7 +273,7 @@ Use an existing distribution (e.g. `src/distributions/rayleigh_distribution.cpp`
 
 ## CI / Validation
 
-Four parallel jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC 2022. Two additional jobs: pre-commit (ubuntu) and cppcheck (ubuntu). Tests run with `-LE "known_broken|benchmark"`. `clang-tidy` is available but disabled in CI (`ENABLE_CLANG_TIDY=OFF`); enable locally when needed.
+Four parallel jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC 2022. Two additional jobs: pre-commit (ubuntu) and cppcheck (ubuntu). Tests run with `-LE "known_broken|benchmark"`. `clang-tidy` is available but disabled in CI (`LIBHMM_ENABLE_CLANG_TIDY=OFF`); enable locally when needed.
 
 ## Open Items
 See PLAN.md for current status, in-progress work, and open questions.

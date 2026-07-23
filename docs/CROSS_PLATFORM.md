@@ -66,11 +66,14 @@ When cmake runs, the SIMD configuration is reported:
 ## Build Options
 
 ```bash
-cmake -DBUILD_EXAMPLES=OFF ..    # Skip examples
-cmake -DBUILD_TESTS=OFF ..       # Skip tests
-cmake -DBUILD_TOOLS=OFF ..       # Skip tools
-cmake -DBUILD_SHARED_LIBS=OFF .. # Suppress shared library (static is always built)
+cmake -DLIBHMM_BUILD_EXAMPLES=OFF ..    # Skip examples
+cmake -DLIBHMM_BUILD_TESTS=OFF ..       # Skip tests
+cmake -DLIBHMM_BUILD_TOOLS=OFF ..       # Skip tools
 ```
+
+Both `hmm` (shared) and `hmm_static` (static) always build from one OBJECT
+target — there is no `BUILD_SHARED_LIBS` toggle to suppress the shared
+library.
 
 ## Library Output
 

@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Build-system standardization (`~/Development/BUILD-STANDARDIZATION-PLAN.md`).
+No library API or behavior changes.
+
+### Added
+
+- **CMakePresets.json** (schema 6): `release` → `build/`, `debug` →
+  `build-debug/`, `rel-with-debug` → `build-relwithdebinfo/`.
+  `cmake_minimum_required` raised to 3.25.
+- **`LIBHMM_WERROR` option** (default `OFF`): explicit `-Werror`/`/WX`
+  vehicle for CI, replacing the old raw `-DCMAKE_CXX_FLAGS=-Werror` injection
+  on the Linux/Clang leg.
+- **`LIBHMM_*`-prefixed build options** (`LIBHMM_BUILD_EXAMPLES`,
+  `LIBHMM_BUILD_TESTS`, `LIBHMM_BUILD_TOOLS`, `LIBHMM_BUILD_BENCHMARKS`,
+  `LIBHMM_ENABLE_CLANG_TIDY`), replacing the old unprefixed names
+  (`BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS`, `BUILD_BENCHMARKS`,
+  `ENABLE_CLANG_TIDY`). Old names still work via a deprecation shim
+  (`message(DEPRECATION ...)`, mapped to the new name); shim removal planned
+  at v4.3.0. Component-toggle options now default `${PROJECT_IS_TOP_LEVEL}`
+  (previously always `ON`), so embedding libhmm via `add_subdirectory`/
+  `FetchContent` no longer builds its examples/tests/tools by default.
+- **Standard install contract**: `GNUInstallDirs` paths, `install(TARGETS
+  ... EXPORT libhmm-targets)` + `install(EXPORT ... NAMESPACE libhmm::)`,
+  kebab-case `libhmm-config.cmake`/`libhmm-config-version.cmake`
+  (`SameMajorVersion` compatibility, replacing the previous `AnyNewerVersion`
+  policy — a real behavior fix given the v3→v4 break), and a pkg-config
+  `.pc` file. `consumer_example/` and `consumer_example_fetchcontent/`
+  exercise the installed-package path in CI.
+
+### Changed
+
+- Directory-scope `include_directories(include)` and global
+  `add_compile_options(-Wall -Wextra -Wpedantic -Wpointer-arith)`/`-fPIC`
+  converted to target scope (`target_include_directories`/
+  `target_compile_options` on `hmm_objects`, and per-target on tests/tools/
+  examples), gated on `PROJECT_IS_TOP_LEVEL` so consumers embedding libhmm
+  never inherit its warning flags.
+
+### Removed
+
+- **`BUILD_SHARED_LIBS` option**: documented no-op removed outright (both
+  `hmm` and `hmm_static` always build from one `OBJECT` target; there was
+  never a real toggle behind it). Also removed the dead
+  `ENABLE_STATIC_ANALYSIS`/`ENABLE_CPPCHECK` options (never consumed by any
+  CMakeLists rule); the deprecation shim maps stale `-D` spellings to a
+  `message(DEPRECATION ...)` rather than silently no-op'ing.
+
+---
+
 ## [4.2.5] - 2026-07-19
 
 License-hygiene release. 47/47 tests pass. No API or behavior changes;
