@@ -180,8 +180,9 @@ double BasicMapBaumWelchTrainer<Obs>::discrete_emission_log_prior(const HmmType 
             }
         }
         return lp;
+    } else {
+        return 0.0;
     }
-    return 0.0;
 }
 
 template <typename Obs>
