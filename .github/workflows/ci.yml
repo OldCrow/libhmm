@@ -80,6 +80,13 @@ jobs:
     # -------------------------------------------------------------------------
     # Configure
     # GTest is pulled via FetchContent if not found locally (see tests/CMakeLists.txt).
+    # LIBHMM_PORTABLE=ON on every CI configure (incl. TSan/ASan jobs below):
+    # hosted runners are a hardware/toolchain lottery, and -march=native (or
+    # the MSVC CPU probe) bakes in whatever the drawn host advertises — e.g.
+    # a host exposing avx10.1-256 turned fatal under Clang's
+    # -Winvalid-feature-combination promotion + -Werror (2026-07). Portable
+    # baseline keeps CI deterministic; the per-ISA runtime-dispatch TUs keep
+    # their targeted flags, so SIMD dispatch is still built and tested.
     # -------------------------------------------------------------------------
     - name: Configure (Windows / MSVC)
       if: matrix.msvc
@@ -91,6 +98,7 @@ jobs:
           -DCMAKE_CXX_COMPILER=cl `
           -DLIBHMM_BUILD_EXAMPLES=OFF `
           -DLIBHMM_BUILD_TOOLS=OFF `
+          -DLIBHMM_PORTABLE=ON `
           -DCMAKE_BUILD_TYPE=Release
 
     - name: Configure (Unix)
@@ -100,6 +108,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DLIBHMM_BUILD_EXAMPLES=OFF \
           -DLIBHMM_BUILD_TOOLS=OFF \
+          -DLIBHMM_PORTABLE=ON \
           ${{ matrix.werror && '-DLIBHMM_WERROR=ON' || '' }}
 
     # -------------------------------------------------------------------------
@@ -161,7 +170,8 @@ jobs:
           -DCMAKE_CXX_FLAGS="-fsanitize=thread -g -O1" \
           -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" \
           -DLIBHMM_BUILD_EXAMPLES=OFF \
-          -DLIBHMM_BUILD_TOOLS=OFF
+          -DLIBHMM_BUILD_TOOLS=OFF \
+          -DLIBHMM_PORTABLE=ON
 
     - name: Build
       run: cmake --build build-tsan --parallel
@@ -189,7 +199,8 @@ jobs:
           -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -g -O1 -fno-omit-frame-pointer" \
           -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
           -DLIBHMM_BUILD_EXAMPLES=OFF \
-          -DLIBHMM_BUILD_TOOLS=OFF
+          -DLIBHMM_BUILD_TOOLS=OFF \
+          -DLIBHMM_PORTABLE=ON
 
     - name: Build
       run: cmake --build build-asan --parallel
