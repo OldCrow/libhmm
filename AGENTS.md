@@ -65,7 +65,8 @@ Build options: `LIBHMM_BUILD_EXAMPLES`, `LIBHMM_BUILD_TESTS`, `LIBHMM_BUILD_TOOL
 
 ### CMake standard
 
-Full rules: `CMAKE-HOUSE-STYLE.md` in the Development root on dev machines (master copy, not checked in); this section is self-sufficient for this repo. Deviations from that
+Full rules: [CMake House Style](https://github.com/OldCrow/standards/blob/main/CMAKE-HOUSE-STYLE.md)
+in the fleet standards repo; this section is self-sufficient for this repo. Deviations from that
 standard, current as of Phase 3A (target-first + option rename):
 - Target-first scoping and `LIBHMM_`-prefixed options are landed: includes
   and warning flags are applied via `target_include_directories`/
@@ -272,6 +273,10 @@ Use an existing distribution (e.g. `src/distributions/rayleigh_distribution.cpp`
 6. Add a test file under `tests/distributions/` and register it in `tests/CMakeLists.txt`
 
 ## CI / Validation
+
+Fleet-wide workflow rules (runner budget, bounded parallelism, ISA hazards on
+hosted runners, action pinning):
+[CI House Style](https://github.com/OldCrow/standards/blob/main/CI-HOUSE-STYLE.md).
 
 Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC 2022. Additional quality jobs (ubuntu): pre-commit, cppcheck, and clang-tidy. Tests run with `-LE "known_broken|benchmark"`.
 

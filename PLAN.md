@@ -140,8 +140,10 @@ locally — confirmed merged via `gh pr list` before deletion, not
 unmerged work.
 
 ## Build-Stack Standardization (2026-07-23) [DERIVED]
-Cross-repo effort tracked in `~/Development/BUILD-STANDARDIZATION-PLAN.md`
-(house style: `~/Development/CMAKE-HOUSE-STYLE.md`). Phases 0-3A complete,
+Cross-repo effort tracked in the fleet standards repo:
+[record](https://github.com/OldCrow/standards/blob/main/records/BUILD-STANDARDIZATION-PLAN.md),
+[house style](https://github.com/OldCrow/standards/blob/main/CMAKE-HOUSE-STYLE.md).
+Phases 0-3A complete,
 CI-green, no library API/behavior change: `66a7568` (install-export repair —
 `install(TARGETS ... EXPORT)`, GNUInstallDirs, `AnyNewerVersion` ->
 `SameMajorVersion`), `610cdf4` (GNUInstallDirs + pkg-config + kebab

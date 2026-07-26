@@ -92,8 +92,9 @@ endif()
 # Deprecated option-name shim.
 # libhmm renamed its unprefixed BUILD_*/ENABLE_* options to LIBHMM_*-prefixed
 # names (unprefixed names collide with sibling options in superprojects that
-# add_subdirectory/FetchContent this repo — see CMAKE-HOUSE-STYLE.md §2). Old
-# spellings are honored for one release with a deprecation warning.
+# add_subdirectory/FetchContent this repo — fleet CMake house style, §2 Naming:
+# https://github.com/OldCrow/standards). Old spellings are honored for one
+# release with a deprecation warning.
 # REMOVE THIS WHOLE SHIM BLOCK at the next minor release (v4.3.0).
 # =============================================================================
 if(DEFINED BUILD_EXAMPLES AND NOT DEFINED LIBHMM_BUILD_EXAMPLES)

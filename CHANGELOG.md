@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Build-system standardization (`~/Development/BUILD-STANDARDIZATION-PLAN.md`).
+Build-system standardization ([record](https://github.com/OldCrow/standards/blob/main/records/BUILD-STANDARDIZATION-PLAN.md)).
 No library API or behavior changes.
 
 ### Added
