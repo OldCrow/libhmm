@@ -70,12 +70,19 @@ Last reconciled against live GitHub state: 2026-08-16.
   - #63 OPEN — chore: bulk-apply `[[nodiscard]]` in the three linalg headers
     (clang-tidy `modernize-use-nodiscard` cluster surfaced by #62's advisory
     CI job); a prerequisite for reconsidering blocking clang-tidy CI.
-  - #70 OPEN — chore: audit compensated accumulation paths for FP-contraction
-    sensitivity. The libhmm counterpart of libstats #84; both trace to corvus's
-    cross-compiler finding that GCC's default `-ffp-contract=fast` fuses inside
-    a compensated sequence. Was never listed here — this section is derived
-    from GitHub rather than maintained by hand, so re-derive it rather than
-    trusting it between passes.
+  - #70 CLOSED 2026-08-16 — audit compensated accumulation paths for
+    FP-contraction sensitivity. **No exposure**: libhmm has no compensated
+    summation or error-free transformation anywhere, so there is no identity
+    for contraction to break. Position recorded in AGENTS.md SIMD strategy.
+    Two durable findings: (a) the `ln2_hi`/`ln2_lo` Cody-Waite splits in
+    `log_pd`/`exp_pd` LOOK like the hazard but compensate a constant's
+    representation error, not an operation's rounding — different class; and
+    (b) **libhmm cannot claim bit-reproducibility at all**, because tier
+    dispatch changes the summation tree (8/4/2-wide partial sums) with the
+    CPU the binary runs on, at fixed compiler and flags. So corvus's
+    `-ffp-contract=off` policy would buy nothing here and cost FMA where
+    fusion is accuracy-positive. This is a legitimate divergence from corvus,
+    not an oversight.
   - #72 CLOSED 2026-08-16 — fix(math): `log_bessel_i0` had a ~1900 ULP step discontinuity at
     x = 700. See Numerical Defect Triage below.
   - #73 CLOSED 2026-08-16 — fix(von-mises): `getCircularVariance()` returned NaN for
@@ -170,6 +177,21 @@ Bessel ratio is — the defect is the formulation).
   bounds recorded in #74 are the kernels' own header claims, not independent
   measurements. Building the gate is the first step and is its own piece of
   work. It also interacts with #58 and with the corvus question.
+
+  **Milestone decision, 2026-08-16: #74 stays unmilestoned.** Neither v4.3.0
+  (Training & Core Usability) nor v4.4.0 (Algorithm Coverage) fits it by
+  title or intent, and it is not schedulable until the oracle/ULP-gate
+  question above is decided — milestones here are release buckets, so putting
+  undecided work in one makes the bucket a bad predictor. The trigger set for
+  revisiting was "if #70 turns out to have real exposure, create a numerical
+  accuracy milestone and group #74 + #70 + an infrastructure issue".
+  **#70 closed with no exposure, so that trigger did not fire** and #74 stays
+  standalone. Two things were recorded on the issues instead, both worth more
+  than the label: the cost is already being paid in the suite
+  (`VonMisesDistribution.BatchMatchesScalar` is relaxed to 1e-9 with a comment
+  naming this kernel — libstats' #95 pattern), and #58 is the cheapest moment
+  to fix it, since it splits the very TUs `cos_pd` lives in. Cross-linked on
+  both issues; not a dependency in either direction.
 
 ## Known Gaps [OPEN]
 - Distribution fit-quality improvements: see docs/GOLD_STANDARD_CHECKLIST.md
