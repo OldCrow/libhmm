@@ -61,6 +61,114 @@ TEST(BesselFunctions, LogI0Consistency) {
     EXPECT_TRUE(std::isfinite(libhmm::detail::log_bessel_i0(800.0)));
 }
 
+// ----------------------------------------------------------------------------
+// 1 - I1/I0.  Above kOneMinusABound the implementation is a pure series in
+// 1/x that touches neither Bessel function, so it is tier-independent and can
+// be asserted tightly even though this TU compiles the Tier 2 fallback (see
+// issue #75 — LIBHMM_HAS_CXX17_BESSEL is PRIVATE to hmm_objects).
+// ----------------------------------------------------------------------------
+
+TEST(BesselFunctions, OneMinusRatioLargeArgument) {
+    // Reference values from mpmath at dps 50.
+    struct Row {
+        double x, expected;
+    };
+    constexpr Row kRows[] = {
+        {30.0, 0.016810444634663907},     {50.0, 0.010051032621502247},
+        {100.0, 0.0050126269948312344},   {200.0, 0.0025031407483564725},
+        {713.9, 0.00070062381335515958},  {714.0, 0.00070052565232812161},
+        {1000.0, 0.0005001251251957198},  {10000.0, 5.0001250125019535e-5},
+        {1000000.0, 5.00000125000125e-7},
+    };
+    for (const auto &r : kRows) {
+        const double got = libhmm::detail::one_minus_bessel_ratio(r.x);
+        EXPECT_NEAR(got, r.expected, 1e-15 * r.expected) << "x=" << r.x;
+    }
+}
+
+TEST(BesselFunctions, OneMinusRatioStaysFiniteWhereI0Overflows) {
+    // I0 overflows double at x = 713.986909; the naive 1 - i1/i0 returned NaN
+    // for every larger argument.  Regression for issue #73.
+    for (double x : {713.0, 714.0, 715.0, 1000.0, 1.0e4, 1.0e6, 1.0e300}) {
+        const double v = libhmm::detail::one_minus_bessel_ratio(x);
+        EXPECT_TRUE(std::isfinite(v)) << "x=" << x;
+        EXPECT_GT(v, 0.0) << "x=" << x;
+        EXPECT_LT(v, 1.0) << "x=" << x;
+    }
+}
+
+TEST(BesselFunctions, OneMinusRatioEdgeCases) {
+    EXPECT_DOUBLE_EQ(libhmm::detail::one_minus_bessel_ratio(0.0), 1.0);
+    EXPECT_DOUBLE_EQ(libhmm::detail::one_minus_bessel_ratio(-1.0), 1.0);
+    EXPECT_DOUBLE_EQ(
+        libhmm::detail::one_minus_bessel_ratio(std::numeric_limits<double>::quiet_NaN()), 1.0);
+    // Monotone decreasing in x, and continuous across the branch crossover.
+    double prev = 1.0;
+    for (double x = 0.5; x < 120.0; x += 0.25) {
+        const double v = libhmm::detail::one_minus_bessel_ratio(x);
+        EXPECT_LT(v, prev) << "x=" << x;
+        prev = v;
+    }
+}
+
+// ============================================================================
+// Numerical defects #72 / #73, exercised through the public API.
+//
+// These deliberately do NOT call detail:: directly. LIBHMM_HAS_CXX17_BESSEL is
+// PRIVATE to hmm_objects (issue #75), so a test TU compiles the Tier 2
+// fallback while the library ships Tier 1 — only the public surface reaches
+// the code that actually ships.
+// ============================================================================
+
+TEST(VonMisesDistribution, LogNormaliserIsSmoothAcrossKappa700) {
+    // log_bessel_i0 switches to an asymptotic expansion above kappa = 700.
+    // Truncated too early, that branch was ~1900 ULP off the moment it was
+    // taken, putting a 2.14e-10 step into every density built on it.
+    //
+    // logNormaliser(k) = k - getLogProbability(mu), since cos(0) = 1, and
+    // d/dk logNormaliser = A(k) = I1(k)/I0(k). A central difference straddling
+    // the seam therefore recovers A(700); a step at the seam does not cancel
+    // and shows up divided by 2h.
+    constexpr double kA700 = 0.99928545881842609; // mpmath, dps 50
+    constexpr double h = 1.0e-3;
+
+    auto log_normaliser = [](double kappa) {
+        const VonMisesDistribution d(0.0, kappa);
+        return kappa - d.getLogProbability(0.0);
+    };
+
+    const double central = (log_normaliser(700.0 + h) - log_normaliser(700.0 - h)) / (2.0 * h);
+    EXPECT_NEAR(central, kA700, 1e-8) << "log-normaliser has a step at the kappa = 700 branch seam";
+}
+
+TEST(VonMisesDistribution, CircularVarianceFiniteWhereI0Overflows) {
+    // I0 overflows double at kappa = 713.986909; the old 1 - i1/i0 form
+    // returned NaN for everything above. Regression for issue #73.
+    for (double kappa : {700.0, 713.0, 714.0, 1000.0, 1.0e4, 1.0e6}) {
+        const VonMisesDistribution d(0.0, kappa);
+        const double cv = d.getCircularVariance();
+        EXPECT_FALSE(std::isnan(cv)) << "kappa=" << kappa;
+        EXPECT_GT(cv, 0.0) << "kappa=" << kappa;
+        EXPECT_LT(cv, 1.0) << "kappa=" << kappa;
+        // 1 - A(k) -> 1/(2k) for large k.
+        EXPECT_NEAR(cv, 1.0 / (2.0 * kappa), 1.0e-3 / kappa) << "kappa=" << kappa;
+    }
+}
+
+TEST(VonMisesDistribution, FitOnConcentratedAnglesGivesFiniteVariance) {
+    // kappa_from_r_bar returns 1e6 for R_bar >= 1 ("effectively point mass"),
+    // which is reached by fitting identical angles — an ordinary EM degenerate
+    // case. That drove getCircularVariance() to NaN before #73.
+    const std::vector<double> identical(64, 0.7);
+    VonMisesDistribution d;
+    d.fit(identical);
+
+    EXPECT_GT(d.getKappa(), 700.0);
+    EXPECT_FALSE(std::isnan(d.getCircularVariance()));
+    EXPECT_GE(d.getCircularVariance(), 0.0);
+    EXPECT_FALSE(std::isnan(d.getMean()));
+}
+
 // ============================================================================
 // Construction and validation
 // ============================================================================

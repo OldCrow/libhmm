@@ -7,8 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Build-system standardization ([record](https://github.com/OldCrow/standards/blob/main/records/BUILD-STANDARDIZATION-PLAN.md)).
-No library API or behavior changes.
+Build-system standardization ([record](https://github.com/OldCrow/standards/blob/main/records/BUILD-STANDARDIZATION-PLAN.md)),
+which carries no library API or behavior change, plus two numerical fixes in
+the von Mises Bessel path (see Fixed).
+
+### Fixed
+
+- **`VonMisesDistribution::getCircularVariance()` returned NaN for κ ≥ 713.99**
+  ([#73](https://github.com/OldCrow/libhmm/issues/73)). `I₀` overflows double
+  there, and the old `1 - i1/i0` form let `inf/inf` through its `i0 > 0` guard.
+  Reachable from `fit()` on concentrated angles, which yields κ = 1e6. The same
+  subtraction also cancelled ~log₂(2κ) bits — 314 ULP at κ = 200. Replaced by
+  `detail::one_minus_bessel_ratio`, which evaluates `1 − I₁/I₀` as one quantity:
+  ≤ 2 ULP above κ = 30 (tier-independent series), ≤ 52 ULP below.
+- **`log I₀` had a step discontinuity at exactly x = 700**
+  ([#72](https://github.com/OldCrow/libhmm/issues/72)). The Tier 1 asymptotic
+  branch above the `std::cyl_bessel_i` overflow threshold was truncated after
+  two correction terms, landing ~1900 ULP off the moment it was taken and
+  putting a 2.14e-10 step into every density built on it. Extended through
+  `t⁴`: ≤ 0.79 ULP over x ∈ [700, 20000]. The `½log(2πx)` term is now split as
+  `½log(2π) + ½log(x)`, which also removes an overflow to −inf for
+  x > DBL_MAX/2π, and `bessel.h` no longer depends on a globally-defined
+  `M_PI`.
 
 ### Added
 

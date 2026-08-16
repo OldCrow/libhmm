@@ -106,16 +106,10 @@ void VonMisesDistribution::updateCache() const noexcept {
     // logNormaliser = log(2π) + log I₀(κ)
     logNormaliser_ = constants::math::LN_2PI + detail::log_bessel_i0(kappa_);
 
-    // Circular variance = 1 − I₁(κ)/I₀(κ)
-    // For κ = 0: I₁(0)=0, I₀(0)=1, variance = 1 (uniform).
-    // For large κ: both bessel calls converge to exp(κ)/√(2πκ); ratio → 1.
-    if (kappa_ < 1e-10) {
-        circularVariance_ = 1.0;
-    } else {
-        const double i0 = detail::bessel_i0(kappa_);
-        const double i1 = detail::bessel_i1(kappa_);
-        circularVariance_ = (i0 > 0.0) ? 1.0 - i1 / i0 : 1.0;
-    }
+    // Circular variance = 1 − I₁(κ)/I₀(κ), evaluated as a single quantity.
+    // Subtracting the ratio directly cancels ~log₂(2κ) bits and returns NaN
+    // above κ = 713.99, where I₀ overflows — see one_minus_bessel_ratio.
+    circularVariance_ = detail::one_minus_bessel_ratio(kappa_);
     markCacheValid();
 }
 

@@ -16,13 +16,49 @@
  *     Accurate to ε < 1.6×10⁻⁷. For log I₀(x) at large x the asymptotic
  *     expansion is used directly to avoid exp() overflow.
  *
+ * Also provides one_minus_bessel_ratio(x) = 1 − I₁(x)/I₀(x), which is NOT a
+ * composition of the above: computing it that way overflows to NaN above
+ * x = 713.99 and cancels ~log₂(2x) bits below it. Its large-x branch is
+ * tier-independent, so it holds the same bound on both tiers.
+ *
  * CMakeLists.txt sets LIBHMM_HAS_CXX17_BESSEL via check_cxx_source_compiles.
  * Source files that use these helpers are compiled under LIBHMM_BEST_SIMD_FLAGS.
  */
 
 #include <cmath>
 
+#include "libhmm/math/constants.h"
+
 namespace libhmm::detail {
+
+// ---------------------------------------------------------------------------
+// Coefficients of t¹…t⁴ in the Hankel expansion of I₀ (A&S 9.7.1, ν = 0),
+//   I₀(x) ~ e^x/√(2πx) · [1 + 1/(8x) + 9/(128x²) + 75/(1024x³) + …]
+// used by log_bessel_i0 above its overflow threshold.
+//
+// Truncating after t² — as this did before — leaves out 0.0732421875·t³, which
+// at x = 700 is 2.13e-10 against a result of ~697 whose ULP is 1.14e-13.  That
+// put the branch ~1900 ULP off the instant it was taken, giving log I₀ a step
+// discontinuity at exactly x = 700 that any density built on it inherited.
+// Carrying through t⁴ measures ≤ 0.79 ULP over x ∈ [700, 20000] against mpmath
+// at dps 60; a fifth term measures identical and is not carried.
+// ---------------------------------------------------------------------------
+inline constexpr double kLogI0Bound = 700.0; // exp(710) ≈ DBL_MAX
+inline constexpr double kI0HankelCoeffs[] = {
+    0.125,             // t^1   1/8
+    0.0703125,         // t^2   9/128
+    0.0732421875,      // t^3   75/1024
+    0.112152099609375, // t^4   3675/32768
+};
+
+/// Bracket of the I₀ Hankel expansion, less its leading 1, for x ≥ kLogI0Bound.
+[[nodiscard]] inline double i0_hankel_bracket_m1(double x) noexcept {
+    const double t = 1.0 / x;
+    double s = 0.0;
+    for (int j = static_cast<int>(sizeof(kI0HankelCoeffs) / sizeof(double)) - 1; j >= 0; --j)
+        s = (s + kI0HankelCoeffs[j]) * t;
+    return s;
+}
 
 #if defined(LIBHMM_HAS_CXX17_BESSEL)
 
@@ -40,11 +76,12 @@ namespace libhmm::detail {
 
 [[nodiscard]] inline double log_bessel_i0(double x) noexcept {
     // For large x, I₀(x) overflows double; use the asymptotic form instead.
-    // I₀(x) ≈ exp(x)/√(2πx) · [1 + 1/(8x) + 9/(128x²) + ...]
-    // log I₀(x) ≈ x - 0.5·log(2πx) + log(1 + 1/(8x) + ...)
-    if (x > 700.0) { // exp(710) ≈ DBL_MAX
-        const double t = 1.0 / x;
-        return x - 0.5 * std::log(2.0 * M_PI * x) + std::log1p(0.125 * t + 0.0703125 * t * t);
+    //   log I₀(x) = x − ½log(2π) − ½log(x) + log1p(bracket − 1)
+    // Split as ½log(2π) + ½log(x) rather than ½log(2πx): the product form
+    // overflows to +inf for x > DBL_MAX/2π, which would return −inf here.
+    if (x > kLogI0Bound) {
+        return x - constants::math::HALF_LN_2PI - 0.5 * std::log(x) +
+               std::log1p(i0_hankel_bracket_m1(x));
     }
     return std::log(std::cyl_bessel_i(0.0, x));
 }
@@ -133,5 +170,80 @@ namespace libhmm::detail {
 }
 
 #endif // LIBHMM_HAS_CXX17_BESSEL
+
+// ---------------------------------------------------------------------------
+// 1 − A(x), where A(x) = I₁(x)/I₀(x) is the von Mises mean resultant length.
+//
+// Computing this as `1.0 - bessel_i1(x)/bessel_i0(x)` fails two ways:
+//
+//   1. I₀(x) overflows double at x = 713.986909, above which both Bessel calls
+//      return +inf and `1 - inf/inf` is NaN.  That range is reachable: fitting
+//      a von Mises to concentrated angles yields κ = 1e6 (kappa_from_r_bar's
+//      point-mass branch).
+//   2. A(x) → 1 − 1/(2x), so the subtraction cancels ~log₂(2x) bits however
+//      accurate I₀ and I₁ are — relative error is amplified by 2x.
+//
+// The quantity itself is well conditioned (d(1−A)/dx · x/(1−A) = 1), so both
+// are method defects rather than intrinsic limits.  Above kOneMinusABound the
+// Hankel expansions of I₀ and I₁ are divided as series and 1 − A is evaluated
+// directly, which touches neither Bessel function and so cannot overflow or
+// cancel.  Below it the direct form is used, where the amplification is small.
+//
+// Accuracy, measured against mpmath at dps 60 over κ ∈ [1, 1e5]:
+//   - asymptotic branch (κ ≥ 30, 17 terms): ≤ 2 ULP
+//   - direct branch (κ < 30):               ≤ 52 ULP, worst near κ ≈ 24
+// The direct branch is what bounds the whole function; its error is the 2κ
+// amplification acting on correctly-rounded inputs, so it cannot be improved
+// without lowering the crossover, and the series diverges below κ ≈ 25.  Under
+// Tier 2 that branch inherits the A&S 1.6e-7 error amplified by 2κ; the
+// asymptotic branch is tier-independent and so is exact to the bound above on
+// every platform.
+//
+// Series coefficients: the ratio of the two Hankel asymptotic expansions
+// (A&S 9.7.1, ν = 0 and ν = 1) divided as power series in t = 1/x.  Leading
+// terms 1/2, 1/8, 1/8, 25/128, 13/32 agree with the published expansion.
+// ---------------------------------------------------------------------------
+
+/// Crossover between the direct and asymptotic forms of one_minus_bessel_ratio.
+inline constexpr double kOneMinusABound = 30.0;
+
+/// Coefficients of t¹…t¹⁷ in the expansion of 1 − I₁/I₀, t = 1/x.
+inline constexpr double kOneMinusACoeffs[] = {
+    0.5,                // t^1   1/2
+    0.125,              // t^2   1/8
+    0.125,              // t^3   1/8
+    0.1953125,          // t^4   25/128
+    0.40625,            // t^5   13/32
+    1.0478515625,       // t^6   1073/1024
+    3.21875,            // t^7   103/32
+    11.466461181640625, // t^8   375733/32768
+    46.478515625,       // t^9   23797/512
+    211.27614974975586, // t^10  55384775/262144
+    1064.67822265625,   // t^11  2180461/2048
+    5892.0457146167755, // t^12  24713030909/4194304
+    35528.87744140625,  // t^13  72763141/2048
+    231884.6359563172,  // t^14  7780757249041/33554432
+    1628749.4532470703, // t^15  13342715521/8192
+    12251067.63286615,  // t^16  26308967412122125/2147483648
+    98252781.81546783,  // t^17  12878188618117/131072
+};
+
+/// 1 − I₁(x)/I₀(x) for x ≥ 0. Returns 1 at x = 0 (I₁(0) = 0, I₀(0) = 1).
+[[nodiscard]] inline double one_minus_bessel_ratio(double x) noexcept {
+    if (!(x > 0.0)) // also catches NaN
+        return 1.0;
+
+    if (x >= kOneMinusABound) {
+        const double t = 1.0 / x;
+        double s = 0.0;
+        for (int j = static_cast<int>(sizeof(kOneMinusACoeffs) / sizeof(double)) - 1; j >= 0; --j)
+            s = (s + kOneMinusACoeffs[j]) * t;
+        return s;
+    }
+
+    const double i0 = bessel_i0(x);
+    const double i1 = bessel_i1(x);
+    return (i0 > 0.0) ? 1.0 - i1 / i0 : 1.0;
+}
 
 } // namespace libhmm::detail
