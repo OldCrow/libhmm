@@ -81,6 +81,20 @@ standard, current as of Phase 3A (target-first + option rename):
 - Presets (`CMakePresets.json`, schema 6, min CMake 3.25): `release` →
   `build/`, `debug` → `build-debug/`, `rel-with-debug` →
   `build-relwithdebinfo/`. No project-specific extras.
+- **A configure-time fact that a PUBLIC header branches on goes in the
+  generated `libhmm/config.h`, never in `target_compile_definitions`.**
+  Template `cmake/libhmm_config.h.in` → `${CMAKE_BINARY_DIR}/include/libhmm/
+  config.h`, installed beside the hand-written headers. A `PRIVATE`
+  definition reaches the library's own TUs and nothing else, so test TUs and
+  installed consumers compile a *different* body for the same `inline`
+  function — an ODR violation, and one that hides real defects because no
+  test ever compiles the shipped branch. That is exactly what happened with
+  `LIBHMM_HAS_CXX17_BESSEL` (issue #75, and it is why #72 survived). A header
+  also covers pkg-config and plain-include-path consumers, which a target
+  property cannot reach. `LIBHMM_HAS_CXX17_BESSEL` is currently the only such
+  fact; add new ones to the same header. `consumer_example/main.cpp` asserts
+  the installed tier two-sidedly, so a regression fails CI rather than going
+  quiet.
 
 ## Test Commands
 

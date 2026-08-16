@@ -21,12 +21,19 @@
  * x = 713.99 and cancels ~log₂(2x) bits below it. Its large-x branch is
  * tier-independent, so it holds the same bound on both tiers.
  *
- * CMakeLists.txt sets LIBHMM_HAS_CXX17_BESSEL via check_cxx_source_compiles.
+ * LIBHMM_HAS_CXX17_BESSEL comes from the generated libhmm/config.h, which
+ * records the check_cxx_source_compiles result at configure time. It is a
+ * header and not a compile definition on purpose: this file is installed, and
+ * the tier must be identical in the library's TUs, the test TUs and consumer
+ * TUs. It was not, which is issue #75 — and is why the Tier 1 defect #72
+ * survived, no test having ever compiled that branch.
+ *
  * Source files that use these helpers are compiled under LIBHMM_BEST_SIMD_FLAGS.
  */
 
 #include <cmath>
 
+#include "libhmm/config.h"
 #include "libhmm/math/constants.h"
 
 namespace libhmm::detail {

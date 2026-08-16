@@ -336,11 +336,28 @@ int main() {
     LIBHMM_HAS_CXX17_BESSEL
 )
 if(LIBHMM_HAS_CXX17_BESSEL)
-    target_compile_definitions(hmm_objects PRIVATE LIBHMM_HAS_CXX17_BESSEL)
     message(STATUS "C++17 std::cyl_bessel_i: available")
 else()
     message(STATUS "C++17 std::cyl_bessel_i: not available (A&S polynomial fallback active)")
 endif()
+
+# The probe result is written to a generated header, NOT to
+# target_compile_definitions. bessel.h is a public installed header whose two
+# implementation tiers are selected by this macro, so a PRIVATE definition on
+# hmm_objects reached the library's own TUs and nothing else: test TUs and
+# installed consumers compiled the Tier 2 fallback while the library shipped
+# Tier 1. That is an ODR violation on the header's inline functions, and it is
+# why the Tier 1 defect in #72 went uncaught for so long. Issue #75.
+#
+# A header also covers the pkg-config and plain-include-path consumers that a
+# target property cannot reach, and keeps one source of truth instead of
+# needing the same macro repeated in libhmm.pc.in and on every exported target.
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/libhmm_config.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/include/libhmm/config.h"
+    @ONLY
+)
+target_include_directories(hmm_objects PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 
 # PIC is required for objects that go into the shared library; harmless for static.
 set_property(TARGET hmm_objects PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -352,8 +369,12 @@ add_library(libhmm::hmm ALIAS hmm)
 # install(EXPORT) only captures properties set directly on the exported
 # target — without this, the exported libhmm::hmm target carries no include
 # path at all and downstream find_package(libhmm) consumers fail to compile.
+# The second BUILD_INTERFACE entry carries the generated libhmm/config.h; it
+# needs no INSTALL_INTERFACE counterpart because the install step copies that
+# header in beside the hand-written ones, under the same include root.
 target_include_directories(hmm PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 # Shared-library link flags — see LIBHMM_SHARED_LINK_OPTIONS definition above
@@ -385,6 +406,7 @@ set_target_properties(hmm_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 add_library(libhmm::hmm_static ALIAS hmm_static)
 target_include_directories(hmm_static PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
@@ -455,6 +477,14 @@ install(EXPORT libhmm-targets
 )
 
 install(DIRECTORY include/libhmm DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# The generated config header lands beside the hand-written ones, so an
+# installed consumer resolves `#include "libhmm/config.h"` from the same
+# include root and compiles the same Bessel tier the library was built with
+# (issue #75). Without this the installed tree is missing a header that
+# bessel.h includes unconditionally, and consumers fail to compile.
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/libhmm/config.h"
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libhmm)
 
 # pkg-config support (UNIX, including APPLE — mirrors libstats).
 if(UNIX)

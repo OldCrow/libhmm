@@ -63,9 +63,8 @@ TEST(BesselFunctions, LogI0Consistency) {
 
 // ----------------------------------------------------------------------------
 // 1 - I1/I0.  Above kOneMinusABound the implementation is a pure series in
-// 1/x that touches neither Bessel function, so it is tier-independent and can
-// be asserted tightly even though this TU compiles the Tier 2 fallback (see
-// issue #75 — LIBHMM_HAS_CXX17_BESSEL is PRIVATE to hmm_objects).
+// 1/x that touches neither Bessel function, so these bounds are the same on
+// both tiers.
 // ----------------------------------------------------------------------------
 
 TEST(BesselFunctions, OneMinusRatioLargeArgument) {
@@ -112,12 +111,70 @@ TEST(BesselFunctions, OneMinusRatioEdgeCases) {
 }
 
 // ============================================================================
-// Numerical defects #72 / #73, exercised through the public API.
-//
-// These deliberately do NOT call detail:: directly. LIBHMM_HAS_CXX17_BESSEL is
-// PRIVATE to hmm_objects (issue #75), so a test TU compiles the Tier 2
-// fallback while the library ships Tier 1 — only the public surface reaches
-// the code that actually ships.
+// The Bessel tier this TU compiles.  Since #75 this matches the library's,
+// so a test can name the tier and assert against it. Before that fix every
+// test TU silently compiled Tier 2 regardless of platform, which is why the
+// Tier 1 seam defect (#72) was never caught.
+// ============================================================================
+
+TEST(BesselFunctions, TierMatchesTheBuild) {
+    // The canary for #75, and it has to be two-sided: asserting "Tier 2 is
+    // within 1.6e-7" would pass on a Tier 1 build too, so a regression would
+    // go unnoticed. Instead, decide independently of libhmm whether this
+    // compiler HAS the C++17 special math functions, and require the config
+    // header to agree. A silent revert to a PRIVATE definition fails here.
+#if defined(__cpp_lib_math_special_functions)
+    constexpr bool compiler_has_it = true;
+#else
+    constexpr bool compiler_has_it = false;
+#endif
+#if defined(LIBHMM_HAS_CXX17_BESSEL)
+    constexpr bool libhmm_selected_it = true;
+#else
+    constexpr bool libhmm_selected_it = false;
+#endif
+
+    if (compiler_has_it) {
+        EXPECT_TRUE(libhmm_selected_it)
+            << "this TU has std::cyl_bessel_i but did not get "
+               "LIBHMM_HAS_CXX17_BESSEL — libhmm/config.h is not reaching test "
+               "TUs, so they are compiling a different Bessel tier than the "
+               "library ships (issue #75)";
+    }
+
+    // And the selected tier must actually behave like the tier it claims.
+    constexpr double kI0_1 = 1.2660658777520084; // mpmath, dps 50
+    constexpr double kI1_1 = 0.56515910399248503;
+    if (libhmm_selected_it) {
+        EXPECT_NEAR(libhmm::detail::bessel_i0(1.0), kI0_1, 1e-14);
+        EXPECT_NEAR(libhmm::detail::bessel_i1(1.0), kI1_1, 1e-14);
+    } else {
+        EXPECT_NEAR(libhmm::detail::bessel_i0(1.0), kI0_1, 1.6e-7);
+        EXPECT_NEAR(libhmm::detail::bessel_i1(1.0), kI1_1, 1.6e-7);
+    }
+}
+
+TEST(BesselFunctions, LogI0HasNoStepAtTheSeam) {
+    // Tier 1 switches to an asymptotic expansion above x = 700. #72 was a
+    // ~1900 ULP jump there. d/dx log I0 = A(x), so a central difference
+    // straddling the seam recovers A(700); a step does not cancel and shows
+    // up divided by 2h. Tier 2 has no branch at 700 and is smooth across it,
+    // so the same assertion holds on both tiers — only the tolerance differs.
+    constexpr double kA700 = 0.99928545881842609; // mpmath, dps 50
+    constexpr double h = 1.0e-3;
+    const double central =
+        (libhmm::detail::log_bessel_i0(700.0 + h) - libhmm::detail::log_bessel_i0(700.0 - h)) /
+        (2.0 * h);
+#if defined(LIBHMM_HAS_CXX17_BESSEL)
+    EXPECT_NEAR(central, kA700, 1e-8);
+#else
+    EXPECT_NEAR(central, kA700, 1e-6);
+#endif
+}
+
+// ============================================================================
+// Numerical defects #72 / #73, exercised through the public API as well, so
+// the shipped path stays covered independently of what a test TU compiles.
 // ============================================================================
 
 TEST(VonMisesDistribution, LogNormaliserIsSmoothAcrossKappa700) {

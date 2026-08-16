@@ -13,6 +13,16 @@ the von Mises Bessel path (see Fixed).
 
 ### Fixed
 
+- **Test TUs and installed consumers compiled a different Bessel tier than the
+  library shipped** ([#75](https://github.com/OldCrow/libhmm/issues/75)).
+  `LIBHMM_HAS_CXX17_BESSEL` selects between two implementations in the public
+  header `libhmm/math/bessel.h`, but was set as a `PRIVATE` compile definition
+  on `hmm_objects` — so it reached the library's own sources and nothing else.
+  Every test TU compiled the Tier 2 A&S fallback on every platform (which is
+  why #72's Tier 1 defect went uncaught), the same `inline` functions got two
+  different bodies in one binary (an ODR violation), and `find_package`
+  consumers silently got the 1.6e-7 path. The probe result is now recorded in
+  a generated `libhmm/config.h`, installed alongside the hand-written headers.
 - **`VonMisesDistribution::getCircularVariance()` returned NaN for κ ≥ 713.99**
   ([#73](https://github.com/OldCrow/libhmm/issues/73)). `I₀` overflows double
   there, and the old `1 - i1/i0` form let `inf/inf` through its `i0 > 0` guard.
@@ -32,6 +42,12 @@ the von Mises Bessel path (see Fixed).
 
 ### Added
 
+- **Generated `libhmm/config.h`** carrying configure-time facts that public
+  headers branch on, from `cmake/libhmm_config.h.in`. Installed with the other
+  public headers. Currently holds `LIBHMM_HAS_CXX17_BESSEL` (see Fixed, #75).
+  `consumer_example` now asserts the installed tier matches the compiler's own
+  `__cpp_lib_math_special_functions`, so the CI consumer job fails on a
+  regression rather than passing quietly.
 - **CMakePresets.json** (schema 6): `release` → `build/`, `debug` →
   `build-debug/`, `rel-with-debug` → `build-relwithdebinfo/`.
   `cmake_minimum_required` raised to 3.25.
