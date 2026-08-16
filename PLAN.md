@@ -30,7 +30,7 @@
   LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
 
 ## GitHub Synchronization [DERIVED]
-Last reconciled against live GitHub state: 2026-07-18.
+Last reconciled against live GitHub state: 2026-08-16.
 - GitHub is the collaborator-facing source for issues and milestones; this
   PLAN.md is the agent-facing durable project state. Keep both in sync.
 - When creating, closing, reopening, retitling, or moving a GitHub issue or
@@ -70,14 +70,54 @@ Last reconciled against live GitHub state: 2026-07-18.
   - #63 OPEN — chore: bulk-apply `[[nodiscard]]` in the three linalg headers
     (clang-tidy `modernize-use-nodiscard` cluster surfaced by #62's advisory
     CI job); a prerequisite for reconsidering blocking clang-tidy CI.
+  - #70 OPEN — chore: audit compensated accumulation paths for FP-contraction
+    sensitivity. The libhmm counterpart of libstats #84; both trace to corvus's
+    cross-compiler finding that GCC's default `-ffp-contract=fast` fuses inside
+    a compensated sequence. Was never listed here — this section is derived
+    from GitHub rather than maintained by hand, so re-derive it rather than
+    trusting it between passes.
+  - #72 OPEN — fix(math): `log_bessel_i0` has a ~1900 ULP step discontinuity at
+    x = 700. See Numerical Defect Triage below.
+  - #73 OPEN — fix(von-mises): `getCircularVariance()` returns NaN for
+    κ ≥ 713.99 and cancels ~log₂(2κ) bits below it. See Numerical Defect
+    Triage below.
+  - #74 OPEN — accuracy: SIMD `cos_pd` is ~2e-10 at every tier, and there is no
+    `sin_pd`. See Numerical Defect Triage below.
 - Closed issues without milestone: 20 as of 2026-07-18 (#62 closed — clang-tidy
   CI decision recorded, see Known Gaps below; fetch full list via
   `gh issue list --state closed --json number,title,milestone -q
   '.[] | select(.milestone == null)'` if ever needed).
 
 ## In Progress [OPEN]
-- (none currently tracked outside the GitHub milestone backlog above —
-  populate as work actually starts)
+- **#72 and #73 — the two Bessel/von Mises numerical defects.** Started
+  2026-08-16. Both are in-repo fixes with no new dependency; see Numerical
+  Defect Triage below for why these two and not #74.
+
+## Numerical Defect Triage (2026-08-16) [DERIVED]
+Three accuracy defects were found by carrying libstats' closed
+`spike/corvus-bessel` findings across to this repo, rather than by running a
+spike here. libhmm's `math/bessel.h` and libstats' `core/bessel.h` share a
+design — the same two-tier `LIBHMM_HAS_CXX17_BESSEL` / A&S split, the same
+`x > 700` asymptotic — so libstats' measurements transferred directly and were
+then re-confirmed here against mpmath at dps 60 and against real
+`std::cyl_bessel_i`.
+
+All three are **independent of the corvus adoption question**: they are
+in-repo defects in code libhmm owns, and adopting corvus would close none of
+them outright (#73 in particular cancels regardless of how accurate the
+Bessel ratio is — the defect is the formulation).
+
+- **#72 / #73 are tractable now.** #72 is a one-term extension of an
+  asymptotic bracket. #73 has a hard-bug half (NaN above κ = 713.99, reachable
+  through `fit()` on concentrated angles, since `kappa_from_r_bar` returns
+  1e6 for R̄ ≥ 1) and a conditioning half needing a `1 − A(κ)` formulation.
+- **#74 is NOT tractable now, and that is a scope judgement, not a deferral
+  by neglect.** Fixing SIMD cos means authoring a kernel across four ISA
+  tiers, and this repo has no oracle or per-tier ULP-gate infrastructure to
+  validate one against — `tests/performance/` holds a single test file. The
+  bounds recorded in #74 are the kernels' own header claims, not independent
+  measurements. Building the gate is the first step and is its own piece of
+  work. It also interacts with #58 and with the corvus question.
 
 ## Known Gaps [OPEN]
 - Distribution fit-quality improvements: see docs/GOLD_STANDARD_CHECKLIST.md
@@ -127,6 +167,38 @@ requires a matching change there. Staleness of the pin itself is
 checked mechanically by pylibhmm's monthly CI canary (its issue #15),
 not by prose in either repo.
 
+[OPEN] **Whether libhmm adopts corvus as a dependency is undecided**, and the
+decision is tracked in `corvus/PLAN.md`, not here — same rule as the pylibhmm
+pin. State as of 2026-08-16, recorded so a session does not re-derive it:
+
+- corvus is at v0.5.0 with a core/generator/test freeze; only machine-blocked
+  legs (Kaby, M1 quiet bench) stand before v1.0.0. Nothing here gates on it.
+- **libstats has already settled adoption as intent**, on the strength of the
+  wider special-function surface rather than any single family. Its spike
+  established the mechanism cross-repo: clang-cl-built corvus links into an
+  MSVC consumer, the dispatch tier follows the compiler that builds corvus's
+  TUs (not the delivery mechanism), and AVX2 vs AVX3_ZEN4 corvus produce
+  byte-identical output. A libhmm spike would not need to re-answer any of it.
+- **The libhmm case is different from libstats' and stronger.** libstats'
+  spike targeted eight cold scalar Bessel call sites — an accuracy win, not a
+  throughput one, and explicitly not enough to justify a dependency on its
+  own. libhmm's case is `lgamma`: AGENTS.md Architecture states outright that
+  Poisson, Binomial and NegativeBinomial are tier-1 *because* no portable
+  vectorized lgamma exists, and that they "would become tier-2 if a
+  vectorized lgamma is added to `simd_double_ops_*.cpp`". That is three of
+  sixteen distributions moving from a scalar loop into the per-state,
+  per-`compute()` batch path. corvus ships exactly that kernel, audited per
+  tier, MIT, portable via Highway.
+- **The open design question, and it should be settled before any spike, not
+  during one:** libhmm dispatches through its own CPUID-built `DoubleVecOps`
+  function-pointer table across five per-ISA TUs; corvus brings Highway's own
+  runtime dispatch. Adoption means two dispatch mechanisms in one binary.
+  #58 (extend tier-2 runtime ISA dispatch to the FB/BW/transcendental TUs) is
+  the natural place to decide the shape.
+- Secondary surface, beyond lgamma: digamma/trigamma (`psi_functions.h`,
+  ~2e-14), incomplete gamma/beta and erfinv (`distribution_base.cpp`), and
+  i0/i1 — all four are in corvus's audited set.
+
 ## Local Machine State [DERIVED]
 Confirmed 2026-07-14: `main` fully in sync with `origin/main` (clean,
 no ahead/behind). `joss-paper` branch (PR #20 closed 2026-07-19 after
@@ -155,6 +227,13 @@ deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
 `[Unreleased]` section and AGENTS.md CMake-standard section updated to match.
 
 ## Next Steps
+- **#73 first, then #72.** #73 carries a reachable NaN through the public
+  `fit()` → `getCircularVariance()` path; #72 is an accuracy step, visible but
+  not a wrong-value-of-a-different-kind. Both land with tests.
+- Then decide #74's prerequisite: whether to build the oracle/ULP-gate
+  infrastructure the SIMD kernels currently have no way to be validated
+  against. That decision also unblocks any accuracy claim this repo might
+  want to publish, and it is the same question a corvus adoption would force.
 - Work through the v4.3.0 — Training & Core Usability backlog (6 open
   issues above) before starting v4.4.0 — Algorithm Coverage.
 - Decide whether issue #48 (parallel E-step accumulation) should proceed;
