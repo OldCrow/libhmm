@@ -83,17 +83,23 @@ Last reconciled against live GitHub state: 2026-08-16.
     Triage below.
   - #74 OPEN — accuracy: SIMD `cos_pd` is ~2e-10 at every tier, and there is no
     `sin_pd`. See Numerical Defect Triage below.
+  - #75 OPEN — fix(build): `LIBHMM_HAS_CXX17_BESSEL` is `PRIVATE` to
+    `hmm_objects`, so test TUs and installed consumers compile the Tier 2
+    Bessel fallback while the library ships Tier 1. See Numerical Defect
+    Triage below.
 - Closed issues without milestone: 20 as of 2026-07-18 (#62 closed — clang-tidy
   CI decision recorded, see Known Gaps below; fetch full list via
   `gh issue list --state closed --json number,title,milestone -q
   '.[] | select(.milestone == null)'` if ever needed).
 
 ## In Progress [OPEN]
-- **#72 and #73 — the two Bessel/von Mises numerical defects.** Started
-  2026-08-16. Both are in-repo fixes with no new dependency; see Numerical
-  Defect Triage below for why these two and not #74.
+- (none currently tracked outside the GitHub milestone backlog above —
+  populate as work actually starts)
 
 ## Numerical Defect Triage (2026-08-16) [DERIVED]
+**#72 and #73 are FIXED and pushed (84bc997).** #74 and #75 remain open; both
+are scope calls recorded below, not neglect.
+
 Three accuracy defects were found by carrying libstats' closed
 `spike/corvus-bessel` findings across to this repo, rather than by running a
 spike here. libhmm's `math/bessel.h` and libstats' `core/bessel.h` share a
@@ -107,10 +113,26 @@ in-repo defects in code libhmm owns, and adopting corvus would close none of
 them outright (#73 in particular cancels regardless of how accurate the
 Bessel ratio is — the defect is the formulation).
 
-- **#72 / #73 are tractable now.** #72 is a one-term extension of an
-  asymptotic bracket. #73 has a hard-bug half (NaN above κ = 713.99, reachable
-  through `fit()` on concentrated angles, since `kappa_from_r_bar` returns
-  1e6 for R̄ ≥ 1) and a conditioning half needing a `1 − A(κ)` formulation.
+- **#72 / #73 — DONE 2026-08-16.** #72 was a two-term extension of the
+  asymptotic bracket (≤ 0.79 ULP over x ∈ [700, 20000]). #73 had a hard-bug
+  half (NaN above κ = 713.99, reachable through `fit()` on concentrated
+  angles, since `kappa_from_r_bar` returns 1e6 for R̄ ≥ 1) and a conditioning
+  half, both closed by `detail::one_minus_bessel_ratio` — a tier-independent
+  series above κ = 30 (≤ 2 ULP) and the direct form below it (≤ 52 ULP).
+  **The residual bound is the direct branch, and it is not improvable in
+  place**: 52 ULP is the 2κ amplification acting on correctly-rounded inputs,
+  and the series diverges below κ ≈ 25, so nothing sits between them. Record
+  that before anyone re-opens it looking for a tighter crossover.
+- **#75 — found while writing #72's tests, and it is why #72 survived.**
+  `LIBHMM_HAS_CXX17_BESSEL` is `PRIVATE` to `hmm_objects`, so no test TU has
+  ever compiled Tier 1; the existing `BesselFunctions.*` tests exercise the
+  A&S fallback on every platform, which is why their tolerances are 1e-4…1e-7.
+  It is also an ODR violation (the same `inline` functions get two different
+  bodies in one binary) and it reaches installed consumers, who get Tier 2
+  silently. The #72/#73 tests work around it by going through the public
+  `VonMisesDistribution` API; that is a workaround, not a fix. Fixing it means
+  a generated config header, which is a build-surface change and was kept out
+  of the fix commit deliberately.
 - **#74 is NOT tractable now, and that is a scope judgement, not a deferral
   by neglect.** Fixing SIMD cos means authoring a kernel across four ISA
   tiers, and this repo has no oracle or per-tier ULP-gate infrastructure to
@@ -227,13 +249,17 @@ deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
 `[Unreleased]` section and AGENTS.md CMake-standard section updated to match.
 
 ## Next Steps
-- **#73 first, then #72.** #73 carries a reachable NaN through the public
-  `fit()` → `getCircularVariance()` path; #72 is an accuracy step, visible but
-  not a wrong-value-of-a-different-kind. Both land with tests.
+- **#75 next.** It is the cheapest of the three remaining and it is a
+  prerequisite for the other two being testable: until the Bessel tier
+  propagates, no test can assert against the code that actually ships, and the
+  same trap applies to any future header-level accuracy work.
 - Then decide #74's prerequisite: whether to build the oracle/ULP-gate
   infrastructure the SIMD kernels currently have no way to be validated
   against. That decision also unblocks any accuracy claim this repo might
   want to publish, and it is the same question a corvus adoption would force.
+- Not yet started, and not scheduled: a corvus adoption spike. If one is run,
+  aim it at `lgamma` and the batch path, and settle the two-dispatch-mechanism
+  question (#58) first — see Cross-Repo Dependencies.
 - Work through the v4.3.0 — Training & Core Usability backlog (6 open
   issues above) before starting v4.4.0 — Algorithm Coverage.
 - Decide whether issue #48 (parallel E-step accumulation) should proceed;
