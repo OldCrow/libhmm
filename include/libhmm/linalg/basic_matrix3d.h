@@ -23,7 +23,8 @@ private:
 
     /// Convert 3D indices to 1D flat index
     /// Uses row-major order: [i][j][k] -> i*(y*z) + j*z + k
-    constexpr std::size_t index(std::size_t i, std::size_t j, std::size_t k) const noexcept {
+    [[nodiscard]] constexpr std::size_t index(std::size_t i, std::size_t j,
+                                              std::size_t k) const noexcept {
         return i * yz_stride_ + j * z_ + k;
     }
 

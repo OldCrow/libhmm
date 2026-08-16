@@ -206,10 +206,22 @@ Bessel ratio is — the defect is the formulation).
   disabled in `.clang-tidy` as architecturally mismatched with libhmm's
   design (pragma-once convention, intentional SIMD intrinsics/pointer
   arithmetic, the v4 template+virtual pattern, a false-positive move-ctor
-  idiom); see AGENTS.md CI/Validation for the full rationale. Residual
-  warnings (~1344) are dominated by a mechanical `modernize-use-nodiscard`
-  cluster in the linalg headers, tracked as #63 — promoting the job to
-  blocking is contingent on that landing and a few noise-free cycles.
+  idiom); see AGENTS.md CI/Validation for the full rationale.
+  **#63 CLOSED 2026-08-16** — 69 `[[nodiscard]]` attributes across the three
+  linalg headers, and the cluster is now gone.
+  **The "~1344 residual warnings" figure was an artefact and is retired.**
+  `run-clang-tidy` re-reports each header diagnostic once per including TU, so
+  one flagged line in a widely-included header shows up 20+ times; the private
+  `BasicMatrix3D::index()` helper alone accounted for 23 of them. Counting
+  unique `file:line:col + check` tuples, the real residual is **86 sites**,
+  led by `modernize-use-auto` (16) and `modernize-concat-nested-namespaces`
+  (9) — all mechanical, none architectural. Always de-duplicate before
+  quoting a count from that job.
+  That changes the #62 decision materially: promoting clang-tidy to blocking
+  was deferred on an apparent scale problem that does not exist. 86 mechanical
+  sites is a tractable target, so it is now a scheduling question. Worth
+  reopening #62's assessment rather than waiting on "a few noise-free
+  cycles".
 - JOSS submission deferred (2026-07-19): JOSS rejected the paper for
   insufficient open-source/research uptake of libhmm (newer scope
   requirement), with an explicit invitation to resubmit once the library

@@ -315,10 +315,13 @@ jobs:
   # conflict with libhmm's documented architecture (pragma-once convention,
   # intentional SIMD intrinsics/pointer arithmetic in hot paths, the v4
   # template+virtual pattern) — those six checks are disabled in .clang-tidy.
-  # The ~1344 residual warnings are dominated by a mechanical
-  # modernize-use-nodiscard cluster in the linalg headers (tracked in #63)
-  # rather than real defects, so this job reports findings without failing
-  # the build. Revisit blocking status once that cluster is fixed and the
+  # Counts from this job need de-duplicating before use: run-clang-tidy
+  # re-reports each header diagnostic once per including TU, which is what
+  # inflated the old "~1344 residual" figure. Unique file:line:col+check
+  # tuples put the real residual at 86 sites (measured 2026-08-16, after #63
+  # cleared the modernize-use-nodiscard cluster), all mechanical rather than
+  # real defects, so this job reports findings without failing
+  # the build. Revisit blocking status now that the cluster is fixed and the
   # job has run noise-free for a few cycles (see PLAN.md).
   # ---------------------------------------------------------------------------
   clang-tidy:
