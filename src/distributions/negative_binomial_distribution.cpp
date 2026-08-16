@@ -317,9 +317,12 @@ void NegativeBinomialDistribution::getBatchLogProbabilities(std::span<const doub
     // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
     // terms under -march=native. Index loop preserved: a std::ranges::transform
     // lambda would add an indirect call boundary that inhibits auto-vectorisation.
-    // Tier 2 upgrade requires vectorised generalised log-binomial-coefficient
-    // (uses lgamma internally): available via Intel SVML or platform-specific
-    // math libraries, but not portably without a math-library dependency.
+    // Tier 2 upgrade DOES need a vectorised lgamma — alone among the three
+    // count distributions. log Γ(k + r) has a continuous r, so it is not
+    // tabulable; log k! already is (logFactorialCache_), and log Γ(r) is a
+    // per-parameter constant. So this is one lgamma per element, not three,
+    // and it is the only real instance of the dependency that Poisson's and
+    // Binomial's comments used to claim as well (corrected 2026-08-16).
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = NegativeBinomialDistribution::getLogProbability(observations[i]);

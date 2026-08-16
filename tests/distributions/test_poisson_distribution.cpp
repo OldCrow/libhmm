@@ -13,6 +13,50 @@ using libhmm::Observation;
 using libhmm::PoissonDistribution;
 
 /**
+ * Shared log-factorial table (math/log_factorial.h).
+ *
+ * Pins the exactness claim the header makes, which is what lets Poisson use a
+ * table where it used to call lgamma: for k <= 18 the factorial itself is
+ * representable in double, so every product is exact and the only rounding is
+ * one std::log. That is also why replacing Poisson's old k <= 12 path is
+ * bit-for-bit invisible — that path was already log() of an exact factorial.
+ */
+TEST(LogFactorial, ExactWhereFactorialIsRepresentable) {
+    double exact = 1.0;
+    for (int k = 0; k <= libhmm::detail::kExactFactorialMax; ++k) {
+        if (k > 1)
+            exact *= static_cast<double>(k);
+        EXPECT_DOUBLE_EQ(libhmm::detail::log_factorial(k), std::log(exact)) << "k=" << k;
+    }
+}
+
+TEST(LogFactorial, MatchesLgammaAcrossAndBeyondTheTable) {
+    // Straddle the table edge: the last tabulated k, the first fallback k, and
+    // well past it. All are integer arguments to lgamma, where it is <= 1 ULP.
+    for (int k : {19, 100, 170, 1022, 1023, 1024, 5000}) {
+        const double got = libhmm::detail::log_factorial(k);
+        const double ref = std::lgamma(static_cast<double>(k) + 1.0);
+        EXPECT_NEAR(got, ref, 4.0 * std::abs(ref) * std::numeric_limits<double>::epsilon())
+            << "k=" << k;
+    }
+    // Strictly increasing from k = 2, with no step at the table/fallback
+    // boundary. Not from k = 1: 0! = 1! = 1, so log_factorial(0) and (1) are
+    // both exactly 0.
+    EXPECT_DOUBLE_EQ(libhmm::detail::log_factorial(0), libhmm::detail::log_factorial(1));
+    for (int k = 2; k <= 1030; ++k)
+        EXPECT_GT(libhmm::detail::log_factorial(k), libhmm::detail::log_factorial(k - 1))
+            << "k=" << k;
+}
+
+TEST(LogFactorial, NegativeReturnsPositiveInfinity) {
+    // log Gamma diverges to +inf at the non-positive integers, and the sign
+    // matters: callers form `... - log_factorial(k)`, so +inf is what drives a
+    // log-probability to -inf. The old Poisson-local guard returned -inf.
+    EXPECT_TRUE(std::isinf(libhmm::detail::log_factorial(-1)));
+    EXPECT_GT(libhmm::detail::log_factorial(-1), 0.0);
+}
+
+/**
  * Test basic Poisson distribution functionality
  */
 TEST(PoissonDistributionTest, BasicFunctionality) {

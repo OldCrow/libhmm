@@ -241,9 +241,11 @@ void BinomialDistribution::getBatchLogProbabilities(std::span<const double> obse
     // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
     // terms under -march=native. Index loop preserved: a std::ranges::transform
     // lambda would add an indirect call boundary that inhibits auto-vectorisation.
-    // Tier 2 upgrade requires vectorised log-binomial-coefficient (uses lgamma internally):
-    // available via Intel SVML or platform-specific math libraries, but not
-    // portably available without a dedicated math-library dependency.
+    // Tier 2 upgrade does NOT need lgamma — this distribution never calls it.
+    // logBinomialCoefficient is three lookups into logFactorialCache_ (all
+    // three arguments are integers), so the blocker is the gather, exactly as
+    // for Poisson and Discrete. The old claim that this "uses lgamma
+    // internally" was wrong about its own code; corrected 2026-08-16.
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = BinomialDistribution::getLogProbability(observations[i]);

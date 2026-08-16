@@ -2,7 +2,7 @@
 
 #include "libhmm/distributions/distribution_base.h"
 #include "libhmm/common/common.h"
-#include <array>
+#include "libhmm/math/log_factorial.h"
 #include <span>
 
 namespace libhmm {
@@ -36,11 +36,11 @@ private:
     mutable double invSqrtLambda_{1.0};   // 1/sqrt(λ) - used in normal approximation
     mutable double sqrtTwoPiLambda_{1.0}; // sqrt(2πλ) - used in normal approximation
 
-    /**
-     * Pre-computed small factorial values for efficiency (0! through 12!)
-     * Computing factorials directly for small values is faster than Stirling's approximation
-     */
-    mutable std::array<double, 13> smallFactorials_;
+    // log(k!) comes from the shared table in math/log_factorial.h. It used to
+    // be a per-instance array of factorials up to 12!, rebuilt on every
+    // updateCache() even though the values depend only on k, with a std::log
+    // per lookup on top. The table covers k ≤ 1023 and is exact for k ≤ 18,
+    // so the k ≤ 12 results this replaces are bit-identical.
 
     void updateCache() const noexcept {
         logLambda_ = std::log(lambda_);
@@ -48,21 +48,17 @@ private:
         sqrtLambda_ = std::sqrt(lambda_);
         invSqrtLambda_ = 1.0 / sqrtLambda_;
         sqrtTwoPiLambda_ = std::sqrt(2.0 * constants::math::PI * lambda_);
-        smallFactorials_[0] = 1.0;
-        smallFactorials_[1] = 1.0;
-        for (int i = 2; i <= 12; ++i)
-            smallFactorials_[i] = smallFactorials_[i - 1] * static_cast<double>(i);
         markCacheValid();
     }
 
     /**
-     * Computes log(k!) using Stirling's approximation for large k,
-     * exact computation for small k.
+     * Computes log(k!) by table lookup, falling back to lgamma above the
+     * table. Does NOT depend on the parameter cache.
      *
      * @param k Non-negative integer
      * @return log(k!)
      */
-    double logFactorial(int k) const noexcept;
+    static double logFactorial(int k) noexcept;
 
     static void validateParameters(double lambda) {
         if (std::isnan(lambda) || std::isinf(lambda) || lambda <= 0.0)

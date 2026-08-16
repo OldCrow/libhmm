@@ -51,6 +51,13 @@ the von Mises Bessel path (see Fixed).
 
 ### Added
 
+- **Shared log-factorial table** (`libhmm/math/log_factorial.h`): `log(k!)`
+  exact for k ≤ 18, tabulated to k = 1023, `lgamma` above. Poisson now uses it
+  in place of a per-instance factorial array that was rebuilt on every
+  `updateCache()` and cost a `std::log` per lookup; results for k ≤ 12 are
+  bit-identical, since that path was already `log()` of an exact factorial.
+
+
 - **Generated `libhmm/config.h`** carrying configure-time facts that public
   headers branch on, from `cmake/libhmm_config.h.in`. Installed with the other
   public headers. Currently holds `LIBHMM_HAS_CXX17_BESSEL` (see Fixed, #75).
@@ -81,6 +88,18 @@ the von Mises Bessel path (see Fixed).
   exercise the installed-package path in CI.
 
 ### Changed
+
+- **Corrected the tier-1 rationale for the count distributions** in AGENTS.md
+  and in the three `getBatchLogProbabilities` comments. The claim that Poisson,
+  Binomial and NegativeBinomial are all blocked on a portable vectorized
+  `lgamma` was wrong for two of the three: the observation is an integer count,
+  so the log-factorial terms are a table lookup, and Binomial never called
+  `lgamma` at all (`logBinomialCoefficient` is three cached lookups). Their
+  actual blocker is the gather to index by k — the same one as Discrete.
+  **NegativeBinomial is the only genuine case**, via `log Γ(k + r)` with
+  continuous `r`. No behavior change; this corrects a documented rationale that
+  had outlived the code and would have oversized any vectorized-lgamma
+  proposal by 3×.
 
 - Directory-scope `include_directories(include)` and global
   `add_compile_options(-Wall -Wextra -Wpedantic -Wpointer-arith)`/`-fPIC`

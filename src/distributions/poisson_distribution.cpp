@@ -11,19 +11,17 @@ using namespace libhmm::constants;
 namespace libhmm {
 
 /*
- * Computes log(k!) with exact arithmetic:
- * - Pre-computed cached values for small k (k <= 12)
- * - std::lgamma(k + 1) for larger k
+ * log(k!) from the shared table (math/log_factorial.h): exact for k <= 18,
+ * <= 1 ULP up to k = 1023, lgamma above that.
+ *
+ * The old k < 0 guard returned -inf, which was sign-wrong for the one way
+ * this value is used -- `... - logFactorial(k)` would have yielded +inf, i.e.
+ * a log-probability above zero. It was unreachable (every call site is behind
+ * isValidCount), and the shared helper returns +inf, matching the poles of
+ * Gamma and giving -inf for the log-probability.
  */
-double PoissonDistribution::logFactorial(int k) const noexcept {
-    if (k < 0)
-        return -std::numeric_limits<double>::infinity();
-
-    ensureCache();
-    if (k <= 12) {
-        return std::log(smallFactorials_[k]);
-    }
-    return std::lgamma(static_cast<double>(k) + 1.0);
+double PoissonDistribution::logFactorial(int k) noexcept {
+    return detail::log_factorial(k);
 }
 
 /*
@@ -220,10 +218,12 @@ void PoissonDistribution::getBatchLogProbabilities(std::span<const double> obser
     // Tier 1 — concrete non-virtual loop; compiler auto-vectorizes the arithmetic
     // terms under -march=native. Index loop preserved: a std::ranges::transform
     // lambda would add an indirect call boundary that inhibits auto-vectorisation.
-    // Tier 2 upgrade requires vectorised log-factorial (or lgamma(k+1)): available
-    // via Intel SVML or platform-specific math libraries, but not portably
-    // without a math-library dependency. A small-k lookup table (k ≤ 20) could
-    // serve as a portable partial optimisation.
+    // Tier 2 upgrade does NOT need a vectorised lgamma, contrary to what this
+    // comment claimed until 2026-08-16. k is an integer count, so log(k!) is a
+    // table lookup (math/log_factorial.h, k ≤ 1023). What blocks tier 2 here is
+    // the gather to index that table by k — the same blocker as Discrete, and
+    // libstats settled empirically that x86 hardware gather is too expensive to
+    // pay for (its #33; table kernels are a NEON technique, not an x86 one).
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = PoissonDistribution::getLogProbability(observations[i]);
