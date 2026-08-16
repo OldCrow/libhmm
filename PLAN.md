@@ -76,16 +76,16 @@ Last reconciled against live GitHub state: 2026-08-16.
     a compensated sequence. Was never listed here — this section is derived
     from GitHub rather than maintained by hand, so re-derive it rather than
     trusting it between passes.
-  - #72 OPEN — fix(math): `log_bessel_i0` has a ~1900 ULP step discontinuity at
+  - #72 CLOSED 2026-08-16 — fix(math): `log_bessel_i0` had a ~1900 ULP step discontinuity at
     x = 700. See Numerical Defect Triage below.
-  - #73 OPEN — fix(von-mises): `getCircularVariance()` returns NaN for
+  - #73 CLOSED 2026-08-16 — fix(von-mises): `getCircularVariance()` returned NaN for
     κ ≥ 713.99 and cancels ~log₂(2κ) bits below it. See Numerical Defect
     Triage below.
   - #74 OPEN — accuracy: SIMD `cos_pd` is ~2e-10 at every tier, and there is no
     `sin_pd`. See Numerical Defect Triage below.
-  - #75 OPEN — fix(build): `LIBHMM_HAS_CXX17_BESSEL` is `PRIVATE` to
+  - #75 CLOSED 2026-08-16 — fix(build): `LIBHMM_HAS_CXX17_BESSEL` was `PRIVATE` to
     `hmm_objects`, so test TUs and installed consumers compile the Tier 2
-    Bessel fallback while the library ships Tier 1. See Numerical Defect
+    Bessel fallback while the library shipped Tier 1. See Numerical Defect
     Triage below.
 - Closed issues without milestone: 20 as of 2026-07-18 (#62 closed — clang-tidy
   CI decision recorded, see Known Gaps below; fetch full list via
@@ -97,8 +97,8 @@ Last reconciled against live GitHub state: 2026-08-16.
   populate as work actually starts)
 
 ## Numerical Defect Triage (2026-08-16) [DERIVED]
-**#72 and #73 are FIXED and pushed (84bc997).** #74 and #75 remain open; both
-are scope calls recorded below, not neglect.
+**#72, #73 and #75 are FIXED and pushed (84bc997, 5274c6d).** #74 remains
+open; that is a scope call recorded below, not neglect.
 
 Three accuracy defects were found by carrying libstats' closed
 `spike/corvus-bessel` findings across to this repo, rather than by running a
@@ -123,16 +123,23 @@ Bessel ratio is — the defect is the formulation).
   place**: 52 ULP is the 2κ amplification acting on correctly-rounded inputs,
   and the series diverges below κ ≈ 25, so nothing sits between them. Record
   that before anyone re-opens it looking for a tighter crossover.
-- **#75 — found while writing #72's tests, and it is why #72 survived.**
-  `LIBHMM_HAS_CXX17_BESSEL` is `PRIVATE` to `hmm_objects`, so no test TU has
-  ever compiled Tier 1; the existing `BesselFunctions.*` tests exercise the
-  A&S fallback on every platform, which is why their tolerances are 1e-4…1e-7.
-  It is also an ODR violation (the same `inline` functions get two different
-  bodies in one binary) and it reaches installed consumers, who get Tier 2
-  silently. The #72/#73 tests work around it by going through the public
-  `VonMisesDistribution` API; that is a workaround, not a fix. Fixing it means
-  a generated config header, which is a build-surface change and was kept out
-  of the fix commit deliberately.
+- **#75 — DONE 2026-08-16. Found while writing #72's tests, and it is why #72
+  survived.** `LIBHMM_HAS_CXX17_BESSEL` was `PRIVATE` to `hmm_objects`, so no
+  test TU had ever compiled Tier 1 — the existing `BesselFunctions.*` tests
+  exercised the A&S fallback on every platform, which is why their tolerances
+  are 1e-4…1e-7. It was also an ODR violation and it reached installed
+  consumers. Now a generated `libhmm/config.h`; the convention is recorded in
+  AGENTS.md CMake standard, since it applies to any future configure-time fact
+  a public header branches on.
+  **The durable lesson is about the guard, not the fix**: a one-sided
+  assertion ("Tier 2 is within 1.6e-7") passes on a Tier 1 build too, so it
+  cannot detect the regression. Both guards decide independently, via
+  `__cpp_lib_math_special_functions`, whether the compiler has the C++17
+  special math functions and require libhmm to agree — and the test was
+  confirmed to fail against the pre-fix build before being trusted.
+  Scope note: `LIBHMM_HAS_CXX17_BESSEL` was the *only* compile definition in
+  the entire build, so the "audit whether other PRIVATE definitions leak into
+  public headers" half of the issue is closed rather than deferred.
 - **#74 is NOT tractable now, and that is a scope judgement, not a deferral
   by neglect.** Fixing SIMD cos means authoring a kernel across four ISA
   tiers, and this repo has no oracle or per-tier ULP-gate infrastructure to
@@ -249,11 +256,7 @@ deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
 `[Unreleased]` section and AGENTS.md CMake-standard section updated to match.
 
 ## Next Steps
-- **#75 next.** It is the cheapest of the three remaining and it is a
-  prerequisite for the other two being testable: until the Bessel tier
-  propagates, no test can assert against the code that actually ships, and the
-  same trap applies to any future header-level accuracy work.
-- Then decide #74's prerequisite: whether to build the oracle/ULP-gate
+- Decide #74's prerequisite: whether to build the oracle/ULP-gate
   infrastructure the SIMD kernels currently have no way to be validated
   against. That decision also unblocks any accuracy claim this repo might
   want to publish, and it is the same question a corvus adoption would force.
