@@ -89,6 +89,16 @@ the von Mises Bessel path (see Fixed).
 
 ### Changed
 
+- **`[[nodiscard]]` applied across the three linalg headers**
+  ([#63](https://github.com/OldCrow/libhmm/issues/63)): 68 attributes on
+  `BasicMatrix`, `BasicMatrix3D` and `BasicVector` — const accessors, iterators,
+  comparisons, pure computations, and the free arithmetic operators. Non-const
+  `operator()`/`at()`/`operator[]`/`data()`/`begin()`/`end()` are excluded, since
+  those return mutable handles for write-through access, as are the `+=`-style
+  chaining returns and `operator<<`. No behavior change, but **consumer code that
+  discards one of these results will now warn** (`-Wunused-result` / C4834). No
+  call site in this repo did. Clears the `modernize-use-nodiscard` cluster that
+  dominated the advisory clang-tidy job's residual warnings.
 - **Corrected the tier-1 rationale for the count distributions** in AGENTS.md
   and in the three `getBatchLogProbabilities` comments. The claim that Poisson,
   Binomial and NegativeBinomial are all blocked on a portable vectorized

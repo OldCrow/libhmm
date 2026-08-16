@@ -77,19 +77,19 @@ public:
 
     // Element access
     reference operator[](size_type index) { return data_[index]; }
-    const_reference operator[](size_type index) const { return data_[index]; }
+    [[nodiscard]] const_reference operator[](size_type index) const { return data_[index]; }
 
     reference operator()(size_type index) { return data_[index]; }
-    const_reference operator()(size_type index) const { return data_[index]; }
+    [[nodiscard]] const_reference operator()(size_type index) const { return data_[index]; }
 
     // Bounds-checked element access
     reference at(size_type index) { return data_.at(index); }
-    const_reference at(size_type index) const { return data_.at(index); }
+    [[nodiscard]] const_reference at(size_type index) const { return data_.at(index); }
 
     // Size and capacity
-    size_type size() const noexcept { return data_.size(); }
-    size_type capacity() const noexcept { return data_.capacity(); }
-    bool empty() const noexcept { return data_.empty(); }
+    [[nodiscard]] size_type size() const noexcept { return data_.size(); }
+    [[nodiscard]] size_type capacity() const noexcept { return data_.capacity(); }
+    [[nodiscard]] bool empty() const noexcept { return data_.empty(); }
 
     // Resize operations
     void resize(size_type n) { data_.resize(n); }
@@ -106,15 +106,15 @@ public:
 
     // Raw data access for SIMD operations
     T *data() noexcept { return data_.data(); }
-    const T *data() const noexcept { return data_.data(); }
+    [[nodiscard]] const T *data() const noexcept { return data_.data(); }
 
     // Iterator support
     iterator begin() noexcept { return data_.begin(); }
     iterator end() noexcept { return data_.end(); }
-    const_iterator begin() const noexcept { return data_.begin(); }
-    const_iterator end() const noexcept { return data_.end(); }
-    const_iterator cbegin() const noexcept { return data_.cbegin(); }
-    const_iterator cend() const noexcept { return data_.cend(); }
+    [[nodiscard]] const_iterator begin() const noexcept { return data_.begin(); }
+    [[nodiscard]] const_iterator end() const noexcept { return data_.end(); }
+    [[nodiscard]] const_iterator cbegin() const noexcept { return data_.cbegin(); }
+    [[nodiscard]] const_iterator cend() const noexcept { return data_.cend(); }
 
     // Vector operations
     BasicVector &operator+=(const BasicVector &other) {
@@ -152,22 +152,22 @@ public:
     }
 
     // Comparison operators
-    bool operator==(const BasicVector &other) const { return data_ == other.data_; }
+    [[nodiscard]] bool operator==(const BasicVector &other) const { return data_ == other.data_; }
 
-    bool operator!=(const BasicVector &other) const { return !(*this == other); }
+    [[nodiscard]] bool operator!=(const BasicVector &other) const { return !(*this == other); }
 
     // Mathematical operations specific to HMM computations
 
     // Sum of all elements
-    T sum() const { return std::accumulate(data_.begin(), data_.end(), T{}); }
+    [[nodiscard]] T sum() const { return std::accumulate(data_.begin(), data_.end(), T{}); }
 
     // Product of all elements
-    T product() const {
+    [[nodiscard]] T product() const {
         return std::accumulate(data_.begin(), data_.end(), T{1}, std::multiplies<T>());
     }
 
     // Dot product with another vector
-    T dot(const BasicVector &other) const {
+    [[nodiscard]] T dot(const BasicVector &other) const {
         if (size() != other.size()) {
             throw std::invalid_argument("Vector dimensions must match for dot product");
         }
@@ -179,7 +179,7 @@ public:
     }
 
     // L2 norm (Euclidean norm)
-    T norm() const {
+    [[nodiscard]] T norm() const {
         T sum_of_squares = T{};
         for (const auto &element : data_) {
             sum_of_squares += element * element;
@@ -221,38 +221,38 @@ public:
 
     // Access to underlying std::vector
     std::vector<T> &get_data() { return data_; }
-    const std::vector<T> &get_data() const { return data_; }
+    [[nodiscard]] const std::vector<T> &get_data() const { return data_; }
 };
 
 // Binary arithmetic operators
 template <typename T>
-BasicVector<T> operator+(const BasicVector<T> &lhs, const BasicVector<T> &rhs) {
+[[nodiscard]] BasicVector<T> operator+(const BasicVector<T> &lhs, const BasicVector<T> &rhs) {
     BasicVector<T> result = lhs;
     result += rhs;
     return result;
 }
 
 template <typename T>
-BasicVector<T> operator-(const BasicVector<T> &lhs, const BasicVector<T> &rhs) {
+[[nodiscard]] BasicVector<T> operator-(const BasicVector<T> &lhs, const BasicVector<T> &rhs) {
     BasicVector<T> result = lhs;
     result -= rhs;
     return result;
 }
 
 template <typename T>
-BasicVector<T> operator*(const BasicVector<T> &vector, const T &scalar) {
+[[nodiscard]] BasicVector<T> operator*(const BasicVector<T> &vector, const T &scalar) {
     BasicVector<T> result = vector;
     result *= scalar;
     return result;
 }
 
 template <typename T>
-BasicVector<T> operator*(const T &scalar, const BasicVector<T> &vector) {
+[[nodiscard]] BasicVector<T> operator*(const T &scalar, const BasicVector<T> &vector) {
     return vector * scalar;
 }
 
 template <typename T>
-BasicVector<T> operator/(const BasicVector<T> &vector, const T &scalar) {
+[[nodiscard]] BasicVector<T> operator/(const BasicVector<T> &vector, const T &scalar) {
     BasicVector<T> result = vector;
     result /= scalar;
     return result;
@@ -275,7 +275,7 @@ std::ostream &operator<<(std::ostream &os, const BasicVector<T> &vector) {
 
 // Element-wise multiplication (Hadamard product)
 template <typename T>
-BasicVector<T> element_prod(const BasicVector<T> &lhs, const BasicVector<T> &rhs) {
+[[nodiscard]] BasicVector<T> element_prod(const BasicVector<T> &lhs, const BasicVector<T> &rhs) {
     BasicVector<T> result = lhs;
     result.element_multiply(rhs);
     return result;
@@ -283,7 +283,7 @@ BasicVector<T> element_prod(const BasicVector<T> &lhs, const BasicVector<T> &rhs
 
 // Element-wise division
 template <typename T>
-BasicVector<T> element_div(const BasicVector<T> &lhs, const BasicVector<T> &rhs) {
+[[nodiscard]] BasicVector<T> element_div(const BasicVector<T> &lhs, const BasicVector<T> &rhs) {
     BasicVector<T> result = lhs;
     result.element_divide(rhs);
     return result;

@@ -85,7 +85,7 @@ public:
     // Element access (row, col) - compatible with uBLAS
     reference operator()(size_type row, size_type col) { return data_[row * cols_ + col]; }
 
-    const_reference operator()(size_type row, size_type col) const {
+    [[nodiscard]] const_reference operator()(size_type row, size_type col) const {
         return data_[row * cols_ + col];
     }
 
@@ -97,7 +97,7 @@ public:
         return data_[row * cols_ + col];
     }
 
-    const_reference at(size_type row, size_type col) const {
+    [[nodiscard]] const_reference at(size_type row, size_type col) const {
         if (row >= rows_ || col >= cols_) {
             throw std::out_of_range("Matrix index out of bounds");
         }
@@ -105,12 +105,12 @@ public:
     }
 
     // Dimension accessors (uBLAS compatibility)
-    size_type size1() const noexcept { return rows_; }
-    size_type size2() const noexcept { return cols_; }
-    size_type rows() const noexcept { return rows_; }
-    size_type cols() const noexcept { return cols_; }
-    size_type size() const noexcept { return data_.size(); }
-    bool empty() const noexcept { return data_.empty(); }
+    [[nodiscard]] size_type size1() const noexcept { return rows_; }
+    [[nodiscard]] size_type size2() const noexcept { return cols_; }
+    [[nodiscard]] size_type rows() const noexcept { return rows_; }
+    [[nodiscard]] size_type cols() const noexcept { return cols_; }
+    [[nodiscard]] size_type size() const noexcept { return data_.size(); }
+    [[nodiscard]] bool empty() const noexcept { return data_.empty(); }
 
     // Resize operations
     void resize(size_type n_rows, size_type n_cols) {
@@ -130,15 +130,15 @@ public:
 
     // Raw data access for SIMD operations
     T *data() noexcept { return data_.data(); }
-    const T *data() const noexcept { return data_.data(); }
+    [[nodiscard]] const T *data() const noexcept { return data_.data(); }
 
     // Iterator support
     iterator begin() noexcept { return data_.begin(); }
     iterator end() noexcept { return data_.end(); }
-    const_iterator begin() const noexcept { return data_.begin(); }
-    const_iterator end() const noexcept { return data_.end(); }
-    const_iterator cbegin() const noexcept { return data_.cbegin(); }
-    const_iterator cend() const noexcept { return data_.cend(); }
+    [[nodiscard]] const_iterator begin() const noexcept { return data_.begin(); }
+    [[nodiscard]] const_iterator end() const noexcept { return data_.end(); }
+    [[nodiscard]] const_iterator cbegin() const noexcept { return data_.cbegin(); }
+    [[nodiscard]] const_iterator cend() const noexcept { return data_.cend(); }
 
     // Matrix operations
     BasicMatrix &operator+=(const BasicMatrix &other) {
@@ -176,11 +176,11 @@ public:
     }
 
     // Comparison operators
-    bool operator==(const BasicMatrix &other) const {
+    [[nodiscard]] bool operator==(const BasicMatrix &other) const {
         return rows_ == other.rows_ && cols_ == other.cols_ && data_ == other.data_;
     }
 
-    bool operator!=(const BasicMatrix &other) const { return !(*this == other); }
+    [[nodiscard]] bool operator!=(const BasicMatrix &other) const { return !(*this == other); }
 
     // Linear algebra operations for uBLAS compatibility
 
@@ -188,7 +188,7 @@ public:
      * Get a row as a vector (copies the data)
      * Compatible with boost::numeric::ublas::row(matrix, i)
      */
-    BasicVector<T> row(size_type row_index) const {
+    [[nodiscard]] BasicVector<T> row(size_type row_index) const {
         if (row_index >= rows_) {
             throw std::out_of_range("Row index out of bounds");
         }
@@ -203,7 +203,7 @@ public:
      * Get a column as a vector (copies the data)
      * Compatible with boost::numeric::ublas::column(matrix, j)
      */
-    BasicVector<T> column(size_type col_index) const {
+    [[nodiscard]] BasicVector<T> column(size_type col_index) const {
         if (col_index >= cols_) {
             throw std::out_of_range("Column index out of bounds");
         }
@@ -248,7 +248,7 @@ public:
      * Matrix transpose - creates a new transposed matrix
      * Essential for HMM algorithms (A^T operations)
      */
-    BasicMatrix transpose() const {
+    [[nodiscard]] BasicMatrix transpose() const {
         BasicMatrix result(cols_, rows_);
         for (size_type i = 0; i < rows_; ++i) {
             for (size_type j = 0; j < cols_; ++j) {
@@ -278,7 +278,7 @@ public:
      * Matrix-vector multiplication: y = A * x
      * Critical for HMM forward/backward algorithms
      */
-    BasicVector<T> multiply(const BasicVector<T> &vec) const {
+    [[nodiscard]] BasicVector<T> multiply(const BasicVector<T> &vec) const {
         if (cols_ != vec.size()) {
             throw std::invalid_argument("Matrix columns must match vector size for multiplication");
         }
@@ -297,7 +297,7 @@ public:
      * Matrix-matrix multiplication: C = A * B
      * Essential for transition matrix computations
      */
-    BasicMatrix multiply(const BasicMatrix &other) const {
+    [[nodiscard]] BasicMatrix multiply(const BasicMatrix &other) const {
         if (cols_ != other.rows_) {
             throw std::invalid_argument("Matrix dimensions incompatible for multiplication");
         }
@@ -333,13 +333,13 @@ public:
      * Sum of all elements
      * Useful for normalization in HMM
      */
-    T sum() const { return std::accumulate(data_.begin(), data_.end(), T{}); }
+    [[nodiscard]] T sum() const { return std::accumulate(data_.begin(), data_.end(), T{}); }
 
     /**
      * Row sums - returns vector of row sums
      * Critical for probability normalization
      */
-    BasicVector<T> row_sums() const {
+    [[nodiscard]] BasicVector<T> row_sums() const {
         BasicVector<T> result(rows_);
         for (size_type i = 0; i < rows_; ++i) {
             T row_sum = T{};
@@ -355,7 +355,7 @@ public:
      * Column sums - returns vector of column sums
      * Critical for probability normalization
      */
-    BasicVector<T> column_sums() const {
+    [[nodiscard]] BasicVector<T> column_sums() const {
         BasicVector<T> result(cols_);
         for (size_type j = 0; j < cols_; ++j) {
             T col_sum = T{};
@@ -408,33 +408,33 @@ public:
 
 // Binary arithmetic operators
 template <typename T>
-BasicMatrix<T> operator+(const BasicMatrix<T> &lhs, const BasicMatrix<T> &rhs) {
+[[nodiscard]] BasicMatrix<T> operator+(const BasicMatrix<T> &lhs, const BasicMatrix<T> &rhs) {
     BasicMatrix<T> result = lhs;
     result += rhs;
     return result;
 }
 
 template <typename T>
-BasicMatrix<T> operator-(const BasicMatrix<T> &lhs, const BasicMatrix<T> &rhs) {
+[[nodiscard]] BasicMatrix<T> operator-(const BasicMatrix<T> &lhs, const BasicMatrix<T> &rhs) {
     BasicMatrix<T> result = lhs;
     result -= rhs;
     return result;
 }
 
 template <typename T>
-BasicMatrix<T> operator*(const BasicMatrix<T> &matrix, const T &scalar) {
+[[nodiscard]] BasicMatrix<T> operator*(const BasicMatrix<T> &matrix, const T &scalar) {
     BasicMatrix<T> result = matrix;
     result *= scalar;
     return result;
 }
 
 template <typename T>
-BasicMatrix<T> operator*(const T &scalar, const BasicMatrix<T> &matrix) {
+[[nodiscard]] BasicMatrix<T> operator*(const T &scalar, const BasicMatrix<T> &matrix) {
     return matrix * scalar;
 }
 
 template <typename T>
-BasicMatrix<T> operator/(const BasicMatrix<T> &matrix, const T &scalar) {
+[[nodiscard]] BasicMatrix<T> operator/(const BasicMatrix<T> &matrix, const T &scalar) {
     BasicMatrix<T> result = matrix;
     result /= scalar;
     return result;
@@ -463,7 +463,8 @@ std::ostream &operator<<(std::ostream &os, const BasicMatrix<T> &matrix) {
  * Get a row from a matrix (compatible with boost::numeric::ublas::row)
  */
 template <typename T>
-BasicVector<T> row(const BasicMatrix<T> &matrix, typename BasicMatrix<T>::size_type row_index) {
+[[nodiscard]] BasicVector<T> row(const BasicMatrix<T> &matrix,
+                                 typename BasicMatrix<T>::size_type row_index) {
     return matrix.row(row_index);
 }
 
@@ -471,7 +472,8 @@ BasicVector<T> row(const BasicMatrix<T> &matrix, typename BasicMatrix<T>::size_t
  * Get a column from a matrix (compatible with boost::numeric::ublas::column)
  */
 template <typename T>
-BasicVector<T> column(const BasicMatrix<T> &matrix, typename BasicMatrix<T>::size_type col_index) {
+[[nodiscard]] BasicVector<T> column(const BasicMatrix<T> &matrix,
+                                    typename BasicMatrix<T>::size_type col_index) {
     return matrix.column(col_index);
 }
 
@@ -479,7 +481,7 @@ BasicVector<T> column(const BasicMatrix<T> &matrix, typename BasicMatrix<T>::siz
  * Inner product of two vectors (compatible with boost::numeric::ublas::inner_prod)
  */
 template <typename T>
-T inner_prod(const BasicVector<T> &vec1, const BasicVector<T> &vec2) {
+[[nodiscard]] T inner_prod(const BasicVector<T> &vec1, const BasicVector<T> &vec2) {
     return vec1.dot(vec2);
 }
 

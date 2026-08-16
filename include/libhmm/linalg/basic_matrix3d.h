@@ -89,7 +89,7 @@ public:
     /// @param k Third dimension index
     /// @return Const reference to the element
     /// @throws std::out_of_range if indices are invalid
-    const T &operator()(std::size_t i, std::size_t j, std::size_t k) const {
+    [[nodiscard]] const T &operator()(std::size_t i, std::size_t j, std::size_t k) const {
         if (i >= x_ || j >= y_ || k >= z_) {
             throw std::out_of_range("BasicMatrix3D index out of bounds");
         }
@@ -111,15 +111,15 @@ public:
 
     /// Get first dimension size
     /// @return Size of first dimension
-    std::size_t getXDimensionSize() const noexcept { return x_; }
+    [[nodiscard]] std::size_t getXDimensionSize() const noexcept { return x_; }
 
     /// Get second dimension size
     /// @return Size of second dimension
-    std::size_t getYDimensionSize() const noexcept { return y_; }
+    [[nodiscard]] std::size_t getYDimensionSize() const noexcept { return y_; }
 
     /// Get third dimension size
     /// @return Size of third dimension
-    std::size_t getZDimensionSize() const noexcept { return z_; }
+    [[nodiscard]] std::size_t getZDimensionSize() const noexcept { return z_; }
 
     /// Fill all elements with a value
     /// @param value Value to fill with
@@ -130,7 +130,7 @@ public:
 
     /// Get total number of elements
     /// @return Total size (x * y * z)
-    std::size_t size() const noexcept { return data_.size(); }
+    [[nodiscard]] std::size_t size() const noexcept { return data_.size(); }
 
     /// Get raw pointer to underlying data (for interoperability)
     /// @return Pointer to contiguous data array
@@ -138,21 +138,21 @@ public:
 
     /// Get const raw pointer to underlying data
     /// @return Const pointer to contiguous data array
-    const T *data() const noexcept { return data_.data(); }
+    [[nodiscard]] const T *data() const noexcept { return data_.data(); }
 
     /// Check if matrix is empty
     /// @return True if any dimension is 0
-    bool empty() const noexcept { return data_.empty(); }
+    [[nodiscard]] bool empty() const noexcept { return data_.empty(); }
 
     /// Sum of all elements in the 3D matrix
     /// @return Sum of all elements
-    T sum() const { return std::accumulate(data_.begin(), data_.end(), T{}); }
+    [[nodiscard]] T sum() const { return std::accumulate(data_.begin(), data_.end(), T{}); }
 
     /// Get a 2D slice from the 3D matrix (fixes first dimension)
     /// @param i First dimension index (fixed)
     /// @return 2D matrix representing the slice
     template <typename MatrixType = BasicMatrix<T>>
-    MatrixType slice(std::size_t i) const {
+    [[nodiscard]] MatrixType slice(std::size_t i) const {
         if (i >= x_) {
             throw std::out_of_range("Slice index out of bounds");
         }
@@ -244,18 +244,15 @@ public:
     }
 
     // Legacy compatibility methods (deprecated)
-    [[deprecated("Use getXDimensionSize() instead")]]
-    int GetXDimensionSize() {
+    [[deprecated("Use getXDimensionSize() instead")]] [[nodiscard]] int GetXDimensionSize() {
         return static_cast<int>(x_);
     }
 
-    [[deprecated("Use getYDimensionSize() instead")]]
-    int GetYDimensionSize() {
+    [[deprecated("Use getYDimensionSize() instead")]] [[nodiscard]] int GetYDimensionSize() {
         return static_cast<int>(y_);
     }
 
-    [[deprecated("Use getZDimensionSize() instead")]]
-    int GetZDimensionSize() {
+    [[deprecated("Use getZDimensionSize() instead")]] [[nodiscard]] int GetZDimensionSize() {
         return static_cast<int>(z_);
     }
 
