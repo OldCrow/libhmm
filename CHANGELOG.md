@@ -13,6 +13,15 @@ the von Mises Bessel path (see Fixed).
 
 ### Fixed
 
+- **`detail::bessel_i0`/`bessel_i1`/`log_bessel_i0` aborted on negative
+  arguments under libstdc++** ([#76](https://github.com/OldCrow/libhmm/issues/76)).
+  I₀ is even and I₁ is odd, and Tier 2 implemented that; Tier 1 forwarded
+  straight to `std::cyl_bessel_i`, whose domain is x ≥ 0 and whose
+  implementations disagree outside it — libstdc++ throws `std::domain_error`
+  (reaching `std::terminate`, since the wrappers are `noexcept`) while MSVC's
+  STL returns the even/odd continuation. Tier 1 now normalizes the sign, so
+  both tiers hold the same domain on every platform. Pre-existing and
+  latent; exposed by the #75 fix, since no test TU had ever compiled Tier 1.
 - **Test TUs and installed consumers compiled a different Bessel tier than the
   library shipped** ([#75](https://github.com/OldCrow/libhmm/issues/75)).
   `LIBHMM_HAS_CXX17_BESSEL` selects between two implementations in the public

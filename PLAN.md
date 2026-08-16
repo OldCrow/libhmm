@@ -83,6 +83,10 @@ Last reconciled against live GitHub state: 2026-08-16.
     Triage below.
   - #74 OPEN — accuracy: SIMD `cos_pd` is ~2e-10 at every tier, and there is no
     `sin_pd`. See Numerical Defect Triage below.
+  - #76 OPEN — fix(math): `bessel_i0`/`i1`/`log_bessel_i0` abort on negative
+    arguments under libstdc++ Tier 1, while Tier 2 and MSVC accept them. Fix
+    is written and locally verified but NOT YET COMMITTED — see Numerical
+    Defect Triage below.
   - #75 CLOSED 2026-08-16 — fix(build): `LIBHMM_HAS_CXX17_BESSEL` was `PRIVATE` to
     `hmm_objects`, so test TUs and installed consumers compile the Tier 2
     Bessel fallback while the library shipped Tier 1. See Numerical Defect
@@ -97,8 +101,17 @@ Last reconciled against live GitHub state: 2026-08-16.
   populate as work actually starts)
 
 ## Numerical Defect Triage (2026-08-16) [DERIVED]
-**#72, #73 and #75 are FIXED and pushed (84bc997, 5274c6d).** #74 remains
-open; that is a scope call recorded below, not neglect.
+**#72, #73 and #75 are FIXED and pushed (84bc997, 5274c6d).**
+
+**`main` IS CURRENTLY RED**, and deliberately so: the #75 fix made test TUs
+compile the tier the library actually ships, and the first thing that exposed
+was #76 — a pre-existing abort on negative arguments under libstdc++ that no
+test could reach before. Linux/GCC, Linux/Clang, ASan and TSan legs all fail
+at `BesselFunctions.KnownValuesI0`; macOS (Tier 2) and Windows (MSVC's Tier 1
+agrees with Tier 2) pass. The fix is written, locally verified under both
+libstdc++ and MSVC, and **uncommitted** — see #76 below.
+
+#74 remains open; that is a scope call recorded below, not neglect.
 
 Three accuracy defects were found by carrying libstats' closed
 `spike/corvus-bessel` findings across to this repo, rather than by running a
@@ -123,6 +136,18 @@ Bessel ratio is — the defect is the formulation).
   place**: 52 ULP is the 2κ amplification acting on correctly-rounded inputs,
   and the series diverges below κ ≈ 25, so nothing sits between them. Record
   that before anyone re-opens it looking for a tighter crossover.
+- **#76 — FIX READY, NOT COMMITTED (2026-08-16).** Tier 1 forwarded straight
+  to `std::cyl_bessel_i`, whose domain is x ≥ 0. The implementations disagree
+  outside it: libstdc++ throws `std::domain_error`, MSVC's STL returns the
+  even/odd continuation that Tier 2 also implements. Because the wrappers are
+  `noexcept`, the libstdc++ throw reaches `std::terminate` — an abort a
+  consumer cannot catch. Fix normalizes the sign in the Tier 1 wrappers so
+  both tiers hold one domain. Verified under libstdc++ (mingw g++ 15, the same
+  standard library as the failing CI legs) and MSVC 47/47 locally.
+  **This is the #75 fix doing its job**: the `I₀(-2) == I₀(2)` assertion has
+  been in the suite all along and states the intended contract; it simply
+  never exercised Tier 1. Expect more of this shape — defects that were always
+  there and are only now reachable by a test.
 - **#75 — DONE 2026-08-16. Found while writing #72's tests, and it is why #72
   survived.** `LIBHMM_HAS_CXX17_BESSEL` was `PRIVATE` to `hmm_objects`, so no
   test TU had ever compiled Tier 1 — the existing `BesselFunctions.*` tests

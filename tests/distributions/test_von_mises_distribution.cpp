@@ -154,6 +154,25 @@ TEST(BesselFunctions, TierMatchesTheBuild) {
     }
 }
 
+TEST(BesselFunctions, NegativeArgumentsAreDefinedOnBothTiers) {
+    // Regression for #76. Tier 1 forwarded straight to std::cyl_bessel_i,
+    // which is specified only for x >= 0 and whose implementations disagree
+    // outside it: libstdc++ throws std::domain_error (and these wrappers are
+    // noexcept, so that becomes std::terminate), while MSVC's STL returns the
+    // even/odd continuation that Tier 2 also implements. The suite could not
+    // see it until #75, because every test TU compiled Tier 2.
+    for (double x : {0.5, 2.0, 3.75, 10.0, 100.0}) {
+        EXPECT_DOUBLE_EQ(libhmm::detail::bessel_i0(-x), libhmm::detail::bessel_i0(x))
+            << "I0 is even, x=" << x;
+        EXPECT_DOUBLE_EQ(libhmm::detail::bessel_i1(-x), -libhmm::detail::bessel_i1(x))
+            << "I1 is odd, x=" << x;
+        EXPECT_DOUBLE_EQ(libhmm::detail::log_bessel_i0(-x), libhmm::detail::log_bessel_i0(x))
+            << "log I0 is even, x=" << x;
+    }
+    // Across the log I0 branch seam too, where only Tier 1 has a branch.
+    EXPECT_DOUBLE_EQ(libhmm::detail::log_bessel_i0(-800.0), libhmm::detail::log_bessel_i0(800.0));
+}
+
 TEST(BesselFunctions, LogI0HasNoStepAtTheSeam) {
     // Tier 1 switches to an asymptotic expansion above x = 700. #72 was a
     // ~1900 ULP jump there. d/dx log I0 = A(x), so a central difference

@@ -73,12 +73,20 @@ inline constexpr double kI0HankelCoeffs[] = {
 // Tier 1: delegate to C++17 <cmath> special functions
 // ---------------------------------------------------------------------------
 
+// std::cyl_bessel_i is specified only for x >= 0 and the implementations do
+// NOT agree outside it: libstdc++ throws std::domain_error, MSVC's STL returns
+// the even/odd continuation. Since these wrappers are noexcept, the libstdc++
+// throw would reach std::terminate — an abort a consumer cannot defend
+// against. I0 is even and I1 is odd, so normalize here and let both tiers hold
+// the same domain, which is the premise of the two-tier design. Issue #76.
+
 [[nodiscard]] inline double bessel_i0(double x) noexcept {
-    return std::cyl_bessel_i(0.0, x);
+    return std::cyl_bessel_i(0.0, std::fabs(x)); // I₀ is even
 }
 
 [[nodiscard]] inline double bessel_i1(double x) noexcept {
-    return std::cyl_bessel_i(1.0, x);
+    const double result = std::cyl_bessel_i(1.0, std::fabs(x));
+    return (x < 0.0) ? -result : result; // I₁ is odd
 }
 
 [[nodiscard]] inline double log_bessel_i0(double x) noexcept {
@@ -86,11 +94,14 @@ inline constexpr double kI0HankelCoeffs[] = {
     //   log I₀(x) = x − ½log(2π) − ½log(x) + log1p(bracket − 1)
     // Split as ½log(2π) + ½log(x) rather than ½log(2πx): the product form
     // overflows to +inf for x > DBL_MAX/2π, which would return −inf here.
-    if (x > kLogI0Bound) {
-        return x - constants::math::HALF_LN_2PI - 0.5 * std::log(x) +
-               std::log1p(i0_hankel_bracket_m1(x));
+    // fabs for the same reason as bessel_i0 above (#76): log I₀ is even, and
+    // a negative argument reaching std::cyl_bessel_i aborts under libstdc++.
+    const double ax = std::fabs(x);
+    if (ax > kLogI0Bound) {
+        return ax - constants::math::HALF_LN_2PI - 0.5 * std::log(ax) +
+               std::log1p(i0_hankel_bracket_m1(ax));
     }
-    return std::log(std::cyl_bessel_i(0.0, x));
+    return std::log(std::cyl_bessel_i(0.0, ax));
 }
 
 #else
