@@ -51,14 +51,22 @@ Last reconciled against live GitHub state: 2026-08-16.
   loaded in every session's context.
 
 ## GitHub Milestones [DERIVED]
-- v4.3.0 — Training & Core Usability (open, #1): 6 open / 0 closed.
+Renumbered 2026-08-16 for the v4.3.0 release, on libstats' rule: a milestone
+title names the version its work actually ships in, and no shipped work gets
+relabelled with a version it did not ship in. The release contents went into a
+NEW closed milestone (#3); the two feature milestones each moved up one minor
+version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
+
+- v4.3.0 — Numerical Correctness & Build Contract (CLOSED, #3): 0 open / 6
+  closed — #63, #70, #72, #73, #75, #76. Shipped 2026-08-16.
+- v4.4.0 — Training & Core Usability (open, #1): 6 open / 0 closed.
   - #43 OPEN — feat: BasicHmm::clone() — deep copy for restarts, checkpointing, and ensemble methods.
   - #44 OPEN — feat: HMM-level sequence sampling — sample(hmm, T, rng).
   - #45 OPEN — feat: multi-restart training — fit_best_of_n() for robust EM convergence.
   - #46 OPEN — feat: HMM topology constraints — left-to-right, banded, and skip topologies.
   - #48 OPEN — perf: parallel E-step accumulation across sequences using ThreadPool.
   - #58 OPEN — perf: extend tier-2 runtime ISA dispatch to FB/BW/transcendental TUs (wheel portability without performance cost).
-- v4.4.0 — Algorithm Coverage (open, #2): 3 open / 0 closed.
+- v4.5.0 — Algorithm Coverage (open, #2): 3 open / 0 closed.
   - #47 OPEN — feat: GMMDistribution — Gaussian Mixture Model emission for multimodal states.
   - #51 OPEN — feat: online/streaming forward calculator — incremental α update for real-time inference.
   - #52 OPEN — feat: N-best Viterbi decoding — return top-k most probable state paths.
@@ -67,40 +75,14 @@ Last reconciled against live GitHub state: 2026-08-16.
 - Open issues without milestone:
   - #50 OPEN — feat: Hidden Semi-Markov Model (HSMM) with explicit duration distributions.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
-  - #63 CLOSED 2026-08-16 — bulk-applied `[[nodiscard]]` in the three linalg
-    headers (69 attributes); the `modernize-use-nodiscard` cluster is at 0.
-    See Known Gaps for what measuring it revealed about #62.
-  - #70 CLOSED 2026-08-16 — audit compensated accumulation paths for
-    FP-contraction sensitivity. **No exposure**: libhmm has no compensated
-    summation or error-free transformation anywhere, so there is no identity
-    for contraction to break. Position recorded in AGENTS.md SIMD strategy.
-    Two durable findings: (a) the `ln2_hi`/`ln2_lo` Cody-Waite splits in
-    `log_pd`/`exp_pd` LOOK like the hazard but compensate a constant's
-    representation error, not an operation's rounding — different class; and
-    (b) **libhmm cannot claim bit-reproducibility at all**, because tier
-    dispatch changes the summation tree (8/4/2-wide partial sums) with the
-    CPU the binary runs on, at fixed compiler and flags. So corvus's
-    `-ffp-contract=off` policy would buy nothing here and cost FMA where
-    fusion is accuracy-positive. This is a legitimate divergence from corvus,
-    not an oversight.
-  - #72 CLOSED 2026-08-16 — fix(math): `log_bessel_i0` had a ~1900 ULP step discontinuity at
-    x = 700. See Numerical Defect Triage below.
-  - #73 CLOSED 2026-08-16 — fix(von-mises): `getCircularVariance()` returned NaN for
-    κ ≥ 713.99 and cancels ~log₂(2κ) bits below it. See Numerical Defect
-    Triage below.
   - #74 OPEN — accuracy: SIMD `cos_pd` is ~2e-10 at every tier, and there is no
-    `sin_pd`. See Numerical Defect Triage below.
-  - #76 CLOSED 2026-08-16 — fix(math): `bessel_i0`/`i1`/`log_bessel_i0`
-    aborted on negative arguments under libstdc++ Tier 1, while Tier 2 and
-    MSVC accepted them. See Numerical Defect Triage below.
-  - #75 CLOSED 2026-08-16 — fix(build): `LIBHMM_HAS_CXX17_BESSEL` was `PRIVATE` to
-    `hmm_objects`, so test TUs and installed consumers compile the Tier 2
-    Bessel fallback while the library shipped Tier 1. See Numerical Defect
-    Triage below.
-- Closed issues without milestone: 20 as of 2026-07-18 (#62 closed — clang-tidy
-  CI decision recorded, see Known Gaps below; fetch full list via
-  `gh issue list --state closed --json number,title,milestone -q
-  '.[] | select(.milestone == null)'` if ever needed).
+    `sin_pd`. Deliberately unmilestoned — see Numerical Defect Triage below.
+- Closed issues without milestone: 20 as of 2026-07-18. Note #63/#70/#72/#73/
+  #75/#76 were moved ONTO the new v4.3.0 milestone at release, so they are no
+  longer in this section; their detail lives in Numerical Defect Triage below.
+  Fetch the full closed-unmilestoned list via `gh issue list --state closed
+  --json number,title,milestone -q '.[] | select(.milestone == null)'` if ever
+  needed.
 
 ## In Progress [OPEN]
 - (none currently tracked outside the GitHub milestone backlog above —

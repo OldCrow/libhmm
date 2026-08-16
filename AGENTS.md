@@ -6,7 +6,7 @@ This file provides project-scoped guidance to AI agents and contributors working
 
 C++20 Hidden Markov Model library. Zero external dependencies (C++20 standard library only). GTest is fetched via `FetchContent` only for the test suite. Produces both a shared (`hmm`) and static (`hmm_static`) library from a single OBJECT target.
 
-`main` is the stable v4 branch (current release: v4.2.5). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
+`main` is the stable v4 branch (current release: v4.3.0). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
 
 ## Session Start
 
@@ -61,7 +61,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Build options: `LIBHMM_BUILD_EXAMPLES`, `LIBHMM_BUILD_TESTS`, `LIBHMM_BUILD_TOOLS` (all `ON` by default, i.e. `${PROJECT_IS_TOP_LEVEL}`), `LIBHMM_BUILD_BENCHMARKS` (`OFF`), `LIBHMM_ENABLE_CLANG_TIDY` (`OFF`), `LIBHMM_WERROR` (`OFF`). The old unprefixed names (`BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS`, `BUILD_BENCHMARKS`, `ENABLE_CLANG_TIDY`) still work via a deprecation shim (warns, maps to the new name) — removal planned at v4.3.0.
+Build options: `LIBHMM_BUILD_EXAMPLES`, `LIBHMM_BUILD_TESTS`, `LIBHMM_BUILD_TOOLS` (all `ON` by default, i.e. `${PROJECT_IS_TOP_LEVEL}`), `LIBHMM_BUILD_BENCHMARKS` (`OFF`), `LIBHMM_ENABLE_CLANG_TIDY` (`OFF`), `LIBHMM_WERROR` (`OFF`). The old unprefixed names (`BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS`, `BUILD_BENCHMARKS`, `ENABLE_CLANG_TIDY`) were retired in v4.3.0 and are **no longer honoured** — the v4.2.x mapping shim is gone. Passing one while libhmm is the top-level project warns that it is being ignored; as a subproject libhmm does not react to them at all, since an unprefixed `BUILD_TESTS` belongs to the superproject and that collision is what the rename existed to end. `ENABLE_STATIC_ANALYSIS`/`ENABLE_CPPCHECK` were deleted outright (never consumed).
 
 ### CMake standard
 

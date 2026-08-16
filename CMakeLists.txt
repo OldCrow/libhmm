@@ -28,7 +28,7 @@ if(APPLE)
 endif()
 
 project(libhmm
-    VERSION 4.2.5
+    VERSION 4.3.0
     DESCRIPTION "Modern C++20 Hidden Markov Model Library"
     LANGUAGES CXX
 )
@@ -89,43 +89,44 @@ elseif(MSVC)
 endif()
 
 # =============================================================================
-# Deprecated option-name shim.
+# Retired option names (the v4.2.x shim is GONE as of v4.3.0).
+#
 # libhmm renamed its unprefixed BUILD_*/ENABLE_* options to LIBHMM_*-prefixed
-# names (unprefixed names collide with sibling options in superprojects that
-# add_subdirectory/FetchContent this repo — fleet CMake house style, §2 Naming:
-# https://github.com/OldCrow/standards). Old spellings are honored for one
-# release with a deprecation warning.
-# REMOVE THIS WHOLE SHIM BLOCK at the next minor release (v4.3.0).
+# names (fleet CMake house style, §2 Naming:
+# https://github.com/OldCrow/standards). v4.2.x mapped the old spellings onto
+# the new ones with a deprecation warning; v4.3.0 drops the mapping.
+#
+# What is left is a diagnostic, and it is deliberately NOT a FATAL_ERROR and
+# NOT active as a subproject. The reason libhmm stopped honouring these names
+# is precisely that they belong to whoever is on top: a superproject that
+# add_subdirectory/FetchContent's this repo may legitimately define its own
+# BUILD_TESTS, and reacting to it at all — mapping it, warning about it, or
+# erroring on it — is the collision the rename existed to end. So the warning
+# fires only when libhmm IS the top-level project, where a stale unprefixed
+# -D flag is unambiguously a user mistake and would otherwise be silently
+# ignored.
 # =============================================================================
-if(DEFINED BUILD_EXAMPLES AND NOT DEFINED LIBHMM_BUILD_EXAMPLES)
-    message(DEPRECATION "BUILD_EXAMPLES is deprecated; use LIBHMM_BUILD_EXAMPLES instead")
-    set(LIBHMM_BUILD_EXAMPLES ${BUILD_EXAMPLES} CACHE BOOL "Build example programs")
-endif()
-if(DEFINED BUILD_TESTS AND NOT DEFINED LIBHMM_BUILD_TESTS)
-    message(DEPRECATION "BUILD_TESTS is deprecated; use LIBHMM_BUILD_TESTS instead")
-    set(LIBHMM_BUILD_TESTS ${BUILD_TESTS} CACHE BOOL "Build test programs")
-endif()
-if(DEFINED BUILD_TOOLS AND NOT DEFINED LIBHMM_BUILD_TOOLS)
-    message(DEPRECATION "BUILD_TOOLS is deprecated; use LIBHMM_BUILD_TOOLS instead")
-    set(LIBHMM_BUILD_TOOLS ${BUILD_TOOLS} CACHE BOOL "Build performance inspection and validation tools")
-endif()
-if(DEFINED BUILD_BENCHMARKS AND NOT DEFINED LIBHMM_BUILD_BENCHMARKS)
-    message(DEPRECATION "BUILD_BENCHMARKS is deprecated; use LIBHMM_BUILD_BENCHMARKS instead")
-    set(LIBHMM_BUILD_BENCHMARKS ${BUILD_BENCHMARKS} CACHE BOOL "Build comparison benchmarks (requires external HMM libraries)")
-endif()
-if(DEFINED ENABLE_CLANG_TIDY AND NOT DEFINED LIBHMM_ENABLE_CLANG_TIDY)
-    message(DEPRECATION "ENABLE_CLANG_TIDY is deprecated; use LIBHMM_ENABLE_CLANG_TIDY instead")
-    set(LIBHMM_ENABLE_CLANG_TIDY ${ENABLE_CLANG_TIDY} CACHE BOOL "Enable clang-tidy analysis during build")
-endif()
-# ENABLE_STATIC_ANALYSIS / ENABLE_CPPCHECK were declared but never consumed by
-# any CMakeLists in this repo (cppcheck runs from CI/scripts directly) — dead
-# options, deleted rather than renamed. Old spellings map to nothing; a stale
-# -D flag surfaces via this message instead of silently no-op'ing.
-if(DEFINED ENABLE_STATIC_ANALYSIS)
-    message(DEPRECATION "ENABLE_STATIC_ANALYSIS was removed (never consumed); cppcheck runs from CI/scripts")
-endif()
-if(DEFINED ENABLE_CPPCHECK)
-    message(DEPRECATION "ENABLE_CPPCHECK was removed (never consumed); cppcheck runs from CI/scripts")
+if(PROJECT_IS_TOP_LEVEL)
+    foreach(_libhmm_old_opt
+            BUILD_EXAMPLES BUILD_TESTS BUILD_TOOLS BUILD_BENCHMARKS ENABLE_CLANG_TIDY)
+        if(DEFINED ${_libhmm_old_opt})
+            message(WARNING
+                "${_libhmm_old_opt} is no longer honoured (removed in v4.3.0) and is being "
+                "IGNORED; use LIBHMM_${_libhmm_old_opt} instead.")
+        endif()
+    endforeach()
+    unset(_libhmm_old_opt)
+    # ENABLE_STATIC_ANALYSIS / ENABLE_CPPCHECK were declared but never consumed
+    # by any CMakeLists here (cppcheck runs from CI/scripts directly) — dead
+    # options, deleted rather than renamed, so they have no LIBHMM_ counterpart.
+    foreach(_libhmm_dead_opt ENABLE_STATIC_ANALYSIS ENABLE_CPPCHECK)
+        if(DEFINED ${_libhmm_dead_opt})
+            message(WARNING
+                "${_libhmm_dead_opt} was removed (never consumed); cppcheck runs from "
+                "CI/scripts.")
+        endif()
+    endforeach()
+    unset(_libhmm_dead_opt)
 endif()
 
 # Build options

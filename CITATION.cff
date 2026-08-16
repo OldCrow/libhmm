@@ -9,8 +9,8 @@ authors:
 repository-code: "https://github.com/OldCrow/libhmm"
 url: "https://github.com/OldCrow/libhmm"
 license: MIT
-version: 4.2.5
-date-released: "2026-07-19"
+version: 4.3.0
+date-released: "2026-08-16"
 keywords:
   - hidden Markov models
   - Baum-Welch

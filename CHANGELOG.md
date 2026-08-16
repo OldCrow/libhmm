@@ -7,9 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Build-system standardization ([record](https://github.com/OldCrow/standards/blob/main/records/BUILD-STANDARDIZATION-PLAN.md)),
-which carries no library API or behavior change, plus two numerical fixes in
-the von Mises Bessel path (see Fixed).
+## [4.3.0] - 2026-08-16
+
+Numbered 4.3.0 rather than 4.2.6. The Bessel set (#72 log I₀ continuity, #73
+circular variance, #75 the installed export dropping the tier, #76 the tier
+domain split) is patch-shaped on its own, but four things landed alongside it
+that break drop-in: the CMake floor rises 3.20 → 3.25, install paths move to
+GNUInstallDirs, `libhmm/config.h` joins the installed header set, and
+`BUILD_SHARED_LIBS` is gone. A patch number promises a swap-in; this is not one.
+
+Two further consumer-visible changes ride along. The v4.2.x shim mapping the
+unprefixed `BUILD_*`/`ENABLE_*` option names is **removed** — the marker in
+CMakeLists.txt named this release, and bundling the break here is better than
+spreading breaks across two. And `[[nodiscard]]` now covers the linalg headers,
+so downstream code discarding one of those results will warn.
+
+Milestones were renumbered to match: a new **v4.3.0 — Numerical Correctness &
+Build Contract** holds this release's closed issues, while *Training & Core
+Usability* moved to v4.4.0 and *Algorithm Coverage* to v4.5.0. No shipped work
+is relabelled with a version it did not ship in.
 
 ### Fixed
 
