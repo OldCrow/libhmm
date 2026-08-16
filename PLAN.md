@@ -67,9 +67,9 @@ Last reconciled against live GitHub state: 2026-08-16.
 - Open issues without milestone:
   - #50 OPEN — feat: Hidden Semi-Markov Model (HSMM) with explicit duration distributions.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
-  - #63 OPEN — chore: bulk-apply `[[nodiscard]]` in the three linalg headers
-    (clang-tidy `modernize-use-nodiscard` cluster surfaced by #62's advisory
-    CI job); a prerequisite for reconsidering blocking clang-tidy CI.
+  - #63 CLOSED 2026-08-16 — bulk-applied `[[nodiscard]]` in the three linalg
+    headers (69 attributes); the `modernize-use-nodiscard` cluster is at 0.
+    See Known Gaps for what measuring it revealed about #62.
   - #70 CLOSED 2026-08-16 — audit compensated accumulation paths for
     FP-contraction sensitivity. **No exposure**: libhmm has no compensated
     summation or error-free transformation anywhere, so there is no identity
