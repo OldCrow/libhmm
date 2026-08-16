@@ -38,36 +38,51 @@ namespace libhmm::detail {
 /// Largest k for which k! is exactly representable in double (18! < 2^53).
 inline constexpr int kExactFactorialMax = 18;
 
-/// Largest k held in the table. Above this, log_factorial falls back to
-/// lgamma. Log-factorials do not overflow, so this bound is a coverage/size
-/// trade-off (8 KB) and NOT the 170 factorial-overflow limit that governs a
-/// table of factorials themselves.
-inline constexpr int kLogFactorialMax = 1023;
+/// Number of entries in the table, covering k in [0, kLogFactorialTableSize).
+/// Log-factorials do not overflow, so this is a coverage/size trade-off (8 KB)
+/// and NOT the 170 factorial-overflow limit that governs a table of the
+/// factorials themselves.
+///
+/// The size, not the largest index, is the primary constant and is what both
+/// the array declaration and the bounds check below are written against —
+/// cppcheck 2.13 mis-evaluates a `kMax + 1` extent and reports a false
+/// out-of-bounds at the top index, which this spelling avoids without needing
+/// a suppression.
+inline constexpr std::size_t kLogFactorialTableSize = 1024;
+
+/// Largest k held in the table. Above this, log_factorial falls back to lgamma.
+inline constexpr int kLogFactorialMax = static_cast<int>(kLogFactorialTableSize) - 1;
 
 /// log(k!) for k in [0, kLogFactorialMax]. Built once on first use.
-[[nodiscard]] inline const std::array<double, kLogFactorialMax + 1> &
+[[nodiscard]] inline const std::array<double, kLogFactorialTableSize> &
 log_factorial_table() noexcept {
-    static const std::array<double, kLogFactorialMax + 1> kTable = [] {
-        std::array<double, kLogFactorialMax + 1> t{};
+    static const std::array<double, kLogFactorialTableSize> kTable = [] {
+        std::array<double, kLogFactorialTableSize> t{};
         double exact = 1.0; // 0! = 1! = 1
         for (int k = 0; k <= kExactFactorialMax; ++k) {
             if (k > 1)
                 exact *= static_cast<double>(k); // exact while k! < 2^53
             t[static_cast<std::size_t>(k)] = std::log(exact);
         }
-        for (int k = kExactFactorialMax + 1; k <= kLogFactorialMax; ++k)
-            t[static_cast<std::size_t>(k)] = std::lgamma(static_cast<double>(k) + 1.0);
+        for (std::size_t k = kExactFactorialMax + 1; k < kLogFactorialTableSize; ++k)
+            t[k] = std::lgamma(static_cast<double>(k) + 1.0);
         return t;
     }();
     return kTable;
 }
 
+static_assert(kLogFactorialMax > kExactFactorialMax,
+              "the exact branch must not run past the end of the table");
+static_assert(static_cast<std::size_t>(kLogFactorialMax) + 1 == kLogFactorialTableSize,
+              "kLogFactorialMax must be the last valid index of the table");
+
 /// log(k!). Returns +inf for k < 0, matching log Γ(k+1) at the poles of Γ.
 [[nodiscard]] inline double log_factorial(int k) noexcept {
     if (k < 0)
         return std::numeric_limits<double>::infinity();
-    if (k <= kLogFactorialMax)
-        return log_factorial_table()[static_cast<std::size_t>(k)];
+    const auto uk = static_cast<std::size_t>(k);
+    if (uk < kLogFactorialTableSize)
+        return log_factorial_table()[uk];
     return std::lgamma(static_cast<double>(k) + 1.0);
 }
 
