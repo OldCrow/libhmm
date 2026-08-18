@@ -43,6 +43,16 @@ void student_t_batch_scalar(const double *, double *, std::size_t, double, doubl
                             double) noexcept;
 void vonmises_batch_scalar(const double *, double *, std::size_t, double, double, double) noexcept;
 
+// ---- Transcendental / recurrence kernels (FB max-reduce, BW xi accumulation) ----
+double reduce_max_sum2_scalar(const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum2_minus_max_scalar(const double *, const double *, std::size_t, double) noexcept;
+double reduce_max_sum3_scalar(const double *, const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum3_minus_max_scalar(const double *, const double *, const double *, std::size_t,
+                                     double) noexcept;
+void accumulate_exp_sum2_bias_scalar(double *, const double *, const double *, std::size_t,
+                                     double) noexcept;
+void log1p_inplace_scalar(double *, std::size_t) noexcept;
+
 #if defined(LIBHMM_BUILD_SSE2_KERNEL)
 void gaussian_batch_sse2(const double *, double *, std::size_t, double, double, double) noexcept;
 void exponential_batch_sse2(const double *, double *, std::size_t, double, double) noexcept;
@@ -61,6 +71,14 @@ void beta_batch_sse2(const double *, double *, std::size_t, double, double, doub
 void student_t_batch_sse2(const double *, double *, std::size_t, double, double, double, double,
                           double) noexcept;
 void vonmises_batch_sse2(const double *, double *, std::size_t, double, double, double) noexcept;
+double reduce_max_sum2_sse2(const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum2_minus_max_sse2(const double *, const double *, std::size_t, double) noexcept;
+double reduce_max_sum3_sse2(const double *, const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum3_minus_max_sse2(const double *, const double *, const double *, std::size_t,
+                                   double) noexcept;
+void accumulate_exp_sum2_bias_sse2(double *, const double *, const double *, std::size_t,
+                                   double) noexcept;
+void log1p_inplace_sse2(double *, std::size_t) noexcept;
 #endif
 
 #if defined(LIBHMM_BUILD_AVX2_KERNEL)
@@ -81,6 +99,14 @@ void beta_batch_avx2(const double *, double *, std::size_t, double, double, doub
 void student_t_batch_avx2(const double *, double *, std::size_t, double, double, double, double,
                           double) noexcept;
 void vonmises_batch_avx2(const double *, double *, std::size_t, double, double, double) noexcept;
+double reduce_max_sum2_avx2(const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum2_minus_max_avx2(const double *, const double *, std::size_t, double) noexcept;
+double reduce_max_sum3_avx2(const double *, const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum3_minus_max_avx2(const double *, const double *, const double *, std::size_t,
+                                   double) noexcept;
+void accumulate_exp_sum2_bias_avx2(double *, const double *, const double *, std::size_t,
+                                   double) noexcept;
+void log1p_inplace_avx2(double *, std::size_t) noexcept;
 #endif
 
 #if defined(LIBHMM_BUILD_AVX512_KERNEL)
@@ -101,6 +127,14 @@ void beta_batch_avx512(const double *, double *, std::size_t, double, double, do
 void student_t_batch_avx512(const double *, double *, std::size_t, double, double, double, double,
                             double) noexcept;
 void vonmises_batch_avx512(const double *, double *, std::size_t, double, double, double) noexcept;
+double reduce_max_sum2_avx512(const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum2_minus_max_avx512(const double *, const double *, std::size_t, double) noexcept;
+double reduce_max_sum3_avx512(const double *, const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum3_minus_max_avx512(const double *, const double *, const double *, std::size_t,
+                                     double) noexcept;
+void accumulate_exp_sum2_bias_avx512(double *, const double *, const double *, std::size_t,
+                                     double) noexcept;
+void log1p_inplace_avx512(double *, std::size_t) noexcept;
 #endif
 
 #if defined(LIBHMM_BUILD_NEON_KERNEL)
@@ -121,6 +155,14 @@ void beta_batch_neon(const double *, double *, std::size_t, double, double, doub
 void student_t_batch_neon(const double *, double *, std::size_t, double, double, double, double,
                           double) noexcept;
 void vonmises_batch_neon(const double *, double *, std::size_t, double, double, double) noexcept;
+double reduce_max_sum2_neon(const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum2_minus_max_neon(const double *, const double *, std::size_t, double) noexcept;
+double reduce_max_sum3_neon(const double *, const double *, const double *, std::size_t) noexcept;
+double sum_exp_sum3_minus_max_neon(const double *, const double *, const double *, std::size_t,
+                                   double) noexcept;
+void accumulate_exp_sum2_bias_neon(double *, const double *, const double *, std::size_t,
+                                   double) noexcept;
+void log1p_inplace_neon(double *, std::size_t) noexcept;
 #endif
 
 } // namespace detail
@@ -130,8 +172,8 @@ void vonmises_batch_neon(const double *, double *, std::size_t, double, double, 
 static DoubleVecOps build_table() noexcept {
     DoubleVecOps t{};
 
-// Helper macro: assign all 13 new function pointers for a given ISA suffix.
-// Keeps build_table() readable without 156 lines of explicit assignments.
+// Helper macro: assign all 21 function pointers for a given ISA suffix.
+// Keeps build_table() readable without a wall of explicit assignments.
 #define LIBHMM_ASSIGN_TIER(SUFFIX)                                                                 \
     t.gaussian_batch = &detail::gaussian_batch_##SUFFIX;                                           \
     t.exponential_batch = &detail::exponential_batch_##SUFFIX;                                     \
@@ -147,7 +189,13 @@ static DoubleVecOps build_table() noexcept {
     t.weibull_batch = &detail::weibull_batch_##SUFFIX;                                             \
     t.beta_batch = &detail::beta_batch_##SUFFIX;                                                   \
     t.student_t_batch = &detail::student_t_batch_##SUFFIX;                                         \
-    t.vonmises_batch = &detail::vonmises_batch_##SUFFIX
+    t.vonmises_batch = &detail::vonmises_batch_##SUFFIX;                                           \
+    t.reduce_max_sum2 = &detail::reduce_max_sum2_##SUFFIX;                                         \
+    t.sum_exp_sum2_minus_max = &detail::sum_exp_sum2_minus_max_##SUFFIX;                           \
+    t.reduce_max_sum3 = &detail::reduce_max_sum3_##SUFFIX;                                         \
+    t.sum_exp_sum3_minus_max = &detail::sum_exp_sum3_minus_max_##SUFFIX;                           \
+    t.accumulate_exp_sum2_bias = &detail::accumulate_exp_sum2_bias_##SUFFIX;                       \
+    t.log1p_inplace = &detail::log1p_inplace_##SUFFIX
 
 #if defined(LIBHMM_BUILD_NEON_KERNEL)
     // AArch64: NEON is mandatory and the only SIMD tier compiled in.

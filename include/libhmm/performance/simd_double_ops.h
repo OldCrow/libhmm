@@ -5,7 +5,8 @@
 namespace libhmm::performance {
 
 /// @brief Runtime-dispatched vectorized kernel table for double-precision
-/// distribution batch evaluation.
+/// distribution batch evaluation, plus the FB/BW transcendental recurrence
+/// kernels (relocated from transcendental_kernels.cpp under issue #58).
 ///
 /// The table is built exactly once at program startup by get_double_vec_ops()
 /// (function-local static, thread-safe per C++11) using CPUID to select the
@@ -75,6 +76,36 @@ struct DoubleVecOps {
     /// VonMises: κ*cos(x−μ) − log_normaliser; NaN/Inf → −∞.
     void (*vonmises_batch)(const double *obs, double *out, std::size_t n, double mu, double kappa,
                            double log_normaliser) noexcept;
+
+    // -------------------------------------------------------------------------
+    // Transcendental / recurrence kernels (Forward-Backward max-reduce and
+    // Baum-Welch xi accumulation). Relocated from transcendental_kernels.cpp
+    // under runtime ISA dispatch (issue #58); previously compiled once with
+    // LIBHMM_BEST_SIMD_FLAGS via a compile-time #if LIBHMM_HAS_* cascade.
+    // Inputs are expected to be either finite log-probabilities or LOG_ZERO
+    // (-inf); +inf and NaN are not produced by any production caller.
+    // -------------------------------------------------------------------------
+    /// Element-wise max of (a[i]+b[i]) over [0, size). No exp calls.
+    double (*reduce_max_sum2)(const double *a, const double *b, std::size_t size) noexcept;
+    /// Sum of exp(a[i]+b[i] - maxVal) for finite terms, over [0, size).
+    /// Returns 0 when maxVal is not finite.
+    double (*sum_exp_sum2_minus_max)(const double *a, const double *b, std::size_t size,
+                                     double maxVal) noexcept;
+    /// Element-wise max of (a[i]+b[i]+c[i]) over [0, size). No exp calls.
+    double (*reduce_max_sum3)(const double *a, const double *b, const double *c,
+                              std::size_t size) noexcept;
+    /// Sum of exp(a[i]+b[i]+c[i] - maxVal) for finite terms, over [0, size).
+    /// Returns 0 when maxVal is not finite.
+    double (*sum_exp_sum3_minus_max)(const double *a, const double *b, const double *c,
+                                     std::size_t size, double maxVal) noexcept;
+    /// dst[i] += exp(a[i] + b[i] + bias) for i in [0, size).
+    void (*accumulate_exp_sum2_bias)(double *dst, const double *a, const double *b,
+                                     std::size_t size, double bias) noexcept;
+    /// In-place log1p(v[i]) for i in [0, size). Uses the log1p_pd small-|x|
+    /// polynomial path — NOT log1p_batch above, which is add-then-log with no
+    /// small-x accuracy path. Raw pointer+size at table level; std::span stays
+    /// at the TranscendentalKernels facade in transcendental_kernels.h.
+    void (*log1p_inplace)(double *values, std::size_t size) noexcept;
 };
 
 /// @brief Returns the runtime-selected dispatch table.

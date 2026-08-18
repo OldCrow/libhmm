@@ -400,6 +400,170 @@ void vonmises_batch_avx2(const double *obs, double *out, std::size_t n, double m
     }
 }
 
+// ============================================================================
+// Transcendental / recurrence kernels (FB max-reduce, BW xi accumulation)
+// Relocated from transcendental_kernels.cpp (issue #58): the AVX/AVX2 vector
+// block from the original #if LIBHMM_HAS_* cascade, plus the trailing scalar
+// loop as its tail.
+// ============================================================================
+
+// Horizontal reduction helpers: 128-bit halves + 256-bit combine.
+static inline double hmax_pd_sse2(__m128d v) noexcept {
+    __m128d shuf = _mm_shuffle_pd(v, v, 1);
+    return _mm_cvtsd_f64(_mm_max_pd(v, shuf));
+}
+static inline double hadd_pd_sse2(__m128d v) noexcept {
+    __m128d shuf = _mm_shuffle_pd(v, v, 1);
+    return _mm_cvtsd_f64(_mm_add_pd(v, shuf));
+}
+static inline double hmax_pd_avx(__m256d v) noexcept {
+    __m128d lo = _mm256_castpd256_pd128(v);
+    __m128d hi = _mm256_extractf128_pd(v, 1);
+    __m128d m = _mm_max_pd(lo, hi);
+    return hmax_pd_sse2(m);
+}
+static inline double hadd_pd_avx(__m256d v) noexcept {
+    __m128d lo = _mm256_castpd256_pd128(v);
+    __m128d hi = _mm256_extractf128_pd(v, 1);
+    __m128d s = _mm_add_pd(lo, hi);
+    return hadd_pd_sse2(s);
+}
+
+// reduce_max_sum2: max of (a[i] + b[i])
+double reduce_max_sum2_avx2(const double *a, const double *b, std::size_t size) noexcept {
+    std::size_t i = 0;
+    double maxVal = -std::numeric_limits<double>::infinity();
+    {
+        __m256d vmax = _mm256_set1_pd(maxVal);
+        for (; i + 4 <= size; i += 4) {
+            __m256d va = _mm256_loadu_pd(a + i);
+            __m256d vb = _mm256_loadu_pd(b + i);
+            vmax = _mm256_max_pd(vmax, _mm256_add_pd(va, vb));
+        }
+        maxVal = hmax_pd_avx(vmax);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+// sum_exp_sum2_minus_max
+double sum_exp_sum2_minus_max_avx2(const double *a, const double *b, std::size_t size,
+                                   double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    std::size_t i = 0;
+    double sum = 0.0;
+    {
+        const __m256d vmaxv = _mm256_set1_pd(maxVal);
+        __m256d vsum = _mm256_setzero_pd();
+        for (; i + 4 <= size; i += 4) {
+            __m256d va = _mm256_loadu_pd(a + i);
+            __m256d vb = _mm256_loadu_pd(b + i);
+            __m256d term = _mm256_sub_pd(_mm256_add_pd(va, vb), vmaxv);
+            vsum = _mm256_add_pd(vsum, exp_pd(term));
+        }
+        sum += hadd_pd_avx(vsum);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+// reduce_max_sum3: max of (a[i] + b[i] + c[i])
+double reduce_max_sum3_avx2(const double *a, const double *b, const double *c,
+                            std::size_t size) noexcept {
+    std::size_t i = 0;
+    double maxVal = -std::numeric_limits<double>::infinity();
+    {
+        __m256d vmax = _mm256_set1_pd(maxVal);
+        for (; i + 4 <= size; i += 4) {
+            __m256d va = _mm256_loadu_pd(a + i);
+            __m256d vb = _mm256_loadu_pd(b + i);
+            __m256d vc = _mm256_loadu_pd(c + i);
+            vmax = _mm256_max_pd(vmax, _mm256_add_pd(_mm256_add_pd(va, vb), vc));
+        }
+        maxVal = hmax_pd_avx(vmax);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+// sum_exp_sum3_minus_max: sum of exp(a[i]+b[i]+c[i] - maxVal)
+double sum_exp_sum3_minus_max_avx2(const double *a, const double *b, const double *c,
+                                   std::size_t size, double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    std::size_t i = 0;
+    double sum = 0.0;
+    {
+        const __m256d vmaxv = _mm256_set1_pd(maxVal);
+        __m256d vsum = _mm256_setzero_pd();
+        for (; i + 4 <= size; i += 4) {
+            __m256d va = _mm256_loadu_pd(a + i);
+            __m256d vb = _mm256_loadu_pd(b + i);
+            __m256d vc = _mm256_loadu_pd(c + i);
+            __m256d term = _mm256_sub_pd(_mm256_add_pd(_mm256_add_pd(va, vb), vc), vmaxv);
+            vsum = _mm256_add_pd(vsum, exp_pd(term));
+        }
+        sum += hadd_pd_avx(vsum);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+// accumulate_exp_sum2_bias: dst[i] += exp(a[i] + b[i] + bias)
+void accumulate_exp_sum2_bias_avx2(double *dst, const double *a, const double *b, std::size_t size,
+                                   double bias) noexcept {
+    std::size_t i = 0;
+    {
+        const __m256d vbias = _mm256_set1_pd(bias);
+        for (; i + 4 <= size; i += 4) {
+            __m256d vd = _mm256_loadu_pd(dst + i);
+            __m256d va = _mm256_loadu_pd(a + i);
+            __m256d vb = _mm256_loadu_pd(b + i);
+            __m256d arg = _mm256_add_pd(_mm256_add_pd(va, vb), vbias);
+            vd = _mm256_add_pd(vd, exp_pd(arg));
+            _mm256_storeu_pd(dst + i, vd);
+        }
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        dst[i] += std::exp(a[i] + b[i] + bias);
+    }
+}
+
+// log1p_inplace: v[i] = log1p(v[i])
+void log1p_inplace_avx2(double *data, std::size_t size) noexcept {
+    std::size_t i = 0;
+    for (; i + 4 <= size; i += 4) {
+        __m256d v = _mm256_loadu_pd(data + i);
+        v = log1p_pd(v);
+        _mm256_storeu_pd(data + i, v);
+    }
+    for (; i < size; ++i) {
+        data[i] = std::log1p(data[i]);
+    }
+}
+
 } // namespace libhmm::performance::detail
 
 #endif // x86 guard

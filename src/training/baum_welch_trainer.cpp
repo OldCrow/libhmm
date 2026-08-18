@@ -1,5 +1,7 @@
 // Explicit instantiation of BasicBaumWelchTrainer<double> (scalar path).
-// Compiled with LIBHMM_BEST_SIMD_FLAGS to activate SIMD in the xi accumulation kernel.
+// The xi accumulation kernel it calls (TranscendentalKernels) routes through the
+// runtime-dispatched DoubleVecOps table (issue #58); this TU itself compiles at
+// the platform baseline ISA.
 
 #include "libhmm/training/basic_baum_welch_trainer.h"
 #include "libhmm/performance/transcendental_kernels.h"

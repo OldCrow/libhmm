@@ -85,8 +85,61 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   needed.
 
 ## In Progress [OPEN]
-- (none currently tracked outside the GitHub milestone backlog above —
-  populate as work actually starts)
+### v4.4.0: #58 + #74 joint pass (started 2026-08-18, branch dev/v4.4.0)
+Working #58 (tier-2 dispatch extension) with #74 (cos_pd accuracy + sin_pd)
+folded in, per the co-scheduling argument recorded on both issues. Design
+decisions, made up front and settled:
+
+- **#58 takes Option A via the EXISTING DoubleVecOps table** — not
+  target_clones, and not a second dispatch mechanism. The six
+  TranscendentalKernels methods become table entries: six new function
+  pointers (reduce_max_sum2/3, sum_exp_sum2/3_minus_max,
+  accumulate_exp_sum2_bias, log1p_inplace). log1p_inplace is deliberately
+  NOT routed through the existing log1p_batch pointer: log1p_batch computes
+  add-then-log with no small-x path, while log1p_inplace uses log1p_pd's
+  small-|x| polynomial — routing would silently lose small-x accuracy.
+  (log1p_batch's own doc claims "accurate for |x| ≪ 1", which its
+  implementation does not deliver in relative terms; flagged for triage in
+  the final pass, not fixed here.) The per-tier
+  implementations ALREADY EXIST in transcendental_kernels.cpp's compile-time
+  cascades; the work is relocation into the five simd_double_ops_*.cpp TUs
+  plus registration, not new kernel authoring. TranscendentalKernels stays as
+  the caller-facing facade, thinned to table calls.
+- **FB/BW/MAP explicit-instantiation TUs leave LIBHMM_SIMD_SOURCES** (they
+  hold no intrinsics — verified; -march=native only bought auto-vectorization
+  of template code whose hot loops are precisely what lives in
+  TranscendentalKernels). Conditional on the before/after benchmark; revert
+  this one piece if native-build perf regresses.
+- **Stale in #58's body**: viterbi_calculator{,_mv}.cpp are listed as
+  affected but are NOT in LIBHMM_SIMD_SOURCES today — nothing to do there.
+- **#74 ports libstats' clean-room quadrant-reduction cos** (NEON,
+  0.50/0.78 ULP, derivation docs + self-checking mpmath generator in
+  libstats — same owner, MIT, independently derived 2026-07-19) to all four
+  libhmm tiers, replacing the 7-term-Taylor cos_pd in simd_math_helpers.h.
+  sin_pd/sin_batch added via quadrant-table offset (integer quadrant
+  arithmetic, NOT cos(x−π/2) argument shifting, so sin inherits cos's
+  accuracy). The 30-bit 4-part π/2 split makes every n·p_k product exact by
+  plain multiply, so the SSE2 (no-FMA) port stays valid; per-tier bounds are
+  measured, not assumed. Domain |x| ≤ 2^23 with per-lane scalar std::cos/sin
+  fixup beyond — consistent with libhmm's existing scalar-tail idiom (this
+  repo does NOT carry corvus's one-masked-path rule; do not "fix" that).
+  Scalar dispatch tier stays std::cos/std::sin.
+- **Oracle/ULP-gate infra (the #74 prerequisite) gets built now**: ported
+  self-checking generator scripts (mpmath) + checked-in reference vectors
+  (uniform ranges, near-k·π/2 stress walk, domain-bound edges, specials) +
+  a gate test that exercises EVERY compiled tier by calling the per-ISA
+  symbols directly under CPUID guard. Zen 4 host gates scalar/SSE2/AVX2/
+  AVX-512; the macOS CI leg gates NEON.
+- **Effort routing** (corvus pattern): design/briefs/final verification —
+  Fable (this session). T1 (#58 relocation), T2 (#74 kernel port), T3 (ULP
+  gate infra) — Sonnet sub-agents, settled-design implementation.
+  Sequencing: T1 first (structural), then T2 ∥ T3 (disjoint files), then
+  final verification + docs + benchmark comparison here.
+- VonMisesDistribution.BatchMatchesScalar's 1e-9 tolerance (loosened around
+  the old cos) gets tightened to the measured post-fix agreement.
+- Consequence for the corvus question: #58's "two dispatch mechanisms"
+  concern resolves in favor of libhmm's own table — an eventual corvus
+  adoption would slot behind DoubleVecOps entries like everything else.
 
 ## Numerical Defect Triage (2026-08-16) [DERIVED]
 **#72, #73, #75 and #76 are FIXED and pushed** (84bc997, 5274c6d, 819f4d8).

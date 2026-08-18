@@ -530,6 +530,149 @@ void vonmises_batch_neon(const double *obs, double *out, std::size_t n, double m
     }
 }
 
+// ============================================================================
+// Transcendental / recurrence kernels (FB max-reduce, BW xi accumulation)
+// Relocated from transcendental_kernels.cpp (issue #58): the NEON vector block
+// from the original #if LIBHMM_HAS_* cascade, plus the trailing scalar loop as
+// its tail. Copied character-for-character from the original cascade block —
+// this TU cannot be compiled on x86; CI's macOS/AArch64 leg validates it.
+// ============================================================================
+
+// reduce_max_sum2: max of (a[i] + b[i])
+double reduce_max_sum2_neon(const double *a, const double *b, std::size_t size) noexcept {
+    std::size_t i = 0;
+    double maxVal = -std::numeric_limits<double>::infinity();
+    {
+        float64x2_t vmax = vdupq_n_f64(maxVal);
+        for (; i + 2 <= size; i += 2) {
+            float64x2_t va = vld1q_f64(a + i);
+            float64x2_t vb = vld1q_f64(b + i);
+            vmax = vmaxq_f64(vmax, vaddq_f64(va, vb));
+        }
+        maxVal = vmaxvq_f64(vmax);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+// sum_exp_sum2_minus_max
+double sum_exp_sum2_minus_max_neon(const double *a, const double *b, std::size_t size,
+                                   double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    std::size_t i = 0;
+    double sum = 0.0;
+    {
+        const float64x2_t vmaxv = vdupq_n_f64(maxVal);
+        float64x2_t vsum = vdupq_n_f64(0.0);
+        for (; i + 2 <= size; i += 2) {
+            float64x2_t va = vld1q_f64(a + i);
+            float64x2_t vb = vld1q_f64(b + i);
+            float64x2_t term = vsubq_f64(vaddq_f64(va, vb), vmaxv);
+            vsum = vaddq_f64(vsum, exp_pd(term));
+        }
+        sum += vaddvq_f64(vsum);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+// reduce_max_sum3: max of (a[i] + b[i] + c[i])
+double reduce_max_sum3_neon(const double *a, const double *b, const double *c,
+                            std::size_t size) noexcept {
+    std::size_t i = 0;
+    double maxVal = -std::numeric_limits<double>::infinity();
+    {
+        float64x2_t vmax = vdupq_n_f64(maxVal);
+        for (; i + 2 <= size; i += 2) {
+            float64x2_t va = vld1q_f64(a + i);
+            float64x2_t vb = vld1q_f64(b + i);
+            float64x2_t vc = vld1q_f64(c + i);
+            vmax = vmaxq_f64(vmax, vaddq_f64(vaddq_f64(va, vb), vc));
+        }
+        maxVal = vmaxvq_f64(vmax);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+// sum_exp_sum3_minus_max: sum of exp(a[i]+b[i]+c[i] - maxVal)
+double sum_exp_sum3_minus_max_neon(const double *a, const double *b, const double *c,
+                                   std::size_t size, double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    std::size_t i = 0;
+    double sum = 0.0;
+    {
+        const float64x2_t vmaxv = vdupq_n_f64(maxVal);
+        float64x2_t vsum = vdupq_n_f64(0.0);
+        for (; i + 2 <= size; i += 2) {
+            float64x2_t va = vld1q_f64(a + i);
+            float64x2_t vb = vld1q_f64(b + i);
+            float64x2_t vc = vld1q_f64(c + i);
+            float64x2_t term = vsubq_f64(vaddq_f64(vaddq_f64(va, vb), vc), vmaxv);
+            vsum = vaddq_f64(vsum, exp_pd(term));
+        }
+        sum += vaddvq_f64(vsum);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+// accumulate_exp_sum2_bias: dst[i] += exp(a[i] + b[i] + bias)
+void accumulate_exp_sum2_bias_neon(double *dst, const double *a, const double *b, std::size_t size,
+                                   double bias) noexcept {
+    std::size_t i = 0;
+    {
+        const float64x2_t vbias = vdupq_n_f64(bias);
+        for (; i + 2 <= size; i += 2) {
+            float64x2_t vd = vld1q_f64(dst + i);
+            float64x2_t va = vld1q_f64(a + i);
+            float64x2_t vb = vld1q_f64(b + i);
+            float64x2_t arg = vaddq_f64(vaddq_f64(va, vb), vbias);
+            vd = vaddq_f64(vd, exp_pd(arg));
+            vst1q_f64(dst + i, vd);
+        }
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        dst[i] += std::exp(a[i] + b[i] + bias);
+    }
+}
+
+// log1p_inplace: v[i] = log1p(v[i])
+void log1p_inplace_neon(double *data, std::size_t size) noexcept {
+    std::size_t i = 0;
+    for (; i + 2 <= size; i += 2) {
+        float64x2_t v = vld1q_f64(data + i);
+        v = log1p_pd(v);
+        vst1q_f64(data + i, v);
+    }
+    for (; i < size; ++i) {
+        data[i] = std::log1p(data[i]);
+    }
+}
+
 } // namespace libhmm::performance::detail
 
 #endif // AArch64 guard

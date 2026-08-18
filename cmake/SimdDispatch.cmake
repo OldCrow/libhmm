@@ -152,21 +152,13 @@ set(LIBHMM_SIMD_SOURCES
     src/distributions/weibull_distribution.cpp
     src/distributions/von_mises_distribution.cpp)
 
-# Additional TUs that include transcendental_kernels.h and therefore need LIBHMM_BEST_SIMD_FLAGS to
-# activate the #if LIBHMM_HAS_* cascade. Both scalar and MV explicit-instantiation TUs are compiled
-# with SIMD flags so the shared transition recurrence and xi accumulation kernel benefit from
-# vectorisation.
-list(
-    APPEND
-    LIBHMM_SIMD_SOURCES
-    src/performance/transcendental_kernels.cpp
-    src/calculators/forward_backward_calculator.cpp
-    src/calculators/forward_backward_calculator_mv.cpp
-    src/training/baum_welch_trainer.cpp
-    src/training/baum_welch_trainer_mv.cpp
-    # MapBaumWelchTrainer calls accumulate_exp_sum2_bias — needs SIMD flags.
-    src/training/map_baum_welch_trainer.cpp
-    src/training/map_baum_welch_trainer_mv.cpp)
+# NOTE: transcendental_kernels.cpp, the FB calculator TUs (scalar + MV), and the BW/MAP-BW trainer
+# TUs (scalar + MV) used to be appended here because they included transcendental_kernels.h and
+# needed LIBHMM_BEST_SIMD_FLAGS to activate its #if LIBHMM_HAS_* cascade. Issue #58 moved that
+# cascade's per-ISA bodies into the runtime-dispatched simd_double_ops_*.cpp TUs below; those seven
+# TUs now hold no intrinsics — their hot loops go through the DoubleVecOps dispatch table via
+# TranscendentalKernels — so they compile at the platform baseline ISA like any other TU and are no
+# longer listed here.
 
 # Runtime-dispatched distribution wrappers no longer contain SIMD intrinsics; they call through the
 # DoubleVecOps table. Remove them from LIBHMM_SIMD_SOURCES so -march=native is not applied to those

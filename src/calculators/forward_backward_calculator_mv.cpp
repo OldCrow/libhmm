@@ -1,6 +1,7 @@
 // Explicit instantiation of BasicForwardBackwardCalculator<ObservationVectorView> (MV path).
-// Compiled with LIBHMM_BEST_SIMD_FLAGS so the shared transition recurrence
-// benefits from SIMD acceleration alongside the scalar specialisation.
+// The shared transition recurrence it calls (TranscendentalKernels) routes through
+// the runtime-dispatched DoubleVecOps table (issue #58); this TU itself compiles
+// at the platform baseline ISA.
 
 #include "libhmm/calculators/basic_forward_backward_calculator.h"
 #include "libhmm/performance/transcendental_kernels.h"

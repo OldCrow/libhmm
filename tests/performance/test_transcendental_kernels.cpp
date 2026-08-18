@@ -10,9 +10,20 @@
 //
 // The test binary is compiled with LIBHMM_BEST_SIMD_FLAGS (see CMakeLists.txt
 // Performance Primitives section), so the active SIMD path matches the production library.
+//
+// Section 8 below (TranscendentalKernelsTierParity) additionally calls the per-ISA
+// symbols in libhmm::performance::detail (<name>_scalar/_sse2/_avx2/_avx512/_neon,
+// relocated from this TU into the runtime-dispatch TUs under issue #58) DIRECTLY,
+// bypassing TranscendentalKernels and the DoubleVecOps dispatch table entirely, so
+// each compiled-in tier's vector body is exercised regardless of which tier the
+// CPUID-selected dispatch table would pick at runtime. Each tier is compared
+// against the scalar tier's own output (not against a fresh stdlib computation),
+// since summation trees legitimately differ across tiers and only their overall
+// agreement with the scalar path is being checked here.
 
 #include "libhmm/performance/transcendental_kernels.h"
 #include "libhmm/math/constants.h"
+#include "libhmm/platform/cpu_detection.h"
 
 #include <gtest/gtest.h>
 
@@ -20,7 +31,82 @@
 #include <limits>
 #include <numeric>
 #include <span>
+#include <string>
 #include <vector>
+
+// ---------------------------------------------------------------------------
+// Forward declarations of the per-ISA transcendental/recurrence kernels.
+// Defined in src/performance/simd_double_ops_{scalar,sse2,avx2,avx512,neon}.cpp;
+// the scalar tier is always compiled in, the others only when the corresponding
+// LIBHMM_BUILD_*_KERNEL compile definition is set (tests/CMakeLists.txt wires
+// this test target's compile definitions from LIBHMM_DISPATCH_DEFINES).
+// ---------------------------------------------------------------------------
+namespace libhmm::performance::detail {
+
+double reduce_max_sum2_scalar(const double *a, const double *b, std::size_t size) noexcept;
+double sum_exp_sum2_minus_max_scalar(const double *a, const double *b, std::size_t size,
+                                     double maxVal) noexcept;
+double reduce_max_sum3_scalar(const double *a, const double *b, const double *c,
+                              std::size_t size) noexcept;
+double sum_exp_sum3_minus_max_scalar(const double *a, const double *b, const double *c,
+                                     std::size_t size, double maxVal) noexcept;
+void accumulate_exp_sum2_bias_scalar(double *dst, const double *a, const double *b,
+                                     std::size_t size, double bias) noexcept;
+void log1p_inplace_scalar(double *data, std::size_t size) noexcept;
+
+#if defined(LIBHMM_BUILD_SSE2_KERNEL)
+double reduce_max_sum2_sse2(const double *a, const double *b, std::size_t size) noexcept;
+double sum_exp_sum2_minus_max_sse2(const double *a, const double *b, std::size_t size,
+                                   double maxVal) noexcept;
+double reduce_max_sum3_sse2(const double *a, const double *b, const double *c,
+                            std::size_t size) noexcept;
+double sum_exp_sum3_minus_max_sse2(const double *a, const double *b, const double *c,
+                                   std::size_t size, double maxVal) noexcept;
+void accumulate_exp_sum2_bias_sse2(double *dst, const double *a, const double *b, std::size_t size,
+                                   double bias) noexcept;
+void log1p_inplace_sse2(double *data, std::size_t size) noexcept;
+#endif
+
+#if defined(LIBHMM_BUILD_AVX2_KERNEL)
+double reduce_max_sum2_avx2(const double *a, const double *b, std::size_t size) noexcept;
+double sum_exp_sum2_minus_max_avx2(const double *a, const double *b, std::size_t size,
+                                   double maxVal) noexcept;
+double reduce_max_sum3_avx2(const double *a, const double *b, const double *c,
+                            std::size_t size) noexcept;
+double sum_exp_sum3_minus_max_avx2(const double *a, const double *b, const double *c,
+                                   std::size_t size, double maxVal) noexcept;
+void accumulate_exp_sum2_bias_avx2(double *dst, const double *a, const double *b, std::size_t size,
+                                   double bias) noexcept;
+void log1p_inplace_avx2(double *data, std::size_t size) noexcept;
+#endif
+
+#if defined(LIBHMM_BUILD_AVX512_KERNEL)
+double reduce_max_sum2_avx512(const double *a, const double *b, std::size_t size) noexcept;
+double sum_exp_sum2_minus_max_avx512(const double *a, const double *b, std::size_t size,
+                                     double maxVal) noexcept;
+double reduce_max_sum3_avx512(const double *a, const double *b, const double *c,
+                              std::size_t size) noexcept;
+double sum_exp_sum3_minus_max_avx512(const double *a, const double *b, const double *c,
+                                     std::size_t size, double maxVal) noexcept;
+void accumulate_exp_sum2_bias_avx512(double *dst, const double *a, const double *b,
+                                     std::size_t size, double bias) noexcept;
+void log1p_inplace_avx512(double *data, std::size_t size) noexcept;
+#endif
+
+#if defined(LIBHMM_BUILD_NEON_KERNEL)
+double reduce_max_sum2_neon(const double *a, const double *b, std::size_t size) noexcept;
+double sum_exp_sum2_minus_max_neon(const double *a, const double *b, std::size_t size,
+                                   double maxVal) noexcept;
+double reduce_max_sum3_neon(const double *a, const double *b, const double *c,
+                            std::size_t size) noexcept;
+double sum_exp_sum3_minus_max_neon(const double *a, const double *b, const double *c,
+                                   std::size_t size, double maxVal) noexcept;
+void accumulate_exp_sum2_bias_neon(double *dst, const double *a, const double *b, std::size_t size,
+                                   double bias) noexcept;
+void log1p_inplace_neon(double *data, std::size_t size) noexcept;
+#endif
+
+} // namespace libhmm::performance::detail
 
 namespace {
 
@@ -420,5 +506,149 @@ TEST(TranscendentalKernels, RoundTrip_LogSumExp2) {
             << "reconstructed log-sum-exp should be finite (n=" << n << ")";
     }
 }
+
+// =========================================================================
+// 8. Per-tier equivalence: each compiled-in ISA's free functions vs. scalar.
+//
+// Sizes are chosen to be non-multiples of any lane count (7, 13, 33) plus the
+// 0 and 1 edge cases, so every tier's scalar-tail path is exercised alongside
+// its vector body. Summation trees legitimately differ across tiers, so
+// comparison uses a relative tolerance of ~1e-12, not bitwise equality.
+// =========================================================================
+
+namespace pd = libhmm::performance::detail;
+
+const std::vector<std::size_t> TIER_TEST_SIZES = {0, 1, 7, 13, 33};
+
+// Relative-tolerance comparison used throughout this section (1e-12), distinct
+// from check_scalar's absolute-fallback semantics: -inf vs -inf is always fine,
+// otherwise relative error against the scalar-tier value must be <= 1e-12.
+static void check_tier_scalar(double got, double scalarRef, const char *label) {
+    if (std::isinf(scalarRef) && std::isinf(got)) {
+        EXPECT_EQ(std::signbit(scalarRef), std::signbit(got)) << label << ": sign mismatch at -inf";
+        return;
+    }
+    const double diff = std::abs(got - scalarRef);
+    if (scalarRef != 0.0) {
+        EXPECT_LE(diff / std::abs(scalarRef), 1e-12)
+            << label << ": relative error too large  got=" << got << " scalarRef=" << scalarRef;
+    } else {
+        EXPECT_LE(diff, 1e-15) << label << ": absolute error too large  got=" << got
+                               << " scalarRef=" << scalarRef;
+    }
+}
+
+// Runs all six kernels' tier-vs-scalar comparison for one compiled-in tier.
+// Template on the six function pointers so the SSE2/AVX2/AVX512/NEON blocks
+// below are each a short, uniform instantiation rather than five copies of
+// this ~40-line body.
+template <typename ReduceMax2Fn, typename SumExp2Fn, typename ReduceMax3Fn, typename SumExp3Fn,
+          typename AccumFn, typename Log1pFn>
+static void run_tier_parity(const char *tier_name, ReduceMax2Fn reduce_max_sum2_tier,
+                            SumExp2Fn sum_exp_sum2_minus_max_tier,
+                            ReduceMax3Fn reduce_max_sum3_tier,
+                            SumExp3Fn sum_exp_sum3_minus_max_tier,
+                            AccumFn accumulate_exp_sum2_bias_tier, Log1pFn log1p_inplace_tier) {
+    for (std::size_t n : TIER_TEST_SIZES) {
+        auto a = make_mixed(n, 0.0);
+        auto b = make_mixed(n, -1.5);
+        auto c = make_mixed(n, -2.7);
+
+        // reduce_max_sum2
+        {
+            double ref = pd::reduce_max_sum2_scalar(a.data(), b.data(), n);
+            double got = reduce_max_sum2_tier(a.data(), b.data(), n);
+            check_tier_scalar(got, ref, (std::string(tier_name) + "/reduce_max_sum2").c_str());
+        }
+        // sum_exp_sum2_minus_max
+        {
+            double maxVal = pd::reduce_max_sum2_scalar(a.data(), b.data(), n);
+            double ref = pd::sum_exp_sum2_minus_max_scalar(a.data(), b.data(), n, maxVal);
+            double got = sum_exp_sum2_minus_max_tier(a.data(), b.data(), n, maxVal);
+            check_tier_scalar(got, ref,
+                              (std::string(tier_name) + "/sum_exp_sum2_minus_max").c_str());
+        }
+        // reduce_max_sum3
+        {
+            double ref = pd::reduce_max_sum3_scalar(a.data(), b.data(), c.data(), n);
+            double got = reduce_max_sum3_tier(a.data(), b.data(), c.data(), n);
+            check_tier_scalar(got, ref, (std::string(tier_name) + "/reduce_max_sum3").c_str());
+        }
+        // sum_exp_sum3_minus_max
+        {
+            double maxVal = pd::reduce_max_sum3_scalar(a.data(), b.data(), c.data(), n);
+            double ref = pd::sum_exp_sum3_minus_max_scalar(a.data(), b.data(), c.data(), n, maxVal);
+            double got = sum_exp_sum3_minus_max_tier(a.data(), b.data(), c.data(), n, maxVal);
+            check_tier_scalar(got, ref,
+                              (std::string(tier_name) + "/sum_exp_sum3_minus_max").c_str());
+        }
+        // accumulate_exp_sum2_bias
+        {
+            std::vector<double> dst_ref(n, 0.25);
+            std::vector<double> dst_got(n, 0.25);
+            pd::accumulate_exp_sum2_bias_scalar(dst_ref.data(), a.data(), b.data(), n, -3.0);
+            accumulate_exp_sum2_bias_tier(dst_got.data(), a.data(), b.data(), n, -3.0);
+            check_array(dst_got, dst_ref,
+                        (std::string(tier_name) + "/accumulate_exp_sum2_bias").c_str());
+        }
+        // log1p_inplace: domain requires x > -1; production callers pass finite x >= 0.
+        // Spread covers both the small-|x| polynomial path and the general path.
+        {
+            std::vector<double> src(n);
+            for (std::size_t i = 0; i < n; ++i) {
+                src[i] = (i % 7 == 0) ? 1e-10 : 0.01 * static_cast<double>(i + 1);
+            }
+            std::vector<double> ref = src;
+            std::vector<double> got = src;
+            pd::log1p_inplace_scalar(ref.data(), n);
+            log1p_inplace_tier(got.data(), n);
+            check_log1p_array(got, ref, (std::string(tier_name) + "/log1p_inplace").c_str());
+        }
+    }
+}
+
+#if defined(LIBHMM_BUILD_SSE2_KERNEL)
+TEST(TranscendentalKernelsTierParity, Sse2MatchesScalar) {
+    if (!libhmm::platform::supports_sse2()) {
+        GTEST_SKIP() << "SSE2 not supported on this CPU";
+    }
+    run_tier_parity("sse2", pd::reduce_max_sum2_sse2, pd::sum_exp_sum2_minus_max_sse2,
+                    pd::reduce_max_sum3_sse2, pd::sum_exp_sum3_minus_max_sse2,
+                    pd::accumulate_exp_sum2_bias_sse2, pd::log1p_inplace_sse2);
+}
+#endif
+
+#if defined(LIBHMM_BUILD_AVX2_KERNEL)
+TEST(TranscendentalKernelsTierParity, Avx2MatchesScalar) {
+    if (!libhmm::platform::supports_avx2()) {
+        GTEST_SKIP() << "AVX2 not supported on this CPU";
+    }
+    run_tier_parity("avx2", pd::reduce_max_sum2_avx2, pd::sum_exp_sum2_minus_max_avx2,
+                    pd::reduce_max_sum3_avx2, pd::sum_exp_sum3_minus_max_avx2,
+                    pd::accumulate_exp_sum2_bias_avx2, pd::log1p_inplace_avx2);
+}
+#endif
+
+#if defined(LIBHMM_BUILD_AVX512_KERNEL)
+TEST(TranscendentalKernelsTierParity, Avx512MatchesScalar) {
+    if (!libhmm::platform::supports_avx512()) {
+        GTEST_SKIP() << "AVX-512 not supported on this CPU";
+    }
+    run_tier_parity("avx512", pd::reduce_max_sum2_avx512, pd::sum_exp_sum2_minus_max_avx512,
+                    pd::reduce_max_sum3_avx512, pd::sum_exp_sum3_minus_max_avx512,
+                    pd::accumulate_exp_sum2_bias_avx512, pd::log1p_inplace_avx512);
+}
+#endif
+
+#if defined(LIBHMM_BUILD_NEON_KERNEL)
+TEST(TranscendentalKernelsTierParity, NeonMatchesScalar) {
+    // NEON is the mandatory AArch64 baseline ISA — always available when this
+    // TU is compiled in, so no libhmm::platform::supports_neon() runtime gate
+    // is needed (unlike the x86 tiers above, which are CPUID-conditional).
+    run_tier_parity("neon", pd::reduce_max_sum2_neon, pd::sum_exp_sum2_minus_max_neon,
+                    pd::reduce_max_sum3_neon, pd::sum_exp_sum3_minus_max_neon,
+                    pd::accumulate_exp_sum2_bias_neon, pd::log1p_inplace_neon);
+}
+#endif
 
 } // anonymous namespace

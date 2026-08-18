@@ -8,13 +8,19 @@
  * @brief SIMD-accelerated inner-loop kernels for FB max-reduce and BW xi accumulation.
  *
  * Declares six static methods on TranscendentalKernels. Implementations live in
- * src/performance/transcendental_kernels.cpp and are compiled with
- * LIBHMM_BEST_SIMD_FLAGS, activating the appropriate #if LIBHMM_HAS_* cascade:
+ * src/performance/transcendental_kernels.cpp, which is now a thin wrapper: each
+ * method forwards through the runtime-dispatched DoubleVecOps table
+ * (libhmm::performance::get_double_vec_ops(), see performance/simd_double_ops.h)
+ * selected once at startup via CPUID (issue #58). The actual per-ISA kernel
+ * bodies live in the five simd_double_ops_{scalar,sse2,avx2,avx512,neon}.cpp
+ * TUs, each compiled with a targeted per-file flag:
  *   AVX-512  8-wide __m512d
  *   AVX/AVX2 4-wide __m256d  (AVX-1 compatible; AVX2 compiler fuses FMA)
  *   SSE2     2-wide __m128d
  *   NEON     2-wide float64x2_t
  *   scalar   tail / fallback
+ * This header itself declares no SIMD types and stays std-only; TranscendentalKernels'
+ * TU compiles at the platform baseline ISA rather than under LIBHMM_BEST_SIMD_FLAGS.
  *
  * Active ISA diagnostics use libhmm::performance::simd::feature_string() and
  * double_vector_width() from simd_platform.h — consistent with the rest of the library.

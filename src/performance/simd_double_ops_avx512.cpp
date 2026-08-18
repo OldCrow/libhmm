@@ -400,6 +400,148 @@ void vonmises_batch_avx512(const double *obs, double *out, std::size_t n, double
     }
 }
 
+// ============================================================================
+// Transcendental / recurrence kernels (FB max-reduce, BW xi accumulation)
+// Relocated from transcendental_kernels.cpp (issue #58): the AVX-512 vector
+// block from the original #if LIBHMM_HAS_* cascade, plus the trailing scalar
+// loop as its tail.
+// ============================================================================
+
+// reduce_max_sum2: max of (a[i] + b[i])
+double reduce_max_sum2_avx512(const double *a, const double *b, std::size_t size) noexcept {
+    std::size_t i = 0;
+    double maxVal;
+    {
+        __m512d vmax = _mm512_set1_pd(-std::numeric_limits<double>::infinity());
+        for (; i + 8 <= size; i += 8) {
+            __m512d va = _mm512_loadu_pd(a + i);
+            __m512d vb = _mm512_loadu_pd(b + i);
+            vmax = _mm512_max_pd(vmax, _mm512_add_pd(va, vb));
+        }
+        maxVal = _mm512_reduce_max_pd(vmax);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+// sum_exp_sum2_minus_max
+double sum_exp_sum2_minus_max_avx512(const double *a, const double *b, std::size_t size,
+                                     double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    std::size_t i = 0;
+    double sum = 0.0;
+    {
+        const __m512d vmaxv = _mm512_set1_pd(maxVal);
+        __m512d vsum = _mm512_setzero_pd();
+        for (; i + 8 <= size; i += 8) {
+            __m512d va = _mm512_loadu_pd(a + i);
+            __m512d vb = _mm512_loadu_pd(b + i);
+            __m512d term = _mm512_sub_pd(_mm512_add_pd(va, vb), vmaxv);
+            vsum = _mm512_add_pd(vsum, exp_pd(term));
+        }
+        sum += _mm512_reduce_add_pd(vsum);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+// reduce_max_sum3: max of (a[i] + b[i] + c[i])
+double reduce_max_sum3_avx512(const double *a, const double *b, const double *c,
+                              std::size_t size) noexcept {
+    std::size_t i = 0;
+    double maxVal;
+    {
+        __m512d vmax = _mm512_set1_pd(-std::numeric_limits<double>::infinity());
+        for (; i + 8 <= size; i += 8) {
+            __m512d va = _mm512_loadu_pd(a + i);
+            __m512d vb = _mm512_loadu_pd(b + i);
+            __m512d vc = _mm512_loadu_pd(c + i);
+            vmax = _mm512_max_pd(vmax, _mm512_add_pd(_mm512_add_pd(va, vb), vc));
+        }
+        maxVal = _mm512_reduce_max_pd(vmax);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+// sum_exp_sum3_minus_max: sum of exp(a[i]+b[i]+c[i] - maxVal)
+double sum_exp_sum3_minus_max_avx512(const double *a, const double *b, const double *c,
+                                     std::size_t size, double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    std::size_t i = 0;
+    double sum = 0.0;
+    {
+        const __m512d vmaxv = _mm512_set1_pd(maxVal);
+        __m512d vsum = _mm512_setzero_pd();
+        for (; i + 8 <= size; i += 8) {
+            __m512d va = _mm512_loadu_pd(a + i);
+            __m512d vb = _mm512_loadu_pd(b + i);
+            __m512d vc = _mm512_loadu_pd(c + i);
+            __m512d term = _mm512_sub_pd(_mm512_add_pd(_mm512_add_pd(va, vb), vc), vmaxv);
+            vsum = _mm512_add_pd(vsum, exp_pd(term));
+        }
+        sum += _mm512_reduce_add_pd(vsum);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+// accumulate_exp_sum2_bias: dst[i] += exp(a[i] + b[i] + bias)
+void accumulate_exp_sum2_bias_avx512(double *dst, const double *a, const double *b,
+                                     std::size_t size, double bias) noexcept {
+    std::size_t i = 0;
+    {
+        const __m512d vbias = _mm512_set1_pd(bias);
+        for (; i + 8 <= size; i += 8) {
+            __m512d vd = _mm512_loadu_pd(dst + i);
+            __m512d va = _mm512_loadu_pd(a + i);
+            __m512d vb = _mm512_loadu_pd(b + i);
+            __m512d arg = _mm512_add_pd(_mm512_add_pd(va, vb), vbias);
+            vd = _mm512_add_pd(vd, exp_pd(arg));
+            _mm512_storeu_pd(dst + i, vd);
+        }
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        dst[i] += std::exp(a[i] + b[i] + bias);
+    }
+}
+
+// log1p_inplace: v[i] = log1p(v[i])
+void log1p_inplace_avx512(double *data, std::size_t size) noexcept {
+    std::size_t i = 0;
+    for (; i + 8 <= size; i += 8) {
+        __m512d v = _mm512_loadu_pd(data + i);
+        v = log1p_pd(v);
+        _mm512_storeu_pd(data + i, v);
+    }
+    for (; i < size; ++i) {
+        data[i] = std::log1p(data[i]);
+    }
+}
+
 } // namespace libhmm::performance::detail
 
 #endif // x86 guard

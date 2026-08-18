@@ -159,6 +159,12 @@ if(GTest_FOUND OR TARGET gtest)
             performance/test_transcendental_kernels.cpp
             PROPERTIES COMPILE_FLAGS "${LIBHMM_BEST_SIMD_FLAGS}")
     endif()
+    # Per-tier equivalence tests (issue #58) call the per-ISA transcendental kernel
+    # symbols directly and need to know which LIBHMM_BUILD_*_KERNEL tiers were
+    # actually compiled in, mirroring how simd_dispatch.cpp consumes this variable.
+    if(LIBHMM_DISPATCH_DEFINES)
+        target_compile_definitions(test_transcendental_kernels PRIVATE ${LIBHMM_DISPATCH_DEFINES})
+    endif()
 
     # =========================================================================
     # Distributions

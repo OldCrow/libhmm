@@ -125,3 +125,6 @@ apache-ant-*/
 # IDE caches and generated index files
 .cache/
 *.synctex.gz
+
+# Python venv for generator scripts (scripts/gen_*.py)
+.venv/

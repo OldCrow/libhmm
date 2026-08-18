@@ -36,6 +36,16 @@ static inline __m128d sse2_cos_2pd(__m128d x) noexcept {
     return cos_pd(x);
 }
 
+// Horizontal reduction helpers for the transcendental recurrence kernels below.
+static inline double hmax_pd_sse2(__m128d v) noexcept {
+    __m128d shuf = _mm_shuffle_pd(v, v, 1);
+    return _mm_cvtsd_f64(_mm_max_pd(v, shuf));
+}
+static inline double hadd_pd_sse2(__m128d v) noexcept {
+    __m128d shuf = _mm_shuffle_pd(v, v, 1);
+    return _mm_cvtsd_f64(_mm_add_pd(v, shuf));
+}
+
 // gaussian: log_norm + neg_half_inv_sq * (x - mean)^2, NaN/Inf → -Inf.
 void gaussian_batch_sse2(const double *obs, double *out, std::size_t n, double mean,
                          double neg_half_inv_sq, double log_norm) noexcept {
@@ -403,6 +413,145 @@ void vonmises_batch_sse2(const double *obs, double *out, std::size_t n, double m
     for (; i < n; ++i) {
         const double x = obs[i];
         out[i] = (!std::isfinite(x)) ? neg_inf : kappa * std::cos(x - mu) - log_normaliser;
+    }
+}
+
+// ---- Transcendental / recurrence kernels (FB max-reduce, BW xi accumulation) ----
+// Relocated from transcendental_kernels.cpp (issue #58): the SSE2 vector block from
+// the original #if LIBHMM_HAS_* cascade, plus the trailing scalar loop as its tail.
+
+// reduce_max_sum2: max of (a[i] + b[i])
+double reduce_max_sum2_sse2(const double *a, const double *b, std::size_t size) noexcept {
+    std::size_t i = 0;
+    double maxVal = -std::numeric_limits<double>::infinity();
+    {
+        __m128d vmax = _mm_set1_pd(maxVal);
+        for (; i + 2 <= size; i += 2) {
+            __m128d va = _mm_loadu_pd(a + i);
+            __m128d vb = _mm_loadu_pd(b + i);
+            vmax = _mm_max_pd(vmax, _mm_add_pd(va, vb));
+        }
+        maxVal = hmax_pd_sse2(vmax);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+// sum_exp_sum2_minus_max
+double sum_exp_sum2_minus_max_sse2(const double *a, const double *b, std::size_t size,
+                                   double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    std::size_t i = 0;
+    double sum = 0.0;
+    {
+        const __m128d vmaxv = _mm_set1_pd(maxVal);
+        __m128d vsum = _mm_setzero_pd();
+        for (; i + 2 <= size; i += 2) {
+            __m128d va = _mm_loadu_pd(a + i);
+            __m128d vb = _mm_loadu_pd(b + i);
+            __m128d term = _mm_sub_pd(_mm_add_pd(va, vb), vmaxv);
+            vsum = _mm_add_pd(vsum, exp_pd(term));
+        }
+        sum += hadd_pd_sse2(vsum);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+// reduce_max_sum3: max of (a[i] + b[i] + c[i])
+double reduce_max_sum3_sse2(const double *a, const double *b, const double *c,
+                            std::size_t size) noexcept {
+    std::size_t i = 0;
+    double maxVal = -std::numeric_limits<double>::infinity();
+    {
+        __m128d vmax = _mm_set1_pd(maxVal);
+        for (; i + 2 <= size; i += 2) {
+            __m128d va = _mm_loadu_pd(a + i);
+            __m128d vb = _mm_loadu_pd(b + i);
+            __m128d vc = _mm_loadu_pd(c + i);
+            vmax = _mm_max_pd(vmax, _mm_add_pd(_mm_add_pd(va, vb), vc));
+        }
+        maxVal = hmax_pd_sse2(vmax);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+// sum_exp_sum3_minus_max: sum of exp(a[i]+b[i]+c[i] - maxVal)
+double sum_exp_sum3_minus_max_sse2(const double *a, const double *b, const double *c,
+                                   std::size_t size, double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    std::size_t i = 0;
+    double sum = 0.0;
+    {
+        const __m128d vmaxv = _mm_set1_pd(maxVal);
+        __m128d vsum = _mm_setzero_pd();
+        for (; i + 2 <= size; i += 2) {
+            __m128d va = _mm_loadu_pd(a + i);
+            __m128d vb = _mm_loadu_pd(b + i);
+            __m128d vc = _mm_loadu_pd(c + i);
+            __m128d term = _mm_sub_pd(_mm_add_pd(_mm_add_pd(va, vb), vc), vmaxv);
+            vsum = _mm_add_pd(vsum, exp_pd(term));
+        }
+        sum += hadd_pd_sse2(vsum);
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+// accumulate_exp_sum2_bias: dst[i] += exp(a[i] + b[i] + bias)
+void accumulate_exp_sum2_bias_sse2(double *dst, const double *a, const double *b, std::size_t size,
+                                   double bias) noexcept {
+    std::size_t i = 0;
+    {
+        const __m128d vbias = _mm_set1_pd(bias);
+        for (; i + 2 <= size; i += 2) {
+            __m128d vd = _mm_loadu_pd(dst + i);
+            __m128d va = _mm_loadu_pd(a + i);
+            __m128d vb = _mm_loadu_pd(b + i);
+            __m128d arg = _mm_add_pd(_mm_add_pd(va, vb), vbias);
+            vd = _mm_add_pd(vd, exp_pd(arg));
+            _mm_storeu_pd(dst + i, vd);
+        }
+    }
+    // Scalar tail.
+    for (; i < size; ++i) {
+        dst[i] += std::exp(a[i] + b[i] + bias);
+    }
+}
+
+// log1p_inplace: v[i] = log1p(v[i])
+void log1p_inplace_sse2(double *data, std::size_t size) noexcept {
+    std::size_t i = 0;
+    for (; i + 2 <= size; i += 2) {
+        __m128d v = _mm_loadu_pd(data + i);
+        v = log1p_pd(v);
+        _mm_storeu_pd(data + i, v);
+    }
+    for (; i < size; ++i) {
+        data[i] = std::log1p(data[i]);
     }
 }
 

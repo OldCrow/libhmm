@@ -171,4 +171,71 @@ void vonmises_batch_scalar(const double *obs, double *out, std::size_t n, double
     }
 }
 
+// ---- Transcendental / recurrence kernels (FB max-reduce, BW xi accumulation) ----
+// Relocated from transcendental_kernels.cpp (issue #58). The scalar tier is exactly
+// the trailing scalar loop that also served as the vector tail in the original
+// #if LIBHMM_HAS_* cascade.
+
+double reduce_max_sum2_scalar(const double *a, const double *b, std::size_t size) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    double maxVal = neg_inf;
+    for (std::size_t i = 0; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+double sum_exp_sum2_minus_max_scalar(const double *a, const double *b, std::size_t size,
+                                     double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    double sum = 0.0;
+    for (std::size_t i = 0; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+double reduce_max_sum3_scalar(const double *a, const double *b, const double *c,
+                              std::size_t size) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    double maxVal = neg_inf;
+    for (std::size_t i = 0; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+double sum_exp_sum3_minus_max_scalar(const double *a, const double *b, const double *c,
+                                     std::size_t size, double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    double sum = 0.0;
+    for (std::size_t i = 0; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+void accumulate_exp_sum2_bias_scalar(double *dst, const double *a, const double *b,
+                                     std::size_t size, double bias) noexcept {
+    for (std::size_t i = 0; i < size; ++i) {
+        dst[i] += std::exp(a[i] + b[i] + bias);
+    }
+}
+
+void log1p_inplace_scalar(double *data, std::size_t size) noexcept {
+    for (std::size_t i = 0; i < size; ++i) {
+        data[i] = std::log1p(data[i]);
+    }
+}
+
 } // namespace libhmm::performance::detail

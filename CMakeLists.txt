@@ -143,8 +143,10 @@ option(LIBHMM_WERROR "Treat compiler warnings as errors (-Werror / /WX)" OFF)
 # Use this when building distributable wheels so they do not SIGILL on machines
 # with a lower ISA than the build host.  Runtime-dispatched tier-2 distribution
 # kernels (DoubleVecOps) are unaffected and continue to dispatch at full speed.
-# Local builds should leave this OFF.  See GitHub issue #58 for the long-term
-# plan to extend tier-2 dispatch to the affected TUs (no performance trade-off).
+# Local builds should leave this OFF.  Issue #58 extended tier-2 dispatch to the
+# FB/BW/transcendental recurrence path, so LIBHMM_SIMD_SOURCES' remaining scope
+# is the distribution batch-override TUs only — that path now runtime-dispatches
+# too, with no portability trade-off left to make.
 option(LIBHMM_PORTABLE "Portable baseline ISA for LIBHMM_SIMD_SOURCES (for distributable wheels; OFF by default)" OFF)
 include(CheckCXXSourceCompiles)
 
