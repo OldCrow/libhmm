@@ -30,7 +30,7 @@
   LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
 
 ## GitHub Synchronization [DERIVED]
-Last reconciled against live GitHub state: 2026-08-16.
+Last reconciled against live GitHub state: 2026-08-18.
 - GitHub is the collaborator-facing source for issues and milestones; this
   PLAN.md is the agent-facing durable project state. Keep both in sync.
 - When creating, closing, reopening, retitling, or moving a GitHub issue or
@@ -59,13 +59,15 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 
 - v4.3.0 — Numerical Correctness & Build Contract (CLOSED, #3): 0 open / 6
   closed — #63, #70, #72, #73, #75, #76. Shipped 2026-08-16.
-- v4.4.0 — Training & Core Usability (open, #1): 6 open / 0 closed.
+- v4.4.0 — Training & Core Usability (open, #1): 4 open / 2 closed.
   - #43 OPEN — feat: BasicHmm::clone() — deep copy for restarts, checkpointing, and ensemble methods.
   - #44 OPEN — feat: HMM-level sequence sampling — sample(hmm, T, rng).
   - #45 OPEN — feat: multi-restart training — fit_best_of_n() for robust EM convergence.
   - #46 OPEN — feat: HMM topology constraints — left-to-right, banded, and skip topologies.
   - #48 OPEN — perf: parallel E-step accumulation across sequences using ThreadPool.
-  - #58 OPEN — perf: extend tier-2 runtime ISA dispatch to FB/BW/transcendental TUs (wheel portability without performance cost).
+  - #58 CLOSED 2026-08-18 — tier-2 dispatch extension; shipped on dev/v4.4.0.
+  - #74 CLOSED 2026-08-18 — clean-room cos/sin + ULP gates; moved onto this
+    milestone at closure (it ships in v4.4.0), shipped on dev/v4.4.0.
 - v4.5.0 — Algorithm Coverage (open, #2): 3 open / 0 closed.
   - #47 OPEN — feat: GMMDistribution — Gaussian Mixture Model emission for multimodal states.
   - #51 OPEN — feat: online/streaming forward calculator — incremental α update for real-time inference.
@@ -75,8 +77,8 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 - Open issues without milestone:
   - #50 OPEN — feat: Hidden Semi-Markov Model (HSMM) with explicit duration distributions.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
-  - #74 OPEN — accuracy: SIMD `cos_pd` is ~2e-10 at every tier, and there is no
-    `sin_pd`. Deliberately unmilestoned — see Numerical Defect Triage below.
+  - #77 OPEN — accuracy: log1p_batch doc claims small-|x| accuracy its
+    add-then-log implementation cannot deliver (filed 2026-08-18, untriaged).
 - Closed issues without milestone: 20 as of 2026-07-18. Note #63/#70/#72/#73/
   #75/#76 were moved ONTO the new v4.3.0 milestone at release, so they are no
   longer in this section; their detail lives in Numerical Defect Triage below.
@@ -142,10 +144,12 @@ Bessel ratio is — the defect is the formulation).
   never exercised Tier 1. It turned `main` red for one commit, which is the
   correct outcome and not a reason to soften the guard. Expect more of this
   shape — defects that were always there and are only now reachable by a test.
-  Still open from #76 and NOT closed by its fix: a deliberate sweep for other
-  `noexcept` wrappers around `std::` functions that can throw on a domain
-  error. `psi_functions.h` is hand-rolled so it has no throw path, but nothing
-  was audited systematically. Fold it into the #74 pass.
+  The follow-up sweep folded into the #74 pass (done 2026-08-18): the C++17
+  special-math family — the only `std::` math functions that throw — appears
+  ONLY in `math/bessel.h`, and every call site there is |x|-normalized by
+  this fix; overflow (κ > ~713) returns inf without throwing and the #73
+  ratio/log-split paths avoid it anyway. No other `noexcept` wrapper in the
+  repo fronts a throwing `std::` function.
 - **#75 — DONE 2026-08-16. Found while writing #72's tests, and it is why #72
   survived.** `LIBHMM_HAS_CXX17_BESSEL` was `PRIVATE` to `hmm_objects`, so no
   test TU had ever compiled Tier 1 — the existing `BesselFunctions.*` tests
