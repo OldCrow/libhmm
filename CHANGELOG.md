@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`BasicHmm::clone()` — explicit deep copy (#43).** Independent transition
+  matrix, initial-state vector, and cloned emission distributions (null
+  emission slots stay null); the copy constructor stays deleted so the
+  allocation cost remains visible at call sites. `clone_hmm(const Hmm&)` /
+  `clone_hmm(const HmmMV&)` convenience functions in `hmm.h`. Unblocks
+  multi-restart training (#45), checkpointing, and ensembles.
+
 ### Changed
 - **Runtime ISA dispatch now covers the FB/BW/transcendental path (#58).**
   The six `TranscendentalKernels` kernels (FB max-reduce recurrence, BW xi

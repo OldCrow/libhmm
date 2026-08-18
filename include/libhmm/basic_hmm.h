@@ -122,6 +122,30 @@ public:
     BasicHmm &operator=(BasicHmm &&) = default;
 
     // =========================================================================
+    // Deep copy
+    // =========================================================================
+
+    /**
+     * @brief Explicit deep copy: independent transition matrix, initial-state
+     *        vector, and cloned emission distributions (issue #43).
+     *
+     * The copy constructor stays deleted on purpose — copying an HMM
+     * allocates and deep-copies every emission distribution, and clone()
+     * keeps that cost visible at call sites (multi-restart training,
+     * checkpointing, ensembles). Emission slots that are still null
+     * (non-scalar HMMs before setDistribution()) stay null in the copy.
+     */
+    [[nodiscard]] BasicHmm clone() const {
+        BasicHmm copy(states_);
+        copy.trans_ = trans_;
+        copy.pi_ = pi_;
+        for (std::size_t i = 0; i < states_; ++i) {
+            copy.emis_[i] = emis_[i] ? emis_[i]->clone() : nullptr;
+        }
+        return copy;
+    }
+
+    // =========================================================================
     // Setters
     // =========================================================================
 

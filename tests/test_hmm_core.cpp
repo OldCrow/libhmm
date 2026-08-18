@@ -193,6 +193,77 @@ TEST(MvHmmCoreTest, GetDistributionConstNullSlotThrows) {
     EXPECT_THROW((void)chmm.getDistribution(0), std::runtime_error);
 }
 
+// ============================================================================
+// clone() — explicit deep copy (issue #43)
+// ============================================================================
+
+TEST(HmmCloneTest, CloneIsDeepAndIndependent) {
+    Hmm original(2);
+    Matrix trans(2, 2);
+    trans(0, 0) = 0.9;
+    trans(0, 1) = 0.1;
+    trans(1, 0) = 0.2;
+    trans(1, 1) = 0.8;
+    original.setTrans(trans);
+    Vector pi(2);
+    pi(0) = 0.6;
+    pi(1) = 0.4;
+    original.setPi(pi);
+    original.setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
+    original.setDistribution(1, std::make_unique<GaussianDistribution>(5.0, 2.0));
+
+    Hmm copy = original.clone();
+
+    // The copy starts equal...
+    EXPECT_EQ(copy.getNumStatesModern(), original.getNumStatesModern());
+    EXPECT_DOUBLE_EQ(copy.getTrans()(0, 0), 0.9);
+    EXPECT_DOUBLE_EQ(copy.getPi()(0), 0.6);
+    EXPECT_DOUBLE_EQ(copy.getDistribution(0).getLogProbability(0.0),
+                     original.getDistribution(0).getLogProbability(0.0));
+
+    // ...and mutating it does not touch the original: matrices,
+    Matrix trans2(2, 2);
+    trans2(0, 0) = 0.5;
+    trans2(0, 1) = 0.5;
+    trans2(1, 0) = 0.5;
+    trans2(1, 1) = 0.5;
+    copy.setTrans(trans2);
+    Vector pi2(2);
+    pi2(0) = 0.1;
+    pi2(1) = 0.9;
+    copy.setPi(pi2);
+    EXPECT_DOUBLE_EQ(original.getTrans()(0, 0), 0.9);
+    EXPECT_DOUBLE_EQ(original.getPi()(0), 0.6);
+
+    // ...and distributions (replace state 0's on the copy; original keeps its own object).
+    copy.setDistribution(0, std::make_unique<GaussianDistribution>(100.0, 1.0));
+    EXPECT_NE(&original.getDistribution(0), &copy.getDistribution(0));
+    EXPECT_DOUBLE_EQ(original.getDistribution(0).getLogProbability(0.0),
+                     GaussianDistribution(0.0, 1.0).getLogProbability(0.0));
+}
+
+TEST(HmmCloneTest, CloneMVDeepCopiesSetSlotsAndKeepsNullSlotsNull) {
+    HmmMV original(2);
+    original.setDistribution(0, std::make_unique<DiagonalGaussianDistribution>(2));
+    // Slot 1 deliberately left null (pre-setDistribution state).
+
+    HmmMV copy = original.clone();
+
+    // Set slot deep-copied: distinct objects, both usable.
+    EXPECT_NO_THROW((void)copy.getDistribution(0));
+    EXPECT_NE(&original.getDistribution(0), &copy.getDistribution(0));
+    // Null slot stays null in the copy, and stays null in the original.
+    EXPECT_THROW((void)copy.getDistribution(1), std::runtime_error);
+    EXPECT_THROW((void)original.getDistribution(1), std::runtime_error);
+
+    // clone_hmm convenience alias compiles and deep-copies for both aliases.
+    HmmMV copy2 = clone_hmm(original);
+    EXPECT_NE(&original.getDistribution(0), &copy2.getDistribution(0));
+    Hmm scalar(2);
+    Hmm scalarCopy = clone_hmm(scalar);
+    EXPECT_EQ(scalarCopy.getNumStatesModern(), 2u);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

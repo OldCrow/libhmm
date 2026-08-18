@@ -107,6 +107,48 @@ TEST_F(BaumWelchConvergenceTest, LogLikelihoodImproves) {
     EXPECT_GT(final_ll, initial_ll);
 }
 
+// ---------------------------------------------------------------------------
+// clone() under training (issue #43 acceptance): two clones of one initial
+// model, trained independently, diverge — and training one leaves the other
+// (and the original) untouched.
+// ---------------------------------------------------------------------------
+
+TEST_F(BaumWelchConvergenceTest, ClonesTrainIndependentlyAndCanDiverge) {
+    Hmm a = hmm_->clone();
+    Hmm b = hmm_->clone();
+
+    // Train a on the fixture data; train b on a differently-shaped set
+    // (heavy sixes), so the two EM runs pull the parameters apart.
+    ObservationLists heavySixes;
+    ObservationSet s(24);
+    for (std::size_t i = 0; i < 24; ++i)
+        s(i) = (i % 4 == 0) ? static_cast<double>(i % 3) : 5.0;
+    heavySixes.push_back(s);
+
+    BaumWelchTrainer ta(&a, obs_);
+    BaumWelchTrainer tb(&b, heavySixes);
+    for (int i = 0; i < 5; ++i) {
+        ta.train();
+        tb.train();
+    }
+
+    // The original is untouched by either run.
+    EXPECT_DOUBLE_EQ(hmm_->getTrans()(0, 0), 0.8);
+    EXPECT_DOUBLE_EQ(hmm_->getPi()(0), 0.6);
+
+    // The two trained clones diverged from each other.
+    bool diverged = false;
+    for (std::size_t i = 0; i < 2 && !diverged; ++i)
+        for (std::size_t j = 0; j < 2 && !diverged; ++j)
+            if (std::abs(a.getTrans()(i, j) - b.getTrans()(i, j)) > 1e-6)
+                diverged = true;
+    EXPECT_TRUE(diverged) << "independent training runs produced identical transition matrices";
+
+    // Both trained models remain valid.
+    EXPECT_NO_THROW(a.validate());
+    EXPECT_NO_THROW(b.validate());
+}
+
 TEST_F(BaumWelchConvergenceTest, HmmRemainsValidAfterTraining) {
     BaumWelchTrainer trainer(hmm_.get(), obs_);
     for (int i = 0; i < 5; ++i) {

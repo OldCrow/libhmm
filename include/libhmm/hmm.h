@@ -25,6 +25,16 @@ using Hmm = BasicHmm<double>;
 /// the default constructor leaves emission slots null for non-scalar Obs.
 using HmmMV = BasicHmm<ObservationVectorView>;
 
+/// @brief Explicit deep copy of a scalar HMM — see BasicHmm::clone() (#43).
+[[nodiscard]] inline Hmm clone_hmm(const Hmm &h) {
+    return h.clone();
+}
+
+/// @brief Explicit deep copy of a multivariate HMM — see BasicHmm::clone() (#43).
+[[nodiscard]] inline HmmMV clone_hmm(const HmmMV &h) {
+    return h.clone();
+}
+
 /// Legacy stream I/O operators (scalar HMM only).
 /// Prefer JSON I/O (hmm_json.h) for new code.
 std::ostream &operator<<(std::ostream &, const Hmm &);
