@@ -175,11 +175,13 @@ using CosSinFn = void (*)(const double *, double *, std::size_t) noexcept;
 // values are recorded back into the design doc — do not loosen without a
 // kernel fix; see the file banner.
 // -------------------------------------------------------------------------
-constexpr double kBudgetFma = 1.0;        // avx2 / avx512 / neon
-constexpr double kBudgetSse2 = 2.0;       // no FMA in the polynomial cores
-constexpr double kBudgetScalar = 4.0;     // platform libm (UCRT on Windows)
-constexpr double kBudgetSpecials = 4.0;   // libm fixup path, every tier
-constexpr double kBudgetDispatched = 4.0; // loosest applicable; tight budgets live above
+constexpr double kBudgetFma = 1.0; // avx2 / avx512 / neon
+// [[maybe_unused]]: the SSE2 gate compiles out on ARM builds (AppleClang
+// -Wunused-const-variable fires there); every x86 build uses it.
+[[maybe_unused]] constexpr double kBudgetSse2 = 2.0; // no FMA in the polynomial cores
+constexpr double kBudgetScalar = 4.0;                // platform libm (UCRT on Windows)
+constexpr double kBudgetSpecials = 4.0;              // libm fixup path, every tier
+constexpr double kBudgetDispatched = 4.0;            // loosest applicable; tight budgets live above
 
 struct GateResult {
     double cos_max = 0.0, cos_mean = 0.0;
