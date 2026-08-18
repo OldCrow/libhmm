@@ -10,7 +10,13 @@
 //   - src/performance/transcendental_kernels.cpp  (FB recurrence kernels)
 //
 // Replaces simd_kernels_internal.h, which used older polynomial approximations.
-// All implementations here are SLEEF-based (log/exp < 1 ULP; cos ~2e-10).
+// log/exp are SLEEF-based (< 1 ULP). cos/sin use a clean-room quadrant-reduction
+// kernel (issue #74; ported from libstats, same owner, MIT, no third-party
+// source) for |x| <= kTrigDMax (2^23); accuracy sub-ULP on FMA tiers, slightly
+// worse on plain-arithmetic SSE2 (see per-overload comments below). cos_pd/
+// sin_pd are register-level primitives only — see the domain-contract comment
+// at each overload; the oversized-input scalar fixup lives in the cos_batch/
+// sin_batch callers in src/performance/simd_double_ops_*.cpp.
 //
 // Include only from .cpp files compiled with the appropriate SIMD flags.
 // The ISA-specific sections are guarded by LIBHMM_HAS_* macros from simd_platform.h.
@@ -38,6 +44,16 @@
 #endif
 
 namespace libhmm::detail::simd {
+
+// Clean-room quadrant-reduction cos/sin constants (issue #74), shared by every
+// ISA section below — the values are plain doubles with no vector-register
+// dependency, so one include here covers all four tiers without duplication
+// beyond the ordinary per-TU inclusion of this header. Ported from libstats'
+// scripts/gen_neon_trig_cleanroom_table.py (same owner, MIT, clean-room
+// derived; no third-party source) — see that project's
+// docs/NEON_TRIG_DERIVATION.md for the mathematics. Regenerate via
+// scripts/gen_trig_cleanroom_table.py; never hand-edit the .inc.
+#include "libhmm/detail/trig_cleanroom_data.inc"
 
 #if defined(LIBHMM_HAS_SSE2)
 // SSE2 blend helper — no _mm_blendv_pd before SSE4.1.
@@ -161,45 +177,96 @@ namespace libhmm::detail::simd {
     return _mm512_mul_pd(poly, _mm512_castsi512_pd(ebits));
 }
 
-// 7-term Horner cosine, max error ≈ 1×10⁻¹⁰.
-[[nodiscard]] static inline __m512d cos_pd(__m512d x) noexcept {
-    constexpr double kPi = 3.141592653589793238462643383279502884;
-    constexpr double kHalfPi = 1.5707963267948966192313216916397514421;
-    const __m512d inv2pi = _mm512_set1_pd(1.0 / (2.0 * kPi));
-    const __m512d two_pi = _mm512_set1_pd(2.0 * kPi);
-    const __m512d pi = _mm512_set1_pd(kPi);
-    const __m512d half_pi = _mm512_set1_pd(kHalfPi);
-    const __m512d neg_pi = _mm512_set1_pd(-kPi);
-    const __m512d nhalf_pi = _mm512_set1_pd(-kHalfPi);
-    const __m512d one = _mm512_set1_pd(1.0);
-    const __m512d neg_one = _mm512_set1_pd(-1.0);
-    const __m512d c1 = _mm512_set1_pd(-0.5);
-    const __m512d c2 = _mm512_set1_pd(4.166666666666667e-2);
-    const __m512d c3 = _mm512_set1_pd(-1.388888888888889e-3);
-    const __m512d c4 = _mm512_set1_pd(2.480158730158730e-5);
-    const __m512d c5 = _mm512_set1_pd(-2.755731922398589e-7);
-    const __m512d c6 = _mm512_set1_pd(2.087675698786810e-9);
-    const __m512d c7 = _mm512_set1_pd(-1.147074559772973e-11);
+// Clean-room quadrant-reduction cos/sin (issue #74): x = n*(pi/2) + r,
+// n = round(x*2/pi), compensated reduction into (r, rlo) via the 4-part
+// exact-product pi/2 split (kTrigPio2), degree-6 parity cores
+// sin(r) = r + r*(u*P(u)), cos(r) = 1 + u*Q(u) with the leading 1-u/2 kept as
+// an exact head+tail pair, u = r*r. See docs at kTrigDMax's definition site
+// (trig_cleanroom_data.inc) and libstats' docs/NEON_TRIG_DERIVATION.md.
+// _mm512_cvtepi32_epi64 requires AVX-512F; _mm512_xor_pd requires AVX-512DQ
+// (this TU is compiled with -mavx512f -mavx512dq / /arch:AVX512).
 
-    __m512d q = _mm512_roundscale_pd(_mm512_mul_pd(x, inv2pi), _MM_FROUND_TO_NEAREST_INT);
-    __m512d y = _mm512_sub_pd(x, _mm512_mul_pd(q, two_pi));
-    __m512d sign = one;
-    __mmask8 gt = _mm512_cmp_pd_mask(y, half_pi, _CMP_GT_OQ);
-    __mmask8 lt = _mm512_cmp_pd_mask(y, nhalf_pi, _CMP_LT_OQ);
-    y = _mm512_mask_blend_pd(gt, y, _mm512_sub_pd(pi, y));
-    sign = _mm512_mask_blend_pd(gt, sign, neg_one);
-    y = _mm512_mask_blend_pd(lt, y, _mm512_sub_pd(neg_pi, y));
-    sign = _mm512_mask_blend_pd(lt, sign, neg_one);
-    __m512d y2 = _mm512_mul_pd(y, y);
-    __m512d poly = c7;
-    poly = _mm512_fmadd_pd(y2, poly, c6);
-    poly = _mm512_fmadd_pd(y2, poly, c5);
-    poly = _mm512_fmadd_pd(y2, poly, c4);
-    poly = _mm512_fmadd_pd(y2, poly, c3);
-    poly = _mm512_fmadd_pd(y2, poly, c2);
-    poly = _mm512_fmadd_pd(y2, poly, c1);
-    poly = _mm512_fmadd_pd(y2, poly, one);
-    return _mm512_mul_pd(poly, sign);
+// Reduction shared by cos_pd/sin_pd: n32 = round-to-nearest-even(x*2/pi) via
+// the cvt round-trip (exact-product lemma holds for |n| <= 5,340,354, i.e.
+// |x| <= kTrigDMax = 2^23); r/rlo carry the reduced argument compensated.
+static inline void trig_reduce_8pd(__m512d x, __m512d &r, __m512d &rlo, __m512i &n64) noexcept {
+    const __m256i n32 = _mm512_cvtpd_epi32(_mm512_mul_pd(x, _mm512_set1_pd(kTrigTwoOverPi)));
+    const __m512d nf = _mm512_cvtepi32_pd(n32); // exact
+    n64 = _mm512_cvtepi32_epi64(n32);
+
+    r = _mm512_fnmadd_pd(nf, _mm512_set1_pd(kTrigPio2[0]), x); // exact (step 1)
+    rlo = _mm512_setzero_pd();
+    for (int k = 1; k < 4; ++k) {
+        const __m512d pk = _mm512_set1_pd(kTrigPio2[k]);
+        const __m512d rk = _mm512_fnmadd_pd(nf, pk, r);
+        const __m512d e = _mm512_fnmadd_pd(nf, pk, _mm512_sub_pd(r, rk));
+        rlo = _mm512_add_pd(rlo, e);
+        r = rk;
+    }
+}
+
+// Degree-6 minimax parity cores on u = r*r; cos's 1 - u/2 head is split into
+// an exact (h, hl) pair (kTrigCosC[0] == -0.5 exactly, generator-asserted).
+static inline void trig_cores_8pd(__m512d r, __m512d rlo, __m512d &s_core,
+                                  __m512d &c_core) noexcept {
+    const __m512d u = _mm512_mul_pd(r, r);
+
+    __m512d ps = _mm512_set1_pd(kTrigSinC[6]);
+    for (int i = 5; i >= 0; --i)
+        ps = _mm512_fmadd_pd(ps, u, _mm512_set1_pd(kTrigSinC[i]));
+    s_core = _mm512_add_pd(r, _mm512_fmadd_pd(_mm512_mul_pd(r, u), ps, rlo));
+
+    __m512d pc = _mm512_set1_pd(kTrigCosC[6]);
+    for (int i = 5; i >= 1; --i)
+        pc = _mm512_fmadd_pd(pc, u, _mm512_set1_pd(kTrigCosC[i]));
+    const __m512d one = _mm512_set1_pd(1.0);
+    const __m512d half = _mm512_set1_pd(0.5);
+    const __m512d h = _mm512_fnmadd_pd(u, half, one);                    // 1 - u/2, exact
+    const __m512d hl = _mm512_fnmadd_pd(u, half, _mm512_sub_pd(one, h)); // (1-h) - u/2, exact
+    __m512d mc = _mm512_fmadd_pd(_mm512_mul_pd(u, u), pc, hl);
+    mc = _mm512_fnmadd_pd(r, rlo, mc); // first-order effect of compensated reduction
+    c_core = _mm512_add_pd(h, mc);
+}
+
+// cos(x) for |x| <= kTrigDMax (2^23) only — NOT valid for larger |x| or Inf
+// (the batch wrapper's scalar fixup handles those); NaN self-propagates.
+// Quadrant table: q=0:+c 1:-s 2:-c 3:+s -> swap core on bit0, sign on
+// bit1 XOR bit0 (both taken from the low bits of n's two's-complement form).
+[[nodiscard]] static inline __m512d cos_pd(__m512d x) noexcept {
+    __m512d r, rlo;
+    __m512i n64;
+    trig_reduce_8pd(x, r, rlo, n64);
+    __m512d s_core, c_core;
+    trig_cores_8pd(r, rlo, s_core, c_core);
+
+    const __m512i one_i = _mm512_set1_epi64(1);
+    const __mmask8 swap = _mm512_test_epi64_mask(n64, one_i);
+    const __m512i bit0 = _mm512_and_si512(n64, one_i);
+    const __m512i bit1 = _mm512_and_si512(_mm512_srli_epi64(n64, 1), one_i);
+    const __m512i sign_bit = _mm512_xor_si512(bit1, bit0);
+    const __m512d cv = _mm512_mask_blend_pd(swap, c_core, s_core);
+    const __m512d sign_v = _mm512_castsi512_pd(_mm512_slli_epi64(sign_bit, 63));
+    return _mm512_xor_pd(cv, sign_v);
+}
+
+// sin(x) for |x| <= kTrigDMax (2^23) only — see cos_pd's domain-contract
+// comment above; identical caveats apply. Quadrant table: q=0:+s 1:+c 2:-s
+// 3:-c -> swap core on bit0 (opposite selection order from cos_pd), sign on
+// bit1 alone. Computed from the quadrant table directly, NOT cos(x - pi/2)
+// (that composition loses accuracy through the extra subtraction).
+[[nodiscard]] static inline __m512d sin_pd(__m512d x) noexcept {
+    __m512d r, rlo;
+    __m512i n64;
+    trig_reduce_8pd(x, r, rlo, n64);
+    __m512d s_core, c_core;
+    trig_cores_8pd(r, rlo, s_core, c_core);
+
+    const __m512i one_i = _mm512_set1_epi64(1);
+    const __mmask8 swap = _mm512_test_epi64_mask(n64, one_i);
+    const __m512i bit1 = _mm512_and_si512(_mm512_srli_epi64(n64, 1), one_i);
+    const __m512d sv = _mm512_mask_blend_pd(swap, s_core, c_core);
+    const __m512d sign_v = _mm512_castsi512_pd(_mm512_slli_epi64(bit1, 63));
+    return _mm512_xor_pd(sv, sign_v);
 }
 
 // log1p: log(1+x). Uses 8-term polynomial for |x|<1e-4 to avoid catastrophic
@@ -352,46 +419,82 @@ namespace libhmm::detail::simd {
     return _mm256_mul_pd(poly, scale);
 }
 
-// 7-term Horner cosine with FMA, max error ≈ 1×10⁻¹⁰.
-[[nodiscard]] static inline __m256d cos_pd(__m256d x) noexcept {
-    constexpr double kPi = 3.141592653589793238462643383279502884;
-    constexpr double kHalfPi = 1.5707963267948966192313216916397514421;
-    const __m256d inv2pi = _mm256_set1_pd(1.0 / (2.0 * kPi));
-    const __m256d two_pi = _mm256_set1_pd(2.0 * kPi);
-    const __m256d pi = _mm256_set1_pd(kPi);
-    const __m256d half_pi = _mm256_set1_pd(kHalfPi);
-    const __m256d neg_pi = _mm256_set1_pd(-kPi);
-    const __m256d nhalf_pi = _mm256_set1_pd(-kHalfPi);
-    const __m256d one = _mm256_set1_pd(1.0);
-    const __m256d neg_one = _mm256_set1_pd(-1.0);
-    const __m256d c1 = _mm256_set1_pd(-0.5);
-    const __m256d c2 = _mm256_set1_pd(4.166666666666667e-2);
-    const __m256d c3 = _mm256_set1_pd(-1.388888888888889e-3);
-    const __m256d c4 = _mm256_set1_pd(2.480158730158730e-5);
-    const __m256d c5 = _mm256_set1_pd(-2.755731922398589e-7);
-    const __m256d c6 = _mm256_set1_pd(2.087675698786810e-9);
-    const __m256d c7 = _mm256_set1_pd(-1.147074559772973e-11);
+// Clean-room quadrant-reduction cos/sin (issue #74) — see the AVX-512 section
+// above for the full derivation comment; identical algorithm, 4-wide.
 
-    __m256d q =
-        _mm256_round_pd(_mm256_mul_pd(x, inv2pi), _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
-    __m256d y = _mm256_sub_pd(x, _mm256_mul_pd(q, two_pi));
-    __m256d sign = one;
-    __m256d gt = _mm256_cmp_pd(y, half_pi, _CMP_GT_OQ);
-    __m256d lt = _mm256_cmp_pd(y, nhalf_pi, _CMP_LT_OQ);
-    y = _mm256_blendv_pd(y, _mm256_sub_pd(pi, y), gt);
-    sign = _mm256_blendv_pd(sign, neg_one, gt);
-    y = _mm256_blendv_pd(y, _mm256_sub_pd(neg_pi, y), lt);
-    sign = _mm256_blendv_pd(sign, neg_one, lt);
-    __m256d y2 = _mm256_mul_pd(y, y);
-    __m256d poly = c7;
-    poly = _mm256_fmadd_pd(y2, poly, c6);
-    poly = _mm256_fmadd_pd(y2, poly, c5);
-    poly = _mm256_fmadd_pd(y2, poly, c4);
-    poly = _mm256_fmadd_pd(y2, poly, c3);
-    poly = _mm256_fmadd_pd(y2, poly, c2);
-    poly = _mm256_fmadd_pd(y2, poly, c1);
-    poly = _mm256_fmadd_pd(y2, poly, one);
-    return _mm256_mul_pd(poly, sign);
+static inline void trig_reduce_4pd(__m256d x, __m256d &r, __m256d &rlo, __m256i &n64) noexcept {
+    const __m128i n32 = _mm256_cvtpd_epi32(_mm256_mul_pd(x, _mm256_set1_pd(kTrigTwoOverPi)));
+    const __m256d nf = _mm256_cvtepi32_pd(n32); // exact
+    n64 = _mm256_cvtepi32_epi64(n32);
+
+    r = _mm256_fnmadd_pd(nf, _mm256_set1_pd(kTrigPio2[0]), x); // exact (step 1)
+    rlo = _mm256_setzero_pd();
+    for (int k = 1; k < 4; ++k) {
+        const __m256d pk = _mm256_set1_pd(kTrigPio2[k]);
+        const __m256d rk = _mm256_fnmadd_pd(nf, pk, r);
+        const __m256d e = _mm256_fnmadd_pd(nf, pk, _mm256_sub_pd(r, rk));
+        rlo = _mm256_add_pd(rlo, e);
+        r = rk;
+    }
+}
+
+static inline void trig_cores_4pd(__m256d r, __m256d rlo, __m256d &s_core,
+                                  __m256d &c_core) noexcept {
+    const __m256d u = _mm256_mul_pd(r, r);
+
+    __m256d ps = _mm256_set1_pd(kTrigSinC[6]);
+    for (int i = 5; i >= 0; --i)
+        ps = _mm256_fmadd_pd(ps, u, _mm256_set1_pd(kTrigSinC[i]));
+    s_core = _mm256_add_pd(r, _mm256_fmadd_pd(_mm256_mul_pd(r, u), ps, rlo));
+
+    __m256d pc = _mm256_set1_pd(kTrigCosC[6]);
+    for (int i = 5; i >= 1; --i)
+        pc = _mm256_fmadd_pd(pc, u, _mm256_set1_pd(kTrigCosC[i]));
+    const __m256d one = _mm256_set1_pd(1.0);
+    const __m256d half = _mm256_set1_pd(0.5);
+    const __m256d h = _mm256_fnmadd_pd(u, half, one);
+    const __m256d hl = _mm256_fnmadd_pd(u, half, _mm256_sub_pd(one, h));
+    __m256d mc = _mm256_fmadd_pd(_mm256_mul_pd(u, u), pc, hl);
+    mc = _mm256_fnmadd_pd(r, rlo, mc);
+    c_core = _mm256_add_pd(h, mc);
+}
+
+// cos(x) for |x| <= kTrigDMax (2^23) only — see the AVX-512 cos_pd comment
+// for the domain contract and quadrant table; identical here, 4-wide.
+[[nodiscard]] static inline __m256d cos_pd(__m256d x) noexcept {
+    __m256d r, rlo;
+    __m256i n64;
+    trig_reduce_4pd(x, r, rlo, n64);
+    __m256d s_core, c_core;
+    trig_cores_4pd(r, rlo, s_core, c_core);
+
+    const __m256i one_i = _mm256_set1_epi64x(1);
+    const __m256i bit0 = _mm256_and_si256(n64, one_i);
+    const __m256i bit1 = _mm256_and_si256(_mm256_srli_epi64(n64, 1), one_i);
+    // all-ones iff bit0 set (0 - 1 = -1 = all-ones; 0 - 0 = 0), for blendv_pd's MSB test.
+    const __m256d swap_mask = _mm256_castsi256_pd(_mm256_sub_epi64(_mm256_setzero_si256(), bit0));
+    const __m256d cv = _mm256_blendv_pd(c_core, s_core, swap_mask);
+    const __m256i sign_bit = _mm256_xor_si256(bit1, bit0);
+    const __m256d sign_v = _mm256_castsi256_pd(_mm256_slli_epi64(sign_bit, 63));
+    return _mm256_xor_pd(cv, sign_v);
+}
+
+// sin(x) for |x| <= kTrigDMax (2^23) only — see the AVX-512 sin_pd comment
+// for the domain contract and quadrant table; identical here, 4-wide.
+[[nodiscard]] static inline __m256d sin_pd(__m256d x) noexcept {
+    __m256d r, rlo;
+    __m256i n64;
+    trig_reduce_4pd(x, r, rlo, n64);
+    __m256d s_core, c_core;
+    trig_cores_4pd(r, rlo, s_core, c_core);
+
+    const __m256i one_i = _mm256_set1_epi64x(1);
+    const __m256i bit0 = _mm256_and_si256(n64, one_i);
+    const __m256i bit1 = _mm256_and_si256(_mm256_srli_epi64(n64, 1), one_i);
+    const __m256d swap_mask = _mm256_castsi256_pd(_mm256_sub_epi64(_mm256_setzero_si256(), bit0));
+    const __m256d sv = _mm256_blendv_pd(s_core, c_core, swap_mask);
+    const __m256d sign_v = _mm256_castsi256_pd(_mm256_slli_epi64(bit1, 63));
+    return _mm256_xor_pd(sv, sign_v);
 }
 
 // log1p: 8-term polynomial for |x|<1e-4 to avoid catastrophic cancellation.
@@ -532,46 +635,93 @@ namespace libhmm::detail::simd {
     return sse2_blend(nan_mask, original, result);
 }
 
-// 7-term Horner cosine, magic-number range reduction.
-[[nodiscard]] static inline __m128d cos_pd(__m128d x) noexcept {
-    constexpr double kPi = 3.141592653589793238462643383279502884;
-    constexpr double kHalfPi = 1.5707963267948966192313216916397514421;
-    const __m128d inv2pi = _mm_set1_pd(1.0 / (2.0 * kPi));
-    const __m128d two_pi = _mm_set1_pd(2.0 * kPi);
-    const __m128d pi = _mm_set1_pd(kPi);
-    const __m128d half_pi = _mm_set1_pd(kHalfPi);
-    const __m128d neg_pi = _mm_set1_pd(-kPi);
-    const __m128d nhalf_pi = _mm_set1_pd(-kHalfPi);
-    const __m128d one = _mm_set1_pd(1.0);
-    const __m128d neg_one = _mm_set1_pd(-1.0);
-    const __m128d magic = _mm_set1_pd(6755399441055744.0);
-    const __m128d c1 = _mm_set1_pd(-0.5);
-    const __m128d c2 = _mm_set1_pd(4.166666666666667e-2);
-    const __m128d c3 = _mm_set1_pd(-1.388888888888889e-3);
-    const __m128d c4 = _mm_set1_pd(2.480158730158730e-5);
-    const __m128d c5 = _mm_set1_pd(-2.755731922398589e-7);
-    const __m128d c6 = _mm_set1_pd(2.087675698786810e-9);
-    const __m128d c7 = _mm_set1_pd(-1.147074559772973e-11);
+// Clean-room quadrant-reduction cos/sin (issue #74) — see the AVX-512 section
+// above for the full derivation comment. SSE2 has no FMA, so the reduction
+// and both cores use plain mul+add/mul+sub throughout; this is EXACTLY as
+// accurate as the FMA form here because every nf*p_k product in the
+// reduction, and the u*0.5 scaling in cos's head/tail split, is exact by the
+// 30-bit-split construction — a plain rounded add/sub after an exact
+// multiply commits the identical single rounding an FMA would. The only
+// accuracy cost is the ordinary Horner mul+add in the polynomial cores
+// (slightly worse rounding per step than FMA; expected ~1.5 ULP landing vs
+// ~0.8 for the FMA tiers, measured separately by the ULP gate task).
+// n32 has no SSE4.1 cvtepi32_epi64, so bit0/bit1 are read off a duplicated
+// 32-bit shuffle instead of a true 64-bit sign-extension (sufficient: only
+// the low 2 bits of each lane are ever inspected).
 
-    const __m128d q = _mm_sub_pd(_mm_add_pd(_mm_mul_pd(x, inv2pi), magic), magic);
-    __m128d y = _mm_sub_pd(x, _mm_mul_pd(q, two_pi));
-    __m128d sign = one;
-    const __m128d gt = _mm_cmpgt_pd(y, half_pi);
-    const __m128d lt = _mm_cmplt_pd(y, nhalf_pi);
-    y = sse2_blend(gt, _mm_sub_pd(pi, y), y);
-    sign = sse2_blend(gt, neg_one, sign);
-    y = sse2_blend(lt, _mm_sub_pd(neg_pi, y), y);
-    sign = sse2_blend(lt, neg_one, sign);
-    const __m128d y2 = _mm_mul_pd(y, y);
-    __m128d poly = c7;
-    poly = _mm_add_pd(c6, _mm_mul_pd(y2, poly));
-    poly = _mm_add_pd(c5, _mm_mul_pd(y2, poly));
-    poly = _mm_add_pd(c4, _mm_mul_pd(y2, poly));
-    poly = _mm_add_pd(c3, _mm_mul_pd(y2, poly));
-    poly = _mm_add_pd(c2, _mm_mul_pd(y2, poly));
-    poly = _mm_add_pd(c1, _mm_mul_pd(y2, poly));
-    poly = _mm_add_pd(one, _mm_mul_pd(y2, poly));
-    return _mm_mul_pd(poly, sign);
+static inline void trig_reduce_2pd(__m128d x, __m128d &r, __m128d &rlo, __m128i &n64) noexcept {
+    const __m128i n32 = _mm_cvtpd_epi32(_mm_mul_pd(x, _mm_set1_pd(kTrigTwoOverPi)));
+    const __m128d nf = _mm_cvtepi32_pd(n32); // exact
+    n64 = _mm_shuffle_epi32(n32, _MM_SHUFFLE(1, 1, 0, 0));
+
+    r = _mm_sub_pd(x, _mm_mul_pd(nf, _mm_set1_pd(kTrigPio2[0]))); // exact (step 1)
+    rlo = _mm_setzero_pd();
+    for (int k = 1; k < 4; ++k) {
+        const __m128d pk = _mm_set1_pd(kTrigPio2[k]);
+        const __m128d rk = _mm_sub_pd(r, _mm_mul_pd(nf, pk));
+        const __m128d e = _mm_sub_pd(_mm_sub_pd(r, rk), _mm_mul_pd(nf, pk));
+        rlo = _mm_add_pd(rlo, e);
+        r = rk;
+    }
+}
+
+static inline void trig_cores_2pd(__m128d r, __m128d rlo, __m128d &s_core,
+                                  __m128d &c_core) noexcept {
+    const __m128d u = _mm_mul_pd(r, r);
+
+    __m128d ps = _mm_set1_pd(kTrigSinC[6]);
+    for (int i = 5; i >= 0; --i)
+        ps = _mm_add_pd(_mm_set1_pd(kTrigSinC[i]), _mm_mul_pd(ps, u));
+    s_core = _mm_add_pd(r, _mm_add_pd(rlo, _mm_mul_pd(_mm_mul_pd(r, u), ps)));
+
+    __m128d pc = _mm_set1_pd(kTrigCosC[6]);
+    for (int i = 5; i >= 1; --i)
+        pc = _mm_add_pd(_mm_set1_pd(kTrigCosC[i]), _mm_mul_pd(pc, u));
+    const __m128d one = _mm_set1_pd(1.0);
+    const __m128d half = _mm_set1_pd(0.5);
+    const __m128d h = _mm_sub_pd(one, _mm_mul_pd(u, half));                 // 1 - u/2, exact
+    const __m128d hl = _mm_sub_pd(_mm_sub_pd(one, h), _mm_mul_pd(u, half)); // (1-h) - u/2, exact
+    __m128d mc = _mm_add_pd(hl, _mm_mul_pd(_mm_mul_pd(u, u), pc));
+    mc = _mm_sub_pd(mc, _mm_mul_pd(r, rlo));
+    c_core = _mm_add_pd(h, mc);
+}
+
+// cos(x) for |x| <= kTrigDMax (2^23) only — see the AVX-512 cos_pd comment
+// for the domain contract and quadrant table; identical here, 2-wide.
+[[nodiscard]] static inline __m128d cos_pd(__m128d x) noexcept {
+    __m128d r, rlo;
+    __m128i n64;
+    trig_reduce_2pd(x, r, rlo, n64);
+    __m128d s_core, c_core;
+    trig_cores_2pd(r, rlo, s_core, c_core);
+
+    const __m128i one_i = _mm_set1_epi64x(1);
+    const __m128i bit0 = _mm_and_si128(n64, one_i);
+    const __m128i bit1 = _mm_and_si128(_mm_srli_epi64(n64, 1), one_i);
+    // all-ones iff bit0 set (0 - 1 = -1 = all-ones; 0 - 0 = 0), for sse2_blend.
+    const __m128d swap_mask = _mm_castsi128_pd(_mm_sub_epi64(_mm_setzero_si128(), bit0));
+    const __m128d cv = sse2_blend(swap_mask, s_core, c_core);
+    const __m128i sign_bit = _mm_xor_si128(bit1, bit0);
+    const __m128d sign_v = _mm_castsi128_pd(_mm_slli_epi64(sign_bit, 63));
+    return _mm_xor_pd(cv, sign_v);
+}
+
+// sin(x) for |x| <= kTrigDMax (2^23) only — see the AVX-512 sin_pd comment
+// for the domain contract and quadrant table; identical here, 2-wide.
+[[nodiscard]] static inline __m128d sin_pd(__m128d x) noexcept {
+    __m128d r, rlo;
+    __m128i n64;
+    trig_reduce_2pd(x, r, rlo, n64);
+    __m128d s_core, c_core;
+    trig_cores_2pd(r, rlo, s_core, c_core);
+
+    const __m128i one_i = _mm_set1_epi64x(1);
+    const __m128i bit0 = _mm_and_si128(n64, one_i);
+    const __m128i bit1 = _mm_and_si128(_mm_srli_epi64(n64, 1), one_i);
+    const __m128d swap_mask = _mm_castsi128_pd(_mm_sub_epi64(_mm_setzero_si128(), bit0));
+    const __m128d sv = sse2_blend(swap_mask, c_core, s_core);
+    const __m128d sign_v = _mm_castsi128_pd(_mm_slli_epi64(bit1, 63));
+    return _mm_xor_pd(sv, sign_v);
 }
 
 // log1p: 8-term polynomial for |x|<1e-4. No FMA on SSE2 — uses mul+add.
@@ -709,45 +859,99 @@ namespace libhmm::detail::simd {
     return vmulq_f64(poly, vreinterpretq_f64_s64(exp_bits));
 }
 
-// 7-term Horner cosine, max error ≈ 2×10⁻¹⁰.
-[[nodiscard]] static inline float64x2_t cos_pd(float64x2_t x) noexcept {
-    constexpr double kPi = 3.141592653589793238462643383279502884;
-    constexpr double kHalfPi = 1.5707963267948966192313216916397514421;
-    const float64x2_t inv2pi = vdupq_n_f64(1.0 / (2.0 * kPi));
-    const float64x2_t two_pi = vdupq_n_f64(2.0 * kPi);
-    const float64x2_t pi = vdupq_n_f64(kPi);
-    const float64x2_t half_pi = vdupq_n_f64(kHalfPi);
-    const float64x2_t neg_pi = vdupq_n_f64(-kPi);
-    const float64x2_t nhalf_pi = vdupq_n_f64(-kHalfPi);
-    const float64x2_t one = vdupq_n_f64(1.0);
-    const float64x2_t neg_one = vdupq_n_f64(-1.0);
-    const float64x2_t c1 = vdupq_n_f64(-0.5);
-    const float64x2_t c2 = vdupq_n_f64(4.166666666666667e-2);
-    const float64x2_t c3 = vdupq_n_f64(-1.388888888888889e-3);
-    const float64x2_t c4 = vdupq_n_f64(2.480158730158730e-5);
-    const float64x2_t c5 = vdupq_n_f64(-2.755731922398589e-7);
-    const float64x2_t c6 = vdupq_n_f64(2.087675698786810e-9);
-    const float64x2_t c7 = vdupq_n_f64(-1.147074559772973e-11);
+// Clean-room quadrant-reduction cos/sin (issue #74) — see the AVX-512 section
+// above for the full derivation comment; this NEON port keeps the libstats
+// vector_cos_neon expressions verbatim (same owner, MIT, no third-party
+// source; see libstats' docs/NEON_TRIG_DERIVATION.md), factored into a
+// shared reduce/cores pair plus each of cos_pd/sin_pd doing its own
+// quadrant recombination so sin comes from the quadrant table directly
+// (never cos(x - pi/2), which would lose accuracy through the extra
+// subtraction).
 
-    float64x2_t q = vrndnq_f64(vmulq_f64(x, inv2pi));
-    float64x2_t y = vsubq_f64(x, vmulq_f64(q, two_pi));
-    float64x2_t sign = one;
-    uint64x2_t gt = vcgtq_f64(y, half_pi);
-    uint64x2_t lt = vcltq_f64(y, nhalf_pi);
-    y = vbslq_f64(gt, vsubq_f64(pi, y), y);
-    sign = vbslq_f64(gt, neg_one, sign);
-    y = vbslq_f64(lt, vsubq_f64(neg_pi, y), y);
-    sign = vbslq_f64(lt, neg_one, sign);
-    float64x2_t y2 = vmulq_f64(y, y);
-    float64x2_t poly = c7;
-    poly = vfmaq_f64(c6, y2, poly);
-    poly = vfmaq_f64(c5, y2, poly);
-    poly = vfmaq_f64(c4, y2, poly);
-    poly = vfmaq_f64(c3, y2, poly);
-    poly = vfmaq_f64(c2, y2, poly);
-    poly = vfmaq_f64(c1, y2, poly);
-    poly = vfmaq_f64(one, y2, poly);
-    return vmulq_f64(poly, sign);
+static inline void trig_reduce_2pd(float64x2_t x, float64x2_t &r, float64x2_t &rlo,
+                                   int64x2_t &n) noexcept {
+    // reduction: n = round(x * 2/pi); r = x - n*pi/2 via exact split parts.
+    // Step 1 is always exact (exact product + Sterbenz); steps 2..4 are
+    // compensated: when a step rounds, cancellation was small, so
+    // (r_prev - r_new) is exact and e recovers the rounding error exactly.
+    const float64x2_t nf = vrndnq_f64(vmulq_f64(x, vdupq_n_f64(kTrigTwoOverPi)));
+    n = vcvtq_s64_f64(nf); // nf is integral; conversion exact
+    r = vfmsq_f64(x, nf, vdupq_n_f64(kTrigPio2[0]));
+    rlo = vdupq_n_f64(0.0);
+    for (int k = 1; k < 4; ++k) {
+        const float64x2_t pk = vdupq_n_f64(kTrigPio2[k]);
+        const float64x2_t rk = vfmsq_f64(r, nf, pk);
+        const float64x2_t e = vfmsq_f64(vsubq_f64(r, rk), nf, pk);
+        rlo = vaddq_f64(rlo, e);
+        r = rk;
+    }
+}
+
+static inline void trig_cores_2pd(float64x2_t r, float64x2_t rlo, float64x2_t &s_core,
+                                  float64x2_t &c_core) noexcept {
+    const float64x2_t u = vmulq_f64(r, r);
+
+    // sin core: s = r + (r*u*P(u) + rlo)
+    float64x2_t ps = vdupq_n_f64(kTrigSinC[6]);
+    for (int i = 5; i >= 0; --i)
+        ps = vfmaq_f64(vdupq_n_f64(kTrigSinC[i]), ps, u);
+    s_core = vaddq_f64(r, vfmaq_f64(rlo, vmulq_f64(r, u), ps));
+
+    // cos core: split the leading 1 - u/2 into an exact head+tail pair
+    // (h = fl(1 - u/2); hl = (1 - h) - u/2, both steps exact by Sterbenz/
+    // cancellation), accumulate every correction at ~2^-54 magnitude, and
+    // pay only the final add's rounding. Q[0] == -1/2 exactly (generator-
+    // asserted), so no c0 remainder term is needed. The -r*rlo term is the
+    // first-order effect of the compensated reduction on cos.
+    float64x2_t pc = vdupq_n_f64(kTrigCosC[6]);
+    for (int i = 5; i >= 1; --i)
+        pc = vfmaq_f64(vdupq_n_f64(kTrigCosC[i]), pc, u);
+    const float64x2_t one = vdupq_n_f64(1.0);
+    const float64x2_t half = vdupq_n_f64(0.5);
+    const float64x2_t h = vfmsq_f64(one, u, half);
+    const float64x2_t hl = vfmsq_f64(vsubq_f64(one, h), u, half);
+    float64x2_t mc = vfmaq_f64(hl, vmulq_f64(u, u), pc);
+    mc = vfmsq_f64(mc, r, rlo);
+    c_core = vaddq_f64(h, mc);
+}
+
+// cos(x) for |x| <= kTrigDMax (2^23) only — NOT valid for larger |x| or Inf
+// (the batch wrapper's per-lane scalar fixup handles those); NaN
+// self-propagates through the polynomial path (vcvtq of NaN is defined on
+// aarch64, so it is safe going in). Quadrant table: q=0:+c 1:-s 2:-c 3:+s ->
+// swap core on bit0, sign on bit1 XOR bit0 (two's-complement low bits of n
+// give n mod 4).
+[[nodiscard]] static inline float64x2_t cos_pd(float64x2_t x) noexcept {
+    float64x2_t r, rlo;
+    int64x2_t n;
+    trig_reduce_2pd(x, r, rlo, n);
+    float64x2_t s_core, c_core;
+    trig_cores_2pd(r, rlo, s_core, c_core);
+
+    const uint64x2_t qu = vreinterpretq_u64_s64(n);
+    const uint64x2_t swap = vtstq_u64(qu, vdupq_n_u64(1));
+    const uint64x2_t sgn =
+        vshlq_n_u64(vandq_u64(veorq_u64(vshrq_n_u64(qu, 1), qu), vdupq_n_u64(1)), 63);
+    const float64x2_t cv = vbslq_f64(swap, s_core, c_core);
+    return vreinterpretq_f64_u64(veorq_u64(vreinterpretq_u64_f64(cv), sgn));
+}
+
+// sin(x) for |x| <= kTrigDMax (2^23) only — see cos_pd's domain-contract
+// comment above; identical caveats apply. Quadrant table: q=0:+s 1:+c 2:-s
+// 3:-c -> swap core on bit0 (opposite selection order from cos_pd), sign on
+// bit1 alone. Computed from the quadrant table directly, NOT cos(x - pi/2).
+[[nodiscard]] static inline float64x2_t sin_pd(float64x2_t x) noexcept {
+    float64x2_t r, rlo;
+    int64x2_t n;
+    trig_reduce_2pd(x, r, rlo, n);
+    float64x2_t s_core, c_core;
+    trig_cores_2pd(r, rlo, s_core, c_core);
+
+    const uint64x2_t qu = vreinterpretq_u64_s64(n);
+    const uint64x2_t swap = vtstq_u64(qu, vdupq_n_u64(1));
+    const uint64x2_t sgn = vshlq_n_u64(vandq_u64(vshrq_n_u64(qu, 1), vdupq_n_u64(1)), 63);
+    const float64x2_t sv = vbslq_f64(swap, c_core, s_core);
+    return vreinterpretq_f64_u64(veorq_u64(vreinterpretq_u64_f64(sv), sgn));
 }
 
 // log1p: 8-term polynomial for |x|<1e-4 with FMA. AArch64 NEON.

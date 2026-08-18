@@ -12,7 +12,7 @@
 #include "libhmm/detail/simd_math_helpers.h"
 
 namespace libhmm::performance::detail {
-using namespace libhmm::detail::simd; // log_pd, exp_pd, cos_pd, log1p_pd
+using namespace libhmm::detail::simd; // log_pd, exp_pd, cos_pd, sin_pd, log1p_pd
 
 // gaussian: log_norm + neg_half_inv_sq * (x - mean)^2, NaN/Inf → -Inf.
 void gaussian_batch_avx512(const double *obs, double *out, std::size_t n, double mean,
@@ -87,10 +87,15 @@ static inline __m512d avx512_exp_8pd(__m512d x) noexcept {
     return exp_pd(x);
 }
 
-// 7-term Horner cosine with FMA and two-step range reduction.
-// Max error ≈ 1×10⁻¹⁰ for |y| ≤ π/2. All finite x.
+// Clean-room quadrant-reduction cos (issue #74). Register-level: valid for
+// |x| <= kTrigDMax (2^23) only; see cos_pd's doc comment in simd_math_helpers.h.
 static inline __m512d avx512_cos_8pd(__m512d x) noexcept {
     return cos_pd(x);
+}
+
+// Same kernel and domain contract as avx512_cos_8pd above, sin quadrant table.
+static inline __m512d avx512_sin_8pd(__m512d x) noexcept {
+    return sin_pd(x);
 }
 
 // ============================================================================
@@ -116,12 +121,53 @@ void exp_batch_avx512(const double *in, double *out, std::size_t n) noexcept {
         out[i] = std::exp(in[i]);
 }
 
+// cos: clean-room quadrant-reduction kernel, vectorized for |x| <= kTrigDMax
+// (2^23); oversized-but-finite lanes get a scalar std::cos fixup. At ±Inf,
+// std::cos(±Inf) = NaN is the correct, documented result. NaN self-propagates.
 void cos_batch_avx512(const double *in, double *out, std::size_t n) noexcept {
+    const __m512d dmax = _mm512_set1_pd(kTrigDMax);
+    const __m512d sign_mask = _mm512_set1_pd(-0.0);
     std::size_t i = 0;
-    for (; i + 8 <= n; i += 8)
-        _mm512_storeu_pd(out + i, avx512_cos_8pd(_mm512_loadu_pd(in + i)));
+    for (; i + 8 <= n; i += 8) {
+        const __m512d x = _mm512_loadu_pd(in + i);
+        const __m512d res = avx512_cos_8pd(x);
+        _mm512_storeu_pd(out + i, res);
+        const __m512d abs_x = _mm512_andnot_pd(sign_mask, x); // AVX-512DQ
+        const __mmask8 mm = _mm512_cmp_pd_mask(abs_x, dmax, _CMP_GT_OQ);
+        if (mm != 0) {
+            alignas(64) double xs[8];
+            _mm512_storeu_pd(xs, x); // captured before the store above, aliasing-safe
+            for (int lane = 0; lane < 8; ++lane)
+                if (mm & (1 << lane))
+                    out[i + lane] = std::cos(xs[lane]);
+        }
+    }
     for (; i < n; ++i)
         out[i] = std::cos(in[i]);
+}
+
+// sin: same clean-room kernel and domain contract as cos_batch above, from
+// the sin quadrant table, not cos(x - pi/2).
+void sin_batch_avx512(const double *in, double *out, std::size_t n) noexcept {
+    const __m512d dmax = _mm512_set1_pd(kTrigDMax);
+    const __m512d sign_mask = _mm512_set1_pd(-0.0);
+    std::size_t i = 0;
+    for (; i + 8 <= n; i += 8) {
+        const __m512d x = _mm512_loadu_pd(in + i);
+        const __m512d res = avx512_sin_8pd(x);
+        _mm512_storeu_pd(out + i, res);
+        const __m512d abs_x = _mm512_andnot_pd(sign_mask, x);
+        const __mmask8 mm = _mm512_cmp_pd_mask(abs_x, dmax, _CMP_GT_OQ);
+        if (mm != 0) {
+            alignas(64) double xs[8];
+            _mm512_storeu_pd(xs, x);
+            for (int lane = 0; lane < 8; ++lane)
+                if (mm & (1 << lane))
+                    out[i + lane] = std::sin(xs[lane]);
+        }
+    }
+    for (; i < n; ++i)
+        out[i] = std::sin(in[i]);
 }
 
 void log1p_batch_avx512(const double *in, double *out, std::size_t n) noexcept {
@@ -379,6 +425,7 @@ void vonmises_batch_avx512(const double *obs, double *out, std::size_t n, double
     const __m512d pos_inf_v = _mm512_set1_pd(std::numeric_limits<double>::infinity());
     const __m512d neg_inf_v = _mm512_set1_pd(-std::numeric_limits<double>::infinity());
     const __m512d sign_mask = _mm512_set1_pd(-0.0); // for |x|
+    const __m512d dmax = _mm512_set1_pd(kTrigDMax);
 
     std::size_t i = 0;
     for (; i + 8 <= n; i += 8) {
@@ -386,8 +433,23 @@ void vonmises_batch_avx512(const double *obs, double *out, std::size_t n, double
         __m512d abs_x = _mm512_andnot_pd(sign_mask, x); // AVX-512DQ
         __mmask8 invalid = _mm512_cmp_pd_mask(x, x, _CMP_UNORD_Q) |
                            _mm512_cmp_pd_mask(abs_x, pos_inf_v, _CMP_EQ_OQ);
-        __m512d res = _mm512_fmadd_pd(kappa_v, avx512_cos_8pd(_mm512_sub_pd(x, mu_v)), neg_ln_v);
+        __m512d diff = _mm512_sub_pd(x, mu_v);
+        __m512d res = _mm512_fmadd_pd(kappa_v, avx512_cos_8pd(diff), neg_ln_v);
         _mm512_storeu_pd(out + i, _mm512_mask_blend_pd(invalid, res, neg_inf_v));
+
+        // Domain fixup: cos_pd only covers |diff| <= kTrigDMax. The mask is
+        // ANDed with ~invalid (via mask_blend with an all-zero "false" source
+        // below) so this never overrides the invalid blend above.
+        __m512d abs_diff = _mm512_andnot_pd(sign_mask, diff);
+        __mmask8 oversized = _mm512_cmp_pd_mask(abs_diff, dmax, _CMP_GT_OQ);
+        __mmask8 mm = static_cast<__mmask8>(oversized & ~invalid);
+        if (mm != 0) {
+            alignas(64) double xs[8];
+            _mm512_storeu_pd(xs, x);
+            for (int lane = 0; lane < 8; ++lane)
+                if (mm & (1 << lane))
+                    out[i + lane] = kappa * std::cos(xs[lane] - mu) - log_normaliser;
+        }
     }
     const double neg_inf = -std::numeric_limits<double>::infinity();
     for (; i < n; ++i) {

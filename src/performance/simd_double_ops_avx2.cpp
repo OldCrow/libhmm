@@ -13,7 +13,7 @@
 #include "libhmm/detail/simd_math_helpers.h"
 
 namespace libhmm::performance::detail {
-using namespace libhmm::detail::simd; // log_pd, exp_pd, cos_pd, log1p_pd
+using namespace libhmm::detail::simd; // log_pd, exp_pd, cos_pd, sin_pd, log1p_pd
 
 // gaussian: log_norm + neg_half_inv_sq * (x - mean)^2, NaN/Inf → -Inf.
 void gaussian_batch_avx2(const double *obs, double *out, std::size_t n, double mean,
@@ -74,7 +74,7 @@ void exponential_batch_avx2(const double *obs, double *out, std::size_t n, doubl
 
 // ============================================================================
 // File-private SIMD inline helpers — now sourced from simd_math_helpers.h
-// (log_pd, exp_pd, cos_pd, log1p_pd via using namespace libhmm::detail::simd)
+// (log_pd, exp_pd, cos_pd, sin_pd, log1p_pd via using namespace libhmm::detail::simd)
 // ============================================================================
 
 // Sentinel — avoids empty section warning. Remove when all call sites below
@@ -88,10 +88,15 @@ static inline __m256d avx2_exp_4pd(__m256d x) noexcept {
     return exp_pd(x);
 }
 
-// 7-term Horner cosine with FMA and two-step range reduction.
-// Max error ≈ 1×10⁻¹⁰ for |y| ≤ π/2. All finite x.
+// Clean-room quadrant-reduction cos (issue #74). Register-level: valid for
+// |x| <= kTrigDMax (2^23) only; see cos_pd's doc comment in simd_math_helpers.h.
 static inline __m256d avx2_cos_4pd(__m256d x) noexcept {
     return cos_pd(x);
+}
+
+// Same kernel and domain contract as avx2_cos_4pd above, sin quadrant table.
+static inline __m256d avx2_sin_4pd(__m256d x) noexcept {
+    return sin_pd(x);
 }
 
 // ============================================================================
@@ -117,12 +122,53 @@ void exp_batch_avx2(const double *in, double *out, std::size_t n) noexcept {
         out[i] = std::exp(in[i]);
 }
 
+// cos: clean-room quadrant-reduction kernel, vectorized for |x| <= kTrigDMax
+// (2^23); oversized-but-finite lanes get a scalar std::cos fixup. At ±Inf,
+// std::cos(±Inf) = NaN is the correct, documented result. NaN self-propagates.
 void cos_batch_avx2(const double *in, double *out, std::size_t n) noexcept {
+    const __m256d dmax = _mm256_set1_pd(kTrigDMax);
+    const __m256d sign_mask = _mm256_set1_pd(-0.0);
     std::size_t i = 0;
-    for (; i + 4 <= n; i += 4)
-        _mm256_storeu_pd(out + i, avx2_cos_4pd(_mm256_loadu_pd(in + i)));
+    for (; i + 4 <= n; i += 4) {
+        const __m256d x = _mm256_loadu_pd(in + i);
+        const __m256d res = avx2_cos_4pd(x);
+        _mm256_storeu_pd(out + i, res);
+        const __m256d abs_x = _mm256_andnot_pd(sign_mask, x);
+        const int mm = _mm256_movemask_pd(_mm256_cmp_pd(abs_x, dmax, _CMP_GT_OQ));
+        if (mm != 0) {
+            alignas(32) double xs[4];
+            _mm256_storeu_pd(xs, x); // captured before the store above, aliasing-safe
+            for (int lane = 0; lane < 4; ++lane)
+                if (mm & (1 << lane))
+                    out[i + lane] = std::cos(xs[lane]);
+        }
+    }
     for (; i < n; ++i)
         out[i] = std::cos(in[i]);
+}
+
+// sin: same clean-room kernel and domain contract as cos_batch above, from
+// the sin quadrant table, not cos(x - pi/2).
+void sin_batch_avx2(const double *in, double *out, std::size_t n) noexcept {
+    const __m256d dmax = _mm256_set1_pd(kTrigDMax);
+    const __m256d sign_mask = _mm256_set1_pd(-0.0);
+    std::size_t i = 0;
+    for (; i + 4 <= n; i += 4) {
+        const __m256d x = _mm256_loadu_pd(in + i);
+        const __m256d res = avx2_sin_4pd(x);
+        _mm256_storeu_pd(out + i, res);
+        const __m256d abs_x = _mm256_andnot_pd(sign_mask, x);
+        const int mm = _mm256_movemask_pd(_mm256_cmp_pd(abs_x, dmax, _CMP_GT_OQ));
+        if (mm != 0) {
+            alignas(32) double xs[4];
+            _mm256_storeu_pd(xs, x);
+            for (int lane = 0; lane < 4; ++lane)
+                if (mm & (1 << lane))
+                    out[i + lane] = std::sin(xs[lane]);
+        }
+    }
+    for (; i < n; ++i)
+        out[i] = std::sin(in[i]);
 }
 
 void log1p_batch_avx2(const double *in, double *out, std::size_t n) noexcept {
@@ -379,6 +425,7 @@ void vonmises_batch_avx2(const double *obs, double *out, std::size_t n, double m
     const __m256d pos_inf_v = _mm256_set1_pd(std::numeric_limits<double>::infinity());
     const __m256d neg_inf_v = _mm256_set1_pd(-std::numeric_limits<double>::infinity());
     const __m256d sign_mask = _mm256_set1_pd(-0.0);
+    const __m256d dmax = _mm256_set1_pd(kTrigDMax);
 
     std::size_t i = 0;
     for (; i + 4 <= n; i += 4) {
@@ -386,8 +433,22 @@ void vonmises_batch_avx2(const double *obs, double *out, std::size_t n, double m
         __m256d abs_x = _mm256_andnot_pd(sign_mask, x);
         __m256d invalid = _mm256_or_pd(_mm256_cmp_pd(x, x, _CMP_UNORD_Q),
                                        _mm256_cmp_pd(abs_x, pos_inf_v, _CMP_EQ_OQ));
-        __m256d res = _mm256_fmadd_pd(kappa_v, avx2_cos_4pd(_mm256_sub_pd(x, mu_v)), neg_ln_v);
+        __m256d diff = _mm256_sub_pd(x, mu_v);
+        __m256d res = _mm256_fmadd_pd(kappa_v, avx2_cos_4pd(diff), neg_ln_v);
         _mm256_storeu_pd(out + i, _mm256_blendv_pd(res, neg_inf_v, invalid));
+
+        // Domain fixup: cos_pd only covers |diff| <= kTrigDMax. andnot_pd(invalid, ...)
+        // restricts to FINITE x so this never overrides the invalid blend above.
+        __m256d abs_diff = _mm256_andnot_pd(sign_mask, diff);
+        int mm = _mm256_movemask_pd(
+            _mm256_andnot_pd(invalid, _mm256_cmp_pd(abs_diff, dmax, _CMP_GT_OQ)));
+        if (mm != 0) {
+            alignas(32) double xs[4];
+            _mm256_storeu_pd(xs, x);
+            for (int lane = 0; lane < 4; ++lane)
+                if (mm & (1 << lane))
+                    out[i + lane] = kappa * std::cos(xs[lane] - mu) - log_normaliser;
+        }
     }
     const double neg_inf = -std::numeric_limits<double>::infinity();
     for (; i < n; ++i) {

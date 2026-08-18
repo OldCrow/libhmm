@@ -40,8 +40,17 @@ struct DoubleVecOps {
     void (*log_batch)(const double *in, double *out, std::size_t n) noexcept;
     /// exp(x): clamped to [−708, 709.8]. SLEEF-inspired, < 1 ULP.
     void (*exp_batch)(const double *in, double *out, std::size_t n) noexcept;
-    /// cos(x): all finite x, 7-term Horner, |error| < 2×10⁻¹⁰.
+    /// cos(x): clean-room quadrant-reduction kernel (issue #74), vectorized for
+    /// |x| ≤ 2²³ with a per-lane scalar std::cos fixup beyond (and at ±Inf,
+    /// where std::cos(±Inf) = NaN is the correct, documented result); NaN
+    /// self-propagates. Accuracy: sub-ULP target on FMA tiers (AVX2/AVX-512/
+    /// NEON), slightly worse on SSE2 (no FMA) — measured per-tier bounds are
+    /// gated in tests (follow-on task).
     void (*cos_batch)(const double *in, double *out, std::size_t n) noexcept;
+    /// sin(x): same clean-room quadrant-reduction kernel and domain/accuracy
+    /// contract as cos_batch above, from the sin quadrant table directly (not
+    /// cos(x − π/2), which would lose accuracy through the extra subtraction).
+    void (*sin_batch)(const double *in, double *out, std::size_t n) noexcept;
     /// log(1+x): accurate for |x| ≪ 1. Implemented as SIMD(1+x) then log core.
     void (*log1p_batch)(const double *in, double *out, std::size_t n) noexcept;
 

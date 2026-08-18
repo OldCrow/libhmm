@@ -12,7 +12,7 @@
 #include "libhmm/detail/simd_math_helpers.h"
 
 namespace libhmm::performance::detail {
-using namespace libhmm::detail::simd; // log_pd, exp_pd, cos_pd, log1p_pd
+using namespace libhmm::detail::simd; // log_pd, exp_pd, cos_pd, sin_pd, log1p_pd
 
 // gaussian: log_norm + neg_half_inv_sq * (x - mean)^2, NaN/Inf → -Inf.
 void gaussian_batch_neon(const double *obs, double *out, std::size_t n, double mean,
@@ -90,10 +90,16 @@ static inline float64x2_t neon_exp_2pd(float64x2_t x) noexcept {
     return exp_pd(x);
 }
 
-// 7-term Horner cosine with two-step range reduction.  Max error ≈ 2×10⁻¹⁰ for finite x.
-// NaN/Inf input may produce unspecified output; callers must guard when required.
+// Clean-room quadrant-reduction cos (issue #74). Register-level: valid for
+// |x| <= kTrigDMax (2^23) only; see cos_pd's doc comment in simd_math_helpers.h.
+// NaN input self-propagates; Inf input must be guarded by the caller.
 static inline float64x2_t neon_cos_2pd(float64x2_t x) noexcept {
     return cos_pd(x);
+}
+
+// Same kernel and domain contract as neon_cos_2pd above, sin quadrant table.
+static inline float64x2_t neon_sin_2pd(float64x2_t x) noexcept {
+    return sin_pd(x);
 }
 
 // ============================================================================
@@ -119,12 +125,47 @@ void exp_batch_neon(const double *in, double *out, std::size_t n) noexcept {
         out[i] = std::exp(in[i]);
 }
 
+// cos: clean-room quadrant-reduction kernel, vectorized for |x| <= kTrigDMax
+// (2^23); oversized-but-finite lanes get a scalar std::cos fixup. At ±Inf,
+// std::cos(±Inf) = NaN is the correct, documented result. NaN self-propagates.
 void cos_batch_neon(const double *in, double *out, std::size_t n) noexcept {
+    const float64x2_t domain_bound = vdupq_n_f64(kTrigDMax);
     std::size_t i = 0;
-    for (; i + 2 <= n; i += 2)
-        vst1q_f64(out + i, neon_cos_2pd(vld1q_f64(in + i)));
+    for (; i + 2 <= n; i += 2) {
+        const float64x2_t x = vld1q_f64(in + i);
+        vst1q_f64(out + i, neon_cos_2pd(x));
+        // Decided from the pre-store REGISTER value so this stays correct
+        // when called with output aliasing input.
+        const uint64x2_t mask = vcgtq_f64(vabsq_f64(x), domain_bound);
+        if (vgetq_lane_u64(mask, 0) | vgetq_lane_u64(mask, 1)) {
+            if (vgetq_lane_u64(mask, 0))
+                out[i + 0] = std::cos(vgetq_lane_f64(x, 0));
+            if (vgetq_lane_u64(mask, 1))
+                out[i + 1] = std::cos(vgetq_lane_f64(x, 1));
+        }
+    }
     for (; i < n; ++i)
         out[i] = std::cos(in[i]);
+}
+
+// sin: same clean-room kernel and domain contract as cos_batch above, from
+// the sin quadrant table, not cos(x - pi/2).
+void sin_batch_neon(const double *in, double *out, std::size_t n) noexcept {
+    const float64x2_t domain_bound = vdupq_n_f64(kTrigDMax);
+    std::size_t i = 0;
+    for (; i + 2 <= n; i += 2) {
+        const float64x2_t x = vld1q_f64(in + i);
+        vst1q_f64(out + i, neon_sin_2pd(x));
+        const uint64x2_t mask = vcgtq_f64(vabsq_f64(x), domain_bound);
+        if (vgetq_lane_u64(mask, 0) | vgetq_lane_u64(mask, 1)) {
+            if (vgetq_lane_u64(mask, 0))
+                out[i + 0] = std::sin(vgetq_lane_f64(x, 0));
+            if (vgetq_lane_u64(mask, 1))
+                out[i + 1] = std::sin(vgetq_lane_f64(x, 1));
+        }
+    }
+    for (; i < n; ++i)
+        out[i] = std::sin(in[i]);
 }
 
 // log1p: log(1+x); x≤−1 → −∞.  SIMD: add 1.0 then delegate to inline log helper.
@@ -385,6 +426,7 @@ void vonmises_batch_neon(const double *obs, double *out, std::size_t n, double m
     const float64x2_t pos_inf_v = vdupq_n_f64(std::numeric_limits<double>::infinity());
     const float64x2_t neg_inf_v = vdupq_n_f64(-std::numeric_limits<double>::infinity());
     const uint64x2_t all_ones = vdupq_n_u64(~0ULL);
+    const float64x2_t domain_bound = vdupq_n_f64(kTrigDMax);
 
     std::size_t i = 0;
     for (; i + 2 <= n; i += 2) {
@@ -392,8 +434,21 @@ void vonmises_batch_neon(const double *obs, double *out, std::size_t n, double m
         uint64x2_t is_nan = veorq_u64(vceqq_f64(x, x), all_ones);
         uint64x2_t is_inf = vceqq_f64(vabsq_f64(x), pos_inf_v);
         uint64x2_t invalid = vorrq_u64(is_nan, is_inf);
-        float64x2_t res = vfmaq_f64(neg_ln_v, kappa_v, neon_cos_2pd(vsubq_f64(x, mu_v)));
+        float64x2_t diff = vsubq_f64(x, mu_v);
+        float64x2_t res = vfmaq_f64(neg_ln_v, kappa_v, neon_cos_2pd(diff));
         vst1q_f64(out + i, vbslq_f64(invalid, neg_inf_v, res));
+
+        // Domain fixup: cos_pd only covers |diff| <= kTrigDMax. andq with
+        // ~invalid restricts this to FINITE x so it never overrides the
+        // invalid blend above.
+        uint64x2_t oversized = vcgtq_f64(vabsq_f64(diff), domain_bound);
+        uint64x2_t mask = vandq_u64(oversized, veorq_u64(invalid, all_ones));
+        if (vgetq_lane_u64(mask, 0) | vgetq_lane_u64(mask, 1)) {
+            if (vgetq_lane_u64(mask, 0))
+                out[i + 0] = kappa * std::cos(vgetq_lane_f64(x, 0) - mu) - log_normaliser;
+            if (vgetq_lane_u64(mask, 1))
+                out[i + 1] = kappa * std::cos(vgetq_lane_f64(x, 1) - mu) - log_normaliser;
+        }
     }
     const double neg_inf = -std::numeric_limits<double>::infinity();
     for (; i < n; ++i) {
@@ -402,140 +457,14 @@ void vonmises_batch_neon(const double *obs, double *out, std::size_t n, double m
     }
 }
 
-} // namespace libhmm::performance::detail
-
-#else
-
-// Non-AArch64 scalar fallbacks — compiled when this TU is processed on non-ARM
-// hosts (e.g. cross-compilation checks).  Never called at runtime.
-#include <cmath>
-#include <cstddef>
-#include <limits>
-
-namespace libhmm::performance::detail {
-
-void log_batch_neon(const double *in, double *out, std::size_t n) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = in[i];
-        out[i] = (x <= 0.0) ? neg_inf : std::log(x);
-    }
-}
-void exp_batch_neon(const double *in, double *out, std::size_t n) noexcept {
-    for (std::size_t i = 0; i < n; ++i)
-        out[i] = std::exp(in[i]);
-}
-void cos_batch_neon(const double *in, double *out, std::size_t n) noexcept {
-    for (std::size_t i = 0; i < n; ++i)
-        out[i] = std::cos(in[i]);
-}
-void log1p_batch_neon(const double *in, double *out, std::size_t n) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = in[i];
-        out[i] = (x <= -1.0) ? neg_inf : std::log1p(x);
-    }
-}
-void lognormal_batch_neon(const double *obs, double *out, std::size_t n, double mean_log,
-                          double neg_half_inv_sq, double log_norm_const) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = obs[i];
-        if (x <= 0.0) {
-            out[i] = neg_inf;
-        } else {
-            const double lx = std::log(x);
-            const double d = lx - mean_log;
-            out[i] = -lx - log_norm_const + neg_half_inv_sq * d * d;
-        }
-    }
-}
-void gamma_batch_neon(const double *obs, double *out, std::size_t n, double k_minus_1,
-                      double inv_theta, double const_term) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = obs[i];
-        out[i] = (x <= 0.0) ? neg_inf : const_term + k_minus_1 * std::log(x) - x * inv_theta;
-    }
-}
-void chisq_batch_neon(const double *obs, double *out, std::size_t n, double half_k_minus_1,
-                      double const_term) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = obs[i];
-        out[i] = (x <= 0.0) ? neg_inf : const_term + half_k_minus_1 * std::log(x) - x * 0.5;
-    }
-}
-void rayleigh_batch_neon(const double *obs, double *out, std::size_t n, double inv2sigma_sq,
-                         double log_norm) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = obs[i];
-        out[i] = (x <= 0.0) ? neg_inf : log_norm + std::log(x) - x * x * inv2sigma_sq;
-    }
-}
-void pareto_batch_neon(const double *obs, double *out, std::size_t n, double k_plus_1, double xm,
-                       double log_norm) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = obs[i];
-        out[i] = (x < xm) ? neg_inf : log_norm - k_plus_1 * std::log(x);
-    }
-}
-void weibull_batch_neon(const double *obs, double *out, std::size_t n, double k_minus_1, double k,
-                        double log_norm, double neg_k_log_lambda) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = obs[i];
-        if (x <= 0.0) {
-            out[i] = neg_inf;
-        } else {
-            const double lx = std::log(x);
-            out[i] = log_norm + k_minus_1 * lx - std::exp(k * lx + neg_k_log_lambda);
-        }
-    }
-}
-void beta_batch_neon(const double *obs, double *out, std::size_t n, double alpha_minus_1,
-                     double beta_minus_1, double neg_log_beta) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = obs[i];
-        if (x <= 0.0 || x >= 1.0) {
-            out[i] = neg_inf;
-        } else {
-            out[i] = neg_log_beta + alpha_minus_1 * std::log(x) + beta_minus_1 * std::log1p(-x);
-        }
-    }
-}
-void student_t_batch_neon(const double *obs, double *out, std::size_t n, double location,
-                          double inv_scale, double half_nu_plus_1, double log_norm,
-                          double inv_nu) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = obs[i];
-        if (std::isnan(x) || std::isinf(x)) {
-            out[i] = neg_inf;
-        } else {
-            const double tv = (x - location) * inv_scale;
-            out[i] = log_norm - half_nu_plus_1 * std::log1p(tv * tv * inv_nu);
-        }
-    }
-}
-void vonmises_batch_neon(const double *obs, double *out, std::size_t n, double mu, double kappa,
-                         double log_normaliser) noexcept {
-    const double neg_inf = -std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < n; ++i) {
-        const double x = obs[i];
-        out[i] = (!std::isfinite(x)) ? neg_inf : kappa * std::cos(x - mu) - log_normaliser;
-    }
-}
-
 // ============================================================================
 // Transcendental / recurrence kernels (FB max-reduce, BW xi accumulation)
-// Relocated from transcendental_kernels.cpp (issue #58): the NEON vector block
-// from the original #if LIBHMM_HAS_* cascade, plus the trailing scalar loop as
-// its tail. Copied character-for-character from the original cascade block —
-// this TU cannot be compiled on x86; CI's macOS/AArch64 leg validates it.
+// Relocated from transcendental_kernels.cpp (issue #58). Fixed under issue
+// #74's CI catch: these six were previously (mis-)placed in the non-AArch64
+// #else stub below, where their real NEON-intrinsic bodies could never link
+// on the AArch64 leg that actually calls them; the #else block below now
+// carries plain-scalar fallbacks instead, matching that section's stub
+// pattern for every other kernel.
 // ============================================================================
 
 // reduce_max_sum2: max of (a[i] + b[i])
@@ -669,6 +598,208 @@ void log1p_inplace_neon(double *data, std::size_t size) noexcept {
         vst1q_f64(data + i, v);
     }
     for (; i < size; ++i) {
+        data[i] = std::log1p(data[i]);
+    }
+}
+
+} // namespace libhmm::performance::detail
+
+#else
+
+// Non-AArch64 scalar fallbacks — compiled when this TU is processed on non-ARM
+// hosts (e.g. cross-compilation checks).  Never called at runtime.
+#include <cmath>
+#include <cstddef>
+#include <limits>
+
+namespace libhmm::performance::detail {
+
+void log_batch_neon(const double *in, double *out, std::size_t n) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = in[i];
+        out[i] = (x <= 0.0) ? neg_inf : std::log(x);
+    }
+}
+void exp_batch_neon(const double *in, double *out, std::size_t n) noexcept {
+    for (std::size_t i = 0; i < n; ++i)
+        out[i] = std::exp(in[i]);
+}
+void cos_batch_neon(const double *in, double *out, std::size_t n) noexcept {
+    for (std::size_t i = 0; i < n; ++i)
+        out[i] = std::cos(in[i]);
+}
+void sin_batch_neon(const double *in, double *out, std::size_t n) noexcept {
+    for (std::size_t i = 0; i < n; ++i)
+        out[i] = std::sin(in[i]);
+}
+void log1p_batch_neon(const double *in, double *out, std::size_t n) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = in[i];
+        out[i] = (x <= -1.0) ? neg_inf : std::log1p(x);
+    }
+}
+void lognormal_batch_neon(const double *obs, double *out, std::size_t n, double mean_log,
+                          double neg_half_inv_sq, double log_norm_const) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = obs[i];
+        if (x <= 0.0) {
+            out[i] = neg_inf;
+        } else {
+            const double lx = std::log(x);
+            const double d = lx - mean_log;
+            out[i] = -lx - log_norm_const + neg_half_inv_sq * d * d;
+        }
+    }
+}
+void gamma_batch_neon(const double *obs, double *out, std::size_t n, double k_minus_1,
+                      double inv_theta, double const_term) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = obs[i];
+        out[i] = (x <= 0.0) ? neg_inf : const_term + k_minus_1 * std::log(x) - x * inv_theta;
+    }
+}
+void chisq_batch_neon(const double *obs, double *out, std::size_t n, double half_k_minus_1,
+                      double const_term) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = obs[i];
+        out[i] = (x <= 0.0) ? neg_inf : const_term + half_k_minus_1 * std::log(x) - x * 0.5;
+    }
+}
+void rayleigh_batch_neon(const double *obs, double *out, std::size_t n, double inv2sigma_sq,
+                         double log_norm) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = obs[i];
+        out[i] = (x <= 0.0) ? neg_inf : log_norm + std::log(x) - x * x * inv2sigma_sq;
+    }
+}
+void pareto_batch_neon(const double *obs, double *out, std::size_t n, double k_plus_1, double xm,
+                       double log_norm) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = obs[i];
+        out[i] = (x < xm) ? neg_inf : log_norm - k_plus_1 * std::log(x);
+    }
+}
+void weibull_batch_neon(const double *obs, double *out, std::size_t n, double k_minus_1, double k,
+                        double log_norm, double neg_k_log_lambda) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = obs[i];
+        if (x <= 0.0) {
+            out[i] = neg_inf;
+        } else {
+            const double lx = std::log(x);
+            out[i] = log_norm + k_minus_1 * lx - std::exp(k * lx + neg_k_log_lambda);
+        }
+    }
+}
+void beta_batch_neon(const double *obs, double *out, std::size_t n, double alpha_minus_1,
+                     double beta_minus_1, double neg_log_beta) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = obs[i];
+        if (x <= 0.0 || x >= 1.0) {
+            out[i] = neg_inf;
+        } else {
+            out[i] = neg_log_beta + alpha_minus_1 * std::log(x) + beta_minus_1 * std::log1p(-x);
+        }
+    }
+}
+void student_t_batch_neon(const double *obs, double *out, std::size_t n, double location,
+                          double inv_scale, double half_nu_plus_1, double log_norm,
+                          double inv_nu) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = obs[i];
+        if (std::isnan(x) || std::isinf(x)) {
+            out[i] = neg_inf;
+        } else {
+            const double tv = (x - location) * inv_scale;
+            out[i] = log_norm - half_nu_plus_1 * std::log1p(tv * tv * inv_nu);
+        }
+    }
+}
+void vonmises_batch_neon(const double *obs, double *out, std::size_t n, double mu, double kappa,
+                         double log_normaliser) noexcept {
+    const double neg_inf = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < n; ++i) {
+        const double x = obs[i];
+        out[i] = (!std::isfinite(x)) ? neg_inf : kappa * std::cos(x - mu) - log_normaliser;
+    }
+}
+
+// ============================================================================
+// Transcendental / recurrence kernels (FB max-reduce, BW xi accumulation)
+// Plain-scalar fallbacks — never called at runtime (this TU is excluded from
+// non-AArch64 builds by cmake/SimdDispatch.cmake). Semantics mirror the
+// *_scalar versions in simd_double_ops_scalar.cpp exactly. The real
+// NEON-intrinsic bodies live in the AArch64 section above; issue #74's CI
+// catch found them here instead, where they could never link against the
+// AArch64 leg that actually calls them (see that section's comment).
+// ============================================================================
+
+double reduce_max_sum2_neon(const double *a, const double *b, std::size_t size) noexcept {
+    double maxVal = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+double sum_exp_sum2_minus_max_neon(const double *a, const double *b, std::size_t size,
+                                   double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    double sum = 0.0;
+    for (std::size_t i = 0; i < size; ++i) {
+        const double t = a[i] + b[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+double reduce_max_sum3_neon(const double *a, const double *b, const double *c,
+                            std::size_t size) noexcept {
+    double maxVal = -std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (t > maxVal)
+            maxVal = t;
+    }
+    return maxVal;
+}
+
+double sum_exp_sum3_minus_max_neon(const double *a, const double *b, const double *c,
+                                   std::size_t size, double maxVal) noexcept {
+    if (!std::isfinite(maxVal))
+        return 0.0;
+    double sum = 0.0;
+    for (std::size_t i = 0; i < size; ++i) {
+        const double t = a[i] + b[i] + c[i];
+        if (std::isfinite(t))
+            sum += std::exp(t - maxVal);
+    }
+    return sum;
+}
+
+void accumulate_exp_sum2_bias_neon(double *dst, const double *a, const double *b, std::size_t size,
+                                   double bias) noexcept {
+    for (std::size_t i = 0; i < size; ++i) {
+        dst[i] += std::exp(a[i] + b[i] + bias);
+    }
+}
+
+void log1p_inplace_neon(double *data, std::size_t size) noexcept {
+    for (std::size_t i = 0; i < size; ++i) {
         data[i] = std::log1p(data[i]);
     }
 }

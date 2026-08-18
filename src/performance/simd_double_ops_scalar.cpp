@@ -53,6 +53,11 @@ void cos_batch_scalar(const double *in, double *out, std::size_t n) noexcept {
         out[i] = std::cos(in[i]);
 }
 
+void sin_batch_scalar(const double *in, double *out, std::size_t n) noexcept {
+    for (std::size_t i = 0; i < n; ++i)
+        out[i] = std::sin(in[i]);
+}
+
 void log1p_batch_scalar(const double *in, double *out, std::size_t n) noexcept {
     const double neg_inf = -std::numeric_limits<double>::infinity();
     for (std::size_t i = 0; i < n; ++i) {

@@ -28,6 +28,7 @@ void exponential_batch_scalar(const double *, double *, std::size_t, double, dou
 void log_batch_scalar(const double *, double *, std::size_t) noexcept;
 void exp_batch_scalar(const double *, double *, std::size_t) noexcept;
 void cos_batch_scalar(const double *, double *, std::size_t) noexcept;
+void sin_batch_scalar(const double *, double *, std::size_t) noexcept;
 void log1p_batch_scalar(const double *, double *, std::size_t) noexcept;
 
 // ---- Tier-1 distribution kernels ----
@@ -59,6 +60,7 @@ void exponential_batch_sse2(const double *, double *, std::size_t, double, doubl
 void log_batch_sse2(const double *, double *, std::size_t) noexcept;
 void exp_batch_sse2(const double *, double *, std::size_t) noexcept;
 void cos_batch_sse2(const double *, double *, std::size_t) noexcept;
+void sin_batch_sse2(const double *, double *, std::size_t) noexcept;
 void log1p_batch_sse2(const double *, double *, std::size_t) noexcept;
 void lognormal_batch_sse2(const double *, double *, std::size_t, double, double, double) noexcept;
 void gamma_batch_sse2(const double *, double *, std::size_t, double, double, double) noexcept;
@@ -87,6 +89,7 @@ void exponential_batch_avx2(const double *, double *, std::size_t, double, doubl
 void log_batch_avx2(const double *, double *, std::size_t) noexcept;
 void exp_batch_avx2(const double *, double *, std::size_t) noexcept;
 void cos_batch_avx2(const double *, double *, std::size_t) noexcept;
+void sin_batch_avx2(const double *, double *, std::size_t) noexcept;
 void log1p_batch_avx2(const double *, double *, std::size_t) noexcept;
 void lognormal_batch_avx2(const double *, double *, std::size_t, double, double, double) noexcept;
 void gamma_batch_avx2(const double *, double *, std::size_t, double, double, double) noexcept;
@@ -115,6 +118,7 @@ void exponential_batch_avx512(const double *, double *, std::size_t, double, dou
 void log_batch_avx512(const double *, double *, std::size_t) noexcept;
 void exp_batch_avx512(const double *, double *, std::size_t) noexcept;
 void cos_batch_avx512(const double *, double *, std::size_t) noexcept;
+void sin_batch_avx512(const double *, double *, std::size_t) noexcept;
 void log1p_batch_avx512(const double *, double *, std::size_t) noexcept;
 void lognormal_batch_avx512(const double *, double *, std::size_t, double, double, double) noexcept;
 void gamma_batch_avx512(const double *, double *, std::size_t, double, double, double) noexcept;
@@ -143,6 +147,7 @@ void exponential_batch_neon(const double *, double *, std::size_t, double, doubl
 void log_batch_neon(const double *, double *, std::size_t) noexcept;
 void exp_batch_neon(const double *, double *, std::size_t) noexcept;
 void cos_batch_neon(const double *, double *, std::size_t) noexcept;
+void sin_batch_neon(const double *, double *, std::size_t) noexcept;
 void log1p_batch_neon(const double *, double *, std::size_t) noexcept;
 void lognormal_batch_neon(const double *, double *, std::size_t, double, double, double) noexcept;
 void gamma_batch_neon(const double *, double *, std::size_t, double, double, double) noexcept;
@@ -172,7 +177,7 @@ void log1p_inplace_neon(double *, std::size_t) noexcept;
 static DoubleVecOps build_table() noexcept {
     DoubleVecOps t{};
 
-// Helper macro: assign all 21 function pointers for a given ISA suffix.
+// Helper macro: assign all 22 function pointers for a given ISA suffix.
 // Keeps build_table() readable without a wall of explicit assignments.
 #define LIBHMM_ASSIGN_TIER(SUFFIX)                                                                 \
     t.gaussian_batch = &detail::gaussian_batch_##SUFFIX;                                           \
@@ -180,6 +185,7 @@ static DoubleVecOps build_table() noexcept {
     t.log_batch = &detail::log_batch_##SUFFIX;                                                     \
     t.exp_batch = &detail::exp_batch_##SUFFIX;                                                     \
     t.cos_batch = &detail::cos_batch_##SUFFIX;                                                     \
+    t.sin_batch = &detail::sin_batch_##SUFFIX;                                                     \
     t.log1p_batch = &detail::log1p_batch_##SUFFIX;                                                 \
     t.lognormal_batch = &detail::lognormal_batch_##SUFFIX;                                         \
     t.gamma_batch = &detail::gamma_batch_##SUFFIX;                                                 \

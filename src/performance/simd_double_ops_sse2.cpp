@@ -9,10 +9,10 @@
 #include <emmintrin.h> // SSE2
 #include <limits>
 
-#include "libhmm/detail/simd_math_helpers.h" // sse2_blend + log_pd/exp_pd/cos_pd
+#include "libhmm/detail/simd_math_helpers.h" // sse2_blend + log_pd/exp_pd/cos_pd/sin_pd
 
 namespace libhmm::performance::detail {
-using namespace libhmm::detail::simd; // log_pd, exp_pd, cos_pd, log1p_pd
+using namespace libhmm::detail::simd; // log_pd, exp_pd, cos_pd, sin_pd, log1p_pd
 
 static inline __m128d sse2_abs_2pd(__m128d x) noexcept {
     const __m128d sign_mask = _mm_castsi128_pd(_mm_set1_epi64x(0x7FFFFFFFFFFFFFFFLL));
@@ -34,6 +34,10 @@ static inline __m128d sse2_exp_2pd(__m128d x) noexcept {
 
 static inline __m128d sse2_cos_2pd(__m128d x) noexcept {
     return cos_pd(x);
+}
+
+static inline __m128d sse2_sin_2pd(__m128d x) noexcept {
+    return sin_pd(x);
 }
 
 // Horizontal reduction helpers for the transcendental recurrence kernels below.
@@ -131,13 +135,51 @@ void exp_batch_sse2(const double *in, double *out, std::size_t n) noexcept {
         out[i] = std::exp(in[i]);
 }
 
-// cos: cos(x) for all finite x; NaN/Inf → NaN via arithmetic propagation.
+// cos: clean-room quadrant-reduction cos_pd, vectorized for |x| <= kTrigDMax
+// (2^23); oversized-but-finite lanes get a scalar std::cos fixup. At ±Inf,
+// std::cos(±Inf) = NaN is the correct, documented result. NaN self-propagates.
 void cos_batch_sse2(const double *in, double *out, std::size_t n) noexcept {
+    const __m128d dmax = _mm_set1_pd(kTrigDMax);
     std::size_t i = 0;
-    for (; i + 2 <= n; i += 2)
-        _mm_storeu_pd(out + i, sse2_cos_2pd(_mm_loadu_pd(in + i)));
+    for (; i + 2 <= n; i += 2) {
+        const __m128d x = _mm_loadu_pd(in + i);
+        const __m128d res = sse2_cos_2pd(x);
+        _mm_storeu_pd(out + i, res);
+        const int mm = _mm_movemask_pd(_mm_cmpgt_pd(sse2_abs_2pd(x), dmax));
+        if (mm != 0) {
+            alignas(16) double xs[2];
+            _mm_storeu_pd(xs, x); // captured before the store above, aliasing-safe
+            if (mm & 1)
+                out[i + 0] = std::cos(xs[0]);
+            if (mm & 2)
+                out[i + 1] = std::cos(xs[1]);
+        }
+    }
     for (; i < n; ++i)
         out[i] = std::cos(in[i]);
+}
+
+// sin: same clean-room kernel and domain contract as cos_batch above, from
+// the sin quadrant table (sin_pd), not cos(x - pi/2).
+void sin_batch_sse2(const double *in, double *out, std::size_t n) noexcept {
+    const __m128d dmax = _mm_set1_pd(kTrigDMax);
+    std::size_t i = 0;
+    for (; i + 2 <= n; i += 2) {
+        const __m128d x = _mm_loadu_pd(in + i);
+        const __m128d res = sse2_sin_2pd(x);
+        _mm_storeu_pd(out + i, res);
+        const int mm = _mm_movemask_pd(_mm_cmpgt_pd(sse2_abs_2pd(x), dmax));
+        if (mm != 0) {
+            alignas(16) double xs[2];
+            _mm_storeu_pd(xs, x);
+            if (mm & 1)
+                out[i + 0] = std::sin(xs[0]);
+            if (mm & 2)
+                out[i + 1] = std::sin(xs[1]);
+        }
+    }
+    for (; i < n; ++i)
+        out[i] = std::sin(in[i]);
 }
 
 // log1p: log(1 + x); x ≤ -1 → -Inf.
@@ -399,6 +441,7 @@ void vonmises_batch_sse2(const double *obs, double *out, std::size_t n, double m
     const __m128d kappa_v = _mm_set1_pd(kappa);
     const __m128d lnorm_v = _mm_set1_pd(log_normaliser);
     const __m128d neg_inf_v = _mm_set1_pd(-std::numeric_limits<double>::infinity());
+    const __m128d dmax = _mm_set1_pd(kTrigDMax);
 
     std::size_t i = 0;
     for (; i + 2 <= n; i += 2) {
@@ -408,6 +451,19 @@ void vonmises_batch_sse2(const double *obs, double *out, std::size_t n, double m
         const __m128d cos_diff = sse2_cos_2pd(diff);
         const __m128d res = _mm_sub_pd(_mm_mul_pd(kappa_v, cos_diff), lnorm_v);
         _mm_storeu_pd(out + i, sse2_blend(valid, res, neg_inf_v));
+
+        // Domain fixup: cos_pd only covers |diff| <= kTrigDMax. Restrict to
+        // FINITE x (valid) so this never overrides the invalid blend above;
+        // a non-finite x's diff would otherwise also compare oversized.
+        const int mm = _mm_movemask_pd(_mm_and_pd(valid, _mm_cmpgt_pd(sse2_abs_2pd(diff), dmax)));
+        if (mm != 0) {
+            alignas(16) double xs[2];
+            _mm_storeu_pd(xs, x);
+            if (mm & 1)
+                out[i + 0] = kappa * std::cos(xs[0] - mu) - log_normaliser;
+            if (mm & 2)
+                out[i + 1] = kappa * std::cos(xs[1] - mu) - log_normaliser;
+        }
     }
     const double neg_inf = -std::numeric_limits<double>::infinity();
     for (; i < n; ++i) {

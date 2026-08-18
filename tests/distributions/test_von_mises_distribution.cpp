@@ -404,10 +404,17 @@ TEST(VonMisesDistribution, BatchMatchesScalar) {
 
     d.getBatchLogProbabilities(obs, out);
     for (std::size_t i = 0; i < obs.size(); ++i)
-        // 7-term Horner cos has max error ~2e-10; use 1e-9 so the test is
-        // robust across all ISA tiers (SSE2/AVX2/AVX-512/NEON) while still
-        // catching gross numerical errors.
-        EXPECT_NEAR(out[i], d.getLogProbability(obs[i]), 1e-9) << "i=" << i;
+        // Clean-room quadrant-reduction cos_pd (issue #74) replaced the old
+        // 7-term Horner cos. Measured on this machine (AVX-512 dispatch, this
+        // 6-element batch falling through to the scalar tail): batch matches
+        // scalar exactly (delta 0). Direct per-ISA measurement of
+        // vonmises_batch_sse2/avx2/avx512 against vonmises_batch_scalar on this
+        // same data is also exactly 0; a broader cos/sin sweep across all
+        // quadrants and near +/-k*pi/2 up to k=1e6 puts the kernel's worst
+        // relative error at ~2.1e-16 (essentially sub-ULP) on every compiled
+        // tier. 1e-12 leaves ~1e4x margin above that while still catching a
+        // real kernel regression.
+        EXPECT_NEAR(out[i], d.getLogProbability(obs[i]), 1e-12) << "i=" << i;
 }
 
 // ============================================================================
