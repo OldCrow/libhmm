@@ -85,61 +85,19 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   needed.
 
 ## In Progress [OPEN]
-### v4.4.0: #58 + #74 joint pass (started 2026-08-18, branch dev/v4.4.0)
-Working #58 (tier-2 dispatch extension) with #74 (cos_pd accuracy + sin_pd)
-folded in, per the co-scheduling argument recorded on both issues. Design
-decisions, made up front and settled:
-
-- **#58 takes Option A via the EXISTING DoubleVecOps table** — not
-  target_clones, and not a second dispatch mechanism. The six
-  TranscendentalKernels methods become table entries: six new function
-  pointers (reduce_max_sum2/3, sum_exp_sum2/3_minus_max,
-  accumulate_exp_sum2_bias, log1p_inplace). log1p_inplace is deliberately
-  NOT routed through the existing log1p_batch pointer: log1p_batch computes
-  add-then-log with no small-x path, while log1p_inplace uses log1p_pd's
-  small-|x| polynomial — routing would silently lose small-x accuracy.
-  (log1p_batch's own doc claims "accurate for |x| ≪ 1", which its
-  implementation does not deliver in relative terms; flagged for triage in
-  the final pass, not fixed here.) The per-tier
-  implementations ALREADY EXIST in transcendental_kernels.cpp's compile-time
-  cascades; the work is relocation into the five simd_double_ops_*.cpp TUs
-  plus registration, not new kernel authoring. TranscendentalKernels stays as
-  the caller-facing facade, thinned to table calls.
-- **FB/BW/MAP explicit-instantiation TUs leave LIBHMM_SIMD_SOURCES** (they
-  hold no intrinsics — verified; -march=native only bought auto-vectorization
-  of template code whose hot loops are precisely what lives in
-  TranscendentalKernels). Conditional on the before/after benchmark; revert
-  this one piece if native-build perf regresses.
-- **Stale in #58's body**: viterbi_calculator{,_mv}.cpp are listed as
-  affected but are NOT in LIBHMM_SIMD_SOURCES today — nothing to do there.
-- **#74 ports libstats' clean-room quadrant-reduction cos** (NEON,
-  0.50/0.78 ULP, derivation docs + self-checking mpmath generator in
-  libstats — same owner, MIT, independently derived 2026-07-19) to all four
-  libhmm tiers, replacing the 7-term-Taylor cos_pd in simd_math_helpers.h.
-  sin_pd/sin_batch added via quadrant-table offset (integer quadrant
-  arithmetic, NOT cos(x−π/2) argument shifting, so sin inherits cos's
-  accuracy). The 30-bit 4-part π/2 split makes every n·p_k product exact by
-  plain multiply, so the SSE2 (no-FMA) port stays valid; per-tier bounds are
-  measured, not assumed. Domain |x| ≤ 2^23 with per-lane scalar std::cos/sin
-  fixup beyond — consistent with libhmm's existing scalar-tail idiom (this
-  repo does NOT carry corvus's one-masked-path rule; do not "fix" that).
-  Scalar dispatch tier stays std::cos/std::sin.
-- **Oracle/ULP-gate infra (the #74 prerequisite) gets built now**: ported
-  self-checking generator scripts (mpmath) + checked-in reference vectors
-  (uniform ranges, near-k·π/2 stress walk, domain-bound edges, specials) +
-  a gate test that exercises EVERY compiled tier by calling the per-ISA
-  symbols directly under CPUID guard. Zen 4 host gates scalar/SSE2/AVX2/
-  AVX-512; the macOS CI leg gates NEON.
-- **Effort routing** (corvus pattern): design/briefs/final verification —
-  Fable (this session). T1 (#58 relocation), T2 (#74 kernel port), T3 (ULP
-  gate infra) — Sonnet sub-agents, settled-design implementation.
-  Sequencing: T1 first (structural), then T2 ∥ T3 (disjoint files), then
-  final verification + docs + benchmark comparison here.
-- VonMisesDistribution.BatchMatchesScalar's 1e-9 tolerance (loosened around
-  the old cos) gets tightened to the measured post-fix agreement.
-- Consequence for the corvus question: #58's "two dispatch mechanisms"
-  concern resolves in favor of libhmm's own table — an eventual corvus
-  adoption would slot behind DoubleVecOps entries like everything else.
+### v4.4.0 milestone (branch dev/v4.4.0)
+- **#58 and #74 are COMPLETE on dev/v4.4.0** (2026-08-18), not yet merged to
+  main or released. Full design/decomposition record: this section's text at
+  commit cd1b141 (git history); outcome detail in Numerical Defect Triage
+  below. Sub-agent decomposition ran T0-T4 (design/verify here, three Sonnet
+  implementation agents); two agent errors caught by verification: the NEON
+  relocation landed in the non-AArch64 #else stub section (masked on every
+  x86 leg, broke every macOS link), and a corvus AGENTS.md rule ("MSVC caps
+  at AVX2") leaked into a brief — countermeasures recorded in session memory.
+- Remaining v4.4.0 issues: #43 clone → #45 multi-restart (dependent), #44
+  sampling, #46 topology (independent), #48 parallel E-step (decide the
+  threading reversal first — see Next Steps).
+- Merge dev/v4.4.0 → main and release when the milestone empties.
 
 ## Numerical Defect Triage (2026-08-16) [DERIVED]
 **#72, #73, #75 and #76 are FIXED and pushed** (84bc997, 5274c6d, 819f4d8).
@@ -205,28 +163,20 @@ Bessel ratio is — the defect is the formulation).
   Scope note: `LIBHMM_HAS_CXX17_BESSEL` was the *only* compile definition in
   the entire build, so the "audit whether other PRIVATE definitions leak into
   public headers" half of the issue is closed rather than deferred.
-- **#74 is NOT tractable now, and that is a scope judgement, not a deferral
-  by neglect.** Fixing SIMD cos means authoring a kernel across four ISA
-  tiers, and this repo has no oracle or per-tier ULP-gate infrastructure to
-  validate one against — `tests/performance/` holds a single test file. The
-  bounds recorded in #74 are the kernels' own header claims, not independent
-  measurements. Building the gate is the first step and is its own piece of
-  work. It also interacts with #58 and with the corvus question.
-
-  **Milestone decision, 2026-08-16: #74 stays unmilestoned.** Neither v4.3.0
-  (Training & Core Usability) nor v4.4.0 (Algorithm Coverage) fits it by
-  title or intent, and it is not schedulable until the oracle/ULP-gate
-  question above is decided — milestones here are release buckets, so putting
-  undecided work in one makes the bucket a bad predictor. The trigger set for
-  revisiting was "if #70 turns out to have real exposure, create a numerical
-  accuracy milestone and group #74 + #70 + an infrastructure issue".
-  **#70 closed with no exposure, so that trigger did not fire** and #74 stays
-  standalone. Two things were recorded on the issues instead, both worth more
-  than the label: the cost is already being paid in the suite
-  (`VonMisesDistribution.BatchMatchesScalar` is relaxed to 1e-9 with a comment
-  naming this kernel — libstats' #95 pattern), and #58 is the cheapest moment
-  to fix it, since it splits the very TUs `cos_pd` lives in. Cross-linked on
-  both issues; not a dependency in either direction.
+- **#74 — DONE 2026-08-18 on dev/v4.4.0, jointly with #58.** The oracle/
+  ULP-gate prerequisite was built rather than deferred: self-checking mpmath
+  generators (scripts/gen_trig_cleanroom_table.py, gen_trig_ulp_vectors.py),
+  checked-in correctly-rounded references (5000 points + specials, incl. a
+  near-k·π/2 stress walk), and per-tier gates calling the per-ISA batch
+  symbols directly (tests/performance/test_trig_ulp_gates.cpp). The kernel is
+  libstats' clean-room quadrant-reduction cos ported to all four tiers, plus
+  sin_pd/sin_batch from the quadrant table. Measured (Zen 4, MSVC): max 1 ULP
+  / mean ~0.03 ULP on scalar, SSE2, AVX2, AVX-512 — the max-1 points are
+  hard-to-round ties the platform libm also misses by exactly 1 (verified
+  against mpmath), i.e. the kernel is faithfully rounded; NEON gated in CI.
+  Old kernel was ~2e-10 absolute (~9×10⁵ ULP). Gate-can-fail verified: a
+  one-bit coefficient perturbation drives the gate to ~98 ULP and red.
+  VonMisesDistribution.BatchMatchesScalar tightened 1e-9 → 1e-12.
 
 ## Known Gaps [OPEN]
 - Distribution fit-quality improvements: see docs/GOLD_STANDARD_CHECKLIST.md
@@ -348,16 +298,16 @@ deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
 `[Unreleased]` section and AGENTS.md CMake-standard section updated to match.
 
 ## Next Steps
-- Decide #74's prerequisite: whether to build the oracle/ULP-gate
-  infrastructure the SIMD kernels currently have no way to be validated
-  against. That decision also unblocks any accuracy claim this repo might
-  want to publish, and it is the same question a corvus adoption would force.
-- Not yet started, and not scheduled: a corvus adoption spike. If one is run,
-  aim it at `lgamma` and the batch path, and settle the two-dispatch-mechanism
-  question (#58) first — see Cross-Repo Dependencies.
-- Work through the v4.3.0 — Training & Core Usability backlog (6 open
-  issues above) before starting v4.4.0 — Algorithm Coverage.
+- Work through the remaining v4.4.0 — Training & Core Usability backlog
+  (#43 → #45 dependency; #44/#46 independent) before v4.5.0 — Algorithm
+  Coverage. #58 and #74 are done on dev/v4.4.0.
 - Decide whether issue #48 (parallel E-step accumulation) should proceed;
   if so, record the reversal of the "threading not used" decision above
   when work begins, rather than leaving both statements to coexist
-  silently.
+  silently. Note #48 touches the same FB/BW TUs #58 just restructured.
+- Not yet started, and not scheduled: a corvus adoption spike. If one is
+  run, aim it at `lgamma` and the batch path. The two-dispatch-mechanism
+  question is now SETTLED by #58: corvus would slot behind DoubleVecOps
+  table entries like everything else — see Cross-Repo Dependencies.
+- Triage #77 (log1p_batch small-|x| doc/implementation gap) — filed
+  2026-08-18, unmilestoned.

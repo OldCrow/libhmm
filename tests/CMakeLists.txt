@@ -166,6 +166,17 @@ if(GTest_FOUND OR TARGET gtest)
         target_compile_definitions(test_transcendental_kernels PRIVATE ${LIBHMM_DISPATCH_DEFINES})
     endif()
 
+    # Per-tier ULP accuracy gate for the clean-room cos_pd/sin_pd SIMD kernels
+    # (issue #74). Calls cos_batch_<tier>/sin_batch_<tier> directly, same as
+    # test_transcendental_kernels' tier-parity section, so it needs the same
+    # LIBHMM_DISPATCH_DEFINES treatment. trig_ulp_vectors.inc sits next to the
+    # test source, so the plain #include "trig_ulp_vectors.inc" in the test
+    # resolves via the source dir being on the include path for its own TU.
+    add_hmm_test(test_trig_ulp_gates performance/test_trig_ulp_gates.cpp)
+    if(LIBHMM_DISPATCH_DEFINES)
+        target_compile_definitions(test_trig_ulp_gates PRIVATE ${LIBHMM_DISPATCH_DEFINES})
+    endif()
+
     # =========================================================================
     # Distributions
     # =========================================================================

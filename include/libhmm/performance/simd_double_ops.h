@@ -43,9 +43,13 @@ struct DoubleVecOps {
     /// cos(x): clean-room quadrant-reduction kernel (issue #74), vectorized for
     /// |x| ≤ 2²³ with a per-lane scalar std::cos fixup beyond (and at ±Inf,
     /// where std::cos(±Inf) = NaN is the correct, documented result); NaN
-    /// self-propagates. Accuracy: sub-ULP target on FMA tiers (AVX2/AVX-512/
-    /// NEON), slightly worse on SSE2 (no FMA) — measured per-tier bounds are
-    /// gated in tests (follow-on task).
+    /// self-propagates. Accuracy: faithfully rounded — max 1 ULP against
+    /// correctly-rounded mpmath references (5000-point gate incl. a near-k·π/2
+    /// stress walk; the max-1 points are hard-to-round ties the platform libm
+    /// also misses by 1), mean ~0.03 ULP, measured on scalar/SSE2/AVX2/AVX-512
+    /// (Zen 4). Gates: ≤1 ULP FMA tiers and SSE2-as-measured ≤2, libm-backed
+    /// paths ≤4 — see tests/performance/test_trig_ulp_gates.cpp; NEON gated in
+    /// CI's macOS leg.
     void (*cos_batch)(const double *in, double *out, std::size_t n) noexcept;
     /// sin(x): same clean-room quadrant-reduction kernel and domain/accuracy
     /// contract as cos_batch above, from the sin quadrant table directly (not

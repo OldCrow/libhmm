@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Runtime ISA dispatch now covers the FB/BW/transcendental path (#58).**
+  The six `TranscendentalKernels` kernels (FB max-reduce recurrence, BW xi
+  accumulation, `log1p_inplace`) moved from a compile-time `#if` cascade in
+  one `-march=native` TU into the five per-ISA `simd_double_ops_*.cpp` TUs,
+  dispatched through `DoubleVecOps` via CPUID at startup. The seven
+  FB/BW/MAP/transcendental TUs left `LIBHMM_SIMD_SOURCES` (they hold no
+  intrinsics); `LIBHMM_PORTABLE`'s remaining scope is the distribution
+  batch-override TUs only — portable wheels no longer trade away any
+  performance on the training/inference path. Tail summation order for
+  sub-vector remainders changes (the old cascade cascaded 8→4→2-wide on a
+  native build; per-ISA kernels go vector→scalar tail), within the
+  documented no-bit-reproducibility posture.
+
+### Fixed
+- **SIMD `cos_pd` rebuilt at every tier; `sin_pd`/`sin_batch` added (#74).**
+  The 7-term-Taylor cosine (~2e-10 absolute error, ~9×10⁵ ULP) behind
+  `cos_batch` and the VonMises batch kernel is replaced with a clean-room
+  quadrant-reduction kernel (30-bit 4-part exact-product π/2 split,
+  compensated reduction, degree-6 minimax parity cores) ported from
+  libstats' NEON derivation to SSE2/AVX2/AVX-512/NEON. Vectorized domain is
+  |x| ≤ 2²³ with per-lane scalar libm fixup beyond. Constants are generated
+  by the self-checking `scripts/gen_trig_cleanroom_table.py` (mpmath).
+  `VonMisesDistribution.BatchMatchesScalar` tightened 1e-9 → 1e-12.
+  Per-tier ULP gates against checked-in correctly-rounded references
+  (`scripts/gen_trig_ulp_vectors.py`) now run in ctest and CI.
+
 ## [4.3.0] - 2026-08-16
 
 Numbered 4.3.0 rather than 4.2.6. The Bessel set (#72 log I₀ continuity, #73
