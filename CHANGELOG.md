@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Documented, TSan-tested thread-safety contract (#48 decision).** The
+  library owns no threads; the supported model is caller-level parallelism.
+  Concurrent training of *distinct* model instances is now a documented
+  contract (`basic_hmm.h` thread-safety Doxygen, README) pinned by
+  `tests/test_concurrent_training.cpp` under CI's ThreadSanitizer leg,
+  including a determinism cross-check (each concurrent worker's result
+  equals its serial twin). Const evaluation on a shared instance is also
+  thread-safe (the distribution caches already use a mutex-serialised
+  double-checked fill); mutation (setters, `fit()`, training) is not.
+  Issue #48 (parallel E-step accumulation) moved to v4.5.0, gated on a
+  measurement spike; the "threading not used in the production path"
+  decision stands.
 - **HMM topology constraints (#46).** `HmmTopology` enum (Ergodic,
   LeftToRight, LeftToRightSkip, Banded) with `initialize_topology()` (uniform
   stochastic transition matrix over the valid transitions) and

@@ -17,10 +17,16 @@
   later moved out of the library entirely and into `tools/`, since no
   production code ever instantiated it — only two diagnostic tools
   (`analyze_overhead`, `debug_parallel`) use it, to measure thread-pool
-  overhead empirically. See GitHub Milestones below: issue #48 tracks a
-  *prospective* future reintroduction of threading for parallel E-step
-  accumulation — that issue is open/unstarted, not a contradiction of this
-  decision.
+  overhead empirically. **Reaffirmed 2026-08-19 when deciding #48**: the
+  issue moved to v4.5.0, gated on a measurement spike (E-step share of
+  train(), sequence-count crossover, comparison against restart-level
+  parallelism). The supported model is caller-level parallelism —
+  concurrent training of DISTINCT model instances is a documented,
+  TSan-tested contract (basic_hmm.h Doxygen, test_concurrent_training.cpp);
+  const evaluation on a shared instance is also safe (mutex-serialised
+  double-checked cache fill, distribution_base.h); mutation is not. The
+  corrected acceptance criteria and the prefix-sum-offset buffer design for
+  any future implementation are recorded on the issue.
 - Special functions (regularized incomplete gamma/beta, inverse erf) are
   implemented from public-domain references only — Abramowitz & Stegun, NIST
   DLMF, Lentz (1976), Winitzki (2008) — never Numerical Recipes, whose code is
@@ -59,14 +65,16 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 
 - v4.3.0 — Numerical Correctness & Build Contract (CLOSED, #3): 0 open / 6
   closed — #63, #70, #72, #73, #75, #76. Shipped 2026-08-16.
-- v4.4.0 — Training & Core Usability (open, #1): 1 open / 8 closed.
+- v4.4.0 — Training & Core Usability (open, #1): 0 open / 8 closed — ready
+  to merge and release.
   - #43 CLOSED 2026-08-18 — BasicHmm::clone(); shipped on dev/v4.4.0.
   - #44 CLOSED 2026-08-18 — sample(hmm, T, rng); shipped on dev/v4.4.0.
   - #45 CLOSED 2026-08-19 — fit_best_of_n() multi-restart; shipped on dev/v4.4.0.
   - #46 CLOSED 2026-08-19 — topology constraints (initialize_topology /
     enforce_topology, Ergodic/LeftToRight/LeftToRightSkip/Banded); shipped on
     dev/v4.4.0. Tied states deliberately out of scope.
-  - #48 OPEN — perf: parallel E-step accumulation across sequences using ThreadPool.
+  - #48 MOVED to v4.5.0 on 2026-08-19 — see the Decided section's threading
+    entry and the decision comment on the issue.
   - #78 CLOSED 2026-08-19 — reject never-initialised (all-zero pi/trans)
     models at calculator/trainer entry (was: confusing "no valid observation
     sequences" downstream failure). Shipped on dev/v4.4.0 via PR #79
@@ -86,8 +94,10 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   - #58 CLOSED 2026-08-18 — tier-2 dispatch extension; shipped on dev/v4.4.0.
   - #74 CLOSED 2026-08-18 — clean-room cos/sin + ULP gates; moved onto this
     milestone at closure (it ships in v4.4.0), shipped on dev/v4.4.0.
-- v4.5.0 — Algorithm Coverage (open, #2): 3 open / 0 closed.
+- v4.5.0 — Algorithm Coverage (open, #2): 4 open / 0 closed.
   - #47 OPEN — feat: GMMDistribution — Gaussian Mixture Model emission for multimodal states.
+  - #48 OPEN — perf: parallel E-step accumulation (moved from v4.4.0
+    2026-08-19; gated on a measurement spike — see Decided section).
   - #51 OPEN — feat: online/streaming forward calculator — incremental α update for real-time inference.
   - #52 OPEN — feat: N-best Viterbi decoding — return top-k most probable state paths.
 
@@ -339,10 +349,9 @@ deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
 `[Unreleased]` section and AGENTS.md CMake-standard section updated to match.
 
 ## Next Steps
-- Only #48 remains on v4.4.0 — Training & Core Usability (#58, #74, #43,
-  #44, #45, #78, #46, #80 all done on dev/v4.4.0). Next: the #48
-  threading-reversal decision; if #48 is deferred or declined, the milestone
-  is ready to merge to main and release.
+- v4.4.0 — Training & Core Usability is COMPLETE on dev/v4.4.0 (#58, #74,
+  #43, #44, #45, #78, #46, #80 done; #48 decided and moved to v4.5.0).
+  Next: merge dev/v4.4.0 → main and release v4.4.0.
 - Decide whether issue #48 (parallel E-step accumulation) should proceed;
   if so, record the reversal of the "threading not used" decision above
   when work begins, rather than leaving both statements to coexist

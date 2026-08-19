@@ -36,6 +36,20 @@ namespace libhmm {
  * called (or the model is loaded from JSON/XML).  An all-zero model assigns
  * zero probability to every sequence.  Calculators and trainers reject such
  * a model up front via validateInitialized().
+ *
+ * @par Thread safety
+ * The library owns no threads.  Concurrent use of DISTINCT instances is
+ * fully supported: each thread owns its own model (and thus its own
+ * emission distributions), and observation data may be shared read-only
+ * across threads.  On a SHARED instance, concurrent const evaluation
+ * (probabilities, calculators) is safe — distribution caches use a
+ * mutex-serialised double-checked fill (see distribution_base.h) — but any
+ * mutation (setters, fit(), training) must not overlap with other access.
+ * Process-wide state is limited to function-local statics with thread-safe
+ * C++11 initialisation (SIMD dispatch table, CPUID flags).  This is the
+ * contract for caller-level parallelism — concurrent restarts,
+ * model-selection sweeps, cross-validation folds — and is pinned by
+ * tests/test_concurrent_training.cpp under CI's ThreadSanitizer leg.
  */
 template <typename Obs = double>
 class BasicHmm {

@@ -113,6 +113,10 @@ explicit SIMD is deferred because `lgamma` per element has no portable vectorize
 - **`-march=native` for auto-vectorization**: tier-1 distributions and the FB recurrence
   kernel still use compiler auto-vectorization under the native ISA for that build machine.
 - **MSVC**: `/arch:AVX512`, `/arch:AVX2`, or `/arch:AVX` (CPU-verified at configure time)
+- **Caller-level parallelism**: the library owns no threads, but concurrent training of
+  *distinct* model instances is a documented, ThreadSanitizer-tested contract — parallelise
+  restarts, model-selection sweeps, or CV folds at your level. Const evaluation on a shared
+  instance is also thread-safe; mutation (setters, `fit()`, training) is not.
 - **Log-space throughout**: no numerical underflow on long sequences
 - **Pre-computed log transition matrices**: amortised once per `compute()` call
 
@@ -223,7 +227,7 @@ libhmm/
 │   ├── distributions/ # Distribution implementations
 │   ├── performance/   # simd_double_ops_{scalar,sse2,avx2,avx512,neon}.cpp + simd_dispatch.cpp
 │   └── platform/      # cpu_detection.cpp (runtime CPUID)
-├── tests/             # 50-test GTest suite
+├── tests/             # 51-test GTest suite
 ├── examples/          # 20 usage demonstrations
 ├── tools/             # simd_inspection, batch_performance, hmm_validator (.json/.xml)
 ├── samples/           # Reference HMM files (two_state_gaussian, casino) in JSON and XML
