@@ -30,6 +30,12 @@ namespace libhmm {
  * Default construction (Obs = double only) initialises each state with a
  * GaussianDistribution.  Non-scalar HMMs leave emission slots null until
  * setDistribution() is called.
+ *
+ * @warning A newly constructed BasicHmm zero-initialises both the transition
+ * matrix and pi — it is NOT a usable model until setTrans() and setPi() are
+ * called (or the model is loaded from JSON/XML).  An all-zero model assigns
+ * zero probability to every sequence.  Calculators and trainers reject such
+ * a model up front via validateInitialized().
  */
 template <typename Obs = double>
 class BasicHmm {
@@ -48,6 +54,9 @@ protected:
     }
 
     /// Initialises transition matrix, pi vector, and emission slots.
+    /// Both trans_ and pi_ are deliberately zero-filled (not uniform): the
+    /// caller must supply real probabilities via setTrans()/setPi() before
+    /// the model can score anything.  validateInitialized() enforces this.
     /// For Obs = double: fills each emission slot with a default GaussianDistribution.
     /// For other Obs types: leaves emission slots null (setDistribution() required).
     void initializeMatrices() {
@@ -251,6 +260,52 @@ public:
                 throw std::runtime_error("Emission distribution for state " + std::to_string(i) +
                                          " is null");
             }
+        }
+    }
+
+    /**
+     * @brief Rejects a model whose pi or transition matrix was never set.
+     *
+     * A newly constructed BasicHmm zero-initialises pi and the transition
+     * matrix, so an unconfigured model assigns zero probability to every
+     * sequence.  Calculators and trainers call this before doing any work
+     * so the mistake surfaces as a clear error at the entry point instead
+     * of a confusing downstream failure ("no valid observation sequences").
+     *
+     * Only the all-zero (never-initialised) case is checked; normalisation
+     * of pi and the transition rows is the caller's responsibility.
+     *
+     * @throws std::runtime_error if pi or the transition matrix is all zeros.
+     */
+    void validateInitialized() const {
+        bool anyPi = false;
+        for (std::size_t i = 0; i < pi_.size(); ++i) {
+            if (pi_(i) != 0.0) {
+                anyPi = true;
+                break;
+            }
+        }
+        if (!anyPi) {
+            throw std::runtime_error(
+                "HMM initial state probabilities (pi) are all zero. A newly constructed "
+                "BasicHmm zero-initialises pi and the transition matrix; call setPi() and "
+                "setTrans() (or load a saved model) before training or scoring.");
+        }
+
+        bool anyTrans = false;
+        for (std::size_t i = 0; i < trans_.size1() && !anyTrans; ++i) {
+            for (std::size_t j = 0; j < trans_.size2(); ++j) {
+                if (trans_(i, j) != 0.0) {
+                    anyTrans = true;
+                    break;
+                }
+            }
+        }
+        if (!anyTrans) {
+            throw std::runtime_error(
+                "HMM transition matrix is all zeros. A newly constructed BasicHmm "
+                "zero-initialises pi and the transition matrix; call setPi() and setTrans() "
+                "(or load a saved model) before training or scoring.");
         }
     }
 };

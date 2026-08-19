@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Never-initialised models are rejected up front (#78).** A newly
+  constructed `BasicHmm` zero-fills pi and the transition matrix, so an
+  unconfigured model assigns zero probability to every sequence — previously
+  surfacing as a confusing downstream failure ("no valid observation
+  sequences"). New `BasicHmm::validateInitialized()` throws a descriptive
+  `std::runtime_error` naming the zero-init contract and the fix; it is
+  called at `ForwardBackwardCalculator`/`ViterbiCalculator` construction and
+  at `train()` entry of `BaumWelchTrainer`, `MapBaumWelchTrainer`, and
+  `ViterbiTrainer`. `SegmentalKMeansTrainer` is deliberately exempt: it
+  derives pi/trans from its index-partition initial assignments, so an
+  unconfigured model is a legitimate starting point there. Only the all-zero
+  case is checked; normalisation remains the caller's responsibility. The
+  zero-init contract is now documented in the `basic_hmm.h` Doxygen and the
+  README quick-start.
 - **Multi-restart training — `fit_best_of_n()` (#45).** Runs n independent
   Baum-Welch trainings and keeps the model with the highest total
   log-likelihood (`training/fit_best_of_n.h`, works for `Hmm` and `HmmMV`).

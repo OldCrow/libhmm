@@ -58,7 +58,10 @@ public:
 
     ~BasicBaumWelchTrainer() override = default;
 
-    /** @brief Execute one full EM pass, updating the HMM in place. */
+    /** @brief Execute one full EM pass, updating the HMM in place.
+     *  @throws std::runtime_error if the HMM was never initialised (all-zero
+     *          pi/trans — see BasicHmm::validateInitialized()) or if no
+     *          sequence has nonzero probability under the current model. */
     void train() override;
     /** @return Total E-step log-probability from the last train() call. */
     [[nodiscard]] double getLastLogProbability() const noexcept { return lastLogProb_; }
@@ -96,6 +99,7 @@ BasicBaumWelchTrainer<Obs>::BasicBaumWelchTrainer(HmmType *hmm, const ListType &
 template <typename Obs>
 void BasicBaumWelchTrainer<Obs>::train() {
     HmmType &hmm = this->getHmmRef();
+    hmm.validateInitialized();
     const std::size_t N = hmm.getNumStatesModern();
     lastLogProb_ = -std::numeric_limits<double>::infinity();
 

@@ -30,7 +30,7 @@
   LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
 
 ## GitHub Synchronization [DERIVED]
-Last reconciled against live GitHub state: 2026-08-18.
+Last reconciled against live GitHub state: 2026-08-19.
 - GitHub is the collaborator-facing source for issues and milestones; this
   PLAN.md is the agent-facing durable project state. Keep both in sync.
 - When creating, closing, reopening, retitling, or moving a GitHub issue or
@@ -59,12 +59,18 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 
 - v4.3.0 — Numerical Correctness & Build Contract (CLOSED, #3): 0 open / 6
   closed — #63, #70, #72, #73, #75, #76. Shipped 2026-08-16.
-- v4.4.0 — Training & Core Usability (open, #1): 1 open / 5 closed.
+- v4.4.0 — Training & Core Usability (open, #1): 3 open / 5 closed.
   - #43 CLOSED 2026-08-18 — BasicHmm::clone(); shipped on dev/v4.4.0.
   - #44 CLOSED 2026-08-18 — sample(hmm, T, rng); shipped on dev/v4.4.0.
   - #45 CLOSED 2026-08-19 — fit_best_of_n() multi-restart; shipped on dev/v4.4.0.
   - #46 OPEN — feat: HMM topology constraints — left-to-right, banded, and skip topologies.
   - #48 OPEN — perf: parallel E-step accumulation across sequences using ThreadPool.
+  - #78 OPEN (filed 2026-08-19) — usability: reject never-initialised
+    (all-zero pi/trans) models at calculator/trainer entry instead of the
+    confusing "no valid observation sequences" downstream failure. Decision
+    on the issue: (b) descriptive throw + (c) docs; uniform default init (a)
+    rejected. Fix in flight on dev/v4.4.0; SegmentalKMeansTrainer is
+    deliberately exempt (it self-initialises pi/trans).
   - #58 CLOSED 2026-08-18 — tier-2 dispatch extension; shipped on dev/v4.4.0.
   - #74 CLOSED 2026-08-18 — clean-room cos/sin + ULP gates; moved onto this
     milestone at closure (it ships in v4.4.0), shipped on dev/v4.4.0.

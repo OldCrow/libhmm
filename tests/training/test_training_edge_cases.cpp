@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "libhmm/training/viterbi_trainer.h"
 #include "libhmm/training/baum_welch_trainer.h"
+#include "libhmm/training/segmental_kmeans_trainer.h"
 #include "libhmm/hmm.h"
 #include "libhmm/distributions/distributions.h"
 #include <memory>
@@ -423,6 +424,47 @@ TEST_F(TrainingEdgeCasesTest, BaumWelchTrainerAllLength1EmitsDiagnostic) {
         for (std::size_t j = 0; j < 2; ++j)
             EXPECT_TRUE(std::isfinite(discreteHmm_->getTrans()(i, j)));
     }
+}
+
+// Issue #78: a never-initialised model (zero-filled pi/trans from
+// construction) must be rejected at train() entry with a descriptive error,
+// not surface later as "no valid observation sequences".
+TEST_F(TrainingEdgeCasesTest, TrainOnUninitializedModelThrowsDescriptively) {
+    ObservationLists obs;
+    ObservationSet seq(3);
+    seq(0) = 0.0;
+    seq(1) = 1.0;
+    seq(2) = 2.0;
+    obs.push_back(seq);
+
+    Hmm fresh(2); // pi and trans still all-zero
+
+    BaumWelchTrainer bw(fresh, obs);
+    try {
+        bw.train();
+        FAIL() << "expected std::runtime_error";
+    } catch (const std::runtime_error &e) {
+        EXPECT_NE(std::string(e.what()).find("setPi()"), std::string::npos);
+    }
+
+    ViterbiTrainer vt(fresh, obs);
+    EXPECT_THROW(vt.train(), std::runtime_error);
+}
+
+// Issue #78 exemption: SegmentalKMeansTrainer deliberately accepts a
+// never-initialised model — it derives pi/trans from its index-partition
+// initial assignments before the first Viterbi pass.
+TEST_F(TrainingEdgeCasesTest, SegmentalKMeansTrainsFromUninitializedModel) {
+    ObservationLists obs;
+    ObservationSet seq(8);
+    for (std::size_t t = 0; t < 8; ++t)
+        seq(t) = (t < 4) ? 0.0 : 5.0;
+    obs.push_back(seq);
+
+    Hmm fresh(2); // all-zero pi/trans; default Gaussian emissions
+    SegmentalKMeansTrainer trainer(fresh, obs);
+    EXPECT_NO_THROW(trainer.train());
+    EXPECT_NO_THROW(fresh.validateInitialized());
 }
 
 int main(int argc, char **argv) {

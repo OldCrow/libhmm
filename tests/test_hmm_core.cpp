@@ -43,6 +43,39 @@ TEST_F(HmmCoreTest, NegativeStatesThrows) {
     EXPECT_THROW(Hmm(-10), std::invalid_argument);
 }
 
+// validateInitialized: a fresh model is structurally valid (validate() passes)
+// but rejected for use because pi and trans are still all-zero (issue #78).
+TEST_F(HmmCoreTest, ValidateInitializedFreshModelThrows) {
+    Hmm fresh(2);
+    EXPECT_NO_THROW(fresh.validate());
+    EXPECT_THROW(fresh.validateInitialized(), std::runtime_error);
+}
+
+TEST_F(HmmCoreTest, ValidateInitializedPiOnlyThrows) {
+    Hmm hmm(2);
+    Vector pi(2);
+    pi(0) = 0.6;
+    pi(1) = 0.4;
+    hmm.setPi(pi);
+    // Transition matrix still all-zero.
+    EXPECT_THROW(hmm.validateInitialized(), std::runtime_error);
+}
+
+TEST_F(HmmCoreTest, ValidateInitializedFullySetPasses) {
+    Hmm hmm(2);
+    Vector pi(2);
+    pi(0) = 0.6;
+    pi(1) = 0.4;
+    hmm.setPi(pi);
+    Matrix trans(2, 2);
+    trans(0, 0) = 0.7;
+    trans(0, 1) = 0.3;
+    trans(1, 0) = 0.4;
+    trans(1, 1) = 0.6;
+    hmm.setTrans(trans);
+    EXPECT_NO_THROW(hmm.validateInitialized());
+}
+
 // Matrix and Vector Operations
 TEST_F(HmmCoreTest, SetPiVector) {
     Vector pi(2);

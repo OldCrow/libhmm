@@ -133,7 +133,10 @@ ctest --test-dir build -C Release --parallel 4
 #include "libhmm/libhmm.h"
 using namespace libhmm;
 
-// Create a 2-state HMM with Gaussian emissions
+// Create a 2-state HMM with Gaussian emissions.
+// NOTE: a fresh Hmm zero-initialises pi and the transition matrix — setTrans()
+// and setPi() below are required, not optional. Calculators and trainers
+// reject a never-initialised (all-zero) model with a descriptive error.
 Hmm hmm(2);
 
 Matrix trans(2, 2);

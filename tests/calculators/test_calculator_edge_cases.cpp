@@ -229,6 +229,20 @@ TEST_F(CalculatorEdgeCasesTest, VeryLongSequence_Viterbi_Stable) {
         EXPECT_EQ(seq(i), 0) << "Single-state HMM: all states must be 0";
 }
 
+// Issue #78: constructing a calculator on a never-initialised model
+// (zero-filled pi/trans from construction) must throw a descriptive error
+// instead of silently scoring every sequence as impossible.
+TEST_F(CalculatorEdgeCasesTest, UninitializedModelRejectedAtConstruction) {
+    Hmm fresh(2); // pi and trans still all-zero; default Gaussian emissions
+    ObservationSet obs(3);
+    obs(0) = 0.0;
+    obs(1) = 1.0;
+    obs(2) = 2.0;
+
+    EXPECT_THROW(ForwardBackwardCalculator(fresh, obs), std::runtime_error);
+    EXPECT_THROW(ViterbiCalculator(fresh, obs), std::runtime_error);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

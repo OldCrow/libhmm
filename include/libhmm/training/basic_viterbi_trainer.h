@@ -81,7 +81,9 @@ public:
 
     ~BasicViterbiTrainer() override = default;
 
-    /** @brief Run Viterbi training to convergence or maxIterations. */
+    /** @brief Run Viterbi training to convergence or maxIterations.
+     *  @throws std::runtime_error if the HMM was never initialised (all-zero
+     *          pi/trans — see BasicHmm::validateInitialized()). */
     void train() override;
 
     /** @return true if the last train() call converged. */
@@ -158,6 +160,7 @@ BasicViterbiTrainer<Obs>::BasicViterbiTrainer(HmmType *hmm, const ListType &obsL
 
 template <typename Obs>
 void BasicViterbiTrainer<Obs>::train() {
+    this->getHmmRef().validateInitialized();
     converged_ = false;
     maxItersReached_ = false;
     lastLogProb_ = -std::numeric_limits<double>::infinity();

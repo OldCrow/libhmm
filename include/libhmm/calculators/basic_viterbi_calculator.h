@@ -40,6 +40,8 @@ public:
      * @param hmm          The HMM (must be validated).
      * @param observations Observation sequence (must be non-empty).
      * @throws std::invalid_argument if observations is empty.
+     * @throws std::runtime_error if the HMM was never initialised (all-zero
+     *         pi/trans — see BasicHmm::validateInitialized()).
      */
     BasicViterbiCalculator(const HmmType &hmm, const SeqType &observations);
 
@@ -124,6 +126,7 @@ BasicViterbiCalculator<Obs>::BasicViterbiCalculator(const HmmType &hmm, const Se
     if (ObsSeqTraits<Obs>::sequence_length(observations) == 0) {
         throw std::invalid_argument("Observation sequence cannot be empty");
     }
+    hmm.validateInitialized();
     precomputeLogTransitions();
     static_cast<void>(decode());
 }

@@ -66,7 +66,10 @@ public:
     BasicMapBaumWelchTrainer(BasicMapBaumWelchTrainer &&) = default;
     BasicMapBaumWelchTrainer &operator=(BasicMapBaumWelchTrainer &&) = default;
 
-    /** @brief One MAP-EM pass. @throws std::runtime_error if no valid sequences. */
+    /** @brief One MAP-EM pass.
+     *  @throws std::runtime_error if the HMM was never initialised (all-zero
+     *          pi/trans — see BasicHmm::validateInitialized()) or if no
+     *          valid sequences. */
     void train() override;
 
     /** @param c New pseudo-count. @throws std::invalid_argument if c < 0. */
@@ -241,6 +244,7 @@ void BasicMapBaumWelchTrainer<Obs>::apply_discrete_smoothing(HmmType &hmm, std::
 template <typename Obs>
 void BasicMapBaumWelchTrainer<Obs>::train() {
     HmmType &hmm = this->getHmmRef();
+    hmm.validateInitialized();
     const std::size_t N = hmm.getNumStatesModern();
     const double c = pseudo_count_;
 
