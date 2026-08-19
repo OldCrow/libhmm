@@ -65,35 +65,12 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 
 - v4.3.0 — Numerical Correctness & Build Contract (CLOSED, #3): 0 open / 6
   closed — #63, #70, #72, #73, #75, #76. Shipped 2026-08-16.
-- v4.4.0 — Training & Core Usability (open, #1): 0 open / 8 closed — ready
-  to merge and release.
-  - #43 CLOSED 2026-08-18 — BasicHmm::clone(); shipped on dev/v4.4.0.
-  - #44 CLOSED 2026-08-18 — sample(hmm, T, rng); shipped on dev/v4.4.0.
-  - #45 CLOSED 2026-08-19 — fit_best_of_n() multi-restart; shipped on dev/v4.4.0.
-  - #46 CLOSED 2026-08-19 — topology constraints (initialize_topology /
-    enforce_topology, Ergodic/LeftToRight/LeftToRightSkip/Banded); shipped on
-    dev/v4.4.0. Tied states deliberately out of scope.
-  - #48 MOVED to v4.5.0 on 2026-08-19 — see the Decided section's threading
-    entry and the decision comment on the issue.
-  - #78 CLOSED 2026-08-19 — reject never-initialised (all-zero pi/trans)
-    models at calculator/trainer entry (was: confusing "no valid observation
-    sequences" downstream failure). Shipped on dev/v4.4.0 via PR #79
-    (b6e4783, fast-forward merge): (b) descriptive validateInitialized()
-    throw + (c) docs; uniform default init (a) rejected as a behaviour
-    change. SegmentalKMeansTrainer deliberately exempt (self-initialises
-    pi/trans; regression-tested). Filed and fixed same day from a trap hit
-    during #45 test authoring.
-  - #80 CLOSED 2026-08-19 — weighted GaussianDistribution::fit NaN-poisoned
-    the mean on leading exactly-zero gamma weights (0/0 in the running-sum
-    Welford divide). Found by #46's acceptance test: zero pi entries and
-    structural transition zeros give exp(−inf) = exactly-0.0 gammas, which
-    no ergodic model ever produces. Audit: only the scalar Gaussian divides
-    by the RUNNING weight sum; all other weighted fits divide by the guarded
-    final total and were immune. Fixed by skipping nonpositive weights
-    (exact for a weighted MLE); shipped on dev/v4.4.0.
-  - #58 CLOSED 2026-08-18 — tier-2 dispatch extension; shipped on dev/v4.4.0.
-  - #74 CLOSED 2026-08-18 — clean-room cos/sin + ULP gates; moved onto this
-    milestone at closure (it ships in v4.4.0), shipped on dev/v4.4.0.
+- v4.4.0 — Training & Core Usability (CLOSED, #1): 0 open / 8 closed —
+  #43, #44, #45, #46, #58, #74, #78, #80. Shipped 2026-08-19. #48 moved to
+  v4.5.0 at release (see the Decided section's threading entry); #77 closed
+  in the release commit via doc correction (zero consumers found). Per-issue
+  design/outcome detail: the In Progress section below and each issue's
+  closing comment.
 - v4.5.0 — Algorithm Coverage (open, #2): 4 open / 0 closed.
   - #47 OPEN — feat: GMMDistribution — Gaussian Mixture Model emission for multimodal states.
   - #48 OPEN — perf: parallel E-step accumulation (moved from v4.4.0
@@ -105,8 +82,12 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 - Open issues without milestone:
   - #50 OPEN — feat: Hidden Semi-Markov Model (HSMM) with explicit duration distributions.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
-  - #77 OPEN — accuracy: log1p_batch doc claims small-|x| accuracy its
-    add-then-log implementation cannot deliver (filed 2026-08-18, untriaged).
+  - #77 CLOSED 2026-08-19 — resolved via option (b), doc correction, in the
+    v4.4.0 release commit. Call-site audit found ZERO consumers of the
+    log1p_batch table entry (StudentT/Beta inline their own log1p;
+    log1p_inplace has its own entry by #58 design), so the 5-tier kernel
+    upgrade (option a) is deferred until a consumer needs small-|x| relative
+    accuracy — reopen or refile if one appears.
 - Closed issues without milestone: 20 as of 2026-07-18. Note #63/#70/#72/#73/
   #75/#76 were moved ONTO the new v4.3.0 milestone at release, so they are no
   longer in this section; their detail lives in Numerical Defect Triage below.
@@ -114,10 +95,10 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   --json number,title,milestone -q '.[] | select(.milestone == null)'` if ever
   needed.
 
-## In Progress [OPEN]
-### v4.4.0 milestone (branch dev/v4.4.0)
-- **#58 and #74 are COMPLETE on dev/v4.4.0** (2026-08-18), not yet merged to
-  main or released. Full design/decomposition record: this section's text at
+## v4.4.0 Milestone Record [DERIVED]
+### Shipped 2026-08-19 (developed on dev/v4.4.0, merged to main at release)
+- **#58 and #74 are COMPLETE on dev/v4.4.0** (2026-08-18). Full
+  design/decomposition record: this section's text at
   commit cd1b141 (git history); outcome detail in Numerical Defect Triage
   below. Sub-agent decomposition ran T0-T4 (design/verify here, three Sonnet
   implementation agents); two agent errors caught by verification: the NEON

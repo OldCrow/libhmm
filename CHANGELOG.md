@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.4.0] - 2026-08-19
 
 ### Added
 - **Documented, TSan-tested thread-safety contract (#48 decision).** The
@@ -81,6 +81,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documented no-bit-reproducibility posture.
 
 ### Fixed
+- **`log1p_batch` doc overclaimed small-|x| accuracy (#77).** The public
+  `simd_double_ops.h` comment said "accurate for |x| ≪ 1", but every tier is
+  add-then-log with no small-|x| path: absolute error stays ≤ ~1e-16, but
+  below |x| ≈ 1e-16 the result is exactly 0 instead of ≈ x. The doc now
+  states the true contract and points small-|x| consumers at
+  `log1p_inplace` (which carries the polynomial path). Audit: no in-library
+  code consumes the `log1p_batch` table entry; the kernel upgrade is
+  deferred until a consumer needs relative accuracy near zero.
 - **Weighted `GaussianDistribution::fit()` NaN-poisoned the mean when the
   leading gamma weights were exactly zero (#80).** The incremental weighted
   Welford update divided by the running weight sum, so a first weight of 0.0

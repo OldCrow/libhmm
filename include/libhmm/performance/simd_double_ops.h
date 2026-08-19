@@ -55,7 +55,12 @@ struct DoubleVecOps {
     /// contract as cos_batch above, from the sin quadrant table directly (not
     /// cos(x − π/2), which would lose accuracy through the extra subtraction).
     void (*sin_batch)(const double *in, double *out, std::size_t n) noexcept;
-    /// log(1+x): accurate for |x| ≪ 1. Implemented as SIMD(1+x) then log core.
+    /// log(1+x), implemented as SIMD(1+x) then log core — add-then-log with
+    /// NO small-|x| path (#77). Absolute error stays ≤ ~1e-16 everywhere,
+    /// but for |x| < ~1e-16 the sum 1+x rounds to 1.0 and the result is
+    /// exactly 0 instead of ≈ x: relative error near zero is unbounded.
+    /// For small-|x| relative accuracy use log1p_inplace below, which
+    /// carries the polynomial path. No in-library code consumes this entry.
     void (*log1p_batch)(const double *in, double *out, std::size_t n) noexcept;
 
     // -------------------------------------------------------------------------
