@@ -264,6 +264,90 @@ TEST(HmmCloneTest, CloneMVDeepCopiesSetSlotsAndKeepsNullSlotsNull) {
     EXPECT_EQ(scalarCopy.getNumStatesModern(), 2u);
 }
 
+// ============================================================================
+// sample() — HMM-level sequence generation (issue #44)
+// ============================================================================
+
+TEST(HmmSampleTest, ScalarSampleShapesStatesAndStatistics) {
+    Hmm hmm(2);
+    Matrix trans(2, 2);
+    trans(0, 0) = 0.9;
+    trans(0, 1) = 0.1;
+    trans(1, 0) = 0.1;
+    trans(1, 1) = 0.9;
+    hmm.setTrans(trans);
+    Vector pi(2);
+    pi(0) = 0.5;
+    pi(1) = 0.5;
+    hmm.setPi(pi);
+    // Well-separated emissions so per-state empirical means are unambiguous.
+    hmm.setDistribution(0, std::make_unique<GaussianDistribution>(0.0, 1.0));
+    hmm.setDistribution(1, std::make_unique<GaussianDistribution>(10.0, 1.0));
+
+    std::mt19937_64 rng(20260818);
+    const std::size_t T = 1000;
+    auto [obs, states] = sample(hmm, T, rng);
+
+    ASSERT_EQ(obs.size(), T);
+    ASSERT_EQ(states.size(), T);
+
+    // State path valid, both states visited, per-state means near the truth.
+    double sum[2] = {0.0, 0.0};
+    std::size_t cnt[2] = {0, 0};
+    for (std::size_t t = 0; t < T; ++t) {
+        ASSERT_GE(states(t), 0);
+        ASSERT_LT(static_cast<std::size_t>(states(t)), 2u);
+        sum[states(t)] += obs(t);
+        ++cnt[states(t)];
+    }
+    ASSERT_GT(cnt[0], 100u); // sticky symmetric chain: both states well-visited
+    ASSERT_GT(cnt[1], 100u);
+    // sd = 1, so mean of >=100 draws is within ~0.3 at >3 sigma margin.
+    EXPECT_NEAR(sum[0] / static_cast<double>(cnt[0]), 0.0, 0.5);
+    EXPECT_NEAR(sum[1] / static_cast<double>(cnt[1]), 10.0, 0.5);
+}
+
+TEST(HmmSampleTest, ScalarSampleEdgeCases) {
+    Hmm hmm(2);
+    // Zero-length request: empty containers, no draws, no throw.
+    std::mt19937_64 rng(1);
+    // Parameters unset (all-zero pi): T=0 must not touch them...
+    auto [obs0, st0] = sample(hmm, 0, rng);
+    EXPECT_EQ(obs0.size(), 0u);
+    EXPECT_EQ(st0.size(), 0u);
+    // ...but any real draw from a zeroed pi must throw, not silently pick a state.
+    EXPECT_THROW((void)sample(hmm, 5, rng), std::runtime_error);
+}
+
+TEST(HmmSampleTest, MVSampleShapesAndDimensions) {
+    HmmMV hmm(2);
+    Matrix trans(2, 2);
+    trans(0, 0) = 0.8;
+    trans(0, 1) = 0.2;
+    trans(1, 0) = 0.2;
+    trans(1, 1) = 0.8;
+    hmm.setTrans(trans);
+    Vector pi(2);
+    pi(0) = 1.0;
+    pi(1) = 0.0;
+    hmm.setPi(pi);
+    hmm.setDistribution(0, std::make_unique<DiagonalGaussianDistribution>(2));
+    hmm.setDistribution(1, std::make_unique<DiagonalGaussianDistribution>(2));
+
+    std::mt19937_64 rng(7);
+    const std::size_t T = 33; // non-round length
+    auto [obs, states] = sample(hmm, T, rng);
+
+    EXPECT_EQ(obs.size1(), T);
+    EXPECT_EQ(obs.size2(), 2u);
+    ASSERT_EQ(states.size(), T);
+    EXPECT_EQ(states(0), 0); // pi is a point mass on state 0
+    for (std::size_t t = 0; t < T; ++t) {
+        ASSERT_GE(states(t), 0);
+        ASSERT_LT(static_cast<std::size_t>(states(t)), 2u);
+    }
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

@@ -5,6 +5,7 @@
 #include <span>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 namespace libhmm {
 
@@ -114,6 +115,20 @@ public:
      *             the appropriate type for the observation space.
      */
     [[nodiscard]] virtual double sample(std::mt19937_64 &rng) const = 0;
+
+    /**
+     * @brief Draw one observation as a vector (multivariate path, #44).
+     *
+     * Scalar distributions inherit this default — a one-element vector
+     * wrapping sample(), consistent with getDimension() == 1. Multivariate
+     * distributions override it with a D-dimensional draw.
+     *
+     * @param rng  A seeded `std::mt19937_64` engine (mutated in place).
+     * @return     One observation of getDimension() elements.
+     */
+    [[nodiscard]] virtual std::vector<double> sample_mv(std::mt19937_64 &rng) const {
+        return {sample(rng)};
+    }
 
     // =========================================================================
     // Cloning

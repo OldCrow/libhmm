@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **HMM-level sequence sampling — `sample(hmm, T, rng)` (#44).** Free-function
+  overloads for `Hmm` (returns `{ObservationSet, StateSequence}`) and `HmmMV`
+  (returns `{ObservationMatrix, StateSequence}`) in `hmm.h`, drawing
+  s₀ ~ π and the chain via inverse-CDF categorical draws. Rows are treated
+  as unnormalised weights; a zero π/transition row throws rather than
+  silently picking a state. `sample_mv()` is now virtual on
+  `BasicEmissionDistribution` with a scalar-consistent default
+  (`{sample(rng)}`), so MV sampling works through base pointers.
 - **`BasicHmm::clone()` — explicit deep copy (#43).** Independent transition
   matrix, initial-state vector, and cloned emission distributions (null
   emission slots stay null); the copy constructor stays deleted so the

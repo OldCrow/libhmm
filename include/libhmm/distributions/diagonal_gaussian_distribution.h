@@ -118,7 +118,7 @@ public:
     [[nodiscard]] double sample(std::mt19937_64 &rng) const override;
 
     /** @brief Draw a D-dimensional sample: result[d] ~ N(μ_d, σ²_d). */
-    [[nodiscard]] std::vector<double> sample_mv(std::mt19937_64 &rng) const;
+    [[nodiscard]] std::vector<double> sample_mv(std::mt19937_64 &rng) const override;
 
     [[nodiscard]] std::string to_json() const override;
     [[nodiscard]] std::string toString() const override;
