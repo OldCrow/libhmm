@@ -126,16 +126,24 @@ void GaussianDistribution::fit(std::span<const double> data, std::span<const dou
     if (sumW < precision::ZERO || std::isnan(sumW))
         return;
 
-    // Weighted Welford for numerical stability
+    // Weighted Welford for numerical stability.
+    // Skip nonpositive weights: Baum-Welch gammas for a state unreachable at
+    // time t (zero pi entry or structural transition zero, issue #46) are
+    // exp(-inf) = exactly 0.0, and a leading zero would make the first update
+    // divide 0/0 and poison the mean with NaN (issue #80). Zero-weight terms
+    // contribute nothing to a weighted MLE, so skipping them is exact.
     double mean = 0.0;
     double m2 = 0.0;
     double cumW = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
-        cumW += weights[i];
+        const double w = weights[i];
+        if (w <= 0.0)
+            continue;
+        cumW += w;
         const double delta = data[i] - mean;
-        mean += (weights[i] / cumW) * delta;
+        mean += (w / cumW) * delta;
         const double delta2 = data[i] - mean;
-        m2 += weights[i] * delta * delta2;
+        m2 += w * delta * delta2;
     }
 
     mean_ = mean;

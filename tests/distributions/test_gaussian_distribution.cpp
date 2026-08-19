@@ -54,6 +54,23 @@ TEST(GaussianDistributionTest, Fitting) {
     EXPECT_EQ(gaussian.getStandardDeviation(), 1.0);
 }
 
+// Issue #80: Baum-Welch gammas for a state unreachable at time t (zero pi
+// entry or structural transition zero) are exactly 0.0. Leading zeros made
+// the first weighted-Welford update divide 0/0 and poison the mean with NaN.
+TEST(GaussianDistributionTest, WeightedFittingLeadingZeroWeights) {
+    GaussianDistribution gaussian;
+
+    std::vector<Observation> data = {100.0, 200.0, 4.0, 5.0, 6.0};
+    std::vector<double> weights = {0.0, 0.0, 1.0, 1.0, 1.0};
+    gaussian.fit(std::span<const Observation>(data), std::span<const double>(weights));
+
+    // Zero-weight entries contribute nothing: result equals the unweighted
+    // fit of {4, 5, 6}.
+    EXPECT_NEAR(gaussian.getMean(), 5.0, 1e-12);
+    EXPECT_NEAR(gaussian.getStandardDeviation(), std::sqrt(2.0 / 3.0), 1e-12);
+    EXPECT_FALSE(std::isnan(gaussian.getMean()));
+}
+
 TEST(GaussianDistributionTest, ParameterValidation) {
     EXPECT_THROW(GaussianDistribution(0.0, 0.0), std::invalid_argument);
     EXPECT_THROW(GaussianDistribution(0.0, -1.0), std::invalid_argument);
