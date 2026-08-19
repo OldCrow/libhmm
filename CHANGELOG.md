@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Multi-restart training — `fit_best_of_n()` (#45).** Runs n independent
+  Baum-Welch trainings and keeps the model with the highest total
+  log-likelihood (`training/fit_best_of_n.h`, works for `Hmm` and `HmmMV`).
+  Restart 0 trains from the caller's current parameters unrandomised, so the
+  result is never worse than a single run by construction. Randomised
+  restarts re-initialise emissions via small-random-subsample refits through
+  the existing `fit()` surface (scalar) or `kmeans_init()` with fresh
+  k-means++ seeding (multivariate). A restart that throws is discarded;
+  the exception is rethrown only if every restart fails.
 - **HMM-level sequence sampling — `sample(hmm, T, rng)` (#44).** Free-function
   overloads for `Hmm` (returns `{ObservationSet, StateSequence}`) and `HmmMV`
   (returns `{ObservationMatrix, StateSequence}`) in `hmm.h`, drawing

@@ -59,10 +59,10 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 
 - v4.3.0 — Numerical Correctness & Build Contract (CLOSED, #3): 0 open / 6
   closed — #63, #70, #72, #73, #75, #76. Shipped 2026-08-16.
-- v4.4.0 — Training & Core Usability (open, #1): 2 open / 4 closed.
+- v4.4.0 — Training & Core Usability (open, #1): 1 open / 5 closed.
   - #43 CLOSED 2026-08-18 — BasicHmm::clone(); shipped on dev/v4.4.0.
   - #44 CLOSED 2026-08-18 — sample(hmm, T, rng); shipped on dev/v4.4.0.
-  - #45 OPEN — feat: multi-restart training — fit_best_of_n() for robust EM convergence.
+  - #45 CLOSED 2026-08-19 — fit_best_of_n() multi-restart; shipped on dev/v4.4.0.
   - #46 OPEN — feat: HMM topology constraints — left-to-right, banded, and skip topologies.
   - #48 OPEN — perf: parallel E-step accumulation across sequences using ThreadPool.
   - #58 CLOSED 2026-08-18 — tier-2 dispatch extension; shipped on dev/v4.4.0.
@@ -96,9 +96,28 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   relocation landed in the non-AArch64 #else stub section (masked on every
   x86 leg, broke every macOS link), and a corvus AGENTS.md rule ("MSVC caps
   at AVX2") leaked into a brief — countermeasures recorded in session memory.
-- Remaining v4.4.0 issues: #45 multi-restart (#43 clone DONE, #44 sampling
-  DONE 2026-08-18), #46 topology (independent), #48 parallel E-step (decide
-  the threading reversal first — see Next Steps).
+- **#45 COMPLETE on dev/v4.4.0** (2026-08-19). Both pre-implementation design
+  points settled as recorded here:
+  - "Randomise emissions from prior" → **random-subsample refit**. No prior
+    machinery exists and a per-family randomise() virtual was out of scope.
+    Scalar restarts refit each state via the existing unweighted fit() on a
+    small random subsample (with replacement, m = clamp(pool/(4N), 2, 32)) of
+    the pooled observations — small samples carry the variance that makes
+    starts diverse; large subsamples would fit every state to near-identical
+    pooled statistics. MV restarts run kmeans_init() with fresh k-means++
+    seeding, per the issue. π/A keep their cloned values (first E-step
+    re-estimates them once emissions differ).
+  - 90%-of-seeds acceptance → **made structural, not statistical**. Restart 0
+    trains from the caller's current parameters unrandomised, so
+    fit_best_of_n ≥ single run holds by construction (the single run IS one
+    of the candidates). The acceptance test asserts that deterministic
+    invariant on every platform; the separate multimodal-recovery test uses
+    10σ-separated modes from a symmetric-emissions trap (a fixed point plain
+    EM cannot leave) with margins wide enough for any conforming RNG stream.
+  - Per-restart exceptions discard that restart; rethrown only if all fail.
+    Restarts serial; parallel execution deferred to #47's ThreadPool work.
+- Remaining v4.4.0 issues: #46 topology (independent), #48 parallel E-step
+  (decide the threading reversal first — see Next Steps).
 - Merge dev/v4.4.0 → main and release when the milestone empties.
 
 ## Numerical Defect Triage (2026-08-16) [DERIVED]
@@ -303,12 +322,10 @@ deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
 
 ## Next Steps
 - Work through the remaining v4.4.0 — Training & Core Usability backlog
-  (#45 now unblocked by #43; #46 independent) before v4.5.0 — Algorithm
-  Coverage. #58, #74, #43 and #44 are done on dev/v4.4.0. For #45, settle
-  the two open design points BEFORE implementing: what "randomise emissions
-  from prior" means per distribution family (no prior machinery exists), and
-  how to make the 90%-of-seeds statistical acceptance test deterministic and
-  non-flaky across the four CI platforms.
+  before v4.5.0 — Algorithm Coverage. #58, #74, #43, #44 and #45 are done on
+  dev/v4.4.0. Next: #46 topology constraints — keep tied-states OUT of scope
+  (the scope hazard flagged in the 2026-08-18 estimate), then the #48
+  threading-reversal decision.
 - Decide whether issue #48 (parallel E-step accumulation) should proceed;
   if so, record the reversal of the "threading not used" decision above
   when work begins, rather than leaving both statements to coexist
