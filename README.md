@@ -40,6 +40,14 @@ needs to run *inside* a C++ application or pipeline.
 - **Segmental K-Means** — hard-assignment EM for any scalar distribution (`SegmentalKMeansTrainer`) or
   multivariate HMM (`SegmentalKMeansTrainerMV`); useful as initialiser before Baum-Welch
 
+### Model Topologies
+
+- **Structural transition constraints** — `initialize_topology()` / `enforce_topology()` with
+  `HmmTopology::{Ergodic, LeftToRight, LeftToRightSkip, Banded}` hold invalid transitions at
+  exactly zero through training (call `enforce_topology()` after each `train()` iteration to
+  repair the M-step's uniform-reset fallback for unvisited states). Only the transition matrix
+  is managed — set π yourself (a Bakis model conventionally starts with a point mass on state 0).
+
 ### Inference
 
 - **ForwardBackward** — canonical log-space calculator; returns `probability()`, `getLogProbability()`,
@@ -207,6 +215,7 @@ libhmm/
 │   ├── distributions/ # Layer 3: 16 scalar + 3 multivariate distributions
 │   ├── performance/   # Runtime dispatch table (simd_double_ops.h) + FB recurrence policy
 │   ├── basic_hmm.h    # BasicHmm<Obs> template; Hmm and HmmMV aliases
+│   ├── topology.h     # Structural transition topologies (left-to-right, skip, banded)
 │   ├── calculators/   # Layer 4: ForwardBackward, Viterbi (scalar + MV)
 │   ├── training/      # Layer 4: BaumWelch, MapBaumWelch, Viterbi, kmeans_init
 │   └── io/            # JSON (hmm_json.h, scalar + MV) + legacy XML I/O
@@ -214,7 +223,7 @@ libhmm/
 │   ├── distributions/ # Distribution implementations
 │   ├── performance/   # simd_double_ops_{scalar,sse2,avx2,avx512,neon}.cpp + simd_dispatch.cpp
 │   └── platform/      # cpu_detection.cpp (runtime CPUID)
-├── tests/             # 46-test GTest suite
+├── tests/             # 50-test GTest suite
 ├── examples/          # 20 usage demonstrations
 ├── tools/             # simd_inspection, batch_performance, hmm_validator (.json/.xml)
 ├── samples/           # Reference HMM files (two_state_gaussian, casino) in JSON and XML

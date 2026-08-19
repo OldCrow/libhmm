@@ -59,11 +59,13 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 
 - v4.3.0 — Numerical Correctness & Build Contract (CLOSED, #3): 0 open / 6
   closed — #63, #70, #72, #73, #75, #76. Shipped 2026-08-16.
-- v4.4.0 — Training & Core Usability (open, #1): 2 open / 6 closed.
+- v4.4.0 — Training & Core Usability (open, #1): 1 open / 8 closed.
   - #43 CLOSED 2026-08-18 — BasicHmm::clone(); shipped on dev/v4.4.0.
   - #44 CLOSED 2026-08-18 — sample(hmm, T, rng); shipped on dev/v4.4.0.
   - #45 CLOSED 2026-08-19 — fit_best_of_n() multi-restart; shipped on dev/v4.4.0.
-  - #46 OPEN — feat: HMM topology constraints — left-to-right, banded, and skip topologies.
+  - #46 CLOSED 2026-08-19 — topology constraints (initialize_topology /
+    enforce_topology, Ergodic/LeftToRight/LeftToRightSkip/Banded); shipped on
+    dev/v4.4.0. Tied states deliberately out of scope.
   - #48 OPEN — perf: parallel E-step accumulation across sequences using ThreadPool.
   - #78 CLOSED 2026-08-19 — reject never-initialised (all-zero pi/trans)
     models at calculator/trainer entry (was: confusing "no valid observation
@@ -73,6 +75,14 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
     change. SegmentalKMeansTrainer deliberately exempt (self-initialises
     pi/trans; regression-tested). Filed and fixed same day from a trap hit
     during #45 test authoring.
+  - #80 CLOSED 2026-08-19 — weighted GaussianDistribution::fit NaN-poisoned
+    the mean on leading exactly-zero gamma weights (0/0 in the running-sum
+    Welford divide). Found by #46's acceptance test: zero pi entries and
+    structural transition zeros give exp(−inf) = exactly-0.0 gammas, which
+    no ergodic model ever produces. Audit: only the scalar Gaussian divides
+    by the RUNNING weight sum; all other weighted fits divide by the guarded
+    final total and were immune. Fixed by skipping nonpositive weights
+    (exact for a weighted MLE); shipped on dev/v4.4.0.
   - #58 CLOSED 2026-08-18 — tier-2 dispatch extension; shipped on dev/v4.4.0.
   - #74 CLOSED 2026-08-18 — clean-room cos/sin + ULP gates; moved onto this
     milestone at closure (it ships in v4.4.0), shipped on dev/v4.4.0.
@@ -329,11 +339,10 @@ deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
 `[Unreleased]` section and AGENTS.md CMake-standard section updated to match.
 
 ## Next Steps
-- Work through the remaining v4.4.0 — Training & Core Usability backlog
-  before v4.5.0 — Algorithm Coverage. #58, #74, #43, #44 and #45 are done on
-  dev/v4.4.0. Next: #46 topology constraints — keep tied-states OUT of scope
-  (the scope hazard flagged in the 2026-08-18 estimate), then the #48
-  threading-reversal decision.
+- Only #48 remains on v4.4.0 — Training & Core Usability (#58, #74, #43,
+  #44, #45, #78, #46, #80 all done on dev/v4.4.0). Next: the #48
+  threading-reversal decision; if #48 is deferred or declined, the milestone
+  is ready to merge to main and release.
 - Decide whether issue #48 (parallel E-step accumulation) should proceed;
   if so, record the reversal of the "threading not used" decision above
   when work begins, rather than leaving both statements to coexist

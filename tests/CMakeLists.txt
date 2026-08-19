@@ -211,6 +211,7 @@ if(GTest_FOUND OR TARGET gtest)
     # Core HMM
     # =========================================================================
     add_hmm_test(test_hmm_core test_hmm_core.cpp)
+    add_hmm_test(test_topology test_topology.cpp)
 
     # =========================================================================
     # Calculators

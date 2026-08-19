@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **HMM topology constraints (#46).** `HmmTopology` enum (Ergodic,
+  LeftToRight, LeftToRightSkip, Banded) with `initialize_topology()` (uniform
+  stochastic transition matrix over the valid transitions) and
+  `enforce_topology()` (re-impose the mask after an M-step, renormalising
+  each row and repairing the uniform-reset fallback rows that would otherwise
+  silently break the constraint) in `topology.h`, for both `Hmm` and `HmmMV`.
+  Only the transition matrix is managed; pi stays the caller's
+  responsibility. Tied states are deliberately out of scope.
 - **Never-initialised models are rejected up front (#78).** A newly
   constructed `BasicHmm` zero-fills pi and the transition matrix, so an
   unconfigured model assigns zero probability to every sequence — previously
@@ -61,6 +69,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documented no-bit-reproducibility posture.
 
 ### Fixed
+- **Weighted `GaussianDistribution::fit()` NaN-poisoned the mean when the
+  leading gamma weights were exactly zero (#80).** The incremental weighted
+  Welford update divided by the running weight sum, so a first weight of 0.0
+  computed 0/0 = NaN; the sd clamp then masked the damage as
+  mean = NaN, sd = 1e-06. Unreachable-at-t states in constrained-topology or
+  point-mass-pi models produce exactly-zero gammas (exp(−inf)), so any
+  left-to-right Baum-Welch run hit this on its second iteration. Nonpositive
+  weights are now skipped (exact for a weighted MLE). All other weighted
+  fits divide by the guarded final total and were already immune.
 - **SIMD `cos_pd` rebuilt at every tier; `sin_pd`/`sin_batch` added (#74).**
   The 7-term-Taylor cosine (~2e-10 absolute error, ~9×10⁵ ULP) behind
   `cos_batch` and the VonMises batch kernel is replaced with a clean-room

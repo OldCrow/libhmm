@@ -44,6 +44,9 @@
 /// Main HMM class and state machine implementation
 #include "libhmm/hmm.h"
 
+/// Structural transition topologies (left-to-right, skip, banded)
+#include "libhmm/topology.h"
+
 //==============================================================================
 // PROBABILITY DISTRIBUTIONS
 //==============================================================================

@@ -174,6 +174,10 @@ Dependencies flow strictly downward:
 | — | `io/` | JSON (`hmm_json.h`, recommended), legacy XML, `FileIOManager` |
 | — | `performance/` | `TranscendentalKernels` (FB recurrence), `detail/simd_math_helpers.h` (shared SIMD math helpers), `fb_recurrence_policy.h`, `simd_double_ops.h` (runtime-dispatch distribution batch kernels) |
 
+Top-level headers sit between layers 3 and 4: `basic_hmm.h` (the
+`BasicHmm<Obs>` model itself), `hmm.h` (`Hmm`/`HmmMV` aliases, clone/sample
+helpers), and `topology.h` (structural transition masks —
+`initialize_topology`/`enforce_topology` over `BasicHmm`, #46).
 `libhmm.h` is the single umbrella include.
 
 ### v4 template parameterization
