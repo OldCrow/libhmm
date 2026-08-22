@@ -71,27 +71,62 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   in the release commit via doc correction (zero consumers found). Per-issue
   design/outcome detail: the In Progress section below and each issue's
   closing comment.
-- v4.5.0 — Algorithm Coverage (open, #2): 4 open / 0 closed.
+- **Order of release: v4.4.1 → v4.4.2 → v4.5.0 → (v5.0.0 unscheduled).**
+  Decided 2026-08-21 from the defensive review: fix-now candidates are
+  grouped into two PATCH milestones (bug fixes, no API surface change); the
+  second exists because its items change fitted values in the last bits and
+  #94 needs a benchmark pass first, so they must not gate the safety patch.
+  Source-breaking items are parked on a named major.
+- v4.4.1 — Correctness patch (open, #4): 10 open / 0 closed.
+  - #86 OPEN — batch out-span length guard (OOB write today; fix adds a
+    `std::invalid_argument` throw — CHANGELOG "Changed", not just "Fixed").
+  - #87 OPEN — JSON `read_double` bounded copy (strtod overrun).
+  - #84 OPEN — von Mises `fit()` κ = NaN for R̄ ≥ 0.99930.
+  - #85 OPEN — SSE2 `log_pd` subnormal prescale.
+  - #83 OPEN — AVX-512 (DQ/BW/VL) and AVX2 (FMA) CPUID masks + CMake probes.
+  - #90 OPEN — StudentT location validation (ctor, setter, JSON).
+  - #91 OPEN — JSON `pi`/`trans` value validation.
+  - #88 OPEN — count-distribution double→int casts (x86/AArch64 parity test).
+  - #89 OPEN — legacy `States:` bound + exception contract.
+  - #81 OPEN — `sin_pd(−0)` one-blend fix, mirror libstats #98; land the
+    signbit assertions with it.
+  Exit: every regression test named on the issues in place; ASan/TSan legs
+  green; the #88 test green on the macOS/AArch64 leg.
+- v4.4.2 — Fit accuracy & kernel hygiene (open, #5): 6 open / 0 closed.
+  - #92 OPEN — Student-t centred scale step (both overloads).
+  - #100 OPEN — LogNormal/Student-t effective-weight denominators; gammap
+    series tolerance.
+  - #94 OPEN — `LIBHMM_SIMD_SOURCES` trim to the five tier-1 TUs, AFTER a
+    benchmark pass (removes FMA contraction from nine M-steps); fold in the
+    A17 per-tier crossover note.
+  - #93 OPEN — delete the NEON non-AArch64 `#else` block.
+  - #99 OPEN — `exp_pd` −inf → 0 and NaN blends for tier-identical edges.
+  - #101 OPEN — review backlog: dead `errorf_inv`, untested setters, CCN,
+    clang-tidy SIMD carve-out, `kTrigDMax` duplicate, matrix ctor guard.
+  Exit: #94 benchmark delta recorded here; per-tier accuracy tests for
+  #92/#100.
+- v4.5.0 — Algorithm Coverage (open, #2): 6 open / 0 closed.
   - #47 OPEN — feat: GMMDistribution — Gaussian Mixture Model emission for multimodal states.
   - #48 OPEN — perf: parallel E-step accumulation (moved from v4.4.0
     2026-08-19; gated on a measurement spike — see Decided section).
   - #51 OPEN — feat: online/streaming forward calculator — incremental α update for real-time inference.
   - #52 OPEN — feat: N-best Viterbi decoding — return top-k most probable state paths.
+  - #97 OPEN — `sample()` → `validateInitialized()` (additive); the
+    `sample_mv` rename half moved to v5.0.0.
+  - #96 OPEN — third configure branch for non-x86/non-AArch64 (additive).
+- v5.0.0 — API (open, #6, unscheduled): 2 open / 0 closed.
+  - #95 OPEN — `train()` semantics (`step()`/`train()` split or callback);
+    topology guidance depends on it.
+  - #98 OPEN — `FileIOManager` trim to the two used functions.
+  - plus the `sample_mv` → camelCase rename from #97. Coordinate the
+    pylibhmm pin when this opens.
 
 ## GitHub Issues Without Milestone [DERIVED]
 - Open issues without milestone:
   - #50 OPEN — feat: Hidden Semi-Markov Model (HSMM) with explicit duration distributions.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
-  - #81 OPEN — sin_pd(−0) sign (gate note added 2026-08-21: land the signbit
-    assertions with the kernel fix, not before).
-  - **Defensive review 2026-08-21 (#83–#101), unmilestoned pending triage**
-    — see the "Defensive Review 2026-08-21" section below for the ranking.
-    HIGH: #83 AVX-512/AVX2 CPUID gates, #84 von Mises fit κ = NaN, #85 SSE2
-    log_pd subnormals, #86 batch out-span OOB write, #87 JSON strtod overrun.
-    MED: #88 count-distribution casts, #89 legacy `States:` bound, #90
-    StudentT μ validation, #91 JSON pi/trans values, #92 Student-t scale
-    step, #93 NEON dead block, #94 LIBHMM_SIMD_SOURCES trim, #95 train()
-    semantics. LOW: #96–#101.
+  - (The 2026-08-21 review issues #81, #83–#101 are all milestoned — see
+    GitHub Milestones above.)
   - #77 CLOSED 2026-08-19 — resolved via option (b), doc correction, in the
     v4.4.0 release commit. Call-site audit found ZERO consumers of the
     log1p_batch table entry (StudentT/Beta inline their own log1p;
@@ -363,8 +398,9 @@ refuted). Full ledger in the session artifact; issues carry the detail.
   fit returns NaN at ~2° dispersion — ordinary data), #85 (SSE2-only, wrong
   finite log of subnormals), #83 (SIGILL on AVX512F-without-DQ hosts), then
   #90/#91 (the JSON loader admits NaN into StudentT μ and pi/trans — the
-  concrete trigger for the `fit_best_of_n` NaN case). Suggest a v4.4.1 patch
-  milestone for #83–#91 and folding #92–#101 into v4.5.0 planning.
+  concrete trigger for the `fit_best_of_n` NaN case). Milestoned 2026-08-21:
+  v4.4.1 (safety/validation), v4.4.2 (number-changing fixes), v4.5.0
+  (additive), v5.0.0 (source-breaking) — see GitHub Milestones.
 - Corrections to this file's own record: the #73 entry's "closed since
   kappa_from_r_bar returns 1e6 for R̄ ≥ 1" covered the R̄ = 1 short-circuit
   only — the Newton loop below it still forms I₁/I₀ (#84); the corvus case
@@ -380,9 +416,10 @@ refuted). Full ledger in the session artifact; issues carry the detail.
   #91).
 
 ## Next Steps
-- **Triage #83–#101** (decide fix-now vs milestone per item — #84, #86, #87
-  have one-line fixes with tests already specified on the issues) and
-  create the v4.4.1 milestone if the patch-release route is taken.
+- **v4.4.1 — Correctness patch** is next: ten issues, each a few lines plus
+  its regression test; start with #86/#87 (memory safety), then #84/#85,
+  #83, #90/#91, #88/#89, #81. Bump `[Unreleased]` in CHANGELOG to 4.4.1 at
+  release and coordinate the pylibhmm pin.
 - v4.4.0 — Training & Core Usability is COMPLETE on dev/v4.4.0 (#58, #74,
   #43, #44, #45, #78, #46, #80 done; #48 decided and moved to v4.5.0).
   Next: merge dev/v4.4.0 → main and release v4.4.0.
