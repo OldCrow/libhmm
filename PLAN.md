@@ -36,7 +36,7 @@
   LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
 
 ## GitHub Synchronization [DERIVED]
-Last reconciled against live GitHub state: 2026-08-21.
+Last reconciled against live GitHub state: 2026-08-22.
 - GitHub is the collaborator-facing source for issues and milestones; this
   PLAN.md is the agent-facing durable project state. Keep both in sync.
 - When creating, closing, reopening, retitling, or moving a GitHub issue or
@@ -114,6 +114,8 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   - #97 OPEN — `sample()` → `validateInitialized()` (additive); the
     `sample_mv` rename half moved to v5.0.0.
   - #96 OPEN — third configure branch for non-x86/non-AArch64 (additive).
+  - [OPEN] GitHub milestone v4.5.0 description omits #48/#96/#97 — update
+    via `gh api` when next touching milestones.
 - v5.0.0 — API (open, #6, unscheduled): 2 open / 0 closed.
   - #95 OPEN — `train()` semantics (`step()`/`train()` split or callback);
     topology guidance depends on it.
@@ -170,9 +172,11 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
     EM cannot leave) with margins wide enough for any conforming RNG stream.
   - Per-restart exceptions discard that restart; rethrown only if all fail.
     Restarts serial; parallel execution deferred to #47's ThreadPool work.
-- Remaining v4.4.0 issues: #46 topology (independent), #48 parallel E-step
-  (decide the threading reversal first — see Next Steps).
-- Merge dev/v4.4.0 → main and release when the milestone empties.
+- **#46 topology COMPLETE** (d951172). **#48 decided 2026-08-19**: moved to
+  v4.5.0; b026b16 documents and TSan-tests the thread-safety contract
+  instead (see the Decided section's threading entry).
+- Milestone emptied, dev/v4.4.0 merged to main, v4.4.0 released at 831997c.
+  Record closed.
 
 ## Numerical Defect Triage (2026-08-16) [DERIVED]
 **#72, #73, #75 and #76 are FIXED and pushed** (84bc997, 5274c6d, 819f4d8).
@@ -310,9 +314,9 @@ file — never from this one.
 
 The invariant this repo owns: before cutting a new release or making a
 breaking API change, check pylibhmm's pin and coordinate the bump.
-Option renames count as breaking for this purpose — pylibhmm's
-`FetchContent` path force-sets libhmm option names, so a rename here
-requires a matching change there. Staleness of the pin itself is
+Option renames count as breaking for this purpose (pylibhmm stopped
+force-setting libhmm options at its v4.3.0 bump, but a rename still
+changes what a consumer may pass). Staleness of the pin itself is
 checked mechanically by pylibhmm's monthly CI canary (its issue #15),
 not by prose in either repo.
 
@@ -339,12 +343,13 @@ pin. State as of 2026-08-16, recorded so a session does not re-derive it:
   per-state, per-`compute()` batch path — size any adoption proposal
   against that, plus the accuracy surface below. corvus ships exactly that
   kernel, audited per tier, MIT, portable via Highway.
-- **The open design question, and it should be settled before any spike, not
-  during one:** libhmm dispatches through its own CPUID-built `DoubleVecOps`
-  function-pointer table across five per-ISA TUs; corvus brings Highway's own
-  runtime dispatch. Adoption means two dispatch mechanisms in one binary.
-  #58 (extend tier-2 runtime ISA dispatch to the FB/BW/transcendental TUs) is
-  the natural place to decide the shape.
+- **The two-dispatch question is SETTLED by #58 (shipped in v4.4.0).**
+  libhmm dispatches through its own CPUID-built `DoubleVecOps`
+  function-pointer table across five per-ISA TUs; corvus brings Highway's
+  own runtime dispatch. Since #58 the FB/BW/transcendental path also runs
+  through the table, so corvus would slot behind `DoubleVecOps` table
+  entries like every other kernel, with Highway's dispatch internal to
+  corvus's TUs. A spike does not need to reopen this.
 - Secondary surface, beyond lgamma: digamma/trigamma (`psi_functions.h`,
   ~2e-14), incomplete gamma/beta and erfinv (`distribution_base.cpp`), and
   i0/i1 — all four are in corvus's audited set.
@@ -360,6 +365,11 @@ as safe-to-discard output. 8 stale local branches left over from
 squash-merged PRs (#30, #31, #33, #34, #57, #59, #60, #61) were deleted
 locally — confirmed merged via `gh pr list` before deletion, not
 unmerged work.
+
+Confirmed 2026-08-22: `origin/dev/v4.4.0` is fully merged
+(`origin/main..origin/dev/v4.4.0` is empty; v4.4.0 released at 831997c)
+and is being deleted 2026-08-22. `joss-paper` is intentionally retained
+(see Known Gaps).
 
 ## Build-Stack Standardization (2026-07-23) [DERIVED]
 Cross-repo effort tracked in the fleet standards repo:
@@ -420,16 +430,10 @@ refuted). Full ledger in the session artifact; issues carry the detail.
   its regression test; start with #86/#87 (memory safety), then #84/#85,
   #83, #90/#91, #88/#89, #81. Bump `[Unreleased]` in CHANGELOG to 4.4.1 at
   release and coordinate the pylibhmm pin.
-- v4.4.0 — Training & Core Usability is COMPLETE on dev/v4.4.0 (#58, #74,
-  #43, #44, #45, #78, #46, #80 done; #48 decided and moved to v4.5.0).
-  Next: merge dev/v4.4.0 → main and release v4.4.0.
-- Decide whether issue #48 (parallel E-step accumulation) should proceed;
-  if so, record the reversal of the "threading not used" decision above
-  when work begins, rather than leaving both statements to coexist
-  silently. Note #48 touches the same FB/BW TUs #58 just restructured.
+- Bump pylibhmm's `FetchContent` `GIT_TAG` to v4.4.0 — or straight to
+  v4.4.1 with the patch. pylibhmm's pin-currency canary fails on its next
+  monthly run until then.
 - Not yet started, and not scheduled: a corvus adoption spike. If one is
   run, aim it at `lgamma` and the batch path. The two-dispatch-mechanism
   question is now SETTLED by #58: corvus would slot behind DoubleVecOps
   table entries like everything else — see Cross-Repo Dependencies.
-- #77 closed 2026-08-19 (doc correction; zero consumers) — nothing left to
-  triage.

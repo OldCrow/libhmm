@@ -61,7 +61,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Build options: `LIBHMM_BUILD_EXAMPLES`, `LIBHMM_BUILD_TESTS`, `LIBHMM_BUILD_TOOLS` (all `ON` by default, i.e. `${PROJECT_IS_TOP_LEVEL}`), `LIBHMM_BUILD_BENCHMARKS` (`OFF`), `LIBHMM_ENABLE_CLANG_TIDY` (`OFF`), `LIBHMM_WERROR` (`OFF`). The old unprefixed names (`BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS`, `BUILD_BENCHMARKS`, `ENABLE_CLANG_TIDY`) were retired in v4.3.0 and are **no longer honoured** — the v4.2.x mapping shim is gone. Passing one while libhmm is the top-level project warns that it is being ignored; as a subproject libhmm does not react to them at all, since an unprefixed `BUILD_TESTS` belongs to the superproject and that collision is what the rename existed to end. `ENABLE_STATIC_ANALYSIS`/`ENABLE_CPPCHECK` were deleted outright (never consumed).
+Build options: `LIBHMM_BUILD_EXAMPLES`, `LIBHMM_BUILD_TESTS`, `LIBHMM_BUILD_TOOLS` (all `ON` by default, i.e. `${PROJECT_IS_TOP_LEVEL}`), `LIBHMM_BUILD_BENCHMARKS` (`OFF`), `LIBHMM_ENABLE_CLANG_TIDY` (`OFF`), `LIBHMM_WERROR` (`OFF`), `LIBHMM_PORTABLE` (`OFF`; swaps `-march=native` for a portable baseline ISA on `LIBHMM_SIMD_SOURCES` — for distributable wheels, leave `OFF` for local builds). The old unprefixed names (`BUILD_EXAMPLES`, `BUILD_TESTS`, `BUILD_TOOLS`, `BUILD_BENCHMARKS`, `ENABLE_CLANG_TIDY`) were retired in v4.3.0 and are **no longer honoured** — the v4.2.x mapping shim is gone. Passing one while libhmm is the top-level project warns that it is being ignored; as a subproject libhmm does not react to them at all, since an unprefixed `BUILD_TESTS` belongs to the superproject and that collision is what the rename existed to end. `ENABLE_STATIC_ANALYSIS`/`ENABLE_CPPCHECK` were deleted outright (never consumed).
 
 ### CMake standard
 
@@ -174,7 +174,8 @@ Dependencies flow strictly downward:
 | 4a | `calculators/` | `ForwardBackwardCalculator`, `ViterbiCalculator` |
 | 4b | `training/` | `BaumWelchTrainer`, `MapBaumWelchTrainer`, `ViterbiTrainer`; `BasicSegmentalKMeansTrainer<Obs>` with aliases `SegmentalKMeansTrainer` (scalar) and `SegmentalKMeansTrainerMV` (MV) |
 | — | `io/` | JSON (`hmm_json.h`, recommended), legacy XML, `FileIOManager` |
-| — | `performance/` | `TranscendentalKernels` (FB recurrence), `detail/simd_math_helpers.h` (shared SIMD math helpers), `fb_recurrence_policy.h`, `simd_double_ops.h` (runtime-dispatch distribution batch kernels) |
+| — | `performance/` | `TranscendentalKernels` (FB recurrence), `fb_recurrence_policy.h`, `simd_double_ops.h` (runtime-dispatch distribution batch kernels) |
+| — | `detail/` | Internal: `simd_math_helpers.h` (shared SIMD math helpers) and `trig_cleanroom_data.inc` (its trig constants) — not installed; `log_utils.h` (shared log-space utilities for the calculators/trainers) — installed, since public headers include it |
 
 Top-level headers sit between layers 3 and 4: `basic_hmm.h` (the
 `BasicHmm<Obs>` model itself), `hmm.h` (`Hmm`/`HmmMV` aliases, clone/sample
@@ -206,7 +207,7 @@ There are two tiers of SIMD implementation:
     - **Uniform**: the entire batch evaluates to a single constant (log(1/(b−a))) inside bounds or −∞ outside. Already ~2 instructions per element; SIMD buys nothing.
   MV distributions (`DiagonalGaussian`, `FullCovGaussian`, `IndependentComponents`) call `getLogProbability(row_view(obs, t))` per timestep rather than a batch interface and are not in `LIBHMM_SIMD_SOURCES`.
 
-`detail/simd_math_helpers.h` is the single source of truth for vectorized log/exp/cos/sin/log1p helpers shared by the per-ISA distribution kernels and `TranscendentalKernels`. log/exp are SLEEF-derived (< 1 ULP). cos/sin are the clean-room quadrant-reduction kernel (#74, constants from `scripts/gen_trig_cleanroom_table.py`): faithfully rounded (max 1 ULP, mean ~0.03) for |x| ≤ 2²³, per-lane scalar libm fixup beyond, gated per tier against checked-in mpmath references in `tests/performance/test_trig_ulp_gates.cpp`. Tiny `log1p` inputs use a polynomial path for accuracy; general inputs reuse the shared vector log helper (note the `log1p_batch` table entry does NOT have that small-|x| path — issue #77).
+`detail/simd_math_helpers.h` is the single source of truth for vectorized log/exp/cos/sin/log1p helpers shared by the per-ISA distribution kernels and `TranscendentalKernels`. log/exp are SLEEF-derived (< 1 ULP). cos/sin are the clean-room quadrant-reduction kernel (#74, constants from `scripts/gen_trig_cleanroom_table.py`): faithfully rounded (max 1 ULP, mean ~0.03) for |x| ≤ 2²³, per-lane scalar libm fixup beyond, gated per tier against checked-in mpmath references in `tests/performance/test_trig_ulp_gates.cpp`. Tiny `log1p` inputs use a polynomial path for accuracy; general inputs reuse the shared vector log helper. The `log1p_batch` table entry is add-then-log with no small-|x| path — that is its documented contract (`simd_double_ops.h`; #77 closed 2026-08-19 with no in-library consumer found), and `log1p_inplace` is the entry that carries the polynomial path.
 
 `getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values. Precondition `out.size() >= obs.size()` is currently NOT checked by any override (#86) — the calculators always size `out` correctly; external callers must.
 
