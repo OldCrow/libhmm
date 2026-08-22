@@ -516,3 +516,34 @@ int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
+
+// ---------------------------------------------------------------------------
+// Near-zero total weight must preserve the current parameters (the scalar
+// fits' idiom). A subnormal sumW passed the old `<= 0.0` guard and 1/sumW
+// overflowed to inf.
+// ---------------------------------------------------------------------------
+TEST(DiagonalGaussianTest, SubnormalTotalWeightPreservesParameters) {
+    DiagonalGaussianDistribution d(2);
+    const auto mean0 = d.getMean();
+    const auto var0 = d.getVariance();
+    const std::vector<std::vector<double>> raw = {{1.0, 1.0}, {5.0, 5.0}};
+    auto views = make_views(raw);
+    const std::vector<double> w = {1e-312, 1e-312};
+    d.fit(views, w);
+    EXPECT_EQ(d.getMean(), mean0);
+    EXPECT_EQ(d.getVariance(), var0);
+    for (double m : d.getMean())
+        EXPECT_TRUE(std::isfinite(m));
+}
+
+TEST(FullCovarianceGaussianTest, SubnormalTotalWeightPreservesParameters) {
+    FullCovarianceGaussianDistribution d(2);
+    const auto mean0 = d.getMean();
+    const std::vector<std::vector<double>> raw = {{1.0, 1.0}, {5.0, 5.0}, {2.0, 4.0}};
+    auto views = make_views(raw);
+    const std::vector<double> w = {1e-312, 1e-312, 1e-312};
+    d.fit(views, w);
+    EXPECT_EQ(d.getMean(), mean0);
+    for (double m : d.getMean())
+        EXPECT_TRUE(std::isfinite(m));
+}

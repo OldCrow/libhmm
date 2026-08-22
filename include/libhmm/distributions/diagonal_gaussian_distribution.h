@@ -8,7 +8,6 @@
 
 #include "libhmm/common/common.h"
 #include "libhmm/distributions/distribution_base.h"
-#include "libhmm/io/json_utils.h"
 #include "libhmm/linalg/linalg_types.h"
 
 namespace libhmm {

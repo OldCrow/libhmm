@@ -77,7 +77,7 @@
 /// Provides to_json(), from_json(), save_json(), and load_json() free functions.
 #include "libhmm/io/hmm_json.h"
 
-/// File I/O utilities
+/// File I/O utilities and legacy XML (deprecated; retained for
 /// reading existing .xml files).
 #include "libhmm/io/file_io_manager.h"
 #include "libhmm/io/xml_file_reader.h"
@@ -98,6 +98,6 @@
  * - **Distributions**: 16 scalar + 3 multivariate emission distributions (v4)
  * - **Calculators**: Forward-Backward and Viterbi algorithms with SIMD optimization
  * - **Trainers**: Baum-Welch, Viterbi, and clustering-based parameter estimation
- * - **I/O**: XML file reading/writing and general file management
- * - **Performance**: SIMD detection, thread pools, and numerical stability utilities
+ * - **I/O**: JSON (recommended), legacy XML, and general file management
+ * - **Performance**: runtime SIMD dispatch and numerical stability utilities
  */

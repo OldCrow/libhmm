@@ -116,8 +116,9 @@ inline void randomise_emissions_scalar(Hmm &hmm, const std::vector<double> &pool
  * @throws std::runtime_error if every restart failed to train.
  */
 template <typename Obs>
-double fit_best_of_n(BasicHmm<Obs> &hmm, const typename ObsSeqTraits<Obs>::ListType &obsLists,
-                     std::size_t n_restarts, std::mt19937_64 &rng, std::size_t max_iters = 500) {
+[[nodiscard]] double
+fit_best_of_n(BasicHmm<Obs> &hmm, const typename ObsSeqTraits<Obs>::ListType &obsLists,
+              std::size_t n_restarts, std::mt19937_64 &rng, std::size_t max_iters = 500) {
     if (obsLists.empty())
         throw std::invalid_argument("fit_best_of_n: observation lists cannot be empty");
     if (n_restarts == 0)
@@ -164,6 +165,16 @@ double fit_best_of_n(BasicHmm<Obs> &hmm, const typename ObsSeqTraits<Obs>::ListT
             }
 
             const double logL = detail::total_log_likelihood(candidate, obsLists);
+            if (std::isnan(logL)) {
+                // A restart whose final M-step produced a non-finite parameter scores
+                // NaN here. Without this guard restart 0 would install it via
+                // `!haveBest` and no later restart could displace it (x > NaN is
+                // false). Treat it like a throwing restart: record and move on.
+                lastError = std::make_exception_ptr(
+                    std::runtime_error("fit_best_of_n: restart produced a NaN log-likelihood "
+                                       "(non-finite emission parameters after the M-step?)"));
+                continue;
+            }
             if (!haveBest || logL > bestLogL) {
                 bestLogL = logL;
                 best = std::move(candidate);

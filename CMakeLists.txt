@@ -479,7 +479,14 @@ install(EXPORT libhmm-targets
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libhmm
 )
 
-install(DIRECTORY include/libhmm DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+# detail/simd_math_helpers.h (+ its trig_cleanroom_data.inc) is internal: its __m256d
+# code needs -mfma and its __m512d code needs -mavx512dq, which the LIBHMM_HAS_AVX/AVX512
+# macros that activate those sections do not imply, so an installed consumer at -mavx or
+# -mavx2 would hit an always-inline failure inside it. detail/log_utils.h IS public (the
+# calculator and trainer headers include it) and stays installed.
+install(DIRECTORY include/libhmm DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        PATTERN "simd_math_helpers.h" EXCLUDE
+        PATTERN "trig_cleanroom_data.inc" EXCLUDE)
 
 # The generated config header lands beside the hand-written ones, so an
 # installed consumer resolves `#include "libhmm/config.h"` from the same

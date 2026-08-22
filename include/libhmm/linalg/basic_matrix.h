@@ -82,7 +82,8 @@ public:
         return *this;
     }
 
-    // Element access (row, col) - compatible with uBLAS
+    // Element access (row, col) - compatible with uBLAS.
+    // Unchecked (hot path); use at() for bounds-checked access.
     reference operator()(size_type row, size_type col) { return data_[row * cols_ + col]; }
 
     [[nodiscard]] const_reference operator()(size_type row, size_type col) const {

@@ -499,7 +499,7 @@ See the static analysis configuration in `.clang-tidy` and CMake integration. Si
 ### 3. CI Integration
 cppcheck and pre-commit run on every pull request and main-branch commit and are blocking.
 
-clang-tidy runs in a dedicated CI job (`run-clang-tidy` against `compile_commands.json`) but is currently **advisory (non-blocking)**: `continue-on-error: true`. The residual ~1344 warnings (after disabling the six mismatched checks above) are dominated by a mechanical `modernize-use-nodiscard` cluster in the linalg headers, tracked in issue #63. Once that's fixed and the job runs noise-free for a few cycles, promoting it to blocking will be reconsidered (see AGENTS.md CI / Validation and PLAN.md).
+clang-tidy runs in a dedicated CI job (`run-clang-tidy` against `compile_commands.json`) but is currently **advisory (non-blocking)**: `continue-on-error: true`. The residual, its composition, and the promote-to-blocking question are tracked in one place — see AGENTS.md "CI / Validation" and PLAN.md; do not restate the counts here.
 
 ## Performance Guidelines
 

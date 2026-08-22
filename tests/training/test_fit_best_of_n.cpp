@@ -1,7 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
+#include <memory>
 #include <random>
+#include <span>
 #include <stdexcept>
 
 #include "libhmm/distributions/diagonal_gaussian_distribution.h"
@@ -163,4 +167,62 @@ TEST(FitBestOfNTest, EmptyObservationListsThrows) {
     Hmm hmm = make_symmetric_start();
     std::mt19937_64 rng(1);
     EXPECT_THROW((void)fit_best_of_n(hmm, obs, 3, rng), std::invalid_argument);
+}
+
+// ---------------------------------------------------------------------------
+// A restart whose final M-step leaves a non-finite parameter scores NaN. It
+// must be discarded, not installed: before the isnan() guard restart 0's NaN
+// won via `!haveBest` and was never displaced (logL > NaN is false), so
+// fit_best_of_n returned NaN and a poisoned model.
+// ---------------------------------------------------------------------------
+namespace {
+// Emission whose FIRST weighted fit() in the process poisons that instance:
+// afterwards every log-probability it reports is NaN, imitating an M-step
+// that produced a non-finite parameter.
+class NaNOnceGaussian : public GaussianDistribution {
+public:
+    using GaussianDistribution::GaussianDistribution;
+    inline static int fitCalls = 0;
+    bool poisoned = false;
+
+    void fit(std::span<const double> data, std::span<const double> weights) override {
+        GaussianDistribution::fit(data, weights);
+        if (fitCalls++ == 0)
+            poisoned = true;
+    }
+    [[nodiscard]] double getLogProbability(double x) const noexcept override {
+        return poisoned ? std::numeric_limits<double>::quiet_NaN()
+                        : GaussianDistribution::getLogProbability(x);
+    }
+    void getBatchLogProbabilities(std::span<const double> observations,
+                                  std::span<double> out) const override {
+        if (poisoned) {
+            std::fill(out.begin(), out.end(), std::numeric_limits<double>::quiet_NaN());
+            return;
+        }
+        GaussianDistribution::getBatchLogProbabilities(observations, out);
+    }
+    [[nodiscard]] std::unique_ptr<EmissionDistribution> clone() const override {
+        return std::make_unique<NaNOnceGaussian>(*this);
+    }
+};
+} // namespace
+
+TEST(FitBestOfNTest, NaNLogLikelihoodRestartIsDiscarded) {
+    NaNOnceGaussian::fitCalls = 0;
+    const auto data = make_bimodal_scalar_data();
+    Hmm hmm = make_symmetric_start();
+    hmm.setDistribution(0, std::make_unique<NaNOnceGaussian>(0.0, 4.0));
+    hmm.setDistribution(1, std::make_unique<NaNOnceGaussian>(0.0, 4.0));
+    std::mt19937_64 rng(7);
+    // max_iters = 1: the restart loop exits right after the M-step that
+    // poisoned state 0, so restart 0's final log-likelihood is NaN and the
+    // trainer never gets a second pass in which to throw on it.
+    const double logL = fit_best_of_n(hmm, data, 3, rng, 1);
+    EXPECT_TRUE(std::isfinite(logL)) << "best-of-n returned " << logL;
+    for (std::size_t s = 0; s < 2; ++s) {
+        const auto *g = dynamic_cast<const GaussianDistribution *>(&hmm.getDistribution(s));
+        ASSERT_NE(g, nullptr);
+        EXPECT_TRUE(std::isfinite(g->getMean()));
+    }
 }

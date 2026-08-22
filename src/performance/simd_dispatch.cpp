@@ -31,7 +31,7 @@ void cos_batch_scalar(const double *, double *, std::size_t) noexcept;
 void sin_batch_scalar(const double *, double *, std::size_t) noexcept;
 void log1p_batch_scalar(const double *, double *, std::size_t) noexcept;
 
-// ---- Tier-1 distribution kernels ----
+// ---- Tier-2 distribution kernels (#58 uplift) ----
 void lognormal_batch_scalar(const double *, double *, std::size_t, double, double, double) noexcept;
 void gamma_batch_scalar(const double *, double *, std::size_t, double, double, double) noexcept;
 void chisq_batch_scalar(const double *, double *, std::size_t, double, double) noexcept;

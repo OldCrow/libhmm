@@ -125,6 +125,9 @@ bool Reader::at(char c) {
     return pos_ < src_.size() && src_[pos_] == c;
 }
 
+// No escape processing: this schema stores only fixed, backslash-free identifier
+// strings (distribution "type" tags and writer-generated keys). Before adding any
+// free-form string field (a model name/label), extend this to handle \" \\ \n \t.
 std::string Reader::read_string() {
     consume('"');
     const std::size_t start = pos_;

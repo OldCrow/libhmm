@@ -53,7 +53,9 @@ endif()
 
 # simd_inspection must be compiled with the same SIMD flags as the distribution
 # TUs so that LIBHMM_HAS_AVX512 / AVX2 / NEON are correctly defined and the
-# reported ISA and vector width match what getBatchLogProbabilities actually uses.
+# reported ISA and vector width match the tier-1 distribution TUs. The eleven
+# runtime-dispatched distributions and the FB/BW recurrence instead follow the
+# CPUID tier, which the tool prints separately.
 # fb_crossover_sweep also reports the active ISA; compile it with the same flags
 # so its diagnostics match the hot-path TUs it benchmarks.
 if(LIBHMM_BEST_SIMD_FLAGS)

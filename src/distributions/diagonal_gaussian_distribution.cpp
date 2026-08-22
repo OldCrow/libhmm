@@ -138,7 +138,9 @@ void DiagonalGaussianDistribution::fit(std::span<const ObservationVectorView> da
 void DiagonalGaussianDistribution::fit(std::span<const ObservationVectorView> data,
                                        std::span<const double> weights) {
     const double sumW = std::accumulate(weights.begin(), weights.end(), 0.0);
-    if (sumW <= 0.0 || data.empty())
+    // Same near-zero-weight idiom as the scalar fits (AGENTS.md): a subnormal sumW
+    // passes `<= 0.0` and then 1/sumW overflows to inf.
+    if (sumW < constants::precision::ZERO || std::isnan(sumW) || data.empty())
         return;
     for (const auto &x : data)
         if (x.size() != dim_)

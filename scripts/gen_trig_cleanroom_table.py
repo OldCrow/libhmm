@@ -36,7 +36,7 @@ Design (libstats DERIVATION.md sections 1-4):
     plateau for sin and the sweet spot for cos (plain Taylor at this degree
     cannot reach <1 ULP for cos).
 
-Usage:  ./.venv/Scripts/python.exe scripts/gen_trig_cleanroom_table.py
+Usage:  python scripts/gen_trig_cleanroom_table.py   (any Python 3 with mpmath)
 Writes include/libhmm/detail/trig_cleanroom_data.inc relative to the repo root.
 """
 

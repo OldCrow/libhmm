@@ -5,7 +5,7 @@ All four platforms are verified by CI on every push.
 
 ## Requirements
 
-- **C++20** compiler: GCC 12+, Clang 14+, Apple Clang 14+ (Xcode 14, macOS 13+), MSVC 2022 17.x
+- **C++20** compiler: GCC 12+, Clang 14+, Apple Clang 14+ (Xcode 14, macOS 13+), MSVC 2022 (17.x) or later
 - **CMake 3.25+**
 - **Zero external dependencies** at runtime — GTest is fetched automatically via FetchContent
 
@@ -13,8 +13,11 @@ All four platforms are verified by CI on every push.
 
 ### Windows (MSVC)
 
+CMake selects the newest installed Visual Studio; pin one with e.g.
+`-G "Visual Studio 17 2022"` if several are installed.
+
 ```powershell
-cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake -B build -A x64
 cmake --build build --config Release --parallel 4
 ctest --test-dir build -C Release --parallel 4
 ```

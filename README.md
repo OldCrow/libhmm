@@ -39,6 +39,12 @@ needs to run *inside* a C++ application or pipeline.
 - **Viterbi Training** — hard-assignment with `TrainingConfig` presets (`fast`, `balanced`, `precise`)
 - **Segmental K-Means** — hard-assignment EM for any scalar distribution (`SegmentalKMeansTrainer`) or
   multivariate HMM (`SegmentalKMeansTrainerMV`); useful as initialiser before Baum-Welch
+- **Multi-restart training** — `fit_best_of_n(hmm, obs, n, rng)` runs Baum-Welch from the
+  current parameters plus `n − 1` randomised restarts and keeps the best log-likelihood
+  (`training/fit_best_of_n.h`); restart 0 is the unrandomised model, so the result is never
+  worse than a single run
+- **Model utilities** — `hmm.clone()` / `clone_hmm()` deep-copy a model (emissions included);
+  `sample(hmm, T, rng)` draws a `(states, observations)` sequence from a model (`hmm.h`)
 
 ### Model Topologies
 
@@ -110,8 +116,10 @@ explicit SIMD is deferred because `lgamma` per element has no portable vectorize
   the same binary gracefully degrades from AVX-512 to SSE2 or scalar on older CPUs.
   Each ISA tier is compiled into its own TU with a targeted flag (`-mavx2`, `-mavx512f`, etc.)
   rather than `-march=native`, so prebuilt binaries are safe to distribute.
-- **`-march=native` for auto-vectorization**: tier-1 distributions and the FB recurrence
-  kernel still use compiler auto-vectorization under the native ISA for that build machine.
+- **`-march=native` for auto-vectorization**: the tier-1 distributions still use compiler
+  auto-vectorization under the native ISA for that build machine. Since #58 the FB/BW
+  recurrence reaches its kernels through the dispatch table above and compiles at the
+  platform baseline.
 - **MSVC**: `/arch:AVX512`, `/arch:AVX2`, or `/arch:AVX` (CPU-verified at configure time)
 - **Caller-level parallelism**: the library owns no threads, but concurrent training of
   *distinct* model instances is a documented, ThreadSanitizer-tested contract — parallelise
@@ -132,9 +140,10 @@ cmake --build build --config Release
 ctest --test-dir build
 ```
 
-On Windows with Visual Studio:
+On Windows with Visual Studio (CMake selects the newest installed VS; pin one
+with e.g. `-G "Visual Studio 17 2022"` if several are installed):
 ```powershell
-cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake -B build -A x64
 cmake --build build --config Release --parallel 4
 ctest --test-dir build -C Release --parallel 4
 ```
@@ -264,7 +273,7 @@ See [examples/](examples/) for demonstrations:
 
 ## Requirements
 
-- **C++20** compiler: GCC 12+, Apple Clang 14+ (macOS 13+), Clang 14+, MSVC 2022 17.x
+- **C++20** compiler: GCC 12+, Apple Clang 14+ (macOS 13+), Clang 14+, MSVC 2022 (17.x) or later
 - **CMake 3.25+**
 
 No external dependencies. GTest is fetched automatically via CMake `FetchContent` for the test suite.

@@ -26,7 +26,7 @@ kTrigDMax (exercising the batch wrappers' scalar-libm fixup path), and
 +/-inf, NaN (reference bits: cos/sin of +/-inf and NaN are NaN, so those
 four entries are hardcoded rather than routed through mpmath).
 
-Usage:  ./.venv/Scripts/python.exe scripts/gen_trig_ulp_vectors.py
+Usage:  python scripts/gen_trig_ulp_vectors.py   (any Python 3 with mpmath)
 Writes tests/performance/trig_ulp_vectors.inc relative to the repo root.
 """
 
@@ -145,16 +145,17 @@ specials_finite = [
     1e9,
     1e300,
 ]
-specials = [vec(x) for x in specials_finite]
-
-# +/-inf and NaN: cos/sin are NaN. mpmath cannot evaluate these directly, so
-# the reference bits are hardcoded to the NaN encoding.
-for x in (pinf, ninf, math.nan):
-    specials.append((bits(x), nan_bits, nan_bits))
-specials_labels = specials_finite + [pinf, ninf, math.nan]
+# +/-inf and NaN FIRST (lanes 0-2): cos/sin are NaN. mpmath cannot evaluate
+# these directly, so the reference bits are hardcoded to the NaN encoding.
+# They lead the table so that every tier — including the 8-wide one, whose
+# vector body covers lanes 0-7 of the 11 specials — evaluates them inside the
+# SIMD kernel rather than in the scalar tail (which would be libm's answer).
+specials = [(bits(x), nan_bits, nan_bits) for x in (pinf, ninf, math.nan)]
+specials += [vec(x) for x in specials_finite]
+specials_labels = [pinf, ninf, math.nan] + specials_finite
 
 # self-check: NaN/Inf encodings are exactly what IEEE-754 double predicts
-for (xb, cb, sb), xv in zip(specials[-3:], (pinf, ninf, math.nan)):
+for (xb, cb, sb), xv in zip(specials[:3], (pinf, ninf, math.nan)):
     assert math.isnan(from_bits(cb)) and math.isnan(from_bits(sb)), (
         "specials NaN/Inf reference must be NaN",
         xv,

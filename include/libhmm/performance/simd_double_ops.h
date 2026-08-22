@@ -14,10 +14,19 @@ namespace libhmm::performance {
 /// subsequent call is a trivial reference return with no locking or branching.
 ///
 /// ## Adding a new primitive for tier-1 uplift
-/// 1. Declare the function-pointer member here (uncommenting the template line).
+/// 1. Declare the function-pointer member in the struct below.
 /// 2. Implement the function in each of the five simd_double_ops_*.cpp TUs.
 /// 3. Register the pointers in build_table() in simd_dispatch.cpp.
 /// Zero new TUs required; the five existing ISA files each grow by one function.
+///
+/// ## Contract for every raw-pointer entry below
+/// - `n` must not exceed the allocated length of ANY pointer argument; nothing here
+///   can check it (the public getBatchLogProbabilities overrides own that check).
+/// - Aliasing: in-place use (`in == out`, identical indices) is safe; partial or
+///   offset overlap is undefined.
+/// - No alignment requirement: every tier uses unaligned loads/stores.
+/// - Inputs are finite or −inf log-domain values unless an entry says otherwise;
+///   NaN handling is tier-dependent (see the per-entry notes).
 struct DoubleVecOps {
     // -------------------------------------------------------------------------
     // Tier-2 named kernels (initial population)
@@ -38,15 +47,18 @@ struct DoubleVecOps {
     // -------------------------------------------------------------------------
     /// log(x): x ≤ 0 → −∞, NaN → NaN. SLEEF xlog_u1 core, < 1 ULP.
     void (*log_batch)(const double *in, double *out, std::size_t n) noexcept;
-    /// exp(x): clamped to [−708, 709.8]. SLEEF-inspired, < 1 ULP.
+    /// exp(x): x < −708 returns exp(−708) ≈ 3.3e-308 (never 0); x > 709.78 returns +inf
+    /// like libm; NaN is unspecified per tier (SSE2/NEON/scalar propagate NaN, AVX2/AVX-512
+    /// return +inf). SLEEF-inspired, < 1 ULP on the finite range.
     void (*exp_batch)(const double *in, double *out, std::size_t n) noexcept;
     /// cos(x): clean-room quadrant-reduction kernel (issue #74), vectorized for
     /// |x| ≤ 2²³ with a per-lane scalar std::cos fixup beyond (and at ±Inf,
     /// where std::cos(±Inf) = NaN is the correct, documented result); NaN
     /// self-propagates. Accuracy: faithfully rounded — max 1 ULP against
     /// correctly-rounded mpmath references (5000-point gate incl. a near-k·π/2
-    /// stress walk; the max-1 points are hard-to-round ties the platform libm
-    /// also misses by 1), mean ~0.03 ULP, measured on scalar/SSE2/AVX2/AVX-512
+    /// stress walk; the max-1 points are near-midpoint cases, ≥ 0.40 ULP from the
+    /// nearest double, that the platform libm also misses by 1), mean ~0.03 ULP,
+    /// measured on scalar/SSE2/AVX2/AVX-512
     /// (Zen 4). Gates: ≤1 ULP FMA tiers and SSE2-as-measured ≤2, libm-backed
     /// paths ≤4 — see tests/performance/test_trig_ulp_gates.cpp; NEON gated in
     /// CI's macOS leg.
@@ -64,7 +76,7 @@ struct DoubleVecOps {
     void (*log1p_batch)(const double *in, double *out, std::size_t n) noexcept;
 
     // -------------------------------------------------------------------------
-    // Tier-1 distribution kernels (single-pass, inline primitives, no temp buf)
+    // Tier-2 distribution kernels, #58 uplift (single-pass, inline primitives, no temp buf)
     // -------------------------------------------------------------------------
     /// LogNormal: −logNormConst + neg_half_inv_sq*(log(x)−mean_log)²; x≤0 → −∞.
     void (*lognormal_batch)(const double *obs, double *out, std::size_t n, double mean_log,
@@ -104,6 +116,11 @@ struct DoubleVecOps {
     // (-inf); +inf and NaN are not produced by any production caller.
     // -------------------------------------------------------------------------
     /// Element-wise max of (a[i]+b[i]) over [0, size). No exp calls.
+    /// Contract for the reduce_max_* / sum_exp_* / accumulate_* entries below: inputs are
+    /// finite or −inf log-probabilities. A NaN input is out of contract and its effect is
+    /// unspecified — depending on tier and lane position the result may be NaN, another
+    /// lane's value, or −inf (x86 max/min take the second operand on unordered compares).
+    /// Callers test isfinite() on the result; a NaN never yields a finite-wrong likelihood.
     double (*reduce_max_sum2)(const double *a, const double *b, std::size_t size) noexcept;
     /// Sum of exp(a[i]+b[i] - maxVal) for finite terms, over [0, size).
     /// Returns 0 when maxVal is not finite.

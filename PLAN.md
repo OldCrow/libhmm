@@ -36,7 +36,7 @@
   LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
 
 ## GitHub Synchronization [DERIVED]
-Last reconciled against live GitHub state: 2026-08-19.
+Last reconciled against live GitHub state: 2026-08-21.
 - GitHub is the collaborator-facing source for issues and milestones; this
   PLAN.md is the agent-facing durable project state. Keep both in sync.
 - When creating, closing, reopening, retitling, or moving a GitHub issue or
@@ -82,6 +82,16 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 - Open issues without milestone:
   - #50 OPEN — feat: Hidden Semi-Markov Model (HSMM) with explicit duration distributions.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
+  - #81 OPEN — sin_pd(−0) sign (gate note added 2026-08-21: land the signbit
+    assertions with the kernel fix, not before).
+  - **Defensive review 2026-08-21 (#83–#101), unmilestoned pending triage**
+    — see the "Defensive Review 2026-08-21" section below for the ranking.
+    HIGH: #83 AVX-512/AVX2 CPUID gates, #84 von Mises fit κ = NaN, #85 SSE2
+    log_pd subnormals, #86 batch out-span OOB write, #87 JSON strtod overrun.
+    MED: #88 count-distribution casts, #89 legacy `States:` bound, #90
+    StudentT μ validation, #91 JSON pi/trans values, #92 Student-t scale
+    step, #93 NEON dead block, #94 LIBHMM_SIMD_SOURCES trim, #95 train()
+    semantics. LOW: #96–#101.
   - #77 CLOSED 2026-08-19 — resolved via option (b), doc correction, in the
     v4.4.0 release commit. Call-site audit found ZERO consumers of the
     log1p_batch table entry (StudentT/Beta inline their own log1p;
@@ -204,7 +214,8 @@ Bessel ratio is — the defect is the formulation).
   libstats' clean-room quadrant-reduction cos ported to all four tiers, plus
   sin_pd/sin_batch from the quadrant table. Measured (Zen 4, MSVC): max 1 ULP
   / mean ~0.03 ULP on scalar, SSE2, AVX2, AVX-512 — the max-1 points are
-  hard-to-round ties the platform libm also misses by exactly 1 (verified
+  near-midpoint cases (≥ 0.40 ULP from the nearest double, so not exact
+  ties) that the platform libm also misses by exactly 1 (verified
   against mpmath), i.e. the kernel is faithfully rounded; NEON gated in CI.
   Old kernel was ~2e-10 absolute (~9×10⁵ ULP). Gate-can-fail verified: a
   one-bit coefficient perturbation drives the gate to ~98 ULP and red.
@@ -285,13 +296,14 @@ pin. State as of 2026-08-16, recorded so a session does not re-derive it:
 - **The libhmm case is different from libstats' and stronger.** libstats'
   spike targeted eight cold scalar Bessel call sites — an accuracy win, not a
   throughput one, and explicitly not enough to justify a dependency on its
-  own. libhmm's case is `lgamma`: AGENTS.md Architecture states outright that
-  Poisson, Binomial and NegativeBinomial are tier-1 *because* no portable
-  vectorized lgamma exists, and that they "would become tier-2 if a
-  vectorized lgamma is added to `simd_double_ops_*.cpp`". That is three of
-  sixteen distributions moving from a scalar loop into the per-state,
-  per-`compute()` batch path. corvus ships exactly that kernel, audited per
-  tier, MIT, portable via Highway.
+  own. libhmm's case is `lgamma`, and it is ONE distribution, not three:
+  AGENTS.md Architecture (corrected 2026-08-16) records that Poisson and
+  Binomial are blocked on the table-lookup gather, not on lgamma; only
+  NegativeBinomial genuinely needs a vectorized `log Γ(k + r)`. So the
+  throughput case is one distribution moving from a scalar loop into the
+  per-state, per-`compute()` batch path — size any adoption proposal
+  against that, plus the accuracy surface below. corvus ships exactly that
+  kernel, audited per tier, MIT, portable via Highway.
 - **The open design question, and it should be settled before any spike, not
   during one:** libhmm dispatches through its own CPUID-built `DoubleVecOps`
   function-pointer table across five per-ISA TUs; corvus brings Highway's own
@@ -329,7 +341,48 @@ deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
 `BUILD_SHARED_LIBS` removed — coordinated with pylibhmm `7a06b42`). CHANGELOG.md
 `[Unreleased]` section and AGENTS.md CMake-standard section updated to match.
 
+## Defensive Review 2026-08-21 [DERIVED]
+Between-milestone review of v4.4.0 (four lenses — metrics, architecture,
+numerical, type/input safety — each adversarially verified; 58 findings, 1
+refuted). Full ledger in the session artifact; issues carry the detail.
+- **Landed at HEAD (no library behaviour change except two guards):** doc and
+  contract corrections across AGENTS.md/README/STYLE_GUIDE/libhmm.h/
+  simd_double_ops.h (tier vocabulary, CI leg count, `simd_inspection`
+  runtime-tier block, exp/trig/reduce contracts, Windows toolchain text made
+  version-generic); `detail/simd_math_helpers.h` + `.inc` excluded from
+  install (they need `-mfma`/`-mavx512dq` that `LIBHMM_HAS_AVX*` do not
+  imply; `detail/log_utils.h` stays installed — public headers include it);
+  two MV headers no longer include `io/json_utils.h`; `fit_best_of_n` is
+  `[[nodiscard]]` and discards a NaN-log-likelihood restart instead of
+  installing it (guard + test); the three MV weighted fits use the scalar
+  near-zero-weight idiom (a subnormal `sumW` used to overflow `1/sumW`; guard
+  + tests); trig ULP-gate specials lead with ±inf/NaN so the 4/8-wide tiers
+  run them in-vector (generator + regenerated `.inc`).
+- **Ranking for triage (reachability × consequence):** #86 (OOB write, one
+  public call), #87 (OOB read on the recommended input path), #84 (von Mises
+  fit returns NaN at ~2° dispersion — ordinary data), #85 (SSE2-only, wrong
+  finite log of subnormals), #83 (SIGILL on AVX512F-without-DQ hosts), then
+  #90/#91 (the JSON loader admits NaN into StudentT μ and pi/trans — the
+  concrete trigger for the `fit_best_of_n` NaN case). Suggest a v4.4.1 patch
+  milestone for #83–#91 and folding #92–#101 into v4.5.0 planning.
+- Corrections to this file's own record: the #73 entry's "closed since
+  kappa_from_r_bar returns 1e6 for R̄ ≥ 1" covered the R̄ = 1 short-circuit
+  only — the Newton loop below it still forms I₁/I₀ (#84); the corvus case
+  is one distribution (NegativeBinomial), not three (Cross-Repo section
+  corrected); the #74 "hard-to-round ties" are near-midpoints (≥ 0.40 ULP).
+- Verified sound, recorded so nobody re-reviews them: the #74 exact-product
+  lemma and the AGENTS.md FP-contraction argument hold against the code; the
+  dispatch table is single-init with all 22 entries per tier; the thread-
+  safety contract matches `distribution_base.h`; FB handles all-−inf rows
+  before any Δ; `enforce_topology` cannot divide by zero; `sample()` avoids
+  `std::discrete_distribution` UB by construction; `log_factorial.h` bounds
+  are correct; the JSON loader's size caps are correct (its value checks are
+  #91).
+
 ## Next Steps
+- **Triage #83–#101** (decide fix-now vs milestone per item — #84, #86, #87
+  have one-line fixes with tests already specified on the issues) and
+  create the v4.4.1 milestone if the patch-release route is taken.
 - v4.4.0 — Training & Core Usability is COMPLETE on dev/v4.4.0 (#58, #74,
   #43, #44, #45, #78, #46, #80 done; #48 decided and moved to v4.5.0).
   Next: merge dev/v4.4.0 → main and release v4.4.0.
@@ -341,5 +394,5 @@ deprecation shim, target-scope includes/warnings, `LIBHMM_WERROR`,
   run, aim it at `lgamma` and the batch path. The two-dispatch-mechanism
   question is now SETTLED by #58: corvus would slot behind DoubleVecOps
   table entries like everything else — see Cross-Repo Dependencies.
-- Triage #77 (log1p_batch small-|x| doc/implementation gap) — filed
-  2026-08-18, unmilestoned.
+- #77 closed 2026-08-19 (doc correction; zero consumers) — nothing left to
+  triage.

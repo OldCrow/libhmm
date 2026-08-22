@@ -246,6 +246,10 @@ void run_main_gate(const char *tier, CosSinFn cos_fn, CosSinFn sin_fn, double bu
 // required to produce NaN EXACTLY, independent of the ULP metric (which
 // already scores NaN-vs-NaN as 0, but an explicit check makes a silent
 // "kernel returns something finite for Inf" regression fail loudly).
+// kTrigUlpSpecials leads with +inf, -inf, NaN (lanes 0-2) so the "must be NaN"
+// assertions below exercise the vector body on every tier; with them at the
+// tail of an 11-entry table the 4/8-wide tiers would hand them to the scalar
+// libm fixup instead and the kernel's own NaN handling would go untested.
 void run_specials_gate(const char *tier, CosSinFn cos_fn, CosSinFn sin_fn, double budget) {
     std::vector<double> in(kSpecialsN), cos_out(kSpecialsN), sin_out(kSpecialsN);
     for (std::size_t i = 0; i < kSpecialsN; ++i)

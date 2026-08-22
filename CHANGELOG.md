@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `fit_best_of_n()` discards a restart whose final log-likelihood is NaN
+  instead of installing it as the best model (restart 0's NaN could never be
+  displaced, since `x > NaN` is false). Regression test added.
+- The three multivariate weighted `fit()`s (DiagonalGaussian,
+  FullCovarianceGaussian, IndependentComponents) use the scalar fits'
+  near-zero-weight guard; a subnormal total weight previously passed
+  `<= 0.0` and overflowed `1/sumW`. Regression tests added.
+- `detail/simd_math_helpers.h` and `detail/trig_cleanroom_data.inc` are no
+  longer installed: the header's AVX/AVX-512 sections need `-mfma` /
+  `-mavx512dq`, which the `LIBHMM_HAS_AVX*` macros that activate them do not
+  imply, so an installed consumer at `-mavx`/`-mavx2` hit an always-inline
+  failure inside a header the project documented as not shipped.
+- `diagonal_gaussian_distribution.h` / `full_covariance_gaussian_distribution.h`
+  no longer include `io/json_utils.h` (layer inversion; the forward
+  declaration in `distribution_base.h` suffices).
+
+### Changed
+- `fit_best_of_n()` is `[[nodiscard]]`, matching the other v4.4.0 APIs.
+- Trig ULP-gate specials table leads with +inf/−inf/NaN so the 4/8-wide
+  tiers evaluate them inside the vector body rather than the scalar tail
+  (`scripts/gen_trig_ulp_vectors.py`, regenerated `.inc`).
+- `tools/simd_inspection` prints the runtime-selected CPUID tier alongside
+  the compile-time ISA macros (which only describe the tier-1 TUs).
+- Trainer "no valid observation sequences" message now says "empty, or zero
+  or non-finite probability".
+- Documentation: Windows toolchain text is version-generic (VS 2022 or
+  later, `vswhere`); tier vocabulary in the dispatch header; CI leg count
+  (nine); `simd_inspection` named correctly in AGENTS.md; exp/trig/reduce
+  kernel edge contracts stated in `simd_double_ops.h`; README feature list
+  covers `fit_best_of_n`/`clone`/`sample` and no longer credits
+  `-march=native` for the FB recurrence; STYLE_GUIDE no longer restates
+  retired clang-tidy counts; PLAN.md corvus rationale corrected (one
+  distribution, not three). Defensive review 2026-08-21: issues #83–#101.
+
 ## [4.4.0] - 2026-08-19
 
 ### Added

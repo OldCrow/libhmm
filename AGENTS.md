@@ -14,7 +14,7 @@ At the start of every session, perform these steps in order:
 
 1. Verify machine architecture before making SIMD assumptions — SIMD flag selection (`-march=native` on GCC/Clang, CPU-probed `/arch:` on MSVC) is automatic at compile time, but active tier affects which code paths run.
 2. Select the matching build path (see Platform-Specific Notes).
-3. On first use on a new machine, run `cmake --preset release && cmake --build build`, then verify the detected SIMD tier with `./build/tools/system_inspector` (if built with `LIBHMM_BUILD_TOOLS=ON`).
+3. On first use on a new machine, run `cmake --preset release && cmake --build build`, then verify the detected SIMD tier with `./build/tools/simd_inspection` (if built with `LIBHMM_BUILD_TOOLS=ON`).
 
 Quick architecture checks:
 
@@ -123,7 +123,7 @@ Tests use the `known_broken` label for pre-existing failures and `benchmark` for
 **Compiler prerequisites:**
 - **macOS:** Xcode Command Line Tools (`xcode-select --install`) provides AppleClang. Full Xcode is not required for the library build. macOS 13 (Ventura) is the minimum supported version in v4. macOS 12 and earlier are not supported; use v3.8.0 or fork. See MIGRATION.md.
 - **Linux:** GCC ≥ 12 (`apt install g++-12`) or Clang ≥ 14 (`apt install clang-14`) for C++20 support. CMake ≥ 3.25 (`apt install cmake` or from cmake.org).
-- **Windows:** Visual Studio 2022 (Build Tools or full IDE) with the C++ workload. VS 2022 Build Tools or full VS is sufficient. Install from https://aka.ms/vs/17/release/vs_buildtools.exe, or `winget install Microsoft.VisualStudio.2022.BuildTools`, or `choco install visualstudio2022buildtools`. GTest is fetched automatically via `FetchContent`; no vcpkg needed.
+- **Windows:** Visual Studio 2022 (17.x) or later — Build Tools or full IDE — with the C++ workload. Install from https://visualstudio.microsoft.com/downloads/ (Build Tools: https://aka.ms/vs/17/release/vs_buildtools.exe for 2022), `winget install Microsoft.VisualStudio.2022.BuildTools`, or `choco install visualstudio2022buildtools`. GTest is fetched automatically via `FetchContent`; no vcpkg needed. (The author's machine is updated to VS 18 (2026); users creating forks should verify their setup, as install paths and generator names vary by version and edition.)
 
 ### Windows toolchain setup
 
@@ -132,12 +132,13 @@ Tests use the `known_broken` label for pre-existing failures and `benchmark` for
 Activate the MSVC toolchain once per PowerShell session before building:
 
 ```powershell
-# Default path for VS 2022 Build Tools. For full VS (Community/Professional/Enterprise),
-# replace "BuildTools" with your edition under "C:\Program Files\Microsoft Visual Studio\2022\".
-$vcvars = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
-# Auto-detect any edition instead:
-# $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
-# $vcvars = "$vsPath\VC\Auxiliary\Build\vcvars64.bat"
+# Locate the newest installed Visual Studio (any version or edition) with vswhere:
+$vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+$vcvars = "$vsPath\VC\Auxiliary\Build\vcvars64.bat"
+# Or pin an explicit path, e.g. VS 2022 Build Tools:
+#   "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+# or a full edition: "C:\Program Files\Microsoft Visual Studio\{version}\{edition}\VC\Auxiliary\Build\vcvars64.bat"
+# ({version} is 2022 for VS 17.x and 18 for VS 2026; {edition} is Community/Professional/Enterprise).
 $envVars = cmd /c "`"$vcvars`" > nul && set"
 foreach ($line in $envVars) {
     if ($line -match "^([^=]+)=(.*)$") {
@@ -151,9 +152,10 @@ cmake --build build
 ```
 
 **One-time setup:**
-- Visual Studio 2022 Build Tools (not full IDE) is sufficient. Install from https://aka.ms/vs/17/release/vs_buildtools.exe, `winget install Microsoft.VisualStudio.2022.BuildTools`, or `choco install visualstudio2022buildtools`.
-  - Build Tools default path: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\`
-  - Full VS default path: `C:\Program Files\Microsoft Visual Studio\2022\{edition}\`
+- Visual Studio Build Tools (not full IDE) are sufficient; 2022 (17.x) or later. See "Compiler prerequisites" above for install commands.
+  - Build Tools default path: `C:\Program Files (x86)\Microsoft Visual Studio\{version}\BuildTools\`
+  - Full VS default path: `C:\Program Files\Microsoft Visual Studio\{version}\{edition}\`
+  - `vswhere.exe` (shipped with the VS Installer) resolves the path regardless of version or edition — prefer it over hard-coding.
 - **Smart App Control must be Off** (Windows Security → App & Browser Control → SAC settings). SAC blocks locally compiled executables and cannot be re-enabled without a Windows reset.
 - CMake ≥ 3.25: https://cmake.org/download/, `winget install Kitware.CMake`, or `choco install cmake`.
 
@@ -206,7 +208,7 @@ There are two tiers of SIMD implementation:
 
 `detail/simd_math_helpers.h` is the single source of truth for vectorized log/exp/cos/sin/log1p helpers shared by the per-ISA distribution kernels and `TranscendentalKernels`. log/exp are SLEEF-derived (< 1 ULP). cos/sin are the clean-room quadrant-reduction kernel (#74, constants from `scripts/gen_trig_cleanroom_table.py`): faithfully rounded (max 1 ULP, mean ~0.03) for |x| ≤ 2²³, per-lane scalar libm fixup beyond, gated per tier against checked-in mpmath references in `tests/performance/test_trig_ulp_gates.cpp`. Tiny `log1p` inputs use a polynomial path for accuracy; general inputs reuse the shared vector log helper (note the `log1p_batch` table entry does NOT have that small-|x| path — issue #77).
 
-`getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values.
+`getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values. Precondition `out.size() >= obs.size()` is currently NOT checked by any override (#86) — the calculators always size `out` correctly; external callers must.
 
 **FP contraction, and what libhmm does not promise** (audited 2026-08-16, issue #70). The build sets no `-ffp-contract` flag, so every TU takes its compiler's default — GCC `fast`, AppleClang `on`, MSVC/clang-cl `precise` (off). That is safe here — but as of v4.4.0 the reason changed, so restate it precisely. The trig kernels (#74) DO carry compensated/EFT-style sequences: the (r, rlo) reduction recovers each subtraction's rounding error, and the cos core keeps 1 − u/2 as an exact head+tail pair. Those sequences are nonetheless contraction-immune, because every product feeding them is exact by construction (n·p_k under the 30-bit split; u·0.5 is power-of-two scaling) — fusing an exact product changes nothing, so no proof depends on an intermediate rounding. Beyond the trig kernels the earlier audit still applies: no Kahan/Neumaier, no TwoSum/Fast2Sum, no `fma(a,b,-a*b)` residual trick. `logSumExp` is the plain `max + log1p(exp(Δ))` form and the FB/BW reductions are plain accumulations. The `ln2_hi`/`ln2_lo` Cody-Waite splits in `log_pd`/`exp_pd` look like the hazard but are not it — they compensate a *constant's* representation error, not an *operation's* rounding, so no proof depends on an intermediate rounding as written. Every deliberate fusion in those kernels is already an explicit `_mm*_fmadd_pd`/`fnmadd` intrinsic: fusion requested, never inferred.
 
@@ -231,7 +233,7 @@ All `fit(data, weights)` implementations guard against near-zero weight by prese
 ```cpp
 if (sumW < precision::ZERO || std::isnan(sumW)) return;
 ```
-`reset()` is called only for genuinely degenerate *data*.
+`reset()` is called only for genuinely degenerate *data*. The three MV fits use the same guard (a subnormal `sumW` used to pass `<= 0.0` and overflow `1/sumW`). Known drift, tracked as an issue: LogNormal and Student-t normalise by the *total* weight while skipping out-of-support points, which deflates the fitted moments when such points carry weight.
 
 ### Model selection
 
@@ -260,6 +262,7 @@ The linting and pre-commit tools must be installed before use:
 - **cmake-format**: `pip install cmake-format`
 - **pre-commit**: `pip install pre-commit`
 - **cppcheck**: OS-package-managed (`brew install cppcheck`, `apt install cppcheck`, `choco install cppcheck`)
+- **mpmath** (`pip install mpmath`): only for regenerating the checked-in trig tables/references with `scripts/gen_trig_cleanroom_table.py` and `scripts/gen_trig_ulp_vectors.py`; not needed to build or test
 
 ### Linting and formatting
 
@@ -294,7 +297,7 @@ Use an existing distribution (e.g. `src/distributions/rayleigh_distribution.cpp`
 2. Weighted `fit(data, weights)` with near-zero weight guard
 3. `reset()`, `clone()`, `sample()`, `to_json()` / `from_json()` (registered in `src/io/hmm_json.cpp`), `getNumParameters()`
 4. `std::atomic<bool> cacheValid_` thread-safe cache
-5. Add source to `LIBHMM_SIMD_SOURCES` and `LIBHMM_SOURCES` in `CMakeLists.txt`
+5. Add source to `LIBHMM_SOURCES` in `CMakeLists.txt`. Add it to `LIBHMM_SIMD_SOURCES` in `cmake/SimdDispatch.cmake` only if it is tier-1 (compiler auto-vectorization); a distribution that dispatches through `DoubleVecOps` does not belong there
 6. Add a test file under `tests/distributions/` and register it in `tests/CMakeLists.txt`
 
 ## CI / Validation
@@ -303,7 +306,7 @@ Fleet-wide workflow rules (runner budget, bounded parallelism, ISA hazards on
 hosted runners, action pinning):
 [CI House Style](https://github.com/OldCrow/standards/blob/main/CI-HOUSE-STYLE.md).
 
-Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC 2022. Additional quality jobs (ubuntu): pre-commit, cppcheck, and clang-tidy. Tests run with `-LE "known_broken|benchmark"`.
+Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC (`windows-latest`, whichever VS the runner image ships). Additional jobs (ubuntu): ThreadSanitizer, AddressSanitizer, pre-commit, cppcheck, and clang-tidy — nine legs in total. Tests run with `-LE "known_broken|benchmark"`.
 
 `LIBHMM_ENABLE_CLANG_TIDY` (CMake option, `OFF` by default) wires clang-tidy into the normal build via the `CXX_CLANG_TIDY` target property; enable locally with `cmake --preset release -DLIBHMM_ENABLE_CLANG_TIDY=ON` when needed. The dedicated CI `clang-tidy` job instead runs `run-clang-tidy` against `compile_commands.json` as a single fast analysis pass and is **advisory (non-blocking)**: `continue-on-error: true`. Decision record (issue #62): the full default check set produces ~3765 warnings dominated by checks that conflict with libhmm's documented architecture — six checks are disabled in `.clang-tidy` (see that file for the full rationale) covering the pragma-once convention, intentional SIMD intrinsics/pointer arithmetic in perf-critical hot paths, the v4 template+virtual pattern, and a false-positive move-ctor idiom. **The residual is 86 UNIQUE sites, not the ~1344 the raw log suggests** — `run-clang-tidy` re-reports every header diagnostic once per including TU, so a single flagged line in a widely-included header can appear 20+ times. Count unique `file:line:col + check` tuples before drawing conclusions from this job. #63 (the `modernize-use-nodiscard` cluster in the linalg headers) is closed; measured 2026-08-16, what remains is `modernize-use-auto` (16), `modernize-concat-nested-namespaces` (9), `modernize-raw-string-literal` (8), `modernize-use-default-member-init` (7), `modernize-avoid-c-arrays` (7), and a long tail — all mechanical. 86 mechanical sites is a tractable target, so promoting this job to blocking is now a scheduling question rather than a scale one (see PLAN.md).
 

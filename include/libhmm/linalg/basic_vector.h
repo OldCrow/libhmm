@@ -79,6 +79,7 @@ public:
     reference operator[](size_type index) { return data_[index]; }
     [[nodiscard]] const_reference operator[](size_type index) const { return data_[index]; }
 
+    // Unchecked element access (hot path); use at() for bounds-checked access.
     reference operator()(size_type index) { return data_[index]; }
     [[nodiscard]] const_reference operator()(size_type index) const { return data_[index]; }
 

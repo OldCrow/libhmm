@@ -13,6 +13,7 @@
 #include "libhmm/calculators/forward_backward_calculator.h"
 #include "libhmm/calculators/viterbi_calculator.h"
 #include "libhmm/distributions/distributions.h"
+#include "libhmm/platform/cpu_detection.h"
 #include "libhmm/platform/simd_platform.h"
 #include <cmath>
 #include <iomanip>
@@ -59,10 +60,10 @@ int main() {
 #endif
 
     // -------------------------------------------------------------------------
-    // SIMD macros visible in this TU
-    // NOTE: tools/ is compiled without LIBHMM_BEST_SIMD_FLAGS so only the
-    // baseline ISA is visible here. The distribution TUs (in LIBHMM_SIMD_SOURCES)
-    // are compiled with the best available ISA reported at cmake configuration.
+    // SIMD macros visible in this TU. tools/ is compiled WITH LIBHMM_BEST_SIMD_FLAGS
+    // (tools/CMakeLists.txt), so these match the tier-1 distribution TUs only; the
+    // runtime-dispatched tier that the other 11 distributions and the FB/BW
+    // recurrence execute is printed separately below.
     // -------------------------------------------------------------------------
     std::cout << "\nISA macros (compiled with LIBHMM_BEST_SIMD_FLAGS —\n";
     std::cout << "  same flags used by distribution getBatchLogProbabilities TUs):\n";
@@ -93,6 +94,16 @@ int main() {
 #endif
     std::cout << "  Vector width (double) = " << performance::simd::double_vector_width()
               << " lanes\n";
+
+    // -------------------------------------------------------------------------
+    // Runtime-selected tier (CPUID at first use): what the 11 dispatched
+    // distributions and the FB/BW recurrence kernels actually execute.
+    // -------------------------------------------------------------------------
+    std::cout << "\nRuntime-selected tier (CPUID; dispatched distributions + FB/BW recurrence):\n";
+    std::cout << "  supports_avx512   : " << (platform::supports_avx512() ? "YES" : "-") << "\n";
+    std::cout << "  supports_avx2     : " << (platform::supports_avx2() ? "YES" : "-") << "\n";
+    std::cout << "  supports_sse2     : " << (platform::supports_sse2() ? "YES" : "-") << "\n";
+    std::cout << "  supports_neon     : " << (platform::supports_neon() ? "YES" : "-") << "\n";
 
     // -------------------------------------------------------------------------
     // Functional smoke tests

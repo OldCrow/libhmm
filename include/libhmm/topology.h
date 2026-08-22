@@ -78,6 +78,8 @@ template <typename Obs>
 void initialize_topology(BasicHmm<Obs> &hmm, HmmTopology topo, int max_skip = 1) {
     detail::validate_topology_args(topo, max_skip);
     const std::size_t N = hmm.getNumStatesModern();
+    // A negative max_skip converts modulo 2^64 ([conv.integral], well-defined, not UB);
+    // validate_topology_args() has already rejected it for the topologies that read `skip`.
     const auto skip = static_cast<std::size_t>(max_skip);
 
     Matrix trans(N, N);
@@ -118,6 +120,8 @@ void enforce_topology(BasicHmm<Obs> &hmm, HmmTopology topo, int max_skip = 1) {
     if (topo == HmmTopology::Ergodic)
         return; // nothing is invalid; leave the M-step result untouched
     const std::size_t N = hmm.getNumStatesModern();
+    // A negative max_skip converts modulo 2^64 ([conv.integral], well-defined, not UB);
+    // validate_topology_args() has already rejected it for the topologies that read `skip`.
     const auto skip = static_cast<std::size_t>(max_skip);
 
     Matrix trans = hmm.getTrans();

@@ -279,7 +279,8 @@ void BasicMapBaumWelchTrainer<Obs>::train() {
 
     if (validSeqs == 0) {
         throw std::runtime_error("MapBaumWelchTrainer: no valid observation sequences "
-                                 "(all had zero probability under the current model)");
+                                 "(every sequence was empty, or scored zero or non-finite "
+                                 "probability under the current model)");
     }
     lastLogProb_ = totalLogProb;
 

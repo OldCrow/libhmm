@@ -2,7 +2,9 @@
 
 /**
  * @file fb_recurrence_policy.h
- * @brief Minimal ISA-aware policy for Forward-Backward recurrence selection.
+ * @brief Minimal N/T policy for Forward-Backward recurrence selection. The crossover is
+ * deliberately tier-independent: one N >= 4 threshold governs the 8-, 4-, 2-wide and scalar
+ * recurrence kernels alike, and did so before the tier became a runtime choice (#58).
  *
  * The two recurrence kernels are semantically equivalent in log-space:
  *   - Pairwise: repeated two-argument log-sum-exp

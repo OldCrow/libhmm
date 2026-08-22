@@ -2,12 +2,15 @@
 // include/libhmm/detail/simd_math_helpers.h
 //
 // Internal header — NOT part of the public API.
-// Not installed to CMAKE_INSTALL_PREFIX/include (detail/ is excluded).
+// Not installed to CMAKE_INSTALL_PREFIX/include: CMakeLists.txt excludes this file
+// and trig_cleanroom_data.inc from install(DIRECTORY). Its __m256d section needs
+// -mfma and its __m512d section needs -mavx512dq, which LIBHMM_HAS_AVX/AVX512 do not
+// imply, so it is only safe inside the per-ISA TUs that pass the right flag pair.
 //
-// Single source of truth for SIMD math primitives (log, exp, cos, log1p)
+// Single source of truth for SIMD math primitives (log, exp, cos, sin, log1p)
 // shared between:
-//   - src/performance/simd_double_ops_*.cpp  (distribution batch kernels)
-//   - src/performance/transcendental_kernels.cpp  (FB recurrence kernels)
+//   - src/performance/simd_double_ops_*.cpp  (distribution batch kernels and, since
+//     #58, the FB/BW recurrence kernels behind the TranscendentalKernels facade)
 //
 // Replaces simd_kernels_internal.h, which used older polynomial approximations.
 // log/exp are SLEEF-based (< 1 ULP). cos/sin use a clean-room quadrant-reduction
