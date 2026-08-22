@@ -1,8 +1,8 @@
 #pragma once
 // include/libhmm/detail/log_utils.h
 //
-// Internal header — NOT part of the public API.
-// Not installed to CMAKE_INSTALL_PREFIX/include (detail/ is excluded).
+// Internal by convention — not part of the supported API — but installed alongside the
+// public headers, because the calculator and trainer headers include it.
 //
 // Canonical log-space utilities shared across ForwardBackward, BaumWelch,
 // MapBaumWelch, and Viterbi.  Centralising these prevents silent divergence
