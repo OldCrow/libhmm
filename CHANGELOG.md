@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The shared library no longer links with `-undefined dynamic_lookup` on
+  macOS. The flag (2be0cb8) masked nothing — libhmm.dylib has zero
+  flat-lookup symbols — and it forced ld64's legacy `LC_DYLD_INFO` load
+  command; ld64's default `-undefined error` now matches the Linux
+  `--no-undefined` intent, and the dylib gets `LC_DYLD_CHAINED_FIXUPS`.
+- `libhmm.pc` is relocatable: `prefix` derives from `${pcfiledir}`, so
+  `cmake --install <build> --prefix <other>` (and moving an installed
+  tree) no longer leave stale absolute paths baked at configure time.
+
 ### Fixed
 - `fit_best_of_n()` discards a restart whose final log-likelihood is NaN
   instead of installing it as the best model (restart 0's NaN could never be

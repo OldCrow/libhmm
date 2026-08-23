@@ -1,7 +1,9 @@
-prefix=@CMAKE_INSTALL_PREFIX@
+# Relocatable: prefix is derived from this file's own location, so
+# `cmake --install <build> --prefix <other>` (and moving the tree) stay valid.
+prefix=${pcfiledir}/@LIBHMM_PC_PREFIX_REL@
 exec_prefix=${prefix}
-libdir=@CMAKE_INSTALL_FULL_LIBDIR@
-includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 
 Name: libhmm
 Description: Modern C++20 Hidden Markov Model library

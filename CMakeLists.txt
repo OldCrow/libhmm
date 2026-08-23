@@ -231,9 +231,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     # Position-independent code comes from the POSITION_INDEPENDENT_CODE
     # target property on hmm_objects (below), not a global -fPIC flag.
 
-    if(APPLE)
-        set(LIBHMM_SHARED_LINK_OPTIONS -undefined dynamic_lookup)
-    elseif(LINUX)
+    # macOS: ld64's default (-undefined error) already fails the link on a
+    # missing symbol, matching --no-undefined below. The former
+    # `-undefined dynamic_lookup` (2be0cb8, 2025-06-21) masked nothing —
+    # libhmm.dylib has zero flat-lookup symbols — and it forced ld64 back to
+    # the legacy LC_DYLD_INFO format instead of chained fixups. Dropped.
+    if(LINUX)
         set(LIBHMM_SHARED_LINK_OPTIONS -Wl,--no-undefined)
     endif()
 endif()
@@ -381,8 +384,8 @@ target_include_directories(hmm PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 # Shared-library link flags — see LIBHMM_SHARED_LINK_OPTIONS definition above
-# (deferred symbol resolution on macOS; explicit --no-undefined on Linux so a
-# missing symbol fails the link rather than only surfacing at load time).
+# (explicit --no-undefined on Linux so a missing symbol fails the link rather
+# than only surfacing at load time; macOS already does this by default).
 target_link_options(hmm PRIVATE ${LIBHMM_SHARED_LINK_OPTIONS})
 
 # MSVC does not generate an import .lib for a DLL unless symbols are explicitly
@@ -503,6 +506,11 @@ if(UNIX)
     else()
         set(LIBHMM_PC_LIBS_PRIVATE "")
     endif()
+    # Path from <prefix>/<libdir>/pkgconfig back to <prefix> (usually ../..;
+    # handles multiarch libdirs too). Consumed by cmake/libhmm.pc.in.
+    file(RELATIVE_PATH LIBHMM_PC_PREFIX_REL
+         "${CMAKE_INSTALL_FULL_LIBDIR}/pkgconfig" "${CMAKE_INSTALL_PREFIX}")
+    string(REGEX REPLACE "/$" "" LIBHMM_PC_PREFIX_REL "${LIBHMM_PC_PREFIX_REL}")
     configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/libhmm.pc.in"
         "${CMAKE_CURRENT_BINARY_DIR}/libhmm.pc"
