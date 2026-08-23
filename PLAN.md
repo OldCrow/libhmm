@@ -430,9 +430,9 @@ refuted). Full ledger in the session artifact; issues carry the detail.
   its regression test; start with #86/#87 (memory safety), then #84/#85,
   #83, #90/#91, #88/#89, #81. Bump `[Unreleased]` in CHANGELOG to 4.4.1 at
   release and coordinate the pylibhmm pin.
-- Bump pylibhmm's `FetchContent` `GIT_TAG` to v4.4.0 — or straight to
-  v4.4.1 with the patch. pylibhmm's pin-currency canary fails on its next
-  monthly run until then.
+- ~~Bump pylibhmm's `GIT_TAG` to v4.4.0~~ **DONE 2026-08-22** — pylibhmm
+  0.11.0 released on the v4.4.0 pin; its pin-currency canary is green.
+  Re-bump at v4.4.1.
 - Not yet started, and not scheduled: a corvus adoption spike. If one is
   run, aim it at `lgamma` and the batch path. The two-dispatch-mechanism
   question is now SETTLED by #58: corvus would slot behind DoubleVecOps
