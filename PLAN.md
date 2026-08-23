@@ -355,6 +355,13 @@ pin. State as of 2026-08-16, recorded so a session does not re-derive it:
   i0/i1 — all four are in corvus's audited set.
 
 ## Local Machine State [DERIVED]
+2026-08-22, Kaby Lake MBP (i7-7820HQ, AppleClang, Ventura): first-use
+check per AGENTS.md done on v4.4.0+ — `cmake --preset release`, build
+clean, `build/tools/simd_inspection` reports LIBHMM_HAS_AVX2 (4 lanes, no
+AVX-512), CPUID tier AVX2, 6/6 smoke; `check` target 51/51. Tree in sync
+with origin; the merged `claude/jolly-lichterman-43f87b` worktree under
+`.claude/worktrees/` is stale and can be removed.
+
 Confirmed 2026-07-14: `main` fully in sync with `origin/main` (clean,
 no ahead/behind). `joss-paper` branch (PR #20 closed 2026-07-19 after
 JOSS deferral — see Known Gaps; branch retained for resubmission) matches
