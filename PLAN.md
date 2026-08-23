@@ -99,7 +99,11 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   - #94 OPEN — `LIBHMM_SIMD_SOURCES` trim to the five tier-1 TUs, AFTER a
     benchmark pass (removes FMA contraction from nine M-steps); fold in the
     A17 per-tier crossover note.
-  - #93 OPEN — delete the NEON non-AArch64 `#else` block.
+  - #93 OPEN — delete the NEON non-AArch64 `#else` block. Confirmed
+    2026-08-23 on the M1: the block (simd_double_ops_neon.cpp:607-808) is
+    unreachable in every CMake configuration — SimdDispatch.cmake adds the
+    TU only on aarch64/arm64, and the preprocessed TU contains no line
+    markers from it; deletion is safe.
   - #99 OPEN — `exp_pd` −inf → 0 and NaN blends for tier-identical edges.
   - #101 OPEN — review backlog: dead `errorf_inv`, untested setters, CCN,
     clang-tidy SIMD carve-out, `kTrigDMax` duplicate, matrix ctor guard.
@@ -255,7 +259,11 @@ Bessel ratio is — the defect is the formulation).
   / mean ~0.03 ULP on scalar, SSE2, AVX2, AVX-512 — the max-1 points are
   near-midpoint cases (≥ 0.40 ULP from the nearest double, so not exact
   ties) that the platform libm also misses by exactly 1 (verified
-  against mpmath), i.e. the kernel is faithfully rounded; NEON gated in CI.
+  against mpmath), i.e. the kernel is faithfully rounded. NEON measured
+  NATIVELY 2026-08-23 (Mac Mini M1, AppleClang 21, Release): max 1 ULP /
+  mean 0.028 (cos) and 0.028 (sin) on the 5000-point set, dispatched
+  results bit-identical to the NEON tier, specials within budget —
+  same envelope as the Zen 4 tiers; full suite 51/51 on that run.
   Old kernel was ~2e-10 absolute (~9×10⁵ ULP). Gate-can-fail verified: a
   one-bit coefficient perturbation drives the gate to ~98 ULP and red.
   VonMisesDistribution.BatchMatchesScalar tightened 1e-9 → 1e-12.
@@ -372,6 +380,15 @@ as safe-to-discard output. 8 stale local branches left over from
 squash-merged PRs (#30, #31, #33, #34, #57, #59, #60, #61) were deleted
 locally — confirmed merged via `gh pr list` before deletion, not
 unmerged work.
+
+Confirmed 2026-08-23 (Mac Mini M1, macOS Tahoe): fresh clone validated
+natively — Release build warning-clean, ctest 51/51 including the #74
+NEON ULP gates (see the #74 entry). Build-system fixes landed the same
+day: relocatable pkg-config prefix and the macOS `-undefined
+dynamic_lookup` removal (CHANGELOG [Unreleased]); the latter closes the
+standards-repo ledger investigation — the flag masked zero flat-namespace
+symbols and forced ld64's legacy LC_DYLD_INFO format instead of chained
+fixups.
 
 Confirmed 2026-08-22: `origin/dev/v4.4.0` is fully merged
 (`origin/main..origin/dev/v4.4.0` is empty; v4.4.0 released at 831997c)
