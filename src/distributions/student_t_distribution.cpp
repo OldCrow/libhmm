@@ -23,6 +23,10 @@ StudentTDistribution::StudentTDistribution(double degrees_of_freedom)
 StudentTDistribution::StudentTDistribution(double degrees_of_freedom, double location, double scale)
     : degrees_of_freedom_(degrees_of_freedom), location_(location), scale_(scale) {
     validateParameters(degrees_of_freedom);
+    // #90: location was never validated, so a NaN/inf mu silently made every
+    // probability NaN instead of throwing at construction time.
+    if (!std::isfinite(location))
+        throw std::invalid_argument("Location parameter must be a finite number");
     if (std::isnan(scale) || std::isinf(scale) || scale <= 0.0)
         throw std::invalid_argument("Scale parameter must be a positive finite number");
     updateCache();
@@ -261,6 +265,20 @@ void StudentTDistribution::setDegreesOfFreedom(double degrees_of_freedom) {
     validateParameters(degrees_of_freedom);
     degrees_of_freedom_ = degrees_of_freedom;
     invalidateCache();
+}
+
+void StudentTDistribution::setLocation(double location) {
+    // #90: previously a bare inline assignment with no validation -- an
+    // oversight, not policy (every other setter in this class, and every
+    // other distribution's location-like setter, rejects non-finite input).
+    // No invalidateCache(): none of the cached fields (cached_inv_scale_,
+    // cached_log_scale_, cached_log_normalization_,
+    // cached_normalization_factor_, cached_half_nu_, cached_half_nu_plus_one_,
+    // cached_log_gamma_half_nu_, cached_log_gamma_half_nu_plus_one_) depend on
+    // location_ -- see updateCache().
+    if (!std::isfinite(location))
+        throw std::invalid_argument("Location parameter must be a finite number");
+    location_ = location;
 }
 
 void StudentTDistribution::setScale(double scale) {

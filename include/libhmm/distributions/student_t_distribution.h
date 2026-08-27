@@ -106,7 +106,7 @@ public:
     /**
      * @brief Constructor with degrees of freedom, location, and scale
      * @param degrees_of_freedom Degrees of freedom parameter (ν > 0)
-     * @param location Location parameter (μ)
+     * @param location Location parameter (μ), must be finite
      * @param scale Scale parameter (σ > 0)
      * @throws std::invalid_argument if parameters are invalid
      */
@@ -169,8 +169,9 @@ public:
     /**
      * @brief Set the location parameter
      * @param location New location parameter (μ)
+     * @throws std::invalid_argument if location is not finite
      */
-    void setLocation(double location) { location_ = location; }
+    void setLocation(double location);
 
     /**
      * @brief Get the scale parameter

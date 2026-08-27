@@ -503,6 +503,36 @@ TEST(VonMisesDistribution, FitWeightedIgnoresInfObservations) {
 }
 
 // ============================================================================
+// Setters (#90: previously untested)
+// ============================================================================
+
+TEST(VonMisesDistribution, SetMu) {
+    VonMisesDistribution d(0.0, 2.0);
+    d.setMu(1.5);
+    EXPECT_NEAR(d.getMu(), 1.5, 1e-12);
+    EXPECT_DOUBLE_EQ(d.getKappa(), 2.0); // unaffected
+
+    // setMu wraps to (-pi, pi], same as the constructor.
+    d.setMu(4.0);
+    EXPECT_NEAR(d.getMu(), 4.0 - TWO_PI, 1e-12);
+
+    EXPECT_THROW(d.setMu(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
+    EXPECT_THROW(d.setMu(std::numeric_limits<double>::infinity()), std::invalid_argument);
+}
+
+TEST(VonMisesDistribution, SetKappa) {
+    VonMisesDistribution d(0.5, 1.0);
+    d.setKappa(3.0);
+    EXPECT_DOUBLE_EQ(d.getKappa(), 3.0);
+    EXPECT_NEAR(d.getMu(), 0.5, 1e-12); // unaffected
+
+    EXPECT_THROW(d.setKappa(-0.1), std::invalid_argument);
+    EXPECT_THROW(d.setKappa(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
+    EXPECT_THROW(d.setKappa(std::numeric_limits<double>::infinity()), std::invalid_argument);
+    EXPECT_NO_THROW(d.setKappa(0.0)); // uniform distribution is allowed
+}
+
+// ============================================================================
 // toString
 // ============================================================================
 
