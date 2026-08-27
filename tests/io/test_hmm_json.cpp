@@ -482,6 +482,49 @@ TEST(HmmJsonSanitization, TruncatedViewDoesNotOverread) {
                  std::runtime_error);
 }
 
+// =============================================================================
+// NaN/Inf/negative rejection in pi and trans (#91)
+//
+// checked_size() bounds sizes but nothing previously inspected pi/trans
+// *values*: NaN, infinity, and negative weights were silently accepted.
+// =============================================================================
+
+TEST(HmmJsonSanitization, PiWithNanThrows) {
+    const std::string json = "{\"states\":1,\"pi\":[nan],\"trans\":[[1.0]],"
+                             "\"distributions\":[{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1}]}";
+    EXPECT_THROW(static_cast<void>(from_json(json)), std::runtime_error);
+}
+
+TEST(HmmJsonSanitization, PiWithInfThrows) {
+    const std::string json = "{\"states\":1,\"pi\":[inf],\"trans\":[[1.0]],"
+                             "\"distributions\":[{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1}]}";
+    EXPECT_THROW(static_cast<void>(from_json(json)), std::runtime_error);
+}
+
+TEST(HmmJsonSanitization, PiWithNegativeThrows) {
+    const std::string json = "{\"states\":1,\"pi\":[-1.0],\"trans\":[[1.0]],"
+                             "\"distributions\":[{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1}]}";
+    EXPECT_THROW(static_cast<void>(from_json(json)), std::runtime_error);
+}
+
+TEST(HmmJsonSanitization, TransWithNanThrows) {
+    const std::string json = "{\"states\":1,\"pi\":[1.0],\"trans\":[[nan]],"
+                             "\"distributions\":[{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1}]}";
+    EXPECT_THROW(static_cast<void>(from_json(json)), std::runtime_error);
+}
+
+TEST(HmmJsonSanitization, TransWithNegativeThrows) {
+    const std::string json = "{\"states\":1,\"pi\":[1.0],\"trans\":[[-5.0]],"
+                             "\"distributions\":[{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1}]}";
+    EXPECT_THROW(static_cast<void>(from_json(json)), std::runtime_error);
+}
+
+TEST(HmmJsonSanitization, ValidPiAndTransAccepted) {
+    const std::string json = "{\"states\":1,\"pi\":[1.0],\"trans\":[[1.0]],"
+                             "\"distributions\":[{\"type\":\"Gaussian\",\"mu\":0,\"sigma\":1}]}";
+    EXPECT_NO_THROW(static_cast<void>(from_json(json)));
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
