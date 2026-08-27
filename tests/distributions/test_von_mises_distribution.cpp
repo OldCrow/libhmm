@@ -533,6 +533,81 @@ TEST(VonMisesDistribution, SetKappa) {
 }
 
 // ============================================================================
+// Issue #84: kappa_from_r_bar produced NaN for R_bar >= ~0.9993 (ordinary
+// angular dispersion, ~2 degrees). Above that, I0(kappa) overflows inside the
+// Newton loop's direct I1/I0 division, poisoning kappa with NaN, which fit()
+// then stored.
+//
+// Reference kappa values solve I1(kappa)/I0(kappa) = R_bar via mpmath
+// (dps=80, mp.findroot with a Mardia-Jupp seed). Essentials of the generator
+// (full script: scratch/gen_vonmises_kappa_ref.py, not checked in):
+//
+//   def r_bar_of(amplitude, n):
+//       s_cos = s_sin = mpf(0)
+//       for i in range(n):
+//           theta = amplitude * sin(2*pi*i/n)
+//           s_cos += cos(theta); s_sin += sin(theta)
+//       return sqrt(s_cos**2 + s_sin**2) / n
+//
+//   def solve_kappa(r_bar):
+//       f = lambda k: besseli(1, k) / besseli(0, k) - r_bar
+//       seed = 1 / (r_bar**3 - 4*r_bar**2 + 3*r_bar)   # Mardia-Jupp seed
+//       return mp.findroot(f, seed)
+//
+// Results (N = 1000):
+//   amplitude=0.05  R_bar=0.999375097649  kappa=800.375245557
+//   amplitude=0.03  R_bar=0.999775012656  kappa=2222.59731055
+//
+// Assert on getKappa()/getLogProbability(), NOT getCircularVariance():
+// one_minus_bessel_ratio(NaN) deliberately returns 1.0, so
+// getCircularVariance() would hide the very NaN this test exists to catch.
+// ============================================================================
+
+namespace {
+double mean_resultant_length_angles(const std::vector<double> &angles) {
+    double s_cos = 0.0, s_sin = 0.0;
+    for (double theta : angles) {
+        s_cos += std::cos(theta);
+        s_sin += std::sin(theta);
+    }
+    return std::sqrt(s_cos * s_cos + s_sin * s_sin) / static_cast<double>(angles.size());
+}
+
+std::vector<double> sinusoidal_angles(double amplitude, int n) {
+    std::vector<double> angles(n);
+    for (int i = 0; i < n; ++i)
+        angles[i] = amplitude * std::sin(TWO_PI * i / n);
+    return angles;
+}
+} // namespace
+
+TEST(VonMisesDistribution, FitOnNearlyDegenerateAnglesGivesFiniteKappa) {
+    struct Case {
+        double amplitude;
+        double reference_kappa;
+    };
+    constexpr Case kCases[] = {
+        {0.05, 800.375245557},
+        {0.03, 2222.59731055},
+    };
+    constexpr int N = 1000;
+
+    for (const auto &c : kCases) {
+        const std::vector<double> angles = sinusoidal_angles(c.amplitude, N);
+        // Sanity-check this test's own R_bar is in the regime #84 describes.
+        ASSERT_GE(mean_resultant_length_angles(angles), 0.9993) << "amplitude=" << c.amplitude;
+
+        VonMisesDistribution d;
+        d.fit(angles);
+
+        ASSERT_TRUE(std::isfinite(d.getKappa())) << "amplitude=" << c.amplitude;
+        ASSERT_TRUE(std::isfinite(d.getLogProbability(0.0))) << "amplitude=" << c.amplitude;
+        EXPECT_NEAR(d.getKappa(), c.reference_kappa, 1e-3 * c.reference_kappa)
+            << "amplitude=" << c.amplitude;
+    }
+}
+
+// ============================================================================
 // toString
 // ============================================================================
 

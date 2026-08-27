@@ -49,16 +49,26 @@ namespace {
     // The Mardia–Jupp approximation is already close; typically 3–5 iterations
     // suffice to reach |dk| < 1e-12.
     for (int iter = 0; iter < 20 && kappa > 0.0; ++iter) {
-        const double i0 = detail::bessel_i0(kappa);
-        const double i1 = detail::bessel_i1(kappa);
-        if (i0 <= 0.0)
-            break;
-        const double A = i1 / i0;
+        // #84: A = I1(kappa)/I0(kappa) formed via one_minus_bessel_ratio
+        // instead of a direct I1/I0 division. I0(kappa) overflows to +inf
+        // above kappa ~= 713.99, which turned A into inf/inf = NaN and
+        // poisoned the whole Newton loop for R_bar >= ~0.9993 (ordinary
+        // angular dispersion, not an edge case). one_minus_bessel_ratio
+        // switches to a tier-independent asymptotic series above that
+        // threshold with no I0 evaluation at all.
+        const double A = 1.0 - detail::one_minus_bessel_ratio(kappa);
         const double Ap = 1.0 - A * A - A / kappa;
         if (std::fabs(Ap) < 1e-15)
             break;
         const double dk = (A - R_bar) / Ap;
         kappa -= dk;
+        if (!std::isfinite(kappa)) {
+            // Belt-and-suspenders: if anything still produces a non-finite
+            // update, saturate to the same point-mass value used above for
+            // R_bar >= 1.0 rather than storing NaN.
+            kappa = thresholds::MAX_DISTRIBUTION_PARAMETER;
+            break;
+        }
         if (kappa < 0.0) {
             kappa = 0.0;
             break;
