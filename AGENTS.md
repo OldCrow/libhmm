@@ -6,7 +6,7 @@ This file provides project-scoped guidance to AI agents and contributors working
 
 C++20 Hidden Markov Model library. Zero external dependencies (C++20 standard library only). GTest is fetched via `FetchContent` only for the test suite. Produces both a shared (`hmm`) and static (`hmm_static`) library from a single OBJECT target.
 
-`main` is the stable v4 branch (current release: v4.4.0). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
+`main` is the stable v4 branch (current release: v4.4.1). Multivariate HMM support is provided via `BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` templates. `using Hmm = BasicHmm<double>` and `using EmissionDistribution = BasicEmissionDistribution<double>` preserve v3 source compatibility; users consuming only the v3 API can build from `main` unchanged.
 
 ## Session Start
 
@@ -34,6 +34,13 @@ uname -s
 
 - When reviewing repository state or "what's changed" (e.g., syncing after time away, catching up on a branch), start with `git diff --stat` and `git log` rather than reading full file contents. Read complete files only for items you've determined are directly relevant to the task at hand.
 - For any subagent expected to run more than ~30 minutes, structure its brief to report interim progress at natural milestones (e.g., after each major deliverable) rather than running silently to a single final report.
+- Before pushing C++ changes from a Windows/MSVC machine, sweep every
+  changed TU with the local mingw `g++ -std=c++20 -fsyntax-only -I include
+  -I build/include -I build/_deps/googletest-src/googletest/include -I src`.
+  MSVC and AppleClang provide transitive standard-library includes that
+  libstdc++ does not (v4.4.1 example: `<cstring>` for `std::memcpy` —
+  compiled clean on MSVC and macOS, failed all four Linux CI legs), and
+  this one-minute sweep catches the whole class before a CI round-trip.
 
 ## Build Commands
 
@@ -209,7 +216,7 @@ There are two tiers of SIMD implementation:
 
 `detail/simd_math_helpers.h` is the single source of truth for vectorized log/exp/cos/sin/log1p helpers shared by the per-ISA distribution kernels and `TranscendentalKernels`. log/exp are SLEEF-derived (< 1 ULP). cos/sin are the clean-room quadrant-reduction kernel (#74, constants from `scripts/gen_trig_cleanroom_table.py`): faithfully rounded (max 1 ULP, mean ~0.03) for |x| ≤ 2²³, per-lane scalar libm fixup beyond, gated per tier against checked-in mpmath references in `tests/performance/test_trig_ulp_gates.cpp`. Tiny `log1p` inputs use a polynomial path for accuracy; general inputs reuse the shared vector log helper. The `log1p_batch` table entry is add-then-log with no small-|x| path — that is its documented contract (`simd_double_ops.h`; #77 closed 2026-08-19 with no in-library consumer found), and `log1p_inplace` is the entry that carries the polynomial path.
 
-`getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values. Precondition `out.size() >= obs.size()` is currently NOT checked by any override (#86) — the calculators always size `out` correctly; external callers must.
+`getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values. Since v4.4.1 (#86) the precondition `out.size() >= obs.size()` is enforced: every concrete override and the CRTP fallback call `checkBatchSpans()` and throw `std::invalid_argument` on a short out span. The `DoubleVecOps` raw-pointer layer below it remains unchecked by design.
 
 **FP contraction, and what libhmm does not promise** (audited 2026-08-16, issue #70). The build sets no `-ffp-contract` flag, so every TU takes its compiler's default — GCC `fast`, AppleClang `on`, MSVC/clang-cl `precise` (off). That is safe here — but as of v4.4.0 the reason changed, so restate it precisely. The trig kernels (#74) DO carry compensated/EFT-style sequences: the (r, rlo) reduction recovers each subtraction's rounding error, and the cos core keeps 1 − u/2 as an exact head+tail pair. Those sequences are nonetheless contraction-immune, because every product feeding them is exact by construction (n·p_k under the 30-bit split; u·0.5 is power-of-two scaling) — fusing an exact product changes nothing, so no proof depends on an intermediate rounding. Beyond the trig kernels the earlier audit still applies: no Kahan/Neumaier, no TwoSum/Fast2Sum, no `fma(a,b,-a*b)` residual trick. `logSumExp` is the plain `max + log1p(exp(Δ))` form and the FB/BW reductions are plain accumulations. The `ln2_hi`/`ln2_lo` Cody-Waite splits in `log_pd`/`exp_pd` look like the hazard but are not it — they compensate a *constant's* representation error, not an *operation's* rounding, so no proof depends on an intermediate rounding as written. Every deliberate fusion in those kernels is already an explicit `_mm*_fmadd_pd`/`fnmadd` intrinsic: fusion requested, never inferred.
 
@@ -306,6 +313,8 @@ Use an existing distribution (e.g. `src/distributions/rayleigh_distribution.cpp`
 Fleet-wide workflow rules (runner budget, bounded parallelism, ISA hazards on
 hosted runners, action pinning):
 [CI House Style](https://github.com/OldCrow/standards/blob/main/CI-HOUSE-STYLE.md).
+
+CI triggers on pushes to `main`, PRs targeting `main`, `workflow_dispatch`, and a monthly cron — a push to a `dev/*` branch does NOT run CI; open the PR to get the matrix (the v4.4.x release flow relies on this).
 
 Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC (`windows-latest`, whichever VS the runner image ships). Additional jobs (ubuntu): ThreadSanitizer, AddressSanitizer, pre-commit, cppcheck, and clang-tidy — nine legs in total. Tests run with `-LE "known_broken|benchmark"`.
 
