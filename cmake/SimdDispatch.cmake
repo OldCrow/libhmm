@@ -36,9 +36,15 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
     set(COMPILER_SUPPORTS_NEON ON)
     message(STATUS "SIMD compiler support — NEON: ON (AArch64 baseline)")
 elseif(NOT MSVC)
-    check_cxx_compiler_flag("-mavx512f" COMPILER_SUPPORTS_AVX512F)
+    # Probe the exact flag sets actually passed to the per-ISA TUs below
+    # (-mavx512f;-mavx512dq and -mavx2;-mfma), not just the bare ISA flag —
+    # hygiene fix for issue #83c: a compiler that accepted -mavx512f but
+    # rejected -mavx512dq (or -mavx2 without -mfma) would otherwise pass this
+    # probe and then fail compiling the real TU. Cannot fire on any compiler
+    # at or above the GCC 12 / Clang 14 floor this project requires.
+    check_cxx_compiler_flag("-mavx512f -mavx512dq" COMPILER_SUPPORTS_AVX512F)
     check_cxx_compiler_flag("-mavx" COMPILER_SUPPORTS_AVX)
-    check_cxx_compiler_flag("-mavx2" COMPILER_SUPPORTS_AVX2)
+    check_cxx_compiler_flag("-mavx2 -mfma" COMPILER_SUPPORTS_AVX2)
     check_cxx_compiler_flag("-msse4.2" COMPILER_SUPPORTS_SSE42)
     message(
         STATUS

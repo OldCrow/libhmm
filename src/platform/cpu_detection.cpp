@@ -82,6 +82,9 @@ bool detect_avx2() noexcept {
     if (!os_and_cpu_support_avx())
         return false;
     int info[4] = {};
+    run_cpuid(1, 0, info);
+    if (!((info[2] >> 12) & 1)) // ECX bit 12: FMA3 — no shipping AVX2 part lacks it
+        return false;
     run_cpuid(7, 0, info);
     return (info[1] >> 5) & 1; // EBX bit 5: AVX2
 }
@@ -96,7 +99,10 @@ bool detect_avx512() noexcept {
         return false;
     int info[4] = {};
     run_cpuid(7, 0, info);
-    return (info[1] >> 16) & 1; // EBX bit 16: AVX-512F
+    // Require F + DQ + BW + VL (see kAvx512RequiredMask): F alone is not
+    // enough — the AVX-512DQ intrinsics the AVX-512 TU and this header's
+    // 8-wide section use SIGILL on an F-without-DQ part (issue #83).
+    return (static_cast<unsigned>(info[1]) & kAvx512RequiredMask) == kAvx512RequiredMask;
 }
 
 #endif // LIBHMM_CPU_X86
