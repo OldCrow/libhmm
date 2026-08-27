@@ -246,6 +246,7 @@ void BinomialDistribution::getBatchLogProbabilities(std::span<const double> obse
     // three arguments are integers), so the blocker is the gather, exactly as
     // for Poisson and Discrete. The old claim that this "uses lgamma
     // internally" was wrong about its own code; corrected 2026-08-16.
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = BinomialDistribution::getLogProbability(observations[i]);

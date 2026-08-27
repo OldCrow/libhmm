@@ -89,7 +89,7 @@ public:
 
     void getBatchLogProbabilities(std::span<const Obs> observations,
                                   std::span<double> out) const override {
-        assert(observations.size() == out.size());
+        this->checkBatchSpans(observations.size(), out.size());
         for (std::size_t i = 0; i < observations.size(); ++i) {
             out[i] = this->getLogProbability(observations[i]);
         }

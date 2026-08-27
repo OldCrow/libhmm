@@ -388,6 +388,7 @@ void StudentTDistribution::updateCache() const noexcept {
 
 void StudentTDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     performance::get_double_vec_ops().student_t_batch(
         observations.data(), out.data(), observations.size(), location_, cached_inv_scale_,

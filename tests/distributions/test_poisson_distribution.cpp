@@ -381,6 +381,18 @@ TEST(PoissonDistributionTest, Caching) {
     EXPECT_EQ(logProb1, logProb2);
 }
 
+/**
+ * Issue #86: getBatchLogProbabilities must reject an out span shorter than
+ * the observations span instead of writing past its end. Poisson is the
+ * tier-1 (scalar-loop) representative.
+ */
+TEST(PoissonDistributionTest, BatchLogProbabilitiesRejectsShortOutSpan) {
+    PoissonDistribution poisson(2.0);
+    std::vector<double> obs(100, 3.0);
+    std::vector<double> out(10);
+    EXPECT_THROW(poisson.getBatchLogProbabilities(obs, out), std::invalid_argument);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

@@ -362,6 +362,7 @@ std::istream &operator>>(std::istream &is, BetaDistribution &distribution) {
 
 void BetaDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                 std::span<double> out) const {
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     performance::get_double_vec_ops().beta_batch(
         observations.data(), out.data(), observations.size(), alphaMinus1_, betaMinus1_, -logBeta_);

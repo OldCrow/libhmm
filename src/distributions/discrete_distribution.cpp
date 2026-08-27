@@ -226,6 +226,7 @@ void DiscreteDistribution::getBatchLogProbabilities(std::span<const double> obse
     // the index lookups, but the per-element index-validation branch limits
     // vectorization benefit. The cached log-probability table is already optimal
     // for the scalar case.
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = DiscreteDistribution::getLogProbability(observations[i]);

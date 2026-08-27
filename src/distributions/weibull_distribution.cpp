@@ -333,6 +333,7 @@ std::istream &operator>>(std::istream &is, WeibullDistribution &distribution) {
 
 void WeibullDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                    std::span<double> out) const {
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     // log_norm = log(k) - k*log(λ);  neg_k_log_lambda = -k*log(λ)
     // pow term: exp(k*log(x) + neg_k_log_lambda) = exp(k*(log(x) - log(λ))) = (x/λ)^k

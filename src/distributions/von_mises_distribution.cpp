@@ -133,6 +133,7 @@ double VonMisesDistribution::getLogProbability(double value) const noexcept {
 
 void VonMisesDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     performance::get_double_vec_ops().vonmises_batch(
         observations.data(), out.data(), observations.size(), mu_, kappa_, logNormaliser_);

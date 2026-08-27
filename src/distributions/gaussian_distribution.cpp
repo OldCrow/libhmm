@@ -236,6 +236,7 @@ double GaussianDistribution::sample(std::mt19937_64 &rng) const {
 
 void GaussianDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     const double log_norm = -0.5 * math::LN_2PI - logStandardDeviation_;
     performance::get_double_vec_ops().gaussian_batch(observations.data(), out.data(),

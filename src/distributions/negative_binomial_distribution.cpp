@@ -323,6 +323,7 @@ void NegativeBinomialDistribution::getBatchLogProbabilities(std::span<const doub
     // per-parameter constant. So this is one lgamma per element, not three,
     // and it is the only real instance of the dependency that Poisson's and
     // Binomial's comments used to claim as well (corrected 2026-08-16).
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = NegativeBinomialDistribution::getLogProbability(observations[i]);

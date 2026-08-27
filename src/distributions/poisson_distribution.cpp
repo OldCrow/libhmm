@@ -224,6 +224,7 @@ void PoissonDistribution::getBatchLogProbabilities(std::span<const double> obser
     // the gather to index that table by k — the same blocker as Discrete, and
     // libstats settled empirically that x86 hardware gather is too expensive to
     // pay for (its #33; table kernels are a NEON technique, not an x86 one).
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = PoissonDistribution::getLogProbability(observations[i]);
