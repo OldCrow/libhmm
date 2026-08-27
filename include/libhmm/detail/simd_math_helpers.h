@@ -551,12 +551,23 @@ static inline void trig_cores_4pd(__m256d r, __m256d rlo, __m256d &s_core,
     const __m128d is_inf = _mm_cmpeq_pd(x, pos_inf);
     const __m128d is_nan = _mm_cmpunord_pd(x, x);
 
-    const __m128i xi = _mm_castpd_si128(x);
+    // Subnormal prescale (issue #85): without this, the exponent-extraction
+    // path below treats a subnormal's biased exponent (0) as if it belonged
+    // to a normal number, compressing the whole subnormal range. Ported from
+    // the AVX2/AVX-512/NEON log_pd overloads in this same file: scale by 2^54
+    // (exact — power-of-two) and subtract 54 back out of the exponent.
+    const __m128d min_normal = _mm_set1_pd(2.2250738585072014e-308);
+    const __m128d scale_up = _mm_set1_pd(18014398509481984.0); // 2^54
+    const __m128d is_denormal = _mm_cmplt_pd(x, min_normal);
+    const __m128d sx = sse2_blend(is_denormal, _mm_mul_pd(x, scale_up), x);
+
+    const __m128i xi = _mm_castpd_si128(sx);
     __m128i exp_i = _mm_srli_epi64(xi, 52);
     exp_i = _mm_and_si128(exp_i, _mm_set1_epi64x(0x7FFLL));
     const __m128i exp_i32 = _mm_shuffle_epi32(exp_i, _MM_SHUFFLE(0, 0, 2, 0));
     __m128d e = _mm_cvtepi32_pd(exp_i32);
     e = _mm_sub_pd(e, _mm_set1_pd(1023.0));
+    e = sse2_blend(is_denormal, _mm_sub_pd(e, _mm_set1_pd(54.0)), e);
 
     __m128d m =
         _mm_castsi128_pd(_mm_or_si128(_mm_and_si128(xi, _mm_set1_epi64x(0x000FFFFFFFFFFFFFLL)),

@@ -53,6 +53,10 @@ double sum_exp_sum3_minus_max_scalar(const double *a, const double *b, const dou
 void accumulate_exp_sum2_bias_scalar(double *dst, const double *a, const double *b,
                                      std::size_t size, double bias) noexcept;
 void log1p_inplace_scalar(double *data, std::size_t size) noexcept;
+// log_batch_<tier>: forward-declared here (not above with the recurrence
+// kernels) so section 9's subnormal-prescale regression (issue #85) can call
+// each compiled-in tier's log_pd wrapper directly.
+void log_batch_scalar(const double *in, double *out, std::size_t n) noexcept;
 
 #if defined(LIBHMM_BUILD_SSE2_KERNEL)
 double reduce_max_sum2_sse2(const double *a, const double *b, std::size_t size) noexcept;
@@ -65,6 +69,7 @@ double sum_exp_sum3_minus_max_sse2(const double *a, const double *b, const doubl
 void accumulate_exp_sum2_bias_sse2(double *dst, const double *a, const double *b, std::size_t size,
                                    double bias) noexcept;
 void log1p_inplace_sse2(double *data, std::size_t size) noexcept;
+void log_batch_sse2(const double *in, double *out, std::size_t n) noexcept;
 #endif
 
 #if defined(LIBHMM_BUILD_AVX2_KERNEL)
@@ -78,6 +83,7 @@ double sum_exp_sum3_minus_max_avx2(const double *a, const double *b, const doubl
 void accumulate_exp_sum2_bias_avx2(double *dst, const double *a, const double *b, std::size_t size,
                                    double bias) noexcept;
 void log1p_inplace_avx2(double *data, std::size_t size) noexcept;
+void log_batch_avx2(const double *in, double *out, std::size_t n) noexcept;
 #endif
 
 #if defined(LIBHMM_BUILD_AVX512_KERNEL)
@@ -91,6 +97,7 @@ double sum_exp_sum3_minus_max_avx512(const double *a, const double *b, const dou
 void accumulate_exp_sum2_bias_avx512(double *dst, const double *a, const double *b,
                                      std::size_t size, double bias) noexcept;
 void log1p_inplace_avx512(double *data, std::size_t size) noexcept;
+void log_batch_avx512(const double *in, double *out, std::size_t n) noexcept;
 #endif
 
 #if defined(LIBHMM_BUILD_NEON_KERNEL)
@@ -104,6 +111,7 @@ double sum_exp_sum3_minus_max_neon(const double *a, const double *b, const doubl
 void accumulate_exp_sum2_bias_neon(double *dst, const double *a, const double *b, std::size_t size,
                                    double bias) noexcept;
 void log1p_inplace_neon(double *data, std::size_t size) noexcept;
+void log_batch_neon(const double *in, double *out, std::size_t n) noexcept;
 #endif
 
 } // namespace libhmm::performance::detail
@@ -648,6 +656,99 @@ TEST(TranscendentalKernelsTierParity, NeonMatchesScalar) {
     run_tier_parity("neon", pd::reduce_max_sum2_neon, pd::sum_exp_sum2_minus_max_neon,
                     pd::reduce_max_sum3_neon, pd::sum_exp_sum3_minus_max_neon,
                     pd::accumulate_exp_sum2_bias_neon, pd::log1p_inplace_neon);
+}
+#endif
+
+// =========================================================================
+// 9. log_pd subnormal-prescale regression (issue #85).
+//
+// The AVX-512/AVX2/NEON log_pd all scale a subnormal input by 2^54 and
+// subtract 54 from the extracted exponent before the SLEEF core runs; the
+// SSE2 log_pd lacked that prescale, so its exponent-extraction path treated
+// a subnormal's biased exponent (0) as though it belonged to a normal
+// number, compressing the entire subnormal range [4.9e-324, 2.2e-308] to a
+// single wrong result (log_pd(5e-324) landed at -709.09 instead of
+// -744.44). Runs the SAME input vector through EVERY compiled-in tier's
+// log_batch_<tier> directly (bypassing DoubleVecOps) so a future per-tier
+// asymmetry of this shape cannot recur silently. Pre-fix this failed on the
+// SSE2 tier only.
+// =========================================================================
+
+double logUlpDistance(double got, double ref) {
+    if (std::isnan(ref))
+        return std::isnan(got) ? 0.0 : 1e18;
+    if (!std::isfinite(ref))
+        return (got == ref) ? 0.0 : 1e18;
+    if (!std::isfinite(got))
+        return 1e18;
+    // Sign-magnitude -> monotonic-order int64 (same trick as
+    // test_trig_ulp_gates.cpp's trigUlpError): plain integer subtraction is
+    // then the ULP distance, including across the sign of the result.
+    const auto ordered = [](double v) -> std::int64_t {
+        std::int64_t i;
+        std::memcpy(&i, &v, sizeof i);
+        return i < 0 ? static_cast<std::int64_t>(0x8000000000000000ULL) - i : i;
+    };
+    const std::int64_t g = ordered(got);
+    const std::int64_t r = ordered(ref);
+    return static_cast<double>(g > r ? g - r : r - g);
+}
+
+using LogBatchFn = void (*)(const double *, double *, std::size_t) noexcept;
+
+// {5e-324, 1e-310} are subnormal; 2.2250738585072014e-308 is DBL_MIN (the
+// smallest normal, i.e. the boundary the prescale must switch off at); 1.0
+// is an ordinary normal input included so the fix is checked not to disturb
+// the already-correct normal path.
+void run_log_subnormal_gate(const char *tier, LogBatchFn log_fn) {
+    static constexpr double kInputs[] = {5e-324, 1e-310, 2.2250738585072014e-308, 1.0};
+    constexpr std::size_t n = sizeof(kInputs) / sizeof(kInputs[0]);
+    double out[n];
+    log_fn(kInputs, out, n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const double ref = std::log(kInputs[i]);
+        const double ulp = logUlpDistance(out[i], ref);
+        EXPECT_LE(ulp, 1.0) << tier << " log_batch(" << kInputs[i] << ") = " << out[i]
+                            << ", expected " << ref << " (" << ulp << " ULP)";
+    }
+}
+
+TEST(LogSubnormalPrescale, Scalar) {
+    run_log_subnormal_gate("scalar", pd::log_batch_scalar);
+}
+
+#if defined(LIBHMM_BUILD_SSE2_KERNEL)
+TEST(LogSubnormalPrescale, Sse2) {
+    if (!libhmm::platform::supports_sse2()) {
+        GTEST_SKIP() << "SSE2 not supported on this CPU";
+    }
+    run_log_subnormal_gate("sse2", pd::log_batch_sse2);
+}
+#endif
+
+#if defined(LIBHMM_BUILD_AVX2_KERNEL)
+TEST(LogSubnormalPrescale, Avx2) {
+    if (!libhmm::platform::supports_avx2()) {
+        GTEST_SKIP() << "AVX2 not supported on this CPU";
+    }
+    run_log_subnormal_gate("avx2", pd::log_batch_avx2);
+}
+#endif
+
+#if defined(LIBHMM_BUILD_AVX512_KERNEL)
+TEST(LogSubnormalPrescale, Avx512) {
+    if (!libhmm::platform::supports_avx512()) {
+        GTEST_SKIP() << "AVX-512 not supported on this CPU";
+    }
+    run_log_subnormal_gate("avx512", pd::log_batch_avx512);
+}
+#endif
+
+#if defined(LIBHMM_BUILD_NEON_KERNEL)
+TEST(LogSubnormalPrescale, Neon) {
+    // NEON is the mandatory AArch64 baseline ISA -- always available when
+    // this TU is compiled in.
+    run_log_subnormal_gate("neon", pd::log_batch_neon);
 }
 #endif
 
