@@ -385,12 +385,17 @@ pin. State as of 2026-08-16, recorded so a session does not re-derive it:
   i0/i1 — all four are in corvus's audited set.
 
 ## Local Machine State [DERIVED]
-2026-08-22, Kaby Lake MBP (i7-7820HQ, AppleClang, Ventura): first-use
-check per AGENTS.md done on v4.4.0+ — `cmake --preset release`, build
-clean, `build/tools/simd_inspection` reports LIBHMM_HAS_AVX2 (4 lanes, no
-AVX-512), CPUID tier AVX2, 6/6 smoke; `check` target 51/51. Tree in sync
-with origin; the merged `claude/jolly-lichterman-43f87b` worktree under
-`.claude/worktrees/` is stale and can be removed.
+2026-08-27, Kaby Lake MBP (i7-7820HQ, AppleClang, Ventura): v4.4.1
+verified natively — synced to origin/main at e0a059b (tag v4.4.1), clean
+Release rebuild warning-clean (the incremental build across the pull hit
+undefined GTest symbols at link; a fresh `build/` resolved it — expect to
+wipe the build dir when pulling across a release boundary),
+`build/tools/simd_inspection` reports LIBHMM_HAS_AVX2 (4 lanes, no
+AVX-512), CPUID tier AVX2, 6/6 smoke; ctest 51/51 including the #74 ULP
+gates on the scalar/SSE2/AVX2 tiers. The stale
+`claude/jolly-lichterman-43f87b` worktree noted on 2026-08-22 is gone.
+
+Prior check 2026-08-22 (same machine, v4.4.0): same tier and results.
 
 Confirmed 2026-07-14: `main` fully in sync with `origin/main` (clean,
 no ahead/behind). `joss-paper` branch (PR #20 closed 2026-07-19 after
@@ -473,9 +478,9 @@ refuted). Full ledger in the session artifact; issues carry the detail.
 
 ## Next Steps
 - ~~v4.4.1 — Correctness patch~~ **SHIPPED 2026-08-26** (see Milestone
-  Record). pylibhmm `GIT_TAG` bumped to v4.4.1 in the same session — verify
-  its CI/canary went green; a pylibhmm point release on the new pin is that
-  repo's call.
+  Record). pylibhmm followed through 2026-08-27: pin bump CI green and
+  pylibhmm 0.11.1 released on the v4.4.1 pin (CI, wheels, lint all green).
+  Nothing further owed from this repo.
 - **v4.4.2 — Fit accuracy & kernel hygiene** is next: six issues; #94
   requires its benchmark pass BEFORE the `LIBHMM_SIMD_SOURCES` trim, and
   the exit criteria want per-tier accuracy tests for #92/#100.
