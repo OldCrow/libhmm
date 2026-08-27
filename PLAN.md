@@ -36,7 +36,7 @@
   LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
 
 ## GitHub Synchronization [DERIVED]
-Last reconciled against live GitHub state: 2026-08-23.
+Last reconciled against live GitHub state: 2026-08-26.
 - GitHub is the collaborator-facing source for issues and milestones; this
   PLAN.md is the agent-facing durable project state. Keep both in sync.
 - When creating, closing, reopening, retitling, or moving a GitHub issue or
@@ -77,21 +77,10 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   second exists because its items change fitted values in the last bits and
   #94 needs a benchmark pass first, so they must not gate the safety patch.
   Source-breaking items are parked on a named major.
-- v4.4.1 — Correctness patch (open, #4): 10 open / 0 closed.
-  - #86 OPEN — batch out-span length guard (OOB write today; fix adds a
-    `std::invalid_argument` throw — CHANGELOG "Changed", not just "Fixed").
-  - #87 OPEN — JSON `read_double` bounded copy (strtod overrun).
-  - #84 OPEN — von Mises `fit()` κ = NaN for R̄ ≥ 0.99930.
-  - #85 OPEN — SSE2 `log_pd` subnormal prescale.
-  - #83 OPEN — AVX-512 (DQ/BW/VL) and AVX2 (FMA) CPUID masks + CMake probes.
-  - #90 OPEN — StudentT location validation (ctor, setter, JSON).
-  - #91 OPEN — JSON `pi`/`trans` value validation.
-  - #88 OPEN — count-distribution double→int casts (x86/AArch64 parity test).
-  - #89 OPEN — legacy `States:` bound + exception contract.
-  - #81 OPEN — `sin_pd(−0)` one-blend fix, mirror libstats #98; land the
-    signbit assertions with it.
-  Exit: every regression test named on the issues in place; ASan/TSan legs
-  green; the #88 test green on the macOS/AArch64 leg.
+- v4.4.1 — Correctness patch (CLOSED, #4): 0 open / 10 closed — #81, #83,
+  #84, #85, #86, #87, #88, #89, #90, #91. Shipped 2026-08-26 (PR #102, all
+  nine CI legs green; exit criteria met). Session record: the v4.4.1
+  Milestone Record section below.
 - v4.4.2 — Fit accuracy & kernel hygiene (open, #5): 6 open / 0 closed.
   - #92 OPEN — Student-t centred scale step (both overloads).
   - #100 OPEN — LogNormal/Student-t effective-weight denominators; gammap
@@ -145,6 +134,39 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   Fetch the full closed-unmilestoned list via `gh issue list --state closed
   --json number,title,milestone -q '.[] | select(.milestone == null)'` if ever
   needed.
+
+## v4.4.1 Milestone Record [DERIVED]
+### Shipped 2026-08-26 (developed on dev/v4.4.1, merged via PR #102)
+Ten defensive-review fixes, three parallel worktree sub-agents (distributions
+/ I/O / SIMD-platform, disjoint file sets), coordinator QA before push.
+Red-before-green demonstrated for every regression test where reachable;
+recorded exceptions: #86 (pre-fix run IS heap corruption — reproduced as
+STATUS_HEAP_CORRUPTION), #89's 200000-states case (320 GB commit; reasoned),
+#88 on x86 (UB invisible — CVTTSD2SI's INT_MIN coincidentally routes to the
+reject path; the macOS/AArch64 CI leg is the discriminating run and passed),
+#83 contract asserts (pass on any conforming host; the mask-value guard was
+shown red under a one-bit perturbation instead).
+Durable findings beyond the issue texts:
+- #87's issue-text repro was non-discriminating (`checked_size` already
+  rejected it); the landed discriminator is
+  `JsonReader.ReadDoubleDoesNotReadPastViewBounds`.
+- #81's pre-fix red reproduced only on the SSE2 tier under MSVC/Zen 4 —
+  AVX2/AVX-512 codegen happened to preserve the sign there; fix applied to
+  all four tiers per spec, NEON validated by the macOS leg.
+- #86's guard also replaced the Release-no-op `assert` in the CRTP default
+  (distribution_base.h): all 16 concrete overrides + fallback now throw.
+- #88's fix additionally covered `DiscreteDistribution::setProbability`
+  (same pattern, same class), and NegBin `fit()` now keeps k as double
+  throughout; Poisson CDF gained a castless normal-approximation branch for
+  k > INT_MAX.
+- One CI iteration: missing `<cstring>` for `std::memcpy` in a new test —
+  MSVC/AppleClang provide it transitively, libstdc++ does not, so all four
+  Linux legs failed one compile. Countermeasure used before the re-push and
+  worth repeating: `g++ -fsyntax-only` over every changed TU with the local
+  mingw g++ (libstdc++) catches this class on this Windows machine.
+- check_cxx_compiler_flag with a space-separated two-flag string verified
+  empirically to work under g++ (with a bogus-flag control) before trusting
+  the #83 CMake probe change.
 
 ## v4.4.0 Milestone Record [DERIVED]
 ### Shipped 2026-08-19 (developed on dev/v4.4.0, merged to main at release)
@@ -450,10 +472,13 @@ refuted). Full ledger in the session artifact; issues carry the detail.
   #91).
 
 ## Next Steps
-- **v4.4.1 — Correctness patch** is next: ten issues, each a few lines plus
-  its regression test; start with #86/#87 (memory safety), then #84/#85,
-  #83, #90/#91, #88/#89, #81. Bump `[Unreleased]` in CHANGELOG to 4.4.1 at
-  release and coordinate the pylibhmm pin.
+- ~~v4.4.1 — Correctness patch~~ **SHIPPED 2026-08-26** (see Milestone
+  Record). pylibhmm `GIT_TAG` bumped to v4.4.1 in the same session — verify
+  its CI/canary went green; a pylibhmm point release on the new pin is that
+  repo's call.
+- **v4.4.2 — Fit accuracy & kernel hygiene** is next: six issues; #94
+  requires its benchmark pass BEFORE the `LIBHMM_SIMD_SOURCES` trim, and
+  the exit criteria want per-tier accuracy tests for #92/#100.
 - ~~Bump pylibhmm's `GIT_TAG` to v4.4.0~~ **DONE 2026-08-22** — pylibhmm
   0.11.0 released on the v4.4.0 pin; its pin-currency canary is green.
   Re-bump at v4.4.1.
