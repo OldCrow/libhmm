@@ -370,6 +370,20 @@ TEST(JsonReader, ReadDoubleAtEofThrows) {
     EXPECT_THROW(static_cast<void>(r.read_double()), std::runtime_error);
 }
 
+// Regression for #87: read_double() must never consume characters beyond the
+// declared string_view, even when the backing buffer (still live, and not
+// followed by a NUL within the view) continues with more digits. A view that
+// ignores its own bound reads the extra digits from the live backing storage
+// and returns the wrong, longer number; a correctly bounded read stops at the
+// view's edge. This is a more direct, deterministic discriminator for the
+// underlying bug than routing through from_json(), where the accidental
+// larger value happens to be caught by the unrelated states-count cap.
+TEST(JsonReader, ReadDoubleDoesNotReadPastViewBounds) {
+    const std::string backing = "12345678999";        // 11 digits, no delimiter in view
+    Reader r(std::string_view(backing).substr(0, 3)); // view is "123"
+    EXPECT_EQ(r.read_double(), 123.0);
+}
+
 TEST(JsonReader, ReadDoubleArrayValid) {
     Reader r("[1.0, 2.0, 3.0]");
     auto v = r.read_double_array();
@@ -449,6 +463,23 @@ TEST(HmmJsonErrors, RejectsReorderedKeys) {
 TEST(HmmJsonErrors, RejectsOversizedInput) {
     const std::string oversized(11UL * 1024UL * 1024UL, ' ');
     EXPECT_THROW(static_cast<void>(from_json(oversized)), std::runtime_error);
+}
+
+// =============================================================================
+// Non-NUL-terminated string_view safety (#87)
+//
+// from_json() takes a string_view, not a NUL-terminated string. read_double()
+// must not read past the view's bounds even when the underlying buffer
+// continues beyond it (e.g. a substr() of a larger string).
+// =============================================================================
+
+TEST(HmmJsonSanitization, TruncatedViewDoesNotOverread) {
+    // The full string continues past the 11-byte prefix with "56789}", so a
+    // read_double() that ignores the view's bound would parse "3456789" out
+    // of the tail of `big` instead of failing on the truncated document.
+    std::string big = "{\"states\":3456789}";
+    EXPECT_THROW(static_cast<void>(from_json(std::string_view(big).substr(0, 11))),
+                 std::runtime_error);
 }
 
 int main(int argc, char **argv) {
