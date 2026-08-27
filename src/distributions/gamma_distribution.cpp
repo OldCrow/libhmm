@@ -235,6 +235,7 @@ bool GammaDistribution::operator==(const GammaDistribution &other) const {
 
 void GammaDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                  std::span<double> out) const {
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     performance::get_double_vec_ops().gamma_batch(observations.data(), out.data(),
                                                   observations.size(), kMinus1_, 1.0 / theta_,

@@ -49,6 +49,14 @@ Hmm XMLFileReader::read(const std::filesystem::path &filepath) {
 
     } catch (const std::ios_base::failure &e) {
         throw std::runtime_error("I/O operation failed: " + std::string(e.what()));
+    } catch (const std::bad_alloc &e) {
+        // header documents runtime_error/invalid_argument only; translate
+        // rather than let an oversized/malformed states count escape raw.
+        throw std::runtime_error("I/O operation failed: " + std::string(e.what()));
+    } catch (const std::logic_error &e) {
+        // Covers std::invalid_argument, std::out_of_range, std::length_error
+        // (e.g. a non-numeric or oversized legacy States: value).
+        throw std::runtime_error("I/O operation failed: " + std::string(e.what()));
     }
 }
 
@@ -125,6 +133,14 @@ Hmm XMLFileReader::readFromStream(std::ifstream &stream) {
         return hmm;
 
     } catch (const std::ios_base::failure &e) {
+        throw std::runtime_error("Stream I/O error: " + std::string(e.what()));
+    } catch (const std::bad_alloc &e) {
+        // header documents runtime_error/invalid_argument only; translate
+        // rather than let an oversized/malformed states count escape raw.
+        throw std::runtime_error("Stream I/O error: " + std::string(e.what()));
+    } catch (const std::logic_error &e) {
+        // Covers std::invalid_argument, std::out_of_range, std::length_error
+        // (e.g. a non-numeric or oversized legacy States: value).
         throw std::runtime_error("Stream I/O error: " + std::string(e.what()));
     }
 }

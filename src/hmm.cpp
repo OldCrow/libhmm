@@ -312,14 +312,28 @@ const std::unordered_map<std::string, StreamParserFn> &stream_parsers() {
 } // anonymous namespace
 
 std::istream &operator>>(std::istream &is, libhmm::Hmm &hmm) {
+    // Legacy stream states-count bound. Kept in step with kMaxHmmStates in
+    // src/io/hmm_json.cpp (currently 4096); the two formats accept the same
+    // maximum HMM size. Promoting this to a shared header would be a clean
+    // option if a third format ever needs the same bound.
+    constexpr std::size_t kMaxLegacyStates = 4096;
+
     std::string s, t;
     std::size_t states = 0;
 
     is >> s >> s >> s >> s; // "Hidden Markov Model parameters"
     is >> s >> s;           // "States:"
-    states = std::stoull(s);
-    if (states == 0)
-        throw std::runtime_error("Invalid number of states in HMM input");
+    try {
+        states = std::stoull(s);
+    } catch (const std::exception &) {
+        throw std::runtime_error("Invalid number of states in HMM input: \"" + s + "\"");
+    }
+    // Bound the count before any allocation: std::stoull accepts a leading
+    // '-' (wrapping to a huge unsigned value), and an in-range but oversized
+    // count (e.g. 200000) would attempt a 200000x200000 trans_ matrix.
+    if (states == 0 || states > kMaxLegacyStates)
+        throw std::runtime_error("Invalid number of states in HMM input: must be in [1, " +
+                                 std::to_string(kMaxLegacyStates) + "]");
 
     hmm = Hmm(states);
     Vector pi(states);

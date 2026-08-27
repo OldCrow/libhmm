@@ -381,6 +381,47 @@ TEST(PoissonDistributionTest, Caching) {
     EXPECT_EQ(logProb1, logProb2);
 }
 
+/**
+ * Issue #86: getBatchLogProbabilities must reject an out span shorter than
+ * the observations span instead of writing past its end. Poisson is the
+ * tier-1 (scalar-loop) representative.
+ */
+TEST(PoissonDistributionTest, BatchLogProbabilitiesRejectsShortOutSpan) {
+    PoissonDistribution poisson(2.0);
+    std::vector<double> obs(100, 3.0);
+    std::vector<double> out(10);
+    EXPECT_THROW(poisson.getBatchLogProbabilities(obs, out), std::invalid_argument);
+}
+
+/**
+ * Issue #88: values above INT_MAX must not be cast to int. Before the fix,
+ * isValidCount() only checked k >= 0 and finiteness, so a value like 1e15
+ * reached `static_cast<int>(k)` -- UB, ISA-dependent (x86 CVTTSD2SI yields
+ * INT_MIN, which the k > n_ style range checks incidentally reject; AArch64
+ * FCVTZS saturates to INT_MAX and returns a large finite log-probability).
+ */
+TEST(PoissonDistributionTest, CastOverflowGuard) {
+    PoissonDistribution poisson(5.0);
+
+    EXPECT_TRUE(std::isinf(poisson.getLogProbability(1e15)));
+    EXPECT_LT(poisson.getLogProbability(1e15), 0.0);
+    EXPECT_EQ(poisson.getProbability(1e12), 0.0);
+
+    // Batch path: the overflowing element must not corrupt or crash the batch.
+    std::vector<double> obs = {1.0, 2.0, 1e15, 3.0};
+    std::vector<double> out(obs.size());
+    poisson.getBatchLogProbabilities(obs, out);
+    EXPECT_TRUE(std::isinf(out[2]));
+    EXPECT_LT(out[2], 0.0);
+
+    // fit() must not crash or invoke UB when an out-of-range element is present.
+    // Poisson's fit() never casts to int (lambda is the plain sample mean), so
+    // this is a defensive regression guard rather than a UB reproduction.
+    std::vector<Observation> fitData = {1.0, 2.0, 1e15, 3.0};
+    EXPECT_NO_THROW(poisson.fit(fitData));
+    EXPECT_TRUE(std::isfinite(poisson.getLambda()));
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

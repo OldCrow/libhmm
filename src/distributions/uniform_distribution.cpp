@@ -222,6 +222,7 @@ void UniformDistribution::getBatchLogProbabilities(std::span<const double> obser
     // blend under -march=native / /arch:AVX512.
     // Tier 2 with explicit intrinsics would replicate that same compare/blend
     // pattern for marginal gain; the auto-vectorized version is near-optimal.
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = UniformDistribution::getLogProbability(observations[i]);

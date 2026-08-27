@@ -1,7 +1,9 @@
 #include "libhmm/io/json_utils.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -148,15 +150,32 @@ double Reader::read_double() {
     // std::strtod provides the same consumed-position semantics and is portable.
     // write_double() imbues std::locale::classic() so the decimal separator is
     // always '.' — strtod uses the same convention under the default C locale.
-    const char *begin = src_.data() + pos_;
+    //
+    // strtod() is a NUL-terminated-string API with no length parameter, but
+    // src_ is a caller-supplied string_view that may not be NUL-terminated at
+    // all (a substring, a memory-mapped file, a network buffer) — handing it
+    // src_.data() + pos_ directly would let the scan run past src_.size().
+    // Copy the candidate token into a small NUL-terminated stack buffer sized
+    // to the lesser of 63 bytes and the remaining view instead: 64 bytes
+    // covers any double a writer can emit (max_digits10 = 17 digits, plus
+    // sign, decimal point, and exponent), and bounding the copy by the
+    // remaining view size means the parse — and the pos_ advance below — can
+    // never reach past src_.size().
+    constexpr std::size_t kMaxTokenLen = 63;
+    const std::size_t available = src_.size() - pos_;
+    const std::size_t token_len = std::min(kMaxTokenLen, available);
+    char buf[kMaxTokenLen + 1];
+    std::memcpy(buf, src_.data() + pos_, token_len);
+    buf[token_len] = '\0';
+
     char *end_ptr = nullptr;
     errno = 0;
-    const double value = std::strtod(begin, &end_ptr);
-    if (end_ptr == begin)
+    const double value = std::strtod(buf, &end_ptr);
+    if (end_ptr == buf)
         throw std::runtime_error("json::Reader: failed to parse number");
     if (errno == ERANGE)
         throw std::runtime_error("json::Reader: number out of range");
-    pos_ = static_cast<std::size_t>(end_ptr - src_.data());
+    pos_ += static_cast<std::size_t>(end_ptr - buf);
     return value;
 }
 

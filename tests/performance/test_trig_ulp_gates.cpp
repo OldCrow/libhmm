@@ -347,6 +347,69 @@ TEST(TrigUlpGates, Neon) {
 #endif
 
 // =========================================================================
+// Sign-of-zero regression (issue #81): sin(+/-0) must preserve the sign of
+// its input; cos(+/-0) == 1 regardless of sign and is therefore unaffected
+// (not tested here). Every tier's quadrant-reduction core computes
+// s_core = r + (r*u*P(u) + rlo); for x = -0.0 that reduces to
+// (-0) + (+0), which IEEE 754 rounds to +0, dropping the sign before the
+// quadrant recombination ever runs. The ULP lattice metric used by the main
+// gate above cannot see this defect (it maps +0 and -0 to the same
+// ordinal), so this needs its own explicit std::signbit assertions.
+// Pre-fix this failed on every SIMD tier; the scalar tier is unaffected
+// (sin_batch_scalar calls std::sin directly, which already preserves the
+// sign of zero).
+// =========================================================================
+
+void run_sign_of_zero_gate(const char *tier, CosSinFn sin_fn) {
+    double in[2] = {0.0, -0.0};
+    double out[2] = {0.0, 0.0};
+    sin_fn(in, out, 2);
+    EXPECT_EQ(out[0], 0.0) << tier << " sin(+0) must be +0";
+    EXPECT_FALSE(std::signbit(out[0])) << tier << " sin(+0) must not be negative";
+    EXPECT_EQ(out[1], 0.0) << tier << " sin(-0) must be -0";
+    EXPECT_TRUE(std::signbit(out[1])) << tier << " sin(-0) must be negative";
+}
+
+TEST(TrigSignOfZero, Scalar) {
+    run_sign_of_zero_gate("scalar", pd::sin_batch_scalar);
+}
+
+#if defined(LIBHMM_BUILD_SSE2_KERNEL)
+TEST(TrigSignOfZero, Sse2) {
+    if (!libhmm::platform::supports_sse2()) {
+        GTEST_SKIP() << "SSE2 not supported on this CPU";
+    }
+    run_sign_of_zero_gate("sse2", pd::sin_batch_sse2);
+}
+#endif
+
+#if defined(LIBHMM_BUILD_AVX2_KERNEL)
+TEST(TrigSignOfZero, Avx2) {
+    if (!libhmm::platform::supports_avx2()) {
+        GTEST_SKIP() << "AVX2 not supported on this CPU";
+    }
+    run_sign_of_zero_gate("avx2", pd::sin_batch_avx2);
+}
+#endif
+
+#if defined(LIBHMM_BUILD_AVX512_KERNEL)
+TEST(TrigSignOfZero, Avx512) {
+    if (!libhmm::platform::supports_avx512()) {
+        GTEST_SKIP() << "AVX-512 not supported on this CPU";
+    }
+    run_sign_of_zero_gate("avx512", pd::sin_batch_avx512);
+}
+#endif
+
+#if defined(LIBHMM_BUILD_NEON_KERNEL)
+TEST(TrigSignOfZero, Neon) {
+    // NEON is the mandatory AArch64 baseline ISA — always available when this
+    // TU is compiled in.
+    run_sign_of_zero_gate("neon", pd::sin_batch_neon);
+}
+#endif
+
+// =========================================================================
 // Specials gate: domain-edge / beyond-domain / ±Inf / NaN, at the libm
 // budget for every tier (the beyond-domain points route through the same
 // per-lane scalar std::cos/std::sin fixup regardless of which tier's vector

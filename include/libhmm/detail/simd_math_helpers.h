@@ -269,7 +269,13 @@ static inline void trig_cores_8pd(__m512d r, __m512d rlo, __m512d &s_core,
     const __m512i bit1 = _mm512_and_si512(_mm512_srli_epi64(n64, 1), one_i);
     const __m512d sv = _mm512_mask_blend_pd(swap, s_core, c_core);
     const __m512d sign_v = _mm512_castsi512_pd(_mm512_slli_epi64(bit1, 63));
-    return _mm512_xor_pd(sv, sign_v);
+    const __m512d result = _mm512_xor_pd(sv, sign_v);
+    // IEEE sign-of-zero (issue #81): for x = -0 the core computes
+    // (-0) + (+0) = +0, dropping the sign; sin(+/-0) must be +/-0 exactly.
+    // x == 0 matches both zeros and no other double, so blend x itself
+    // back in.
+    const __mmask8 zmask = _mm512_cmp_pd_mask(x, _mm512_setzero_pd(), _CMP_EQ_OQ);
+    return _mm512_mask_blend_pd(zmask, result, x);
 }
 
 // log1p: log(1+x). Uses 8-term polynomial for |x|<1e-4 to avoid catastrophic
@@ -497,7 +503,12 @@ static inline void trig_cores_4pd(__m256d r, __m256d rlo, __m256d &s_core,
     const __m256d swap_mask = _mm256_castsi256_pd(_mm256_sub_epi64(_mm256_setzero_si256(), bit0));
     const __m256d sv = _mm256_blendv_pd(s_core, c_core, swap_mask);
     const __m256d sign_v = _mm256_castsi256_pd(_mm256_slli_epi64(bit1, 63));
-    return _mm256_xor_pd(sv, sign_v);
+    const __m256d result = _mm256_xor_pd(sv, sign_v);
+    // IEEE sign-of-zero (issue #81): for x = -0 the core computes
+    // (-0) + (+0) = +0, dropping the sign; sin(+/-0) must be +/-0 exactly.
+    // x == 0 matches both zeros and no other double, so blend x itself
+    // back in.
+    return _mm256_blendv_pd(result, x, _mm256_cmp_pd(x, _mm256_setzero_pd(), _CMP_EQ_OQ));
 }
 
 // log1p: 8-term polynomial for |x|<1e-4 to avoid catastrophic cancellation.
@@ -551,12 +562,23 @@ static inline void trig_cores_4pd(__m256d r, __m256d rlo, __m256d &s_core,
     const __m128d is_inf = _mm_cmpeq_pd(x, pos_inf);
     const __m128d is_nan = _mm_cmpunord_pd(x, x);
 
-    const __m128i xi = _mm_castpd_si128(x);
+    // Subnormal prescale (issue #85): without this, the exponent-extraction
+    // path below treats a subnormal's biased exponent (0) as if it belonged
+    // to a normal number, compressing the whole subnormal range. Ported from
+    // the AVX2/AVX-512/NEON log_pd overloads in this same file: scale by 2^54
+    // (exact — power-of-two) and subtract 54 back out of the exponent.
+    const __m128d min_normal = _mm_set1_pd(2.2250738585072014e-308);
+    const __m128d scale_up = _mm_set1_pd(18014398509481984.0); // 2^54
+    const __m128d is_denormal = _mm_cmplt_pd(x, min_normal);
+    const __m128d sx = sse2_blend(is_denormal, _mm_mul_pd(x, scale_up), x);
+
+    const __m128i xi = _mm_castpd_si128(sx);
     __m128i exp_i = _mm_srli_epi64(xi, 52);
     exp_i = _mm_and_si128(exp_i, _mm_set1_epi64x(0x7FFLL));
     const __m128i exp_i32 = _mm_shuffle_epi32(exp_i, _MM_SHUFFLE(0, 0, 2, 0));
     __m128d e = _mm_cvtepi32_pd(exp_i32);
     e = _mm_sub_pd(e, _mm_set1_pd(1023.0));
+    e = sse2_blend(is_denormal, _mm_sub_pd(e, _mm_set1_pd(54.0)), e);
 
     __m128d m =
         _mm_castsi128_pd(_mm_or_si128(_mm_and_si128(xi, _mm_set1_epi64x(0x000FFFFFFFFFFFFFLL)),
@@ -724,7 +746,12 @@ static inline void trig_cores_2pd(__m128d r, __m128d rlo, __m128d &s_core,
     const __m128d swap_mask = _mm_castsi128_pd(_mm_sub_epi64(_mm_setzero_si128(), bit0));
     const __m128d sv = sse2_blend(swap_mask, c_core, s_core);
     const __m128d sign_v = _mm_castsi128_pd(_mm_slli_epi64(bit1, 63));
-    return _mm_xor_pd(sv, sign_v);
+    const __m128d result = _mm_xor_pd(sv, sign_v);
+    // IEEE sign-of-zero (issue #81): for x = -0 the core computes
+    // (-0) + (+0) = +0, dropping the sign; sin(+/-0) must be +/-0 exactly.
+    // x == 0 matches both zeros and no other double, so blend x itself
+    // back in.
+    return sse2_blend(_mm_cmpeq_pd(x, _mm_setzero_pd()), x, result);
 }
 
 // log1p: 8-term polynomial for |x|<1e-4. No FMA on SSE2 — uses mul+add.
@@ -954,7 +981,12 @@ static inline void trig_cores_2pd(float64x2_t r, float64x2_t rlo, float64x2_t &s
     const uint64x2_t swap = vtstq_u64(qu, vdupq_n_u64(1));
     const uint64x2_t sgn = vshlq_n_u64(vandq_u64(vshrq_n_u64(qu, 1), vdupq_n_u64(1)), 63);
     const float64x2_t sv = vbslq_f64(swap, c_core, s_core);
-    return vreinterpretq_f64_u64(veorq_u64(vreinterpretq_u64_f64(sv), sgn));
+    const float64x2_t result = vreinterpretq_f64_u64(veorq_u64(vreinterpretq_u64_f64(sv), sgn));
+    // IEEE sign-of-zero (issue #81): for x = -0 the core computes
+    // (-0) + (+0) = +0, dropping the sign; sin(+/-0) must be +/-0 exactly.
+    // x == 0 matches both zeros and no other double, so blend x itself
+    // back in.
+    return vbslq_f64(vceqq_f64(x, vdupq_n_f64(0.0)), x, result);
 }
 
 // log1p: 8-term polynomial for |x|<1e-4 with FMA. AArch64 NEON.

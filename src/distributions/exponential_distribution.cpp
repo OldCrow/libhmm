@@ -190,6 +190,7 @@ bool ExponentialDistribution::operator==(const ExponentialDistribution &other) c
 
 void ExponentialDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                        std::span<double> out) const {
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     performance::get_double_vec_ops().exponential_batch(
         observations.data(), out.data(), observations.size(), logLambda_, negLambda_);

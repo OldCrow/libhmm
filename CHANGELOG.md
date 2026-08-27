@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.4.1] - 2026-08-26
+
+Correctness patch: the ten fix-now findings from the 2026-08-21 defensive
+review (milestone v4.4.1). Bug fixes only — no API surface change beyond
+the documented new throws.
 
 ### Changed
 - The shared library no longer links with `-undefined dynamic_lookup` on
@@ -33,9 +37,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `diagonal_gaussian_distribution.h` / `full_covariance_gaussian_distribution.h`
   no longer include `io/json_utils.h` (layer inversion; the forward
   declaration in `distribution_base.h` suffices).
+- `json::Reader::read_double` no longer runs `strtod` past the end of a
+  non-NUL-terminated `string_view`: the candidate token is copied into a
+  bounded NUL-terminated buffer, so `from_json` on a substring, memory-mapped
+  file, or network buffer cannot over-read, and the read position cannot
+  advance past the view (#87).
+- Von Mises `fit()` no longer stores κ = NaN for R̄ ≥ 0.9993 (~2° angular
+  dispersion — ordinary data): the Newton solver forms A = I₁/I₀ via
+  `one_minus_bessel_ratio` (no I₀ overflow above κ ≈ 714) and saturates a
+  non-finite update to the parameter maximum (#84).
+- SSE2 `log_pd` prescales subnormal inputs by 2⁵⁴ like the AVX2/AVX-512/NEON
+  variants; the whole subnormal range previously compressed to −709.09
+  instead of the exact log, a silent finite likelihood error on SSE2-tier
+  hosts (#85).
+- `sin_pd(−0.0)` returns −0.0 on every SIMD tier, matching `std::sin`; the
+  sign of zero was dropped in the core's final add. The trig ULP gates now
+  assert `signbit` on the ±0 specials, which the lattice metric cannot see
+  (#81).
+- AVX-512 tier selection requires the full F+DQ+BW+VL feature set the kernels
+  are compiled for (previously AVX512F alone — an F-without-DQ part such as
+  Knights Landing would SIGILL on the first batch call); AVX2 selection
+  additionally requires FMA3 (#83).
+- StudentT's location parameter μ is validated finite in the constructor,
+  `setLocation()`, and therefore JSON load — previously NaN/inf μ was
+  accepted silently and made every probability NaN (#90).
+- `from_json`/`from_json_mv` reject NaN, infinite, or negative entries in
+  `pi` and `trans` (normalisation is still left to the trainers); previously
+  such values loaded silently and produced NaN log-likelihoods (#91).
+- The count distributions (Discrete, Poisson, Binomial, NegativeBinomial)
+  bound-check a finite observation against their own domain before the
+  double→int cast; an out-of-range cast is UB and ISA-dependent (x86 yields
+  INT_MIN, AArch64 saturates to INT_MAX, so e.g.
+  `Poisson::getLogProbability(1e15)` differed between x86 and ARM). Out-of-
+  range values now uniformly score zero probability / −inf (#88).
+- The legacy stream reader bounds `States:` at 4096 before any allocation
+  (a large count previously attempted a huge `trans_` allocation; `-1`
+  parsed as ULLONG_MAX) and `XMLFileReader` translates `bad_alloc`/
+  `logic_error` into its documented `std::runtime_error` (#89).
 
 ### Changed
 - `fit_best_of_n()` is `[[nodiscard]]`, matching the other v4.4.0 APIs.
+- `getBatchLogProbabilities(observations, out)` now throws
+  `std::invalid_argument` when `out` is shorter than `observations`, on all
+  16 concrete overrides and the CRTP fallback (which previously only
+  `assert`ed). This was an unchecked out-of-bounds heap write; the
+  calculators always sized `out` correctly, but external callers were one
+  short span away from heap corruption (#86).
 - Trig ULP-gate specials table leads with +inf/−inf/NaN so the 4/8-wide
   tiers evaluate them inside the vector body rather than the scalar tail
   (`scripts/gen_trig_ulp_vectors.py`, regenerated `.inc`).

@@ -597,6 +597,40 @@ TEST(NegativeBinomialDistributionTest, Performance) {
     EXPECT_LT(fitTimePerPoint, 20.0);  // Less than 20 μs per data point for fitting
 }
 
+/**
+ * Issue #88: a value above INT_MAX must not be cast to int in
+ * getProbability()/getLogProbability()/getCumulativeProbability(). Before the
+ * fix, `k = static_cast<int>(std::round(value))` ran unconditionally --
+ * casting a finite double this large is UB ([conv.fpint]) and ISA-dependent.
+ *
+ * fit() itself never casts to int (k is kept as a double for the Newton-
+ * Raphson MLE solver), so the fit() case here is a defensive regression
+ * guard rather than a reproduction of the cast UB.
+ */
+TEST(NegativeBinomialDistributionTest, CastOverflowGuard) {
+    NegativeBinomialDistribution negbinom(5.0, 0.5);
+
+    EXPECT_TRUE(std::isinf(negbinom.getLogProbability(1e15)));
+    EXPECT_LT(negbinom.getLogProbability(1e15), 0.0);
+    EXPECT_EQ(negbinom.getProbability(1e12), 0.0);
+
+    std::vector<double> obs = {0.0, 1.0, 1e15, 2.0};
+    std::vector<double> out(obs.size());
+    negbinom.getBatchLogProbabilities(obs, out);
+    EXPECT_TRUE(std::isinf(out[2]));
+    EXPECT_LT(out[2], 0.0);
+
+    std::vector<Observation> fitData = {1.0, 2.0, 3.0, 4.0, 5.0, 1e15};
+    EXPECT_NO_THROW(negbinom.fit(fitData));
+    EXPECT_TRUE(std::isfinite(negbinom.getR()));
+    EXPECT_TRUE(std::isfinite(negbinom.getP()));
+
+    std::vector<double> weights = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+    EXPECT_NO_THROW(negbinom.fit(fitData, weights));
+    EXPECT_TRUE(std::isfinite(negbinom.getR()));
+    EXPECT_TRUE(std::isfinite(negbinom.getP()));
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "libhmm/distributions/student_t_distribution.h"
+#include "libhmm/io/json_utils.h"
 #include <memory>
 #include <vector>
 #include <cmath>
@@ -440,6 +441,61 @@ TEST(StudentTDistributionTest, Performance) {
     EXPECT_LT(pdfTimePerCall, 10.0);   // Less than 10 μs per PDF call
     EXPECT_LT(logPdfTimePerCall, 5.0); // Less than 5 μs per log PDF call
     EXPECT_LT(fitTimePerPoint, 50.0);  // Less than 50 μs per data point for fitting
+}
+
+// ============================================================================
+// Issue #90: location parameter (mu) was never validated -- setLocation() was
+// a bare inline assignment and the 3-arg constructor validated df/scale but
+// not location. A NaN/inf mu silently made every probability NaN instead of
+// throwing.
+// ============================================================================
+
+TEST(StudentTDistributionTest, ConstructorRejectsNonFiniteLocation) {
+    EXPECT_THROW(StudentTDistribution(3.0, std::numeric_limits<double>::quiet_NaN(), 1.0),
+                 std::invalid_argument);
+    EXPECT_THROW(StudentTDistribution(3.0, std::numeric_limits<double>::infinity(), 1.0),
+                 std::invalid_argument);
+    EXPECT_THROW(StudentTDistribution(3.0, -std::numeric_limits<double>::infinity(), 1.0),
+                 std::invalid_argument);
+    EXPECT_NO_THROW(StudentTDistribution(3.0, 2.5, 1.0));
+}
+
+TEST(StudentTDistributionTest, SetLocationRejectsNonFiniteValue) {
+    StudentTDistribution t_dist(3.0, 0.0, 1.0);
+    EXPECT_THROW(t_dist.setLocation(std::numeric_limits<double>::quiet_NaN()),
+                 std::invalid_argument);
+    EXPECT_THROW(t_dist.setLocation(std::numeric_limits<double>::infinity()),
+                 std::invalid_argument);
+    // Location unchanged after the rejected calls.
+    EXPECT_EQ(t_dist.getLocation(), 0.0);
+
+    t_dist.setLocation(2.5);
+    EXPECT_EQ(t_dist.getLocation(), 2.5);
+}
+
+TEST(StudentTDistributionTest, FromJsonRejectsNonFiniteLocation) {
+    // Reader positioned as it would be inside read_distribution() -- after
+    // the dispatch has already consumed {"type":"StudentT",.
+    libhmm::json::Reader r(R"("df":3.0,"mu":nan,"sigma":1.0})");
+    EXPECT_THROW(static_cast<void>(StudentTDistribution::from_json(r)), std::invalid_argument);
+}
+
+// ============================================================================
+// Basic setter coverage (metrics sweep flagged setScale/VonMises::setMu/
+// setKappa as untested; setScale added here alongside the #90 work).
+// ============================================================================
+
+TEST(StudentTDistributionTest, SetScale) {
+    StudentTDistribution t_dist(3.0, 0.0, 1.0);
+    t_dist.setScale(2.5);
+    EXPECT_EQ(t_dist.getScale(), 2.5);
+
+    EXPECT_THROW(t_dist.setScale(0.0), std::invalid_argument);
+    EXPECT_THROW(t_dist.setScale(-1.0), std::invalid_argument);
+    EXPECT_THROW(t_dist.setScale(std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
+    EXPECT_THROW(t_dist.setScale(std::numeric_limits<double>::infinity()), std::invalid_argument);
+    // Rejected calls must not change the scale.
+    EXPECT_EQ(t_dist.getScale(), 2.5);
 }
 
 /**

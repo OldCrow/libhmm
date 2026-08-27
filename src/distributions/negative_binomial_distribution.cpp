@@ -25,11 +25,15 @@ double NegativeBinomialDistribution::getProbability(double value) const {
         return math::ZERO_DOUBLE;
     }
 
-    // Round to nearest integer and check if it's in valid range
-    auto k = static_cast<int>(std::round(value));
-    if (k < 0) {
+    // Round to nearest integer and check if it's in valid range.
+    // #88: bound-check against INT_MAX before casting -- casting an
+    // out-of-range finite double to int is UB ([conv.fpint]) and is
+    // ISA-dependent.
+    const double rounded = std::round(value);
+    if (rounded < 0.0 || rounded > static_cast<double>(std::numeric_limits<int>::max())) {
         return math::ZERO_DOUBLE;
     }
+    auto k = static_cast<int>(rounded);
 
     // Handle edge cases
     if (p_ == math::ONE) {
@@ -236,11 +240,13 @@ double NegativeBinomialDistribution::getLogProbability(double value) const noexc
         return -std::numeric_limits<double>::infinity();
     }
 
-    // Round to nearest integer and check if it's in valid range
-    auto k = static_cast<int>(std::round(value));
-    if (k < 0) {
+    // Round to nearest integer and check if it's in valid range.
+    // #88: bound-check before casting -- see getProbability().
+    const double rounded = std::round(value);
+    if (rounded < 0.0 || rounded > static_cast<double>(std::numeric_limits<int>::max())) {
         return -std::numeric_limits<double>::infinity();
     }
+    auto k = static_cast<int>(rounded);
 
     // Handle edge cases
     if (p_ == math::ONE) {
@@ -258,12 +264,18 @@ double NegativeBinomialDistribution::getCumulativeProbability(double value) cons
         return math::ZERO_DOUBLE;
     }
 
-    auto k = static_cast<int>(std::floor(value));
-
-    // Handle boundary cases
-    if (k < 0) {
+    // #88: bound-check before casting -- see getProbability(). A value this
+    // large has effectively certain cumulative probability, but the caller
+    // asked for the sum-based CDF, so clamp to a cast-safe value rather than
+    // special-casing 1.0 here.
+    const double floored = std::floor(value);
+    if (floored < 0.0) {
         return math::ZERO_DOUBLE;
     }
+    if (floored > static_cast<double>(std::numeric_limits<int>::max())) {
+        return math::ONE;
+    }
+    auto k = static_cast<int>(floored);
 
     // Compute CDF as cumulative sum: P(X <= k) = sum_{i=0}^{k} P(X = i)
     // For efficiency, we limit computation to reasonable range
@@ -323,6 +335,7 @@ void NegativeBinomialDistribution::getBatchLogProbabilities(std::span<const doub
     // per-parameter constant. So this is one lgamma per element, not three,
     // and it is the only real instance of the dependency that Poisson's and
     // Binomial's comments used to claim as well (corrected 2026-08-16).
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = NegativeBinomialDistribution::getLogProbability(observations[i]);

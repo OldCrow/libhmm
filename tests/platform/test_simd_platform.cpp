@@ -213,3 +213,78 @@ TEST(CpuDetectionConsistency, X86_64AlwaysReportsSSE2) {
     EXPECT_FALSE(libhmm::platform::supports_neon());
 #endif
 }
+
+// ============================================================================
+// AVX-512 / AVX2 feature-mask contract (issue #83)
+//
+// detect_avx512()/detect_avx2() (src/platform/cpu_detection.cpp) gate on more
+// than the bare "AVX-512F" / "AVX2" bits: AVX-512 additionally requires
+// DQ + BW + VL (what /arch:AVX512 licenses and what the AVX-512 kernel TU's
+// AVX-512DQ intrinsics, e.g. _mm512_cvtepi64_pd, need to not SIGILL), and
+// AVX2 additionally requires FMA3 (leaf 1 ECX bit 12) since the AVX2 kernel
+// TU is compiled -mavx2 -mfma and executes FMA intrinsics directly. This CPU
+// (Zen 4) and every CI runner satisfy both extended contracts, so the two
+// "Implies" tests below hold both before and after the fix and only document
+// it; Avx512RequiredMaskExactValue is the part that can actually fail a
+// regression — it was hand-verified red under a deliberate one-bit
+// perturbation of kAvx512RequiredMask (dropping VL) and green again restored,
+// per issue #83's fix.
+// ============================================================================
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
+#define LIBHMM_TEST_CPU_X86
+#endif
+
+#ifdef LIBHMM_TEST_CPU_X86
+#if defined(_MSC_VER)
+#include <intrin.h> // __cpuidex
+#else
+#include <cpuid.h> // __cpuid_count
+#endif
+
+namespace {
+
+// Mirrors cpu_detection.cpp's run_cpuid: CPUID itself is always safe to
+// execute regardless of compile flags, so this test file (deliberately not
+// compiled with LIBHMM_BEST_SIMD_FLAGS) can call it directly.
+void test_run_cpuid(int leaf, int subleaf, int out[4]) noexcept {
+#if defined(_MSC_VER)
+    __cpuidex(out, leaf, subleaf);
+#else
+    __cpuid_count(leaf, subleaf, out[0], out[1], out[2], out[3]);
+#endif
+}
+
+} // namespace
+
+// Regression guard: pins the exact AVX-512 feature mask value. A one-bit
+// perturbation (e.g. dropping VL, bit 31) must fail this assertion.
+TEST(CpuDetectionConsistency, Avx512RequiredMaskExactValue) {
+    constexpr unsigned expected = (1u << 16) | (1u << 17) | (1u << 30) | (1u << 31);
+    EXPECT_EQ(libhmm::platform::kAvx512RequiredMask, expected);
+}
+
+TEST(CpuDetectionConsistency, Avx512ImpliesFullFeatureMask) {
+    if (!libhmm::platform::supports_avx512()) {
+        GTEST_SKIP() << "AVX-512 not supported on this CPU";
+    }
+    int info[4] = {};
+    test_run_cpuid(7, 0, info);
+    const unsigned ebx = static_cast<unsigned>(info[1]);
+    EXPECT_TRUE((ebx >> 17) & 1u) << "AVX-512DQ (bit 17) must be set";
+    EXPECT_TRUE((ebx >> 30) & 1u) << "AVX-512BW (bit 30) must be set";
+    EXPECT_TRUE((ebx >> 31) & 1u) << "AVX-512VL (bit 31) must be set";
+    EXPECT_EQ(ebx & libhmm::platform::kAvx512RequiredMask, libhmm::platform::kAvx512RequiredMask);
+}
+
+TEST(CpuDetectionConsistency, Avx2ImpliesFma3) {
+    if (!libhmm::platform::supports_avx2()) {
+        GTEST_SKIP() << "AVX2 not supported on this CPU";
+    }
+    int info[4] = {};
+    test_run_cpuid(1, 0, info);
+    EXPECT_TRUE((static_cast<unsigned>(info[2]) >> 12) & 1u)
+        << "FMA3 (leaf 1 ECX bit 12) must be set";
+}
+
+#endif // LIBHMM_TEST_CPU_X86

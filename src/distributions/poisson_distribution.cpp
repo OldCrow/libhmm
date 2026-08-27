@@ -154,6 +154,15 @@ double PoissonDistribution::getCumulativeProbability(double k) const noexcept {
         return math::ZERO_DOUBLE;
     }
 
+    // #88: k above INT_MAX cannot be cast to int without UB. Route it through
+    // the same normal-approximation formula used below for large kInt, but
+    // computed directly from the double so no cast occurs.
+    if (k > static_cast<double>(std::numeric_limits<int>::max())) {
+        ensureCache();
+        const double z = (std::floor(k) + 0.5 - lambda_) * invSqrtLambda_;
+        return 0.5 * (1.0 + std::erf(z / math::SQRT_2));
+    }
+
     const auto kInt = static_cast<int>(std::floor(k));
 
     // For very large k or lambda, the cumulative sum becomes computationally expensive
@@ -224,6 +233,7 @@ void PoissonDistribution::getBatchLogProbabilities(std::span<const double> obser
     // the gather to index that table by k — the same blocker as Discrete, and
     // libstats settled empirically that x86 hardware gather is too expensive to
     // pay for (its #33; table kernels are a NEON technique, not an x86 one).
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = PoissonDistribution::getLogProbability(observations[i]);
