@@ -14,11 +14,14 @@ namespace libhmm {
  * @return Probability mass for the given value, 0.0 if out of range
  */
 double DiscreteDistribution::getProbability(double x) const {
-    if (std::isnan(x) || std::isinf(x) || x < math::ZERO_DOUBLE)
+    // #88: compare against numSymbols_ before casting to std::size_t --
+    // casting an out-of-range finite double is UB ([conv.fpint]) and the
+    // result is ISA-dependent, so the bound must be checked on the double
+    // itself rather than relying on isValidIndex() after the cast.
+    if (std::isnan(x) || std::isinf(x) || x < math::ZERO_DOUBLE ||
+        x >= static_cast<double>(numSymbols_))
         return math::ZERO_DOUBLE;
     const auto index = static_cast<std::size_t>(x);
-    if (!isValidIndex(index))
-        return math::ZERO_DOUBLE;
     assert(pdf_[index] <= 1.0 && pdf_[index] >= 0.0);
     return pdf_[index];
 }
@@ -47,12 +50,11 @@ void DiscreteDistribution::fit(std::span<const double> data) {
     std::fill(pdf_.begin(), pdf_.end(), 0.0);
     std::size_t validCount = 0;
     for (const double val : data) {
-        if (val >= 0.0) {
+        // #88: bound-check before casting -- see getProbability().
+        if (val >= 0.0 && val < static_cast<double>(numSymbols_)) {
             const auto index = static_cast<std::size_t>(val);
-            if (isValidIndex(index)) {
-                pdf_[index]++;
-                ++validCount;
-            }
+            pdf_[index]++;
+            ++validCount;
         }
     }
     if (validCount == 0) {
@@ -78,12 +80,11 @@ void DiscreteDistribution::fit(std::span<const double> data, std::span<const dou
     std::fill(pdf_.begin(), pdf_.end(), 0.0);
     double binnedW = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
-        if (data[i] >= 0.0) {
+        // #88: bound-check before casting -- see getProbability().
+        if (data[i] >= 0.0 && data[i] < static_cast<double>(numSymbols_)) {
             const auto index = static_cast<std::size_t>(data[i]);
-            if (isValidIndex(index)) {
-                pdf_[index] += weights[i];
-                binnedW += weights[i];
-            }
+            pdf_[index] += weights[i];
+            binnedW += weights[i];
         }
     }
     // All weight fell outside the symbol range; keep current parameters.
@@ -125,16 +126,16 @@ std::string DiscreteDistribution::toString() const {
  * Uses cached log probabilities for maximum performance
  */
 double DiscreteDistribution::getLogProbability(double value) const noexcept {
-    // Validate input - discrete distributions only accept non-negative integer values
-    if (std::isnan(value) || std::isinf(value) || value < math::ZERO_DOUBLE) {
+    // Validate input - discrete distributions only accept non-negative integer values.
+    // #88: the upper-bound check against numSymbols_ must happen before the
+    // cast -- see getProbability().
+    if (std::isnan(value) || std::isinf(value) || value < math::ZERO_DOUBLE ||
+        value >= static_cast<double>(numSymbols_)) {
         return -std::numeric_limits<double>::infinity();
     }
 
     // Convert to integer index
     const auto index = static_cast<std::size_t>(value);
-    if (!isValidIndex(index)) {
-        return -std::numeric_limits<double>::infinity();
-    }
 
     ensureCache();
     return cachedLogProbs_[index];

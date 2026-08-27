@@ -193,12 +193,13 @@ public:
      */
     void setProbability(double o, double value) {
         validateProbabilityValue(value);
-        // Guard before cast: negative float → size_t is UB
-        if (std::isnan(o) || std::isinf(o) || o < 0.0)
+        // Guard before cast: negative float -> size_t is UB, and so is a
+        // value too large to represent (#88: same class of bug as
+        // getProbability()/getLogProbability(); not one of the issue's
+        // listed .cpp sites, but the identical pattern in the same class).
+        if (std::isnan(o) || std::isinf(o) || o < 0.0 || o >= static_cast<double>(numSymbols_))
             throw std::out_of_range("Observation index out of range");
         const auto index = static_cast<std::size_t>(o);
-        if (!isValidIndex(index))
-            throw std::out_of_range("Observation index out of range");
         pdf_[index] = value;
         invalidateCache();
     }

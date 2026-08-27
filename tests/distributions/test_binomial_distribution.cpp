@@ -480,6 +480,36 @@ TEST(BinomialDistributionTest, Caching) {
     EXPECT_EQ(logProb1, logProb2);
 }
 
+/**
+ * Issue #88: a value above n_ must be range-checked before being rounded and
+ * cast to int, not after. Before the fix, `k = static_cast<int>(std::round(
+ * value))` ran unconditionally and the k > n_ rejection happened on the
+ * already-cast (UB, for a large enough value) int.
+ */
+TEST(BinomialDistributionTest, CastOverflowGuard) {
+    BinomialDistribution binomial(10, 0.5);
+
+    EXPECT_TRUE(std::isinf(binomial.getLogProbability(1e15)));
+    EXPECT_LT(binomial.getLogProbability(1e15), 0.0);
+    EXPECT_EQ(binomial.getProbability(1e12), 0.0);
+
+    std::vector<double> obs = {0.0, 5.0, 1e15, 10.0};
+    std::vector<double> out(obs.size());
+    binomial.getBatchLogProbabilities(obs, out);
+    EXPECT_TRUE(std::isinf(out[2]));
+    EXPECT_LT(out[2], 0.0);
+
+    // fit() must not crash or invoke UB when an out-of-range element is present.
+    std::vector<Observation> fitData = {1.0, 2.0, 1e15, 3.0};
+    EXPECT_NO_THROW(binomial.fit(fitData));
+    EXPECT_TRUE(std::isfinite(static_cast<double>(binomial.getN())));
+    EXPECT_TRUE(std::isfinite(binomial.getP()));
+
+    std::vector<double> weights = {1.0, 1.0, 1.0, 1.0};
+    EXPECT_NO_THROW(binomial.fit(fitData, weights));
+    EXPECT_TRUE(std::isfinite(binomial.getP()));
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
