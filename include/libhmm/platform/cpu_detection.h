@@ -24,7 +24,8 @@ namespace libhmm::platform {
 inline constexpr unsigned kAvx512RequiredMask =
     (1u << 16) | (1u << 17) | (1u << 30) | (1u << 31); // F | DQ | BW | VL
 
-/// @returns true if the runtime CPU + OS support AVX-512F/DQ.
+/// @returns true if the runtime CPU + OS support AVX-512 F/DQ/BW/VL
+/// (kAvx512RequiredMask).
 /// Always false on non-x86 platforms.
 bool supports_avx512() noexcept;
 
