@@ -39,6 +39,18 @@ std::size_t checked_size(double raw, double lo, double hi, const char *err_msg) 
     return static_cast<std::size_t>(raw);
 }
 
+/// Validate a JSON-read weight vector (pi entries, or one row of trans).
+/// Every entry must be finite and non-negative; normalisation is NOT checked
+/// here (trainers renormalise). Shared by both from_json and from_json_mv.
+/// @throws std::runtime_error naming @p what if any entry is NaN, infinite, or negative.
+void check_weights(const std::vector<double> &values, const char *what) {
+    for (double v : values) {
+        if (!std::isfinite(v) || v < 0.0)
+            throw std::runtime_error(std::string("HMM JSON: ") + what +
+                                     " entries must be finite and non-negative");
+    }
+}
+
 // =============================================================================
 // Scalar distribution factory
 
@@ -183,9 +195,12 @@ Hmm from_json(std::string_view src) {
 
     expect_key(r.read_key(), "pi");
     const auto pi_data = r.read_double_array(N);
+    check_weights(pi_data, "pi");
 
     expect_key(r.read_key(), "trans");
     const auto trans_rows = r.read_double_matrix(N, N);
+    for (const auto &row : trans_rows)
+        check_weights(row, "trans");
 
     expect_key(r.read_key(), "distributions");
     auto emis = read_distribution_array(r, N);
@@ -376,9 +391,12 @@ HmmMV from_json_mv(std::string_view src) {
 
     expect_key(r.read_key(), "pi");
     const auto pi_data = r.read_double_array(N);
+    check_weights(pi_data, "pi");
 
     expect_key(r.read_key(), "trans");
     const auto trans_rows = r.read_double_matrix(N, N);
+    for (const auto &row : trans_rows)
+        check_weights(row, "trans");
 
     expect_key(r.read_key(), "distributions");
     auto emis = read_mv_distribution_array(r, N);

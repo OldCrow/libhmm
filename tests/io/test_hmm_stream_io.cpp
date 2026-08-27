@@ -522,6 +522,76 @@ TEST_F(HmmStreamIOTest, ParseDiscreteSymbolCountOverflowThrows) {
     EXPECT_THROW(iss >> hmm, std::runtime_error);
 }
 
+// =============================================================================
+// Legacy States: count bound (#89)
+//
+// operator>> must reject an out-of-range or malformed States: count before
+// any allocation is attempted. States: 200000 is intentionally NOT exercised
+// pre-fix here (it would attempt an unbounded ~320 GB allocation on this
+// machine); the other three are cheap in both the broken and fixed states.
+// =============================================================================
+
+TEST_F(HmmStreamIOTest, StatesCountAboveUint32RangeThrows) {
+    const std::string stream_str = R"(Hidden Markov Model parameters
+  States: 4294967296
+  Pi: [ 1.0 ]
+  Transmission matrix:
+   [ 1.0 ]
+  Emissions:
+   State 0: Gaussian Distribution:
+)";
+    std::istringstream iss(stream_str);
+    Hmm hmm(1);
+    EXPECT_THROW(iss >> hmm, std::runtime_error);
+}
+
+// NOTE: pre-fix, this allocates an unbounded ~320 GB (states=200000 makes a
+// 200000x200000 Matrix). Do not run this test pre-fix on a real machine —
+// exclude it with --gtest_filter=-*StatesCountWayAboveCapThrows* when
+// capturing red evidence for the other three cases. Post-fix the bound check
+// runs before any allocation, so this is cheap.
+TEST_F(HmmStreamIOTest, StatesCountWayAboveCapThrows) {
+    const std::string stream_str = R"(Hidden Markov Model parameters
+  States: 200000
+  Pi: [ 1.0 ]
+  Transmission matrix:
+   [ 1.0 ]
+  Emissions:
+   State 0: Gaussian Distribution:
+)";
+    std::istringstream iss(stream_str);
+    Hmm hmm(1);
+    EXPECT_THROW(iss >> hmm, std::runtime_error);
+}
+
+TEST_F(HmmStreamIOTest, StatesCountNegativeThrows) {
+    const std::string stream_str = R"(Hidden Markov Model parameters
+  States: -1
+  Pi: [ 1.0 ]
+  Transmission matrix:
+   [ 1.0 ]
+  Emissions:
+   State 0: Gaussian Distribution:
+)";
+    std::istringstream iss(stream_str);
+    Hmm hmm(1);
+    EXPECT_THROW(iss >> hmm, std::runtime_error);
+}
+
+TEST_F(HmmStreamIOTest, StatesCountNonNumericThrows) {
+    const std::string stream_str = R"(Hidden Markov Model parameters
+  States: abc
+  Pi: [ 1.0 ]
+  Transmission matrix:
+   [ 1.0 ]
+  Emissions:
+   State 0: Gaussian Distribution:
+)";
+    std::istringstream iss(stream_str);
+    Hmm hmm(1);
+    EXPECT_THROW(iss >> hmm, std::runtime_error);
+}
+
 TEST_F(HmmStreamIOTest, MultipleDistributionTypesInSameHMM) {
     // Create HMM with multiple different distribution types including the new ones
     Hmm hmm(3);

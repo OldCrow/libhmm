@@ -319,6 +319,34 @@ TEST(MvJsonErrors, RejectsOversizedDimensionsManifest) {
 }
 
 // =============================================================================
+// NaN/Inf/negative rejection in pi and trans, MV path (#91)
+// =============================================================================
+
+TEST(MvJsonSanitization, PiWithNanThrows) {
+    const std::string bad =
+        R"({"libhmm_version":"4","obs_type":"multivariate","dimensions":2,"states":1,)"
+        R"("pi":[nan],"trans":[[1.0]],)"
+        R"("distributions":[{"type":"DiagonalGaussian","dim":2,"mean":[0.0,0.0],"var":[1.0,1.0]}]})"; // NOLINT
+    EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
+}
+
+TEST(MvJsonSanitization, TransWithNegativeThrows) {
+    const std::string bad =
+        R"({"libhmm_version":"4","obs_type":"multivariate","dimensions":2,"states":1,)"
+        R"("pi":[1.0],"trans":[[-5.0]],)"
+        R"("distributions":[{"type":"DiagonalGaussian","dim":2,"mean":[0.0,0.0],"var":[1.0,1.0]}]})"; // NOLINT
+    EXPECT_THROW(static_cast<void>(from_json_mv(bad)), std::runtime_error);
+}
+
+TEST(MvJsonSanitization, ValidPiAndTransAccepted) {
+    const std::string good =
+        R"({"libhmm_version":"4","obs_type":"multivariate","dimensions":2,"states":1,)"
+        R"("pi":[1.0],"trans":[[1.0]],)"
+        R"("distributions":[{"type":"DiagonalGaussian","dim":2,"mean":[0.0,0.0],"var":[1.0,1.0]}]})"; // NOLINT
+    EXPECT_NO_THROW(static_cast<void>(from_json_mv(good)));
+}
+
+// =============================================================================
 // Scalar from_json still works (backward compat unchanged)
 // =============================================================================
 
