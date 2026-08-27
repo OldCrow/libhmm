@@ -23,11 +23,15 @@ double BinomialDistribution::getProbability(double value) const {
         return math::ZERO_DOUBLE;
     }
 
-    // Round to nearest integer and check if it's in valid range
-    auto k = static_cast<int>(std::round(value));
-    if (k < 0 || k > n_) {
+    // Round to nearest integer and check if it's in valid range.
+    // #88: the range check against n_ must happen on the rounded double,
+    // before the cast to int -- casting an out-of-range finite double is UB
+    // ([conv.fpint]) and is ISA-dependent.
+    const double rounded = std::round(value);
+    if (rounded < 0.0 || rounded > static_cast<double>(n_)) {
         return math::ZERO_DOUBLE;
     }
+    auto k = static_cast<int>(rounded);
 
     // Handle edge cases
     if (p_ == math::ZERO_DOUBLE) {
@@ -76,8 +80,13 @@ void BinomialDistribution::fit(std::span<const double> data) {
     double sum = 0.0;
     std::size_t validCount = 0;
     for (const double val : data) {
-        if (val >= 0.0 && std::isfinite(val)) {
-            const auto intVal = static_cast<int>(std::round(val));
+        // #88: bound-check the rounded value against INT_MAX before casting
+        // -- n_ is not yet known during unweighted fit, so INT_MAX is the
+        // only available domain bound here.
+        const double rounded = std::round(val);
+        if (val >= 0.0 && std::isfinite(val) &&
+            rounded <= static_cast<double>(std::numeric_limits<int>::max())) {
+            const auto intVal = static_cast<int>(rounded);
             maxObs = std::max(maxObs, intVal);
             sum += static_cast<double>(intVal);
             ++validCount;
@@ -108,8 +117,11 @@ void BinomialDistribution::fit(std::span<const double> data, std::span<const dou
     int maxObs = 0;
     double sumWX = 0.0;
     for (std::size_t i = 0; i < data.size(); ++i) {
-        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0) {
-            const auto intVal = static_cast<int>(std::round(data[i]));
+        // #88: bound-check before casting -- see the unweighted fit() above.
+        const double rounded = std::round(data[i]);
+        if (data[i] >= 0.0 && std::isfinite(data[i]) && weights[i] > 0.0 &&
+            rounded <= static_cast<double>(std::numeric_limits<int>::max())) {
+            const auto intVal = static_cast<int>(rounded);
             maxObs = std::max(maxObs, intVal);
             sumWX += weights[i] * static_cast<double>(intVal);
         }
@@ -157,11 +169,13 @@ double BinomialDistribution::getLogProbability(double value) const noexcept {
         return -std::numeric_limits<double>::infinity();
     }
 
-    // Round to nearest integer and check if it's in valid range
-    auto k = static_cast<int>(std::round(value));
-    if (k < 0 || k > n_) {
+    // Round to nearest integer and check if it's in valid range.
+    // #88: bound-check before casting -- see getProbability().
+    const double rounded = std::round(value);
+    if (rounded < 0.0 || rounded > static_cast<double>(n_)) {
         return -std::numeric_limits<double>::infinity();
     }
+    auto k = static_cast<int>(rounded);
 
     // Handle edge cases
     if (p_ == math::ZERO_DOUBLE) {
@@ -183,15 +197,18 @@ double BinomialDistribution::getCumulativeProbability(double value) const noexce
         return math::ZERO_DOUBLE;
     }
 
-    auto k = static_cast<int>(std::floor(value));
-
-    // Handle boundary cases
-    if (k < 0) {
+    // #88: bound-check the floored value before casting -- see
+    // getProbability(). Any value at or beyond n_ (including one too large
+    // to represent as int) has cumulative probability 1.0, so it is safe to
+    // resolve that case before the cast.
+    const double floored = std::floor(value);
+    if (floored < 0.0) {
         return math::ZERO_DOUBLE;
     }
-    if (k >= n_) {
+    if (floored >= static_cast<double>(n_)) {
         return math::ONE;
     }
+    auto k = static_cast<int>(floored);
 
     // Compute CDF as cumulative sum: P(X <= k) = sum_{i=0}^{k} P(X = i)
     double cdf = math::ZERO_DOUBLE;
@@ -246,6 +263,7 @@ void BinomialDistribution::getBatchLogProbabilities(std::span<const double> obse
     // three arguments are integers), so the blocker is the gather, exactly as
     // for Poisson and Discrete. The old claim that this "uses lgamma
     // internally" was wrong about its own code; corrected 2026-08-16.
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     for (std::size_t i = 0; i < observations.size(); ++i) {
         out[i] = BinomialDistribution::getLogProbability(observations[i]);

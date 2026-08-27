@@ -296,6 +296,16 @@ TEST(GaussianDistributionTest, Performance) {
     EXPECT_LT(sum_log_pdf, 0.0);
 }
 
+// Issue #86: getBatchLogProbabilities ignored out.size(), writing past the
+// end of a shorter out span (OOB heap write). Gaussian is the tier-2
+// (DoubleVecOps-dispatched) representative.
+TEST(GaussianDistributionTest, BatchLogProbabilitiesRejectsShortOutSpan) {
+    GaussianDistribution gaussian(0.0, 1.0);
+    std::vector<double> obs(100, 1.0);
+    std::vector<double> out(10);
+    EXPECT_THROW(gaussian.getBatchLogProbabilities(obs, out), std::invalid_argument);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

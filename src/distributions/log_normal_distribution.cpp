@@ -210,6 +210,7 @@ std::istream &operator>>(std::istream &is, libhmm::LogNormalDistribution &distri
 }
 void LogNormalDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                      std::span<double> out) const {
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     performance::get_double_vec_ops().lognormal_batch(
         observations.data(), out.data(), observations.size(), mean_, negHalfSigmaSquaredInv_,

@@ -155,6 +155,7 @@ std::istream &operator>>(std::istream &is, RayleighDistribution &distribution) {
 
 void RayleighDistribution::getBatchLogProbabilities(std::span<const double> observations,
                                                     std::span<double> out) const {
+    checkBatchSpans(observations.size(), out.size());
     ensureCache();
     // inv2sigma_sq = 1/(2σ²) = -negHalfInvSigmaSquared_ (negate cached negative value)
     // log_norm = -2*log(σ)

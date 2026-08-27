@@ -500,6 +500,37 @@ TEST(DiscreteDistributionTest, Caching) {
     EXPECT_NE(newEntropy, entropy1); // Should be different after change
 }
 
+/**
+ * Issue #88: values above numSymbols_ (in particular, ones large enough to
+ * overflow std::size_t on cast) must not be cast before the range check.
+ * Before the fix, getProbability()/getLogProbability() cast first and
+ * checked isValidIndex() after -- the cast itself is UB for a finite double
+ * this large ([conv.fpint]), and the result is ISA-dependent.
+ */
+TEST(DiscreteDistributionTest, CastOverflowGuard) {
+    DiscreteDistribution discrete(5);
+
+    EXPECT_TRUE(std::isinf(discrete.getLogProbability(1e15)));
+    EXPECT_LT(discrete.getLogProbability(1e15), 0.0);
+    EXPECT_EQ(discrete.getProbability(1e12), 0.0);
+
+    std::vector<double> obs = {0.0, 1.0, 1e15, 2.0};
+    std::vector<double> out(obs.size());
+    discrete.getBatchLogProbabilities(obs, out);
+    EXPECT_TRUE(std::isinf(out[2]));
+    EXPECT_LT(out[2], 0.0);
+
+    // fit() must not crash or invoke UB when an out-of-range element is present;
+    // it should simply be excluded from the empirical distribution.
+    std::vector<Observation> fitData = {0.0, 1.0, 1e15, 2.0};
+    EXPECT_NO_THROW(discrete.fit(fitData));
+    EXPECT_NEAR(discrete.getProbabilitySum(), 1.0, 1e-10);
+
+    std::vector<double> weights = {1.0, 1.0, 1.0, 1.0};
+    EXPECT_NO_THROW(discrete.fit(fitData, weights));
+    EXPECT_NEAR(discrete.getProbabilitySum(), 1.0, 1e-10);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

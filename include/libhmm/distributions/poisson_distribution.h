@@ -66,13 +66,21 @@ private:
     }
 
     /**
-     * Validates that k is a valid count (non-negative integer)
+     * Validates that k is a valid count (non-negative integer) representable
+     * as an int.
+     *
+     * #88: the upper bound rejects values that would overflow the
+     * `static_cast<int>(k)` every call site performs after this check --
+     * casting a finite double above INT_MAX to int is undefined behaviour
+     * ([conv.fpint]) and is ISA-dependent (x86 CVTTSD2SI yields INT_MIN,
+     * AArch64 FCVTZS saturates to INT_MAX).
      *
      * @param k Value to validate
      * @return true if k is a valid count, false otherwise
      */
     static bool isValidCount(double k) noexcept {
-        return k >= 0.0 && std::floor(k) == k && std::isfinite(k);
+        return k >= 0.0 && k <= static_cast<double>(std::numeric_limits<int>::max()) &&
+               std::floor(k) == k && std::isfinite(k);
     }
 
     friend std::istream &operator>>(std::istream &is, libhmm::PoissonDistribution &distribution);

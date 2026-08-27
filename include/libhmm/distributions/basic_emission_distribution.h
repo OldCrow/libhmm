@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <random>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -68,10 +70,32 @@ public:
      * Override for SIMD vectorization.
      *
      * Precondition: observations.size() == out.size()
+     *
+     * @throws std::invalid_argument if out.size() < observations.size() (#86).
+     *         Every concrete override must call checkBatchSpans() first to
+     *         enforce this before writing into out.
      */
     virtual void getBatchLogProbabilities(std::span<const Obs> observations,
                                           std::span<double> out) const = 0;
 
+protected:
+    /**
+     * @brief Validate that the output span is long enough for a batch write.
+     *
+     * getBatchLogProbabilities() writes exactly n_obs values into out[0..n_obs).
+     * A shorter out span would write out of bounds, so every override must
+     * call this first (#86: previously unchecked, an OOB heap write).
+     *
+     * @throws std::invalid_argument if n_out < n_obs.
+     */
+    static void checkBatchSpans(std::size_t n_obs, std::size_t n_out) {
+        if (n_out < n_obs) {
+            throw std::invalid_argument(
+                "getBatchLogProbabilities: out span is shorter than observations span");
+        }
+    }
+
+public:
     // =========================================================================
     // Parameter estimation
     // =========================================================================
