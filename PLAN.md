@@ -36,7 +36,8 @@
   LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
 
 ## GitHub Synchronization [DERIVED]
-Last reconciled against live GitHub state: 2026-08-26.
+Last reconciled against live GitHub state: 2026-08-28 (no drift; 16 open
+issues match this file's milestone assignments exactly).
 - GitHub is the collaborator-facing source for issues and milestones; this
   PLAN.md is the agent-facing durable project state. Keep both in sync.
 - When creating, closing, reopening, retitling, or moving a GitHub issue or
@@ -107,8 +108,8 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   - #97 OPEN — `sample()` → `validateInitialized()` (additive); the
     `sample_mv` rename half moved to v5.0.0.
   - #96 OPEN — third configure branch for non-x86/non-AArch64 (additive).
-  - [OPEN] GitHub milestone v4.5.0 description omits #48/#96/#97 — update
-    via `gh api` when next touching milestones.
+  - Milestone description updated 2026-08-28 to include #48/#96/#97
+    (was flagged [OPEN] here since 2026-08-26).
 - v5.0.0 — API (open, #6, unscheduled): 2 open / 0 closed.
   - #95 OPEN — `train()` semantics (`step()`/`train()` split or callback);
     topology guidance depends on it.
