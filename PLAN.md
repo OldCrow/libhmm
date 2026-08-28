@@ -385,6 +385,18 @@ pin. State as of 2026-08-16, recorded so a session does not re-derive it:
   i0/i1 — all four are in corvus's audited set.
 
 ## Local Machine State [DERIVED]
+2026-08-27, Mac Mini M1 (macOS Tahoe, AppleClang 21): v4.4.1 verified
+natively — synced to origin/main at 30b1a7b, fresh Release build (build/
+wiped across the release boundary) warning-clean,
+`build/tools/simd_inspection` reports NEON at compile time and runtime
+(2 lanes), 6/6 smoke; ctest 51/51 including the new v4.4.1 tests
+(test_simd_platform 19/19 with the #83 contract asserts,
+test_transcendental_kernels). #74 NEON ULP gates: max 1 ULP, mean
+0.0276 (cos) / 0.0280 (sin) on the 5000-point set, dispatched results
+bit-identical to the NEON tier, specials within budget — same envelope
+as the 2026-08-23 run. Fleet-wide v4.4.1 native verification is now
+complete (Kaby Lake below, Zen 4 at release).
+
 2026-08-27, Kaby Lake MBP (i7-7820HQ, AppleClang, Ventura): v4.4.1
 verified natively — synced to origin/main at e0a059b (tag v4.4.1), clean
 Release rebuild warning-clean (the incremental build across the pull hit
