@@ -72,17 +72,25 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   in the release commit via doc correction (zero consumers found). Per-issue
   design/outcome detail: the In Progress section below and each issue's
   closing comment.
-- **Order of release: v4.4.1 → v4.4.2 → v4.5.0 → (v5.0.0 unscheduled).**
-  Decided 2026-08-21 from the defensive review: fix-now candidates are
-  grouped into two PATCH milestones (bug fixes, no API surface change); the
-  second exists because its items change fitted values in the last bits and
-  #94 needs a benchmark pass first, so they must not gate the safety patch.
-  Source-breaking items are parked on a named major.
+- **Order of release: v4.4.1 (SHIPPED 2026-08-26) → [corvus adoption
+  spike, then the post-adoption patch] → v4.5.0 → (v5.0.0 unscheduled).**
+  Reordered 2026-08-28 [user]: the second patch follows the corvus
+  adoption spike because a go-decision closes #99 and the kTrigDMax half
+  of #101 against corvus's elementary family (corvus #32) — so its old
+  "v4.4.2" name was semver-unsafe and the milestone is renamed
+  version-neutral ("Fit accuracy & kernel hygiene patch"; version
+  assigned at ship; a spike no-go ships it earlier and untrimmed). The
+  2026-08-21 rationale stands for the split itself: the second patch's
+  items change fitted values in the last bits and #94 needs a benchmark
+  pass first, so they must not gate the safety patch. Source-breaking
+  items are parked on a named major.
 - v4.4.1 — Correctness patch (CLOSED, #4): 0 open / 10 closed — #81, #83,
   #84, #85, #86, #87, #88, #89, #90, #91. Shipped 2026-08-26 (PR #102, all
   nine CI legs green; exit criteria met). Session record: the v4.4.1
   Milestone Record section below.
-- v4.4.2 — Fit accuracy & kernel hygiene (open, #5): 6 open / 0 closed.
+- Fit accuracy & kernel hygiene patch (open, #5; renamed from "v4.4.2"
+  2026-08-28 — ships after the corvus adoption spike, version assigned at
+  ship): 6 open / 0 closed.
   - #92 OPEN — Student-t centred scale step (both overloads).
   - #100 OPEN — LogNormal/Student-t effective-weight denominators; gammap
     series tolerance.
@@ -94,9 +102,11 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
     unreachable in every CMake configuration — SimdDispatch.cmake adds the
     TU only on aarch64/arm64, and the preprocessed TU contains no line
     markers from it; deletion is safe.
-  - #99 OPEN — `exp_pd` −inf → 0 and NaN blends for tier-identical edges.
+  - #99 OPEN — `exp_pd` −inf → 0 and NaN blends for tier-identical edges
+    (hold: closes against corvus #32's exp contract on an adoption go).
   - #101 OPEN — review backlog: dead `errorf_inv`, untested setters, CCN,
-    clang-tidy SIMD carve-out, `kTrigDMax` duplicate, matrix ctor guard.
+    clang-tidy SIMD carve-out, `kTrigDMax` duplicate (this half dissolves
+    on an adoption go — the tables move to corvus), matrix ctor guard.
   Exit: #94 benchmark delta recorded here; per-tier accuracy tests for
   #92/#100.
 - v4.5.0 — Algorithm Coverage (open, #2): 6 open / 0 closed.
@@ -494,13 +504,22 @@ refuted). Full ledger in the session artifact; issues carry the detail.
   Record). pylibhmm followed through 2026-08-27: pin bump CI green and
   pylibhmm 0.11.1 released on the v4.4.1 pin (CI, wheels, lint all green).
   Nothing further owed from this repo.
-- **v4.4.2 — Fit accuracy & kernel hygiene** is next: six issues; #94
-  requires its benchmark pass BEFORE the `LIBHMM_SIMD_SOURCES` trim, and
-  the exit criteria want per-tier accuracy tests for #92/#100.
+- **Fit accuracy & kernel hygiene patch** (ex-"v4.4.2") is the next work
+  FROM THIS REPO, but sequenced after the corvus adoption spike
+  (cross-project order 2026-08-28): a go closes #99 and the kTrigDMax
+  half of #101 against corvus #32 and the patch ships trimmed; a no-go
+  ships it earlier, untrimmed. When it runs: #94 requires its benchmark
+  pass BEFORE the `LIBHMM_SIMD_SOURCES` trim, and the exit criteria want
+  per-tier accuracy tests for #92/#100.
 - ~~Bump pylibhmm's `GIT_TAG` to v4.4.0~~ **DONE 2026-08-22** — pylibhmm
   0.11.0 released on the v4.4.0 pin; its pin-currency canary is green.
   Re-bump at v4.4.1.
-- Not yet started, and not scheduled: a corvus adoption spike. If one is
-  run, aim it at `lgamma` and the batch path. The two-dispatch-mechanism
-  question is now SETTLED by #58: corvus would slot behind DoubleVecOps
-  table entries like everything else — see Cross-Repo Dependencies.
+- The corvus adoption spike is now SCHEDULED (cross-project order
+  2026-08-28): it runs after corvus v1.0.0, alongside libstats v2.5.0,
+  with widened scope — special functions AND the elementary family
+  (corvus #32 ports exp/log/log1p/cos/sin; a go would replace the
+  `detail/simd_math_helpers.h` surface, closing #99 and the kTrigDMax
+  half of #101). Aim it at `lgamma` and the batch path. The
+  two-dispatch-mechanism question is SETTLED by #58: corvus slots behind
+  DoubleVecOps table entries like everything else — see Cross-Repo
+  Dependencies.
