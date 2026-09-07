@@ -221,6 +221,8 @@ Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windo
 - Planning or prioritizing performance work → `docs/Future_Performance_Work.md`.
 - Adding or auditing a distribution's `fit()` quality → `docs/GOLD_STANDARD_CHECKLIST.md`.
 - Naming, formatting, or other code-style questions beyond the summary above → `docs/STYLE_GUIDE.md`.
+- What each repo document is for, and how they cross-reference →
+  [DOC-CONVENTIONS.md](https://github.com/OldCrow/standards/blob/main/DOC-CONVENTIONS.md).
 - Session state, in-progress work, open questions → `PLAN.md`.
 
 ## Open Items
