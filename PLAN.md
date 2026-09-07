@@ -341,6 +341,26 @@ Bessel ratio is — the defect is the formulation).
   into `joss-paper`, refresh benchmarks/figures/version references,
   gather citation/usage evidence (CITATION.cff on `main` supports this),
   open new PR + JOSS submission.
+- AGENTS.md context trim, not yet done (~3.7 KB of eagerly-loaded text).
+  Raised by the 2026-09-07 fleet-wide AGENTS.md audit (durable vs
+  on-demand context). AGENTS.md is imported eagerly by CLAUDE.md, so all
+  of it is paid in every session in this repo; docs/ costs nothing until
+  read. Sizes measured, line numbers current as of that date.
+  - AGENTS.md:142-148, ~3,100 B — the FP-contraction audit (issue #70: why
+    no `-ffp-contract` flag is safe given the compensated trig sequences) and
+    the threading-history rationale (Plan A -> Plan B, `ThreadPool` moved to
+    `tools/`, #48 deferred). Both are settled rationale consulted when
+    revisiting those decisions, not steering needed every turn -> move to
+    `docs/ARCHITECTURE.md`, which the reading map already points at. Largest
+    single remaining item in the fleet.
+  - AGENTS.md:166 `### Tool prerequisites`, ~600 B — one-time install
+    commands -> `docs/STYLE_GUIDE.md`.
+  - AGENTS.md:56 `### CMake standard`, ~300 B — restates the house-style topic
+    list rather than only this repo's deviation; the link above it suffices.
+  - The config-header rule here is near-verbatim in libstats/AGENTS.md. A
+    fleet-wide convention restated per-repo probably belongs once in
+    CMAKE-HOUSE-STYLE.md — same shape as the wheel-contract fix applied to
+    pylibhmm/pylibstats on 2026-09-07.
 
 ## Cross-Repo Dependencies [OPEN]
 pylibhmm consumes this repo via `FetchContent` against a pinned release
