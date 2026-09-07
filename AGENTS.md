@@ -97,7 +97,9 @@ Tests use the `known_broken` label for pre-existing failures and `benchmark` for
 **Compiler prerequisites:**
 - **macOS:** Xcode Command Line Tools (`xcode-select --install`) provides AppleClang. Full Xcode is not required for the library build. macOS 13 (Ventura) is the minimum supported version in v4. macOS 12 and earlier are not supported; use v3.8.0 or fork. See MIGRATION.md.
 - **Linux:** GCC ≥ 12 (`apt install g++-12`) or Clang ≥ 14 (`apt install clang-14`) for C++20 support. CMake ≥ 3.25 (`apt install cmake` or from cmake.org).
-- **Windows:** Visual Studio 2022 (17.x) or later — Build Tools or full IDE — with the C++ workload. Install from https://visualstudio.microsoft.com/downloads/ (Build Tools: https://aka.ms/vs/17/release/vs_buildtools.exe for 2022), `winget install Microsoft.VisualStudio.2022.BuildTools`, or `choco install visualstudio2022buildtools`. GTest is fetched automatically via `FetchContent`; no vcpkg needed. (The author's machine is updated to VS 18 (2026); users creating forks should verify their setup, as install paths and generator names vary by version and edition.)
+- **Windows:** toolchain floor, install routes, and the per-version install
+  paths are in [WINDOWS-TOOLCHAIN.md §1](https://github.com/OldCrow/standards/blob/main/WINDOWS-TOOLCHAIN.md#1-one-time-setup). GTest is fetched
+  automatically via `FetchContent`; no vcpkg needed.
 
 ### Windows toolchain setup
 
