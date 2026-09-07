@@ -341,18 +341,21 @@ Bessel ratio is — the defect is the formulation).
   into `joss-paper`, refresh benchmarks/figures/version references,
   gather citation/usage evidence (CITATION.cff on `main` supports this),
   open new PR + JOSS submission.
-- AGENTS.md context trim, not yet done (~3.7 KB of eagerly-loaded text).
+- AGENTS.md context trim, partially done (~900 B still outstanding).
   Raised by the 2026-09-07 fleet-wide AGENTS.md audit (durable vs
   on-demand context). AGENTS.md is imported eagerly by CLAUDE.md, so all
   of it is paid in every session in this repo; docs/ costs nothing until
   read. Sizes measured, line numbers current as of that date.
-  - AGENTS.md:142-148, ~3,100 B — the FP-contraction audit (issue #70: why
-    no `-ffp-contract` flag is safe given the compensated trig sequences) and
-    the threading-history rationale (Plan A -> Plan B, `ThreadPool` moved to
-    `tools/`, #48 deferred). Both are settled rationale consulted when
-    revisiting those decisions, not steering needed every turn -> move to
-    `docs/ARCHITECTURE.md`, which the reading map already points at. Largest
-    single remaining item in the fleet.
+  - [DONE 2026-09-07] AGENTS.md:142-148 — the FP-contraction audit (#70) and
+    the threading history (Plan A -> Plan B, `ThreadPool` moved to `tools/`,
+    #48 deferred) moved to `docs/ARCHITECTURE.md`. Actual saving 1,283 B, not
+    the ~3,100 B estimated: reading the block showed roughly a third of it is
+    normative rather than derivation, and that part deliberately stayed —
+    the no-bit-reproducibility contract, the rule that adding a compensated
+    sequence voids the audit (it has to fire at the moment someone writes one),
+    and the threading contract for callers. Only the derivations moved. The
+    estimate had treated the whole block as movable; take future byte counts
+    from this audit as upper bounds.
   - AGENTS.md:166 `### Tool prerequisites`, ~600 B — one-time install
     commands -> `docs/STYLE_GUIDE.md`.
   - AGENTS.md:56 `### CMake standard`, ~300 B — restates the house-style topic

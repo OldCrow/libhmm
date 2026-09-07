@@ -82,3 +82,21 @@ if (sumW < precision::ZERO || std::isnan(sumW)) return;
 ### I/O
 
 JSON is the recommended format—exact IEEE 754 round-trip, no external dependencies. Scalar: `save_json`/`load_json`. MV: `save_json_mv`/`load_json_mv` (v4 schema with `obs_type: "multivariate"`). Legacy XML (`XMLFileReader`/`XMLFileWriter`) is scalar-only and deprecated; retained for reading existing `.xml` files. Reference HMM files live in `samples/`.
+
+### FP contraction audit (issue #70)
+
+Moved here from AGENTS.md on 2026-09-07: this is the derivation behind the
+one-line claim there, consulted when revisiting the decision rather than in
+every session. The rule that governs *new* code — if you add a compensated
+sequence it stops being safe — deliberately stays in AGENTS.md, because it
+has to fire at the moment someone introduces one.
+
+**FP contraction, and what libhmm does not promise** (issue #70). The build sets no `-ffp-contract` flag, so every TU takes its compiler's default — GCC `fast`, AppleClang `on`, MSVC/clang-cl `precise` (off). That is safe: the trig kernels (#74) carry compensated/EFT-style sequences — the (r, rlo) reduction recovers each subtraction's rounding error, and the cos core keeps 1 − u/2 as an exact head+tail pair — but every product feeding them is exact by construction (n·p_k under the 30-bit split; u·0.5 is power-of-two scaling), so fusing an exact product changes nothing and no proof depends on an intermediate rounding. Elsewhere there is no Kahan/Neumaier, no TwoSum/Fast2Sum, no `fma(a,b,-a*b)` residual trick to protect: `logSumExp` is the plain `max + log1p(exp(Δ))` form and the FB/BW reductions are plain accumulations. The `ln2_hi`/`ln2_lo` Cody-Waite splits in `log_pd`/`exp_pd` look like the hazard but are not — they compensate a *constant's* representation error, not an *operation's* rounding. Every deliberate fusion in these kernels is already an explicit `_mm*_fmadd_pd`/`fnmadd` intrinsic: fusion requested, never inferred.
+
+### Threading: how the current model was reached
+
+Moved here from AGENTS.md on 2026-09-07. The *contract* — no production
+threading, caller-level parallelism, what is and is not safe on a shared
+instance — stays in AGENTS.md; this is the history behind it.
+
+Threading is **not used** in the production path — a deliberate, settled decision since the Phase 4 refactor replaced the Plan-A `WorkStealingPool`-based hierarchy with per-distribution batch SIMD (Plan B). `ThreadPool` was subsequently moved out of the library entirely, from `libhmm/platform/thread_pool.h` into `tools/thread_pool.h`, since no production code (calculators, trainers, distributions, HMM core) ever instantiated it; today it is consumed only by two diagnostic tools in `tools/`. Reaffirmed 2026-08-19 when deciding issue #48 (parallel E-step accumulation): #48 moved to v4.5.0 gated on a measurement spike, and the supported model is **caller-level parallelism** — concurrent training of distinct model instances is a documented, TSan-tested contract (`basic_hmm.h` thread-safety Doxygen, `tests/test_concurrent_training.cpp`). Const evaluation on a shared instance is also safe (mutex-serialised double-checked cache fill in `distribution_base.h`); mutation is not.
