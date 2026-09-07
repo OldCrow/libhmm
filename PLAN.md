@@ -341,7 +341,7 @@ Bessel ratio is — the defect is the formulation).
   into `joss-paper`, refresh benchmarks/figures/version references,
   gather citation/usage evidence (CITATION.cff on `main` supports this),
   open new PR + JOSS submission.
-- AGENTS.md context trim, partially done (~900 B still outstanding).
+- AGENTS.md context trim, complete.
   Raised by the 2026-09-07 fleet-wide AGENTS.md audit (durable vs
   on-demand context). AGENTS.md is imported eagerly by CLAUDE.md, so all
   of it is paid in every session in this repo; docs/ costs nothing until
@@ -356,14 +356,24 @@ Bessel ratio is — the defect is the formulation).
     and the threading contract for callers. Only the derivations moved. The
     estimate had treated the whole block as movable; take future byte counts
     from this audit as upper bounds.
-  - AGENTS.md:166 `### Tool prerequisites`, ~600 B — one-time install
-    commands -> `docs/STYLE_GUIDE.md`.
-  - AGENTS.md:56 `### CMake standard`, ~300 B — restates the house-style topic
-    list rather than only this repo's deviation; the link above it suffices.
-  - The config-header rule here is near-verbatim in libstats/AGENTS.md. A
-    fleet-wide convention restated per-repo probably belongs once in
-    CMAKE-HOUSE-STYLE.md — same shape as the wheel-contract fix applied to
-    pylibhmm/pylibstats on 2026-09-07.
+  - [DONE 2026-09-07] `### Tool prerequisites` — the clang-format /
+    cmake-format / pre-commit / cppcheck / mpmath install commands moved to
+    `docs/CROSS_PLATFORM.md`, not `docs/STYLE_GUIDE.md` as first suggested:
+    they are per-OS setup, which is what CROSS_PLATFORM covers and where the
+    reading map already routes build setup. 575 B moved, 459 B net.
+  - [DECLINED 2026-09-07] `### CMake standard`. Re-read: it is already a
+    three-line pointer to `docs/CROSS_PLATFORM.md` with a topic list in
+    parentheses; trimming that parenthetical would save ~80 B and make the
+    pointer less useful. The rest of the section is the config-header rule,
+    which stays — see below.
+  - [DECLINED 2026-09-07] consolidating the config-header rule into
+    CMAKE-HOUSE-STYLE.md. It is stated near-verbatim here and in
+    libstats/AGENTS.md, and §7 of the standard already carries the fleet rule
+    — but both local copies add repo-specific substance (here: why a PRIVATE
+    definition is an ODR violation, that `LIBHMM_HAS_CXX17_BESSEL` is the only
+    such fact, that `consumer_example` asserts the installed tier two-sidedly)
+    and it is a short, high-consequence rule that #97 already violated once in
+    libstats. Unlike the wheel contract, this one earns its duplication.
 
 ## Cross-Repo Dependencies [OPEN]
 pylibhmm consumes this repo via `FetchContent` against a pinned release

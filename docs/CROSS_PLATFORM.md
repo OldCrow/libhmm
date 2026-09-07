@@ -125,3 +125,15 @@ standard, current as of Phase 3A (target-first + option rename):
   `LIBHMM_HAS_CXX17_BESSEL` is currently the only such fact; add new ones to
   the same header. `consumer_example/main.cpp` asserts the installed tier
   two-sidedly, so a regression fails CI rather than going quiet.
+
+## Tooling prerequisites
+
+Moved here from AGENTS.md on 2026-09-07: one-time install commands, needed
+when setting a machine up rather than in every session.
+
+The linting and pre-commit tools must be installed before use:
+- **clang-format**: part of LLVM (`brew install llvm`, `apt install clang-format`, `choco install llvm`)
+- **cmake-format**: `pip install cmake-format`
+- **pre-commit**: `pip install pre-commit`
+- **cppcheck**: OS-package-managed (`brew install cppcheck`, `apt install cppcheck`, `choco install cppcheck`)
+- **mpmath** (`pip install mpmath`): only for regenerating the checked-in trig tables/references with `scripts/gen_trig_cleanroom_table.py` and `scripts/gen_trig_ulp_vectors.py`; not needed to build or test
