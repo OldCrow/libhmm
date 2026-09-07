@@ -55,35 +55,20 @@ Build options: `LIBHMM_BUILD_EXAMPLES`, `LIBHMM_BUILD_TESTS`, `LIBHMM_BUILD_TOOL
 
 ### CMake standard
 
-Full rules: [CMake House Style](https://github.com/OldCrow/standards/blob/main/CMAKE-HOUSE-STYLE.md)
-in the fleet standards repo; this section is self-sufficient for this repo. Deviations from that
-standard, current as of Phase 3A (target-first + option rename):
-- Target-first scoping and `LIBHMM_`-prefixed options are landed: includes
-  and warning flags are applied via `target_include_directories`/
-  `target_compile_options` on `hmm_objects` (and per-target on tests/tools/
-  examples), gated on `PROJECT_IS_TOP_LEVEL`; component-toggle options
-  default `${PROJECT_IS_TOP_LEVEL}`. `LIBHMM_WERROR` (default `OFF`) is the
-  `-Werror`/`/WX` vehicle, enabled by CI.
-- `BUILD_SHARED_LIBS` is removed (both `hmm`/`hmm_static` always build from
-  one OBJECT target — there was never a real toggle to preserve).
-- Install contract already conforms: GNUInstallDirs, `libhmm-targets` export
-  (namespace `libhmm::`), kebab `libhmm-config.cmake`, `SameMajorVersion`.
-- Presets (`CMakePresets.json`, schema 6, min CMake 3.25): `release` →
-  `build/`, `debug` → `build-debug/`, `rel-with-debug` →
-  `build-relwithdebinfo/`. No project-specific extras.
-- **A configure-time fact that a PUBLIC header branches on goes in the
-  generated `libhmm/config.h`, never in `target_compile_definitions`.** House
-  rule from [CMake House Style](https://github.com/OldCrow/standards/blob/main/CMAKE-HOUSE-STYLE.md).
-  Template `cmake/libhmm_config.h.in` → `${CMAKE_BINARY_DIR}/include/libhmm/
-  config.h`, installed beside the hand-written headers. A `PRIVATE`
-  definition reaches the library's own TUs and nothing else, so test TUs and
-  installed consumers compile a *different* body for the same `inline`
-  function — an ODR violation, and one that hides real defects because no
-  test ever compiles the shipped branch. A header also covers pkg-config and
-  plain-include-path consumers, which a target property cannot reach.
-  `LIBHMM_HAS_CXX17_BESSEL` is currently the only such fact; add new ones to
-  the same header. `consumer_example/main.cpp` asserts the installed tier
-  two-sidedly, so a regression fails CI rather than going quiet.
+Deviations from [CMake House Style](https://github.com/OldCrow/standards/blob/main/CMAKE-HOUSE-STYLE.md)
+(target-first scoping, `LIBHMM_`-prefixed options, no `BUILD_SHARED_LIBS`, install
+contract, presets): `docs/CROSS_PLATFORM.md`.
+
+**A configure-time fact that a PUBLIC header branches on goes in the
+generated `libhmm/config.h`, never in `target_compile_definitions`.** A
+`PRIVATE` definition reaches the library's own TUs and nothing else, so test
+TUs and installed consumers compile a *different* body for the same
+`inline` function — an ODR violation, and one that hides real defects
+because no test ever compiles the shipped branch. Template:
+`cmake/libhmm_config.h.in` → `${CMAKE_BINARY_DIR}/include/libhmm/config.h`.
+`LIBHMM_HAS_CXX17_BESSEL` is currently the only such fact; add new ones to
+the same header. `consumer_example/main.cpp` asserts the installed tier
+two-sidedly, so a regression fails CI rather than going quiet.
 
 ## Test Commands
 
@@ -128,53 +113,27 @@ cmake --build build
 
 ## Architecture
 
-### Header layer model (`include/libhmm/`)
+Headers layer strictly downward: `platform/` (0, SIMD CPU detection) →
+`math/` (1, constants/Bessel/digamma) → `linalg/` (2, `BasicMatrix`/`BasicVector`)
+→ `distributions/` (3, `BasicEmissionDistribution<Obs>` + 16 concrete
+distributions) → `calculators/`/`training/` (4, FB/Viterbi/Baum-Welch).
+`io/`, `performance/`, `detail/` sit alongside, not in the numbered stack.
+Top-level: `basic_hmm.h`, `hmm.h`, `topology.h` (#46); `libhmm.h` is the
+umbrella include.
 
-Dependencies flow strictly downward:
+`BasicHmm<Obs>`/`BasicEmissionDistribution<Obs>` are the v4 template base
+types. `Hmm`/`EmissionDistribution` alias the `double` (scalar, v3-API-compatible)
+instantiation; `HmmMV = BasicHmm<ObservationVectorView>` is the multivariate one.
+`Hmm` is non-copyable but movable.
 
-| Layer | Path | Contents |
-|-------|------|----------|
-| 0 | `platform/` | SIMD CPU detection (`simd_platform.h`) |
-| 1 | `math/` | Constants (`constants.h`), Bessel, digamma/polygamma (`psi_functions.h`), weighted stats |
-| 2 | `linalg/` | `BasicMatrix<T>`, `BasicVector<T>`, `BasicMatrix3D<T>`; `linalg_types.h` defines `Matrix`, `Vector`, `ObservationList`, etc. |
-| 3 | `distributions/` | `BasicEmissionDistribution<Obs>` abstract base (in `basic_emission_distribution.h`); 16 concrete distributions; `distribution_traits.h`, `emission_concepts.h` |
-| 4a | `calculators/` | `ForwardBackwardCalculator`, `ViterbiCalculator` |
-| 4b | `training/` | `BaumWelchTrainer`, `MapBaumWelchTrainer`, `ViterbiTrainer`; `BasicSegmentalKMeansTrainer<Obs>` with aliases `SegmentalKMeansTrainer` (scalar) and `SegmentalKMeansTrainerMV` (MV) |
-| — | `io/` | JSON (`hmm_json.h`, recommended), legacy XML, `FileIOManager` |
-| — | `performance/` | `TranscendentalKernels` (FB recurrence), `fb_recurrence_policy.h`, `simd_double_ops.h` (runtime-dispatch distribution batch kernels) |
-| — | `detail/` | Internal: `simd_math_helpers.h` (shared SIMD math helpers) and `trig_cleanroom_data.inc` (its trig constants) — not installed; `log_utils.h` (shared log-space utilities for the calculators/trainers) — installed, since public headers include it |
+SIMD has two tiers: 11 of 16 distributions dispatch through `DoubleVecOps`
+(runtime CPUID) at tier 2; 5 (Discrete, Poisson, Binomial, NegativeBinomial,
+Uniform) stay tier-1 (compiler auto-vectorized) by design — mostly blocked on
+gather cost, not on a missing transcendental.
 
-Top-level headers sit between layers 3 and 4: `basic_hmm.h` (the
-`BasicHmm<Obs>` model itself), `hmm.h` (`Hmm`/`HmmMV` aliases, clone/sample
-helpers), and `topology.h` (structural transition masks —
-`initialize_topology`/`enforce_topology` over `BasicHmm`, #46).
-`libhmm.h` is the single umbrella include.
-
-### v4 template parameterization
-
-`BasicHmm<Obs>` and `BasicEmissionDistribution<Obs>` are the new v4 base types:
-
-- `using Hmm = BasicHmm<double>` — scalar HMM (v3 API preserved)
-- `using HmmMV = BasicHmm<ObservationVectorView>` — multivariate HMM (v4 addition); `ObservationVectorView = std::span<const double>`; emission slots start null and must be set explicitly
-- `using EmissionDistribution = BasicEmissionDistribution<double>`
-
-`Hmm` is non-copyable but movable. Default construction creates a 4-state model with `GaussianDistribution` emissions on the scalar path.
-
-### SIMD strategy
-
-SIMD compile flags (`LIBHMM_BEST_SIMD_FLAGS` = `-march=native` on GCC/Clang, CPU-probed `/arch:AVX512|AVX2|AVX` on MSVC) are applied **per-TU** to `LIBHMM_SIMD_SOURCES`—not globally—so non-SIMD code compiles at the platform baseline ISA. Since #58 (v4.4.0), that list holds only the distribution batch-override TUs: the FB calculators, BW/MAP trainers, and `transcendental_kernels.cpp` compile at baseline and reach their SIMD kernels through the dispatch table, so `LIBHMM_PORTABLE` costs them nothing.
-
-There are two tiers of SIMD implementation:
-
-- **Tier 2 (explicit intrinsics, runtime-dispatched)**: 11 of 16 scalar distributions route `getBatchLogProbabilities` through the `DoubleVecOps` dispatch table (`performance/simd_double_ops.h`). The table is built once at startup via CPUID and caches function pointers into 5 per-ISA TUs (`simd_double_ops_{scalar,sse2,avx2,avx512,neon}.cpp`), each compiled with a targeted flag rather than `-march=native`. The 5 remaining scalar distributions (Discrete, Poisson, Binomial, NegativeBinomial, Uniform) are tier-1 only. `ForwardBackwardCalculator` and `BaumWelchTrainer` reach their recurrence/accumulation kernels through the same table: `TranscendentalKernels` is a thin facade whose six kernels live per-ISA in the `simd_double_ops_*.cpp` TUs (#58), using the shared helpers in `detail/simd_math_helpers.h`.
-- **Tier 1 (compiler auto-vectorization)**: Five scalar distributions remain tier-1 by design. Four of the five are blocked on **gather**, not on any missing transcendental:
-    - **Poisson, Binomial**: the observation is an integer count, so the log-factorial terms are a **table lookup** (`math/log_factorial.h`, exact to k = 18, tabulated to k = 1023), not a transcendental call. Binomial never calls `lgamma` at all — `logBinomialCoefficient` is three lookups. The blocker is therefore the **gather** to index by k, the same one as Discrete below, and libstats settled empirically (its #33) that x86 hardware gather is too expensive to pay for; table kernels are a NEON technique, not an x86 one.
-    - **NegativeBinomial**: genuinely needs a vectorized `lgamma`, and is the only one of the three that does. `log Γ(k + r)` has a continuous `r` so it cannot be tabulated, while `log k!` already is and `log Γ(r)` is a per-parameter constant — one `lgamma` per element. This is the single concrete case for a vectorized-lgamma dependency (e.g. corvus); size any such proposal against one distribution, not three.
-    - **Discrete**: per-element integer floor + range check and table lookup by symbol index. Vectorizable in principle via AVX2 gather, but complex index arithmetic and no performance data justifying the effort.
-    - **Uniform**: the entire batch evaluates to a single constant (log(1/(b−a))) inside bounds or −∞ outside. Already ~2 instructions per element; SIMD buys nothing.
-  MV distributions (`DiagonalGaussian`, `FullCovGaussian`, `IndependentComponents`) call `getLogProbability(row_view(obs, t))` per timestep rather than a batch interface and are not in `LIBHMM_SIMD_SOURCES`.
-
-`detail/simd_math_helpers.h` is the single source of truth for vectorized log/exp/cos/sin/log1p helpers shared by the per-ISA distribution kernels and `TranscendentalKernels`. log/exp are SLEEF-derived (< 1 ULP). cos/sin are the clean-room quadrant-reduction kernel (#74, constants from `scripts/gen_trig_cleanroom_table.py`): faithfully rounded (max 1 ULP, mean ~0.03) for |x| ≤ 2²³, per-lane scalar libm fixup beyond, gated per tier against checked-in mpmath references in `tests/performance/test_trig_ulp_gates.cpp`. Tiny `log1p` inputs use a polynomial path for accuracy; general inputs reuse the shared vector log helper. The `log1p_batch` table entry is add-then-log with no small-|x| path — that is its documented contract (`simd_double_ops.h`; #77 closed 2026-08-19 with no in-library consumer found), and `log1p_inplace` is the entry that carries the polynomial path.
+Full layer table, v4 alias details, SIMD dispatch mechanics and per-distribution
+tier rationale, fit-quality tiers, model selection, and I/O formats:
+`docs/ARCHITECTURE.md`.
 
 `getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values. Since v4.4.1 (#86) the precondition `out.size() >= obs.size()` is enforced: every concrete override and the CRTP fallback call `checkBatchSpans()` and throw `std::invalid_argument` on a short out span. The `DoubleVecOps` raw-pointer layer below it remains unchecked by design.
 
@@ -186,30 +145,9 @@ There are two tiers of SIMD implementation:
 
 Threading is **not used** in the production path — a deliberate, settled decision since the Phase 4 refactor replaced the Plan-A `WorkStealingPool`-based hierarchy with per-distribution batch SIMD (Plan B). `ThreadPool` was subsequently moved out of the library entirely, from `libhmm/platform/thread_pool.h` into `tools/thread_pool.h`, since no production code (calculators, trainers, distributions, HMM core) ever instantiated it; today it is consumed only by two diagnostic tools in `tools/`. Reaffirmed 2026-08-19 when deciding issue #48 (parallel E-step accumulation): #48 moved to v4.5.0 gated on a measurement spike, and the supported model is **caller-level parallelism** — concurrent training of distinct model instances is a documented, TSan-tested contract (`basic_hmm.h` thread-safety Doxygen, `tests/test_concurrent_training.cpp`). Const evaluation on a shared instance is also safe (mutex-serialised double-checked cache fill in `distribution_base.h`); mutation is not.
 
-### Distribution fit quality
-
-The weighted `fit(data, weights)` method is the Baum-Welch M-step. Fit quality varies by distribution:
-
-- **Tier A — exact weighted MLE/EM**: Gaussian, Exponential, Poisson, Discrete, LogNormal, Pareto,
-  Rayleigh, VonMises, Binomial, ChiSquared (Newton MLE), Gamma, Weibull, NegativeBinomial,
-  Beta, StudentT (Newton/ECME)
-- **Tier C — MOM (defensible in EM context)**: Uniform (fixed-range; MOM is exact for uniform support)
-
-Priority M-step improvements are documented in `docs/GOLD_STANDARD_CHECKLIST.md`.
-
-All `fit(data, weights)` implementations guard against near-zero weight by preserving current parameters (not calling `reset()`):
-```cpp
-if (sumW < precision::ZERO || std::isnan(sumW)) return;
-```
-`reset()` is called only for genuinely degenerate *data*. The three MV fits use the same guard (a subnormal `sumW` used to pass `<= 0.0` and overflow `1/sumW`). Known drift, tracked as an issue: LogNormal and Student-t normalise by the *total* weight while skipping out-of-support points, which deflates the fitted moments when such points carry weight.
-
-### Model selection
-
-`count_free_parameters(hmm)`, `compute_aic()`, `compute_bic()`, `compute_aicc()`, and `evaluate_model()` are declared in `include/libhmm/training/model_selection.h`.
-
-### I/O
-
-JSON is the recommended format—exact IEEE 754 round-trip, no external dependencies. Scalar: `save_json`/`load_json`. MV: `save_json_mv`/`load_json_mv` (v4 schema with `obs_type: "multivariate"`). Legacy XML (`XMLFileReader`/`XMLFileWriter`) is scalar-only and deprecated; retained for reading existing `.xml` files. Reference HMM files live in `samples/`.
+Fit-quality tiers per distribution, model-selection entry points
+(`compute_aic`/`compute_bic`/`compute_aicc`), and I/O format details
+(JSON recommended, legacy XML deprecated): `docs/ARCHITECTURE.md`.
 
 ## Coding Conventions
 
@@ -259,14 +197,8 @@ Active pre-commit hooks: trailing whitespace, end-of-file newline, LF line endin
 
 ### Adding a new distribution
 
-Use an existing distribution (e.g. `src/distributions/rayleigh_distribution.cpp` for single-parameter, `src/distributions/gamma_distribution.cpp` for two-parameter) as a template. Required checklist (`docs/GOLD_STANDARD_CHECKLIST.md`):
-
-1. Concrete non-virtual `getBatchLogProbabilities` override (tier 1 minimum)
-2. Weighted `fit(data, weights)` with near-zero weight guard
-3. `reset()`, `clone()`, `sample()`, `to_json()` / `from_json()` (registered in `src/io/hmm_json.cpp`), `getNumParameters()`
-4. `std::atomic<bool> cacheValid_` thread-safe cache
-5. Add source to `LIBHMM_SOURCES` in `CMakeLists.txt`. Add it to `LIBHMM_SIMD_SOURCES` in `cmake/SimdDispatch.cmake` only if it is tier-1 (compiler auto-vectorization); a distribution that dispatches through `DoubleVecOps` does not belong there
-6. Add a test file under `tests/distributions/` and register it in `tests/CMakeLists.txt`
+Full checklist (template file, `fit()` guard, CMake registration, tests):
+use the `add-hmm-distribution` skill.
 
 ## CI / Validation
 
@@ -279,6 +211,17 @@ CI triggers on pushes to `main`, PRs targeting `main`, `workflow_dispatch`, and 
 Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC (`windows-latest`, whichever VS the runner image ships). Additional jobs (ubuntu): ThreadSanitizer, AddressSanitizer, pre-commit, cppcheck, and clang-tidy — nine legs in total. Tests run with `-LE "known_broken|benchmark"`.
 
 `LIBHMM_ENABLE_CLANG_TIDY` (CMake option, `OFF` by default) wires clang-tidy into the normal build via the `CXX_CLANG_TIDY` target property; enable locally with `cmake --preset release -DLIBHMM_ENABLE_CLANG_TIDY=ON` when needed. The dedicated CI `clang-tidy` job instead runs `run-clang-tidy` against `compile_commands.json` as a single fast analysis pass and is **advisory (non-blocking)**: `continue-on-error: true`. Six checks are disabled in `.clang-tidy` (see that file for the full rationale), covering the pragma-once convention, intentional SIMD intrinsics/pointer arithmetic in perf-critical hot paths, the v4 template+virtual pattern, and a false-positive move-ctor idiom. `run-clang-tidy` re-reports every header diagnostic once per including TU, so a single flagged line in a widely-included header can appear 20+ times — count unique `file:line:col + check` tuples before drawing conclusions from this job. Current counts and promoting this job to blocking are tracked in PLAN.md.
+
+## Reading map — load on demand, not preemptively
+- Orienting on layering, v4 templates, SIMD dispatch tiers, fit quality,
+  model selection, or I/O formats → `docs/ARCHITECTURE.md`.
+- Cross-platform build setup, per-OS troubleshooting, or the CMake-standard
+  deviations in full → `docs/CROSS_PLATFORM.md`.
+- Working with `LIBHMM_*` experimental/feature flags → `docs/EXPERIMENTAL_FLAGS.md`.
+- Planning or prioritizing performance work → `docs/Future_Performance_Work.md`.
+- Adding or auditing a distribution's `fit()` quality → `docs/GOLD_STANDARD_CHECKLIST.md`.
+- Naming, formatting, or other code-style questions beyond the summary above → `docs/STYLE_GUIDE.md`.
+- Session state, in-progress work, open questions → `PLAN.md`.
 
 ## Open Items
 See PLAN.md for current status, in-progress work, and open questions.

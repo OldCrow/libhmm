@@ -93,3 +93,35 @@ OBJECT library and link into both targets — no double compilation overhead.
 
 See `.github/workflows/ci.yml`. Four build jobs (Linux/GCC, Linux/Clang, macOS/AppleClang,
 Windows/MSVC) plus a lint job (clang-format + cppcheck). All 47 tests pass on every platform.
+
+## CMake Standard
+
+Full rules: [CMake House Style](https://github.com/OldCrow/standards/blob/main/CMAKE-HOUSE-STYLE.md)
+in the fleet standards repo; this section is self-sufficient for this repo. Deviations from that
+standard, current as of Phase 3A (target-first + option rename):
+- Target-first scoping and `LIBHMM_`-prefixed options are landed: includes
+  and warning flags are applied via `target_include_directories`/
+  `target_compile_options` on `hmm_objects` (and per-target on tests/tools/
+  examples), gated on `PROJECT_IS_TOP_LEVEL`; component-toggle options
+  default `${PROJECT_IS_TOP_LEVEL}`. `LIBHMM_WERROR` (default `OFF`) is the
+  `-Werror`/`/WX` vehicle, enabled by CI.
+- `BUILD_SHARED_LIBS` is removed (both `hmm`/`hmm_static` always build from
+  one OBJECT target — there was never a real toggle to preserve).
+- Install contract already conforms: GNUInstallDirs, `libhmm-targets` export
+  (namespace `libhmm::`), kebab `libhmm-config.cmake`, `SameMajorVersion`.
+- Presets (`CMakePresets.json`, schema 6, min CMake 3.25): `release` →
+  `build/`, `debug` → `build-debug/`, `rel-with-debug` →
+  `build-relwithdebinfo/`. No project-specific extras.
+- **A configure-time fact that a PUBLIC header branches on goes in the
+  generated `libhmm/config.h`, never in `target_compile_definitions`.** House
+  rule from [CMake House Style](https://github.com/OldCrow/standards/blob/main/CMAKE-HOUSE-STYLE.md).
+  Template `cmake/libhmm_config.h.in` → `${CMAKE_BINARY_DIR}/include/libhmm/
+  config.h`, installed beside the hand-written headers. A `PRIVATE`
+  definition reaches the library's own TUs and nothing else, so test TUs and
+  installed consumers compile a *different* body for the same `inline`
+  function — an ODR violation, and one that hides real defects because no
+  test ever compiles the shipped branch. A header also covers pkg-config and
+  plain-include-path consumers, which a target property cannot reach.
+  `LIBHMM_HAS_CXX17_BESSEL` is currently the only such fact; add new ones to
+  the same header. `consumer_example/main.cpp` asserts the installed tier
+  two-sidedly, so a regression fails CI rather than going quiet.
