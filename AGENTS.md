@@ -10,30 +10,13 @@ C++20 Hidden Markov Model library. Zero external dependencies (C++20 standard li
 
 ## Session Start
 
-At the start of every session, perform these steps in order:
+Fleet-wide session-start steps (architecture check, build-path selection):
+[Session Start](https://github.com/OldCrow/standards/blob/main/SESSION-START.md).
 
-1. Verify machine architecture before making SIMD assumptions — SIMD flag selection (`-march=native` on GCC/Clang, CPU-probed `/arch:` on MSVC) is automatic at compile time, but active tier affects which code paths run.
-2. Select the matching build path (see Platform-Specific Notes).
-3. On first use on a new machine, run `cmake --preset release && cmake --build build`, then verify the detected SIMD tier with `./build/tools/simd_inspection` (if built with `LIBHMM_BUILD_TOOLS=ON`).
-
-Quick architecture checks:
-
-```bash
-# macOS/Linux shells
-uname -m
-uname -s
-```
-
-```powershell
-# PowerShell (Windows)
-[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-[System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
-```
+On first use on a new machine, run `cmake --preset release && cmake --build build`, then verify the detected SIMD tier with `./build/tools/simd_inspection` (if built with `LIBHMM_BUILD_TOOLS=ON`).
 
 ## Agent Workflow
 
-- When reviewing repository state or "what's changed" (e.g., syncing after time away, catching up on a branch), start with `git diff --stat` and `git log` rather than reading full file contents. Read complete files only for items you've determined are directly relevant to the task at hand.
-- For any subagent expected to run more than ~30 minutes, structure its brief to report interim progress at natural milestones (e.g., after each major deliverable) rather than running silently to a single final report.
 - Before pushing C++ changes from a Windows/MSVC machine, sweep every
   changed TU with the local mingw `g++ -std=c++20 -fsyntax-only -I include
   -I build/include -I build/_deps/googletest-src/googletest/include -I src`.
@@ -89,19 +72,18 @@ standard, current as of Phase 3A (target-first + option rename):
   `build/`, `debug` → `build-debug/`, `rel-with-debug` →
   `build-relwithdebinfo/`. No project-specific extras.
 - **A configure-time fact that a PUBLIC header branches on goes in the
-  generated `libhmm/config.h`, never in `target_compile_definitions`.**
+  generated `libhmm/config.h`, never in `target_compile_definitions`.** House
+  rule from [CMake House Style](https://github.com/OldCrow/standards/blob/main/CMAKE-HOUSE-STYLE.md).
   Template `cmake/libhmm_config.h.in` → `${CMAKE_BINARY_DIR}/include/libhmm/
   config.h`, installed beside the hand-written headers. A `PRIVATE`
   definition reaches the library's own TUs and nothing else, so test TUs and
   installed consumers compile a *different* body for the same `inline`
   function — an ODR violation, and one that hides real defects because no
-  test ever compiles the shipped branch. That is exactly what happened with
-  `LIBHMM_HAS_CXX17_BESSEL` (issue #75, and it is why #72 survived). A header
-  also covers pkg-config and plain-include-path consumers, which a target
-  property cannot reach. `LIBHMM_HAS_CXX17_BESSEL` is currently the only such
-  fact; add new ones to the same header. `consumer_example/main.cpp` asserts
-  the installed tier two-sidedly, so a regression fails CI rather than going
-  quiet.
+  test ever compiles the shipped branch. A header also covers pkg-config and
+  plain-include-path consumers, which a target property cannot reach.
+  `LIBHMM_HAS_CXX17_BESSEL` is currently the only such fact; add new ones to
+  the same header. `consumer_example/main.cpp` asserts the installed tier
+  two-sidedly, so a regression fails CI rather than going quiet.
 
 ## Test Commands
 
@@ -134,37 +116,15 @@ Tests use the `known_broken` label for pre-existing failures and `benchmark` for
 
 ### Windows toolchain setup
 
-> **Windows tool paths vary** by installation method (direct installer, `winget`, `chocolatey`, Microsoft Store, etc.). The paths below are common defaults — adjust for your installation. VS Build Tools and full VS editions use different default directories.
+Fleet-wide MSVC activation, one-time setup, and Smart App Control notes:
+[Windows Toolchain](https://github.com/OldCrow/standards/blob/main/WINDOWS-TOOLCHAIN.md).
 
-Activate the MSVC toolchain once per PowerShell session before building:
+After activating the toolchain, build with libhmm's own presets:
 
 ```powershell
-# Locate the newest installed Visual Studio (any version or edition) with vswhere:
-$vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
-$vcvars = "$vsPath\VC\Auxiliary\Build\vcvars64.bat"
-# Or pin an explicit path, e.g. VS 2022 Build Tools:
-#   "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
-# or a full edition: "C:\Program Files\Microsoft Visual Studio\{version}\{edition}\VC\Auxiliary\Build\vcvars64.bat"
-# ({version} is 2022 for VS 17.x and 18 for VS 2026; {edition} is Community/Professional/Enterprise).
-$envVars = cmd /c "`"$vcvars`" > nul && set"
-foreach ($line in $envVars) {
-    if ($line -match "^([^=]+)=(.*)$") {
-        [System.Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
-    }
-}
-
-# Then build as normal:
 cmake --preset release
 cmake --build build
 ```
-
-**One-time setup:**
-- Visual Studio Build Tools (not full IDE) are sufficient; 2022 (17.x) or later. See "Compiler prerequisites" above for install commands.
-  - Build Tools default path: `C:\Program Files (x86)\Microsoft Visual Studio\{version}\BuildTools\`
-  - Full VS default path: `C:\Program Files\Microsoft Visual Studio\{version}\{edition}\`
-  - `vswhere.exe` (shipped with the VS Installer) resolves the path regardless of version or edition — prefer it over hard-coding.
-- **Smart App Control must be Off** (Windows Security → App & Browser Control → SAC settings). SAC blocks locally compiled executables and cannot be re-enabled without a Windows reset.
-- CMake ≥ 3.25: https://cmake.org/download/, `winget install Kitware.CMake`, or `choco install cmake`.
 
 ## Architecture
 
@@ -208,7 +168,7 @@ There are two tiers of SIMD implementation:
 
 - **Tier 2 (explicit intrinsics, runtime-dispatched)**: 11 of 16 scalar distributions route `getBatchLogProbabilities` through the `DoubleVecOps` dispatch table (`performance/simd_double_ops.h`). The table is built once at startup via CPUID and caches function pointers into 5 per-ISA TUs (`simd_double_ops_{scalar,sse2,avx2,avx512,neon}.cpp`), each compiled with a targeted flag rather than `-march=native`. The 5 remaining scalar distributions (Discrete, Poisson, Binomial, NegativeBinomial, Uniform) are tier-1 only. `ForwardBackwardCalculator` and `BaumWelchTrainer` reach their recurrence/accumulation kernels through the same table: `TranscendentalKernels` is a thin facade whose six kernels live per-ISA in the `simd_double_ops_*.cpp` TUs (#58), using the shared helpers in `detail/simd_math_helpers.h`.
 - **Tier 1 (compiler auto-vectorization)**: Five scalar distributions remain tier-1 by design. Four of the five are blocked on **gather**, not on any missing transcendental:
-    - **Poisson, Binomial**: the observation is an integer count, so the log-factorial terms are a **table lookup** (`math/log_factorial.h`, exact to k = 18, tabulated to k = 1023), not a transcendental call. Binomial never calls `lgamma` at all — `logBinomialCoefficient` is three lookups. The blocker is therefore the **gather** to index by k, the same one as Discrete below, and libstats settled empirically (its #33) that x86 hardware gather is too expensive to pay for; table kernels are a NEON technique, not an x86 one. Until 2026-08-16 this entry claimed all three were blocked on a portable vectorized `lgamma`; that was wrong for these two — see the Poisson/Binomial batch-path comments.
+    - **Poisson, Binomial**: the observation is an integer count, so the log-factorial terms are a **table lookup** (`math/log_factorial.h`, exact to k = 18, tabulated to k = 1023), not a transcendental call. Binomial never calls `lgamma` at all — `logBinomialCoefficient` is three lookups. The blocker is therefore the **gather** to index by k, the same one as Discrete below, and libstats settled empirically (its #33) that x86 hardware gather is too expensive to pay for; table kernels are a NEON technique, not an x86 one.
     - **NegativeBinomial**: genuinely needs a vectorized `lgamma`, and is the only one of the three that does. `log Γ(k + r)` has a continuous `r` so it cannot be tabulated, while `log k!` already is and `log Γ(r)` is a per-parameter constant — one `lgamma` per element. This is the single concrete case for a vectorized-lgamma dependency (e.g. corvus); size any such proposal against one distribution, not three.
     - **Discrete**: per-element integer floor + range check and table lookup by symbol index. Vectorizable in principle via AVX2 gather, but complex index arithmetic and no performance data justifying the effort.
     - **Uniform**: the entire batch evaluates to a single constant (log(1/(b−a))) inside bounds or −∞ outside. Already ~2 instructions per element; SIMD buys nothing.
@@ -218,7 +178,7 @@ There are two tiers of SIMD implementation:
 
 `getBatchLogProbabilities(std::span<const double> obs, std::span<double> out)` is the SIMD interface: calculators call it once per state per `compute()` and consume a flat row-major buffer of log-emission values. Since v4.4.1 (#86) the precondition `out.size() >= obs.size()` is enforced: every concrete override and the CRTP fallback call `checkBatchSpans()` and throw `std::invalid_argument` on a short out span. The `DoubleVecOps` raw-pointer layer below it remains unchecked by design.
 
-**FP contraction, and what libhmm does not promise** (audited 2026-08-16, issue #70). The build sets no `-ffp-contract` flag, so every TU takes its compiler's default — GCC `fast`, AppleClang `on`, MSVC/clang-cl `precise` (off). That is safe here — but as of v4.4.0 the reason changed, so restate it precisely. The trig kernels (#74) DO carry compensated/EFT-style sequences: the (r, rlo) reduction recovers each subtraction's rounding error, and the cos core keeps 1 − u/2 as an exact head+tail pair. Those sequences are nonetheless contraction-immune, because every product feeding them is exact by construction (n·p_k under the 30-bit split; u·0.5 is power-of-two scaling) — fusing an exact product changes nothing, so no proof depends on an intermediate rounding. Beyond the trig kernels the earlier audit still applies: no Kahan/Neumaier, no TwoSum/Fast2Sum, no `fma(a,b,-a*b)` residual trick. `logSumExp` is the plain `max + log1p(exp(Δ))` form and the FB/BW reductions are plain accumulations. The `ln2_hi`/`ln2_lo` Cody-Waite splits in `log_pd`/`exp_pd` look like the hazard but are not it — they compensate a *constant's* representation error, not an *operation's* rounding, so no proof depends on an intermediate rounding as written. Every deliberate fusion in those kernels is already an explicit `_mm*_fmadd_pd`/`fnmadd` intrinsic: fusion requested, never inferred.
+**FP contraction, and what libhmm does not promise** (issue #70). The build sets no `-ffp-contract` flag, so every TU takes its compiler's default — GCC `fast`, AppleClang `on`, MSVC/clang-cl `precise` (off). That is safe: the trig kernels (#74) carry compensated/EFT-style sequences — the (r, rlo) reduction recovers each subtraction's rounding error, and the cos core keeps 1 − u/2 as an exact head+tail pair — but every product feeding them is exact by construction (n·p_k under the 30-bit split; u·0.5 is power-of-two scaling), so fusing an exact product changes nothing and no proof depends on an intermediate rounding. Elsewhere there is no Kahan/Neumaier, no TwoSum/Fast2Sum, no `fma(a,b,-a*b)` residual trick to protect: `logSumExp` is the plain `max + log1p(exp(Δ))` form and the FB/BW reductions are plain accumulations. The `ln2_hi`/`ln2_lo` Cody-Waite splits in `log_pd`/`exp_pd` look like the hazard but are not — they compensate a *constant's* representation error, not an *operation's* rounding. Every deliberate fusion in these kernels is already an explicit `_mm*_fmadd_pd`/`fnmadd` intrinsic: fusion requested, never inferred.
 
 **libhmm claims no bit-reproducibility of likelihoods or trained parameters across compilers, platforms, or machines, and cannot** — the tier dispatch itself prevents it. `TranscendentalKernels::sum_exp_sum2_minus_max` and friends accumulate into 8-, 4-, or 2-wide partial sums depending on which tier CPUID selects, so the summation tree and its rounding change with the CPU the binary runs on at fixed compiler and fixed flags. `-ffp-contract=off` would therefore buy nothing here (unlike corvus, which needs it for its double-double primitives) while costing FMA in accumulations where fusion is accuracy-positive.
 
@@ -231,8 +191,8 @@ Threading is **not used** in the production path — a deliberate, settled decis
 The weighted `fit(data, weights)` method is the Baum-Welch M-step. Fit quality varies by distribution:
 
 - **Tier A — exact weighted MLE/EM**: Gaussian, Exponential, Poisson, Discrete, LogNormal, Pareto,
-  Rayleigh, VonMises, Binomial, ChiSquared (Newton MLE, v4.2.1), Gamma, Weibull, NegativeBinomial,
-  Beta, StudentT (Newton/ECME, corrected in v4.2.1 — were implemented before v4.2.0 but mis-labelled)
+  Rayleigh, VonMises, Binomial, ChiSquared (Newton MLE), Gamma, Weibull, NegativeBinomial,
+  Beta, StudentT (Newton/ECME)
 - **Tier C — MOM (defensible in EM context)**: Uniform (fixed-range; MOM is exact for uniform support)
 
 Priority M-step improvements are documented in `docs/GOLD_STANDARD_CHECKLIST.md`.
@@ -318,7 +278,7 @@ CI triggers on pushes to `main`, PRs targeting `main`, `workflow_dispatch`, and 
 
 Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC (`windows-latest`, whichever VS the runner image ships). Additional jobs (ubuntu): ThreadSanitizer, AddressSanitizer, pre-commit, cppcheck, and clang-tidy — nine legs in total. Tests run with `-LE "known_broken|benchmark"`.
 
-`LIBHMM_ENABLE_CLANG_TIDY` (CMake option, `OFF` by default) wires clang-tidy into the normal build via the `CXX_CLANG_TIDY` target property; enable locally with `cmake --preset release -DLIBHMM_ENABLE_CLANG_TIDY=ON` when needed. The dedicated CI `clang-tidy` job instead runs `run-clang-tidy` against `compile_commands.json` as a single fast analysis pass and is **advisory (non-blocking)**: `continue-on-error: true`. Decision record (issue #62): the full default check set produces ~3765 warnings dominated by checks that conflict with libhmm's documented architecture — six checks are disabled in `.clang-tidy` (see that file for the full rationale) covering the pragma-once convention, intentional SIMD intrinsics/pointer arithmetic in perf-critical hot paths, the v4 template+virtual pattern, and a false-positive move-ctor idiom. **The residual is 86 UNIQUE sites, not the ~1344 the raw log suggests** — `run-clang-tidy` re-reports every header diagnostic once per including TU, so a single flagged line in a widely-included header can appear 20+ times. Count unique `file:line:col + check` tuples before drawing conclusions from this job. #63 (the `modernize-use-nodiscard` cluster in the linalg headers) is closed; measured 2026-08-16, what remains is `modernize-use-auto` (16), `modernize-concat-nested-namespaces` (9), `modernize-raw-string-literal` (8), `modernize-use-default-member-init` (7), `modernize-avoid-c-arrays` (7), and a long tail — all mechanical. 86 mechanical sites is a tractable target, so promoting this job to blocking is now a scheduling question rather than a scale one (see PLAN.md).
+`LIBHMM_ENABLE_CLANG_TIDY` (CMake option, `OFF` by default) wires clang-tidy into the normal build via the `CXX_CLANG_TIDY` target property; enable locally with `cmake --preset release -DLIBHMM_ENABLE_CLANG_TIDY=ON` when needed. The dedicated CI `clang-tidy` job instead runs `run-clang-tidy` against `compile_commands.json` as a single fast analysis pass and is **advisory (non-blocking)**: `continue-on-error: true`. Six checks are disabled in `.clang-tidy` (see that file for the full rationale), covering the pragma-once convention, intentional SIMD intrinsics/pointer arithmetic in perf-critical hot paths, the v4 template+virtual pattern, and a false-positive move-ctor idiom. `run-clang-tidy` re-reports every header diagnostic once per including TU, so a single flagged line in a widely-included header can appear 20+ times — count unique `file:line:col + check` tuples before drawing conclusions from this job. Current counts and promoting this job to blocking are tracked in PLAN.md.
 
 ## Open Items
 See PLAN.md for current status, in-progress work, and open questions.
