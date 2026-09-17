@@ -428,6 +428,30 @@ pin. State as of 2026-08-16, recorded so a session does not re-derive it:
   ~2e-14), incomplete gamma/beta and erfinv (`distribution_base.cpp`), and
   i0/i1 — all four are in corvus's audited set.
 
+**Paper half of the spike DONE 2026-09-17 (away from the fleet) — #106
+carries the full record; this is the state.** Inventory of all 22
+`DoubleVecOps` kernels by how they consume a transcendental: 6 are
+span-shaped drop-ins (`log/exp/cos/sin/log1p_batch`, `log1p_inplace`),
+10 distribution kernels use `log_pd`/`cos_pd`/`exp_pd` IN-REGISTER inside
+the per-lane polynomial (1 temporary to stage, 2 for weibull and beta),
+3 reductions use `exp_pd` inside logsumexp. corvus has no register-level
+entry point by design, so **no go retires `simd_math_helpers.h`
+wholesale** — at most it shrinks to `exp_pd` for the three reductions,
+and the trig tables retire only if `vonmises_batch` is staged. Every
+scalar special-function site is cold except `NegativeBinomial`'s
+per-element `std::lgamma(k + r)` — the single throughput case, as the
+2026-08-16 note said. Adoption is three independently decidable layers
+(A drop-ins, B staged kernels per measurement, C special functions), with
+pre-registered per-tier criteria: GO = NegBin ≥ 2× via corvus lgamma on
+≥ 2 tiers ∧ all gates pass unchanged ∧ pylibhmm chain builds; PARTIAL =
+accuracy-only adoption; NO-GO otherwise. Honest limits recorded: #99
+closes only for `exp_batch` (its named site `accumulate_exp_sum2_bias`
+keeps `exp_pd`); the kTrigDMax half of #101 closes only with staged
+vonmises. New hypothesis H2 for the fleet: vectorized `lgamma(k+1)` may
+beat the `log_factorial` gather on x86, promoting Poisson/Binomial too.
+Dependency cost is the libstats record verbatim; pylibhmm's Windows wheel
+job fits (9 + ~11 min of 30). Fleet-half runbook on #106.
+
 ## Local Machine State [DERIVED]
 2026-08-27, Mac Mini M1 (macOS Tahoe, AppleClang 21): v4.4.1 verified
 natively — synced to origin/main at 30b1a7b, fresh Release build (build/
@@ -547,12 +571,13 @@ refuted). Full ledger in the session artifact; issues carry the detail.
 - ~~Bump pylibhmm's `GIT_TAG` to v4.4.0~~ **DONE 2026-08-22** — pylibhmm
   0.11.0 released on the v4.4.0 pin; its pin-currency canary is green.
   Re-bump at v4.4.1.
-- The corvus adoption spike is now SCHEDULED (cross-project order
-  2026-08-28): it runs after corvus v1.0.0, alongside libstats v2.5.0,
-  with widened scope — special functions AND the elementary family
-  (corvus #32 ports exp/log/log1p/cos/sin; a go would replace the
-  `detail/simd_math_helpers.h` surface, closing #99 and the kTrigDMax
-  half of #101). Aim it at `lgamma` and the batch path. The
-  two-dispatch-mechanism question is SETTLED by #58: corvus slots behind
-  DoubleVecOps table entries like everything else — see Cross-Repo
-  Dependencies.
+- The corvus adoption spike: **paper half DONE 2026-09-17 (#106)**;
+  the fleet half — the measurements that apply the pre-registered
+  criteria — is the next session on this repo when the fleet is
+  available (runbook on the issue: branch `spike/corvus-libhmm`,
+  `LIBHMM_USE_CORVUS` OFF by default, Layer A + NegBin + the pareto and
+  vonmises staging probes, quiet-bench per tier). Correction to the
+  earlier wording here: a go does NOT "replace the
+  `detail/simd_math_helpers.h` surface" — the helper header survives for
+  the three logsumexp reductions in every outcome; see Cross-Repo
+  Dependencies. Two-dispatch remains SETTLED by #58.
