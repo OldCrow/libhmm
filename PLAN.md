@@ -107,6 +107,13 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   - #101 OPEN — review backlog: dead `errorf_inv`, untested setters, CCN,
     clang-tidy SIMD carve-out, `kTrigDMax` duplicate (this half dissolves
     on an adoption go — the tables move to corvus), matrix ctor guard.
+  - #108 OPEN (filed 2026-09-19) — adopt line coverage, measured
+    correctly from the start: libhmm has none, and libstats#152 shows the
+    four ways to get it wrong (excluded tests, third-party denominator,
+    unreachable per-tier SIMD TUs, silently ignored capture errors). Port
+    the configuration after libstats#152 settles lcov-vs-gcovr. CI-only,
+    independent of the corvus spike. Fleet coverage scope [user]:
+    libstats + libhmm only.
   Exit: #94 benchmark delta recorded here; per-tier accuracy tests for
   #92/#100.
 - v4.5.0 — Algorithm Coverage (open, #2): 6 open / 0 closed.
