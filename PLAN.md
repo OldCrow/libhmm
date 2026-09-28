@@ -460,6 +460,11 @@ Dependency cost is the libstats record verbatim; pylibhmm's Windows wheel
 job fits (9 + ~11 min of 30). Fleet-half runbook on #106.
 
 ## Local Machine State [DERIVED]
+2026-09-28 [user]: the Mac Mini M1 moved from macOS Tahoe to macOS 28
+during the travel period. The M1 entries below are Tahoe records; the
+NEON baseline (ctest 51/51, #74 ULP gates) is [OPEN] on the new OS until
+re-run from a fresh build directory.
+
 2026-08-27, Mac Mini M1 (macOS Tahoe, AppleClang 21): v4.4.1 verified
 natively — synced to origin/main at 30b1a7b, fresh Release build (build/
 wiped across the release boundary) warning-clean,
@@ -588,3 +593,11 @@ refuted). Full ledger in the session artifact; issues carry the detail.
   `detail/simd_math_helpers.h` surface" — the helper header survives for
   the three logsumexp reductions in every outcome; see Cross-Repo
   Dependencies. Two-dispatch remains SETTLED by #58.
+- **Return from travel 2026-09-28 — the fleet is available again.**
+  Cross-repo task order and machine needs:
+  [CORVUS-ADOPTION-WORKPLAN.md](https://github.com/OldCrow/standards/blob/main/records/CORVUS-ADOPTION-WORKPLAN.md).
+  This repo's share: re-establish the M1 baseline on macOS 28 first
+  (Local Machine State), then the spike fleet half (#106). Timing runs
+  for the spike and for the libstats post-swap sweep both need quiet
+  machines — schedule them on different days per machine. Open
+  dependabot PR #109 (actionlint 1.76.3) is CI-green.
