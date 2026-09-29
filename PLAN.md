@@ -460,10 +460,17 @@ Dependency cost is the libstats record verbatim; pylibhmm's Windows wheel
 job fits (9 + ~11 min of 30). Fleet-half runbook on #106.
 
 ## Local Machine State [DERIVED]
-2026-09-28 [user]: the Mac Mini M1 moved from macOS Tahoe to macOS 28
-during the travel period. The M1 entries below are Tahoe records; the
-NEON baseline (ctest 51/51, #74 ULP gates) is [OPEN] on the new OS until
-re-run from a fresh build directory.
+2026-09-28, Mac Mini M1 (macOS 27.0.1 Golden Gate, AppleClang 21.0.0
+clang-2100.3.34.2, Xcode/CLT 27.0, CMake 4.4.3): the M1 moved from Tahoe
+during travel [user]; entries below 2026-09-28 are Tahoe records. NEON
+baseline re-established on the new OS at f262b16 (v4.4.1 + deps): fresh
+`build-m1-gg/` Release build warning-clean, `simd_inspection` reports
+NEON (2 lanes) at compile time and runtime, ctest 51/51. #74 NEON ULP
+gates 15/15: max 1 ULP, mean 0.0276 (cos) / 0.0280 (sin), dispatched
+bit-identical to NEON — unchanged from Tahoe. Platform libm scalar path
+max 1 ULP, mean 0.0286 / 0.0282: no libm drift across the OS upgrade.
+Built against the CLT 27.0 SDK via a stale `SDKROOT` export, since
+removed (chezmoi `20ca30d`); Xcode's SDK is the same 27.0.
 
 2026-08-27, Mac Mini M1 (macOS Tahoe, AppleClang 21): v4.4.1 verified
 natively — synced to origin/main at 30b1a7b, fresh Release build (build/
@@ -596,7 +603,7 @@ refuted). Full ledger in the session artifact; issues carry the detail.
 - **Return from travel 2026-09-28 — the fleet is available again.**
   Cross-repo task order and machine needs:
   [CORVUS-ADOPTION-WORKPLAN.md](https://github.com/OldCrow/standards/blob/main/records/CORVUS-ADOPTION-WORKPLAN.md).
-  This repo's share: re-establish the M1 baseline on macOS 28 first
+  This repo's share: re-establish the M1 baseline on macOS 27 first
   (Local Machine State), then the spike fleet half (#106). Timing runs
   for the spike and for the libstats post-swap sweep both need quiet
   machines — schedule them on different days per machine. Open
