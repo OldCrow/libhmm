@@ -34,6 +34,12 @@
   (`src/distributions/distribution_base.cpp`). Residual "Numerical Recipes"
   strings in `CHANGELOG.md` and `benchmarks/docs/` describe the external
   LAMP_HMM comparator only, not libhmm code, and are intentionally left as-is.
+- [2026-09-28] Project skills live once, in `.claude/skills/`;
+  `.agents/skills` is a tracked relative symlink to it, so agents that read
+  that path (e.g. for adversarial review) get the same files. Edit only
+  `.claude/skills/`. On Windows the symlink needs Developer Mode and
+  `core.symlinks=true`, or git writes it as a text file [OPEN: check on
+  Zen 4].
 
 ## GitHub Synchronization [DERIVED]
 Last reconciled against live GitHub state: 2026-08-28 (no drift; 16 open
