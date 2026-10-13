@@ -42,8 +42,9 @@
   Zen 4].
 
 ## GitHub Synchronization [DERIVED]
-Last reconciled against live GitHub state: 2026-08-28 (no drift; 16 open
-issues match this file's milestone assignments exactly).
+Last reconciled against live GitHub state: 2026-10-12 (defect-hunt filing:
+#112–#138 created and placed on milestones #7/#5/#8; #94/#99/#101 moved
+#5→#8; milestones #7 and #8 created — see GitHub Milestones).
 - GitHub is the collaborator-facing source for issues and milestones; this
   PLAN.md is the agent-facing durable project state. Keep both in sync.
 - When creating, closing, reopening, retitling, or moving a GitHub issue or
@@ -78,8 +79,15 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   in the release commit via doc correction (zero consumers found). Per-issue
   design/outcome detail: the In Progress section below and each issue's
   closing comment.
-- **Order of release: v4.4.1 (SHIPPED 2026-08-26) → [corvus adoption
-  spike, then the post-adoption patch] → v4.5.0 → (v5.0.0 unscheduled).**
+- **Order of release (revised 2026-10-12 [user]): v4.4.1 (SHIPPED 2026-08-26)
+  → v4.4.2 — Safety & contract patch (#7) → Fit accuracy & kernel hygiene
+  patch (#5, corvus-independent, version at ship) → [corvus adoption spike →
+  Post-corvus kernel patch (#8)] → v4.5.0 → (v5.0.0 unscheduled).**
+  The 2026-10-12 defect hunt (docs/DEFECT_HUNT_2026-10-12.md) filed 27
+  issues; splitting #5 into a corvus-independent patch and a post-corvus
+  patch lets the crash cluster and the fit fixes ship without waiting on the
+  spike, while the items that close against corvus (gammap, Bessel Tier 2,
+  exp_pd, kTrigDMax, the Binomial lgamma path) wait with it.
   Reordered 2026-08-28 [user]: the second patch follows the corvus
   adoption spike because a go-decision closes #99 and the kTrigDMax half
   of #101 against corvus's elementary family (corvus #32) — so its old
@@ -96,23 +104,18 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   Milestone Record section below.
 - Fit accuracy & kernel hygiene patch (open, #5; renamed from "v4.4.2"
   2026-08-28 — ships after the corvus adoption spike, version assigned at
-  ship): 6 open / 0 closed.
+  ship; re-scoped 2026-10-12 to the corvus-INDEPENDENT accuracy patch,
+  following v4.4.2): 15 open / 0 closed. Hunt additions: #118, #126, #129,
+  #131–#138 (fit, sampler, moment, CDF-tail, posterior-drift and
+  edge-contract fixes; map in docs/DEFECT_HUNT_2026-10-12.md).
   - #92 OPEN — Student-t centred scale step (both overloads).
   - #100 OPEN — LogNormal/Student-t effective-weight denominators; gammap
     series tolerance.
-  - #94 OPEN — `LIBHMM_SIMD_SOURCES` trim to the five tier-1 TUs, AFTER a
-    benchmark pass (removes FMA contraction from nine M-steps); fold in the
-    A17 per-tier crossover note.
   - #93 OPEN — delete the NEON non-AArch64 `#else` block. Confirmed
     2026-08-23 on the M1: the block (simd_double_ops_neon.cpp:607-808) is
     unreachable in every CMake configuration — SimdDispatch.cmake adds the
     TU only on aarch64/arm64, and the preprocessed TU contains no line
     markers from it; deletion is safe.
-  - #99 OPEN — `exp_pd` −inf → 0 and NaN blends for tier-identical edges
-    (hold: closes against corvus #32's exp contract on an adoption go).
-  - #101 OPEN — review backlog: dead `errorf_inv`, untested setters, CCN,
-    clang-tidy SIMD carve-out, `kTrigDMax` duplicate (this half dissolves
-    on an adoption go — the tables move to corvus), matrix ctor guard.
   - #108 OPEN (filed 2026-09-19) — adopt line coverage, measured
     correctly from the start: libhmm has none, and libstats#152 shows the
     four ways to get it wrong (excluded tests, third-party denominator,
@@ -120,8 +123,28 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
     the configuration after libstats#152 settles lcov-vs-gcovr. CI-only,
     independent of the corvus spike. Fleet coverage scope [user]:
     libstats + libhmm only.
-  Exit: #94 benchmark delta recorded here; per-tier accuracy tests for
-  #92/#100.
+  Exit: per-tier accuracy tests for #92/#100; every hunt fix lands with a
+  guard shown failing first.
+- v4.4.2 — Safety & contract patch (open, #7, created 2026-10-12): 14 open /
+  0 closed — #112 (MAP-BW static_cast crash), #113 (fit weights size),
+  #114 (SegKM empty lists), #115 (clone/copy cache race), #116 (Binomial
+  O(n) table — the n cap and JSON bound half; lgamma half is #8), #117
+  (moved-from crash), #125 (VonMises sampler hang), #119 (JSON positional
+  keys), #120 (validation parity), #121 (subnormal round trip), #122
+  (non-finite obs in SegKM/kmeans_init; topology after train), #123 (legacy
+  I/O minor), #124 (dispatch mutant, traits test, timing labels), #139 (the #88 cast guard
+  survives mutation on x86 as its commit predicted — verify on the AArch64
+  leg or make it ISA-independent). Exit:
+  nine CI legs green with the new guards; no number-changing fit fixes here.
+- Post-corvus kernel patch (open, #8, created 2026-10-12; sequenced after
+  the spike, version at ship): 7 open / 0 closed — #99 (`exp_pd` edge
+  contract), #103 (erfinv beyond erf saturation; hunt added errors up to
+  0.0093 near y=1 — corvus ships an audited erfinv), #94 (`LIBHMM_SIMD_SOURCES` trim AFTER its benchmark pass; the
+  #93 dead-block deletion stays on #5), #101 (review backlog incl. the
+  kTrigDMax duplicate), #127 (gammap near x≈a), #128 (NegBin/Poisson CDFs),
+  #130 (Bessel Tier 2, digamma/trigamma). A spike go closes most against
+  corvus; a no-go fixes them in place. Exit: #94 benchmark delta recorded
+  here.
 - v4.5.0 — Algorithm Coverage (open, #2): 6 open / 0 closed.
   - #47 OPEN — feat: GMMDistribution — Gaussian Mixture Model emission for multimodal states.
   - #48 OPEN — perf: parallel E-step accumulation (moved from v4.4.0
@@ -144,6 +167,8 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
 - Open issues without milestone:
   - #50 OPEN — feat: Hidden Semi-Markov Model (HSMM) with explicit duration distributions.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
+  - #106 OPEN — corvus adoption spike (the gate for milestone #8, so it
+    carries no milestone itself). #103 moved to #8 on 2026-10-12.
   - (The 2026-08-21 review issues #81, #83–#101 are all milestoned — see
     GitHub Milestones above.)
   - #77 CLOSED 2026-08-19 — resolved via option (b), doc correction, in the
@@ -581,13 +606,46 @@ refuted). Full ledger in the session artifact; issues carry the detail.
   are correct; the JSON loader's size caps are correct (its value checks are
   #91).
 
+## Defect Hunt 2026-10-12 [DERIVED]
+Run on the Kaby Lake Mac (AVX2 tier only) at 58695c3 with the fleet skill
+`numerical-defect-hunt`, six parallel subagents (T1–T11 incl. T5 FP-contraction A/B,
+T6 mutation, T7 TSan, T8 structural scan). ~17.6k raw hits → ~70 distinct
+confirmed defects, 14 headline probes re-run by the orchestrator; all
+pre-existing; no library edits, nothing committed, no issues filed yet.
+Durable report with the issue map: `docs/DEFECT_HUNT_2026-10-12.md`
+(uncommitted as of writing). Probe sources stay in the `../libhmm-hunt`
+worktree (untracked) until the guard work consumes them.
+Headline (section A/B of the report): MAP-BW SIGSEGV on Poisson/Binomial/
+NegBin emissions (isDiscrete() → static_cast to DiscreteDistribution);
+fit(data, weights) never checks weights.size() (SEGV/OOB in all 16, the #86
+class one layer up); SegmentalKMeans SEGV on all-empty lists; VonMises
+sampler hangs at κ∈[1e-9,1e-8]; clone()/copy racing a cold cache fill
+crashes (documented const-safety contract violated); FB posteriors drift
+~T²·ε (1.2e-5 at T=1e6); CDF family defects (gammap at x≈a, NegBin CDF,
+Poisson normal-approx switch, lower tails flushed to 0); Bessel Tier 2
+exceeds its header bounds on macOS; scalar from_json ignores key names;
+Beta sampler returns exact 0.5 / −inf-scoring draws at small shapes;
+Binomial O(n) table is a DoS from JSON. Clean: FP-contraction A/B,
+concurrent distinct-instance training, logP vs enumeration, BW monotone,
+stale-cache scan, #86 holds. Not covered: SSE2/AVX-512/NEON tiers, GCC/MSVC.
+Issues #112–#138 filed 2026-10-12 (one per fix unit) and split across three
+milestones the same day [user]: v4.4.2 — Safety & contract patch (#7),
+the corvus-independent #5, and Post-corvus kernel patch (#8); map in the
+GitHub Milestones section. Next: land the v4.4.2 CI guards listed under "Guard placement" — every fix
+with a guard shown to fail first. T6 mutant table (final): 13 of 16 killed; m88 and m83 survived as their
+commits predicted on this ISA (#139 tracks m88); m72 is untestable on libc++.
+IndependentComponents has no sumW-guard test (noted on #124).
+
 ## Next Steps
 - ~~v4.4.1 — Correctness patch~~ **SHIPPED 2026-08-26** (see Milestone
   Record). pylibhmm followed through 2026-08-27: pin bump CI green and
   pylibhmm 0.11.1 released on the v4.4.1 pin (CI, wheels, lint all green).
   Nothing further owed from this repo.
-- **Fit accuracy & kernel hygiene patch** (ex-"v4.4.2") is the next work
-  FROM THIS REPO, but sequenced after the corvus adoption spike
+- **v4.4.2 — Safety & contract patch (#7) is the next work FROM THIS REPO**
+  (2026-10-12): the crash cluster first, each fix with a fail-first guard.
+  Then the Fit accuracy & kernel hygiene patch (#5), now corvus-independent.
+  The Post-corvus kernel patch (#8) carries what was formerly sequenced after
+  the corvus adoption spike
   (cross-project order 2026-08-28): a go closes #99 and the kTrigDMax
   half of #101 against corvus #32 and the patch ships trimmed; a no-go
   ships it earlier, untrimmed. When it runs: #94 requires its benchmark
