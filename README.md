@@ -219,6 +219,13 @@ std::cout << "Converged: " << precise_trainer.hasConverged() << "\n";
 
 ## Project Structure
 
+Headers depend strictly downward; the orange column is used across layers:
+
+![libhmm header layering](docs/architecture-layers.svg)
+
+Layer-by-layer detail and the SIMD dispatch mechanics are in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ```
 libhmm/
 ├── include/libhmm/    # Public headers (layered architecture)
@@ -281,6 +288,7 @@ No external dependencies. GTest is fetched automatically via CMake `FetchContent
 ## Documentation
 
 - [MIGRATION.md](MIGRATION.md) — v3→v4 upgrade guide
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layer diagram, v4 templates, SIMD dispatch, fit quality, I/O
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guidelines and toolchain policy
 - [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) — build options, library output, CI matrix
 - [docs/GOLD_STANDARD_CHECKLIST.md](docs/GOLD_STANDARD_CHECKLIST.md) — distribution implementation requirements

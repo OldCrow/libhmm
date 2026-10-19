@@ -212,7 +212,11 @@ Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windo
 
 ## Reading map — load on demand, not preemptively
 - Orienting on layering, v4 templates, SIMD dispatch tiers, fit quality,
-  model selection, or I/O formats → `docs/ARCHITECTURE.md`.
+  model selection, or I/O formats → `docs/ARCHITECTURE.md`. Its band
+  diagram (`docs/architecture-layers.svg`) is VISUAL REFERENCE ONLY: it
+  restates the Architecture section above and adds no constraint. Update
+  it when a header directory is added, removed, or changes layer; file
+  names in it are illustrative, not an inventory.
 - Cross-platform build setup, per-OS troubleshooting, or the CMake-standard
   deviations in full → `docs/CROSS_PLATFORM.md`.
 - Working with `LIBHMM_*` experimental/feature flags → `docs/EXPERIMENTAL_FLAGS.md`.

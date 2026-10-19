@@ -6,6 +6,13 @@ formats. AGENTS.md carries the guardrails (batch-API exception contract, FP
 contraction, threading); this doc carries the orientation and reasoning
 behind them.
 
+![libhmm header layering](architecture-layers.svg)
+
+Adjacency is the relationship: each band rests on the one below it. The
+model headers sit between layers 3 and 4 because calculators and trainers
+take a `BasicHmm<Obs>`; the orange column is used across layers, not stacked
+in them.
+
 ### Header layer model (`include/libhmm/`)
 
 Dependencies flow strictly downward:
