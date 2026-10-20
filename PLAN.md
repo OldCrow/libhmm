@@ -98,6 +98,14 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   items change fitted values in the last bits and #94 needs a benchmark
   pass first, so they must not gate the safety patch. Source-breaking
   items are parked on a named major.
+- **corvus release for the spike [user, 2026-10-20]: libhmm adopts, and
+  its adoption spike (#106) tests, the SAME corvus release libstats
+  adopts.** That is corvus v1.2.0 since corvus split its next release:
+  v1.1.0 ships correctness only, and the throughput work (#42 lever 1 and
+  the rest) moved to v1.2.0. The spike's go/no-go is judged on v1.2.0.
+  #106's runbook pin (FetchContent `v1.0.0`) is the paper-half sizing,
+  not the release under test. Fleet record: standards
+  `records/CORVUS-ADOPTION-WORKPLAN.md`.
 - v4.4.1 — Correctness patch (CLOSED, #4): 0 open / 10 closed — #81, #83,
   #84, #85, #86, #87, #88, #89, #90, #91. Shipped 2026-08-26 (PR #102, all
   nine CI legs green; exit criteria met). Session record: the v4.4.1
