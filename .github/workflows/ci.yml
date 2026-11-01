@@ -113,9 +113,26 @@ jobs:
 
     # -------------------------------------------------------------------------
     # Build
+    # Bound parallelism to memory, not just CPU. Bare `--parallel` passes `make -j`
+    # with no limit, spawning a compile per ready target, which OOM-kills the
+    # runner (exit 143, "runner received a shutdown signal", mass `Terminated`).
     # -------------------------------------------------------------------------
     - name: Build all targets
-      run: cmake --build build --config Release --parallel
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          MEM_GB=$(awk '/MemAvailable/{printf "%d", $2/1048576}' /proc/meminfo 2>/dev/null || echo 4)
+          CPU=$(nproc 2>/dev/null || echo 2)
+          MEM_JOBS=$(( MEM_GB / 2 ))
+          JOBS=$(( MEM_JOBS < CPU ? MEM_JOBS : CPU ))
+          JOBS=$(( JOBS < 1 ? 1 : JOBS ))
+        elif [ "$RUNNER_OS" = "macOS" ]; then
+          JOBS=$(sysctl -n hw.logicalcpu 2>/dev/null || echo 3)
+        else
+          JOBS="${NUMBER_OF_PROCESSORS:-2}"
+        fi
+        echo "Parallel build jobs: ${JOBS}"
+        cmake --build build --config Release --parallel "${JOBS}"
 
     # -------------------------------------------------------------------------
     # Test — 41/41 tests pass on all platforms
@@ -173,8 +190,17 @@ jobs:
           -DLIBHMM_BUILD_TOOLS=OFF \
           -DLIBHMM_PORTABLE=ON
 
+    # mem/3 rather than the matrix build's mem/2: TSan instrumentation
+    # roughly doubles peak memory per TU.
     - name: Build
-      run: cmake --build build-tsan --parallel
+      run: |
+        MEM_GB=$(awk '/MemAvailable/{printf "%d", $2/1048576}' /proc/meminfo 2>/dev/null || echo 4)
+        CPU=$(nproc 2>/dev/null || echo 2)
+        MEM_JOBS=$(( MEM_GB / 3 ))
+        JOBS=$(( MEM_JOBS < CPU ? MEM_JOBS : CPU ))
+        JOBS=$(( JOBS < 1 ? 1 : JOBS ))
+        echo "Parallel build jobs: ${JOBS}"
+        cmake --build build-tsan --parallel "${JOBS}"
 
     - name: Test
       run: ctest --test-dir build-tsan -C RelWithDebInfo --output-on-failure --timeout 120 -LE "known_broken|benchmark"
@@ -202,8 +228,17 @@ jobs:
           -DLIBHMM_BUILD_TOOLS=OFF \
           -DLIBHMM_PORTABLE=ON
 
+    # mem/3 rather than the matrix build's mem/2: ASan+UBSan instrumentation
+    # roughly doubles peak memory per TU.
     - name: Build
-      run: cmake --build build-asan --parallel
+      run: |
+        MEM_GB=$(awk '/MemAvailable/{printf "%d", $2/1048576}' /proc/meminfo 2>/dev/null || echo 4)
+        CPU=$(nproc 2>/dev/null || echo 2)
+        MEM_JOBS=$(( MEM_GB / 3 ))
+        JOBS=$(( MEM_JOBS < CPU ? MEM_JOBS : CPU ))
+        JOBS=$(( JOBS < 1 ? 1 : JOBS ))
+        echo "Parallel build jobs: ${JOBS}"
+        cmake --build build-asan --parallel "${JOBS}"
 
     - name: Test
       env:
