@@ -1,6 +1,15 @@
 # libhmm — Plan / Status
 
 ## Decided [DERIVED]
+- **Peer rule [user, 2026-11-02]:** libhmm depends on no other fleet
+  library except corvus (the leaf), so never on libstats. The #106 spike
+  stays corvus-only. libstats distributions could reach libhmm only
+  through an optional bridge. Record: standards
+  `records/FLEET-DESIGN.md` §2
+  (https://github.com/OldCrow/standards/blob/main/records/FLEET-DESIGN.md),
+  which also carries the [OPEN] proposals that affect v5.0.0: a
+  log-likelihood-matrix inference core, the Emission concept, and the
+  random-generator vocabulary.
 - v4 template parameterization (`BasicHmm<Obs>`, `BasicEmissionDistribution<Obs>`)
   preserves the v3 scalar API via type aliases; multivariate support was added
   without breaking existing consumers.
