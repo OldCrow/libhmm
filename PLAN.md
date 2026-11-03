@@ -645,6 +645,15 @@ commits predicted on this ISA (#139 tracks m88); m72 is untestable on libc++.
 IndependentComponents has no sumW-guard test (noted on #124).
 
 ## Next Steps
+- **corvus v1.2.0 released 2026-11-02 — the spike's release [OPEN].**
+  Signed tag `v1.2.0` on corvus `691db43`; release notes on corvus's
+  GitHub release. It is the release the adoption spike (#106) judges its
+  go/no-go on (Decided, 2026-10-20) and the one libstats adopts. Next
+  libhmm session on the spike: pin `v1.2.0` instead of #106's sizing pin
+  `v1.0.0` (standards workplan task 7). Since corvus v1.1.0 the incomplete
+  gamma/beta family has scalar overloads, so taking `&corvus::gamma_p`
+  needs the signature named. A go closes #99 and the kTrigDMax half of
+  #101 against corvus #32.
 - ~~v4.4.1 — Correctness patch~~ **SHIPPED 2026-08-26** (see Milestone
   Record). pylibhmm followed through 2026-08-27: pin bump CI green and
   pylibhmm 0.11.1 released on the v4.4.1 pin (CI, wheels, lint all green).
