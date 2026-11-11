@@ -186,6 +186,13 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   - #53 OPEN — feat: Input-Output HMM (IOHMM) — covariate-conditioned transition probabilities.
   - #106 OPEN — corvus adoption spike (the gate for milestone #8, so it
     carries no milestone itself). #103 moved to #8 on 2026-10-12.
+  - #150 OPEN — quality: Windows ARM64 (MSVC) is untested; target
+    detection reads the build host (filed 2026-11-11 out of #149). With no
+    toolchain file `CMAKE_SYSTEM_PROCESSOR` names the host, so an x64→ARM64
+    cross build selects the x86 kernels and fails loudly. Asks first
+    whether the target is supported at all. Native verification is
+    possible on the Windows 11 ARM VM (Parallels on the M1, about half the
+    M1's CPU and RAM). Same family as #96.
   - (The 2026-08-21 review issues #81, #83–#101 are all milestoned — see
     GitHub Milestones above.)
   - #77 CLOSED 2026-08-19 — resolved via option (b), doc correction, in the
@@ -702,8 +709,7 @@ IndependentComponents has no sumW-guard test (noted on #124).
   contains it, pylibhmm bumps its `GIT_TAG` and replaces its two macOS
   wheel jobs with one `macos-latest` job
   (`CIBW_ARCHS_MACOS="x86_64 arm64"`).
-  Left open by #149: MSVC targeting ARM64 without a toolchain file still
-  reads `CMAKE_SYSTEM_PROCESSOR` (no CI leg can verify a change), and the
+  Left open by #149: Windows ARM64 under MSVC (#150), and the
   pre-commit CI job is pinned to Python 3.14 because cmakelang 0.6.13
   crashes on 3.15 — raise the pin when the cmake-format hook is replaced.
 - **corvus v1.2.0 released 2026-11-02 — the spike's release [OPEN].**
