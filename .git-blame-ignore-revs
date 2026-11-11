@@ -7,3 +7,6 @@
 
 # style: apply clang-format 19.1.7 to all source files (2026-05-03)
 662c172
+
+# style: gersemi over the CMake files, squashed with the pre-commit setup in #151 (2026-11-11)
+dea1645
