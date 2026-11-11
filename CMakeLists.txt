@@ -149,6 +149,7 @@ option(LIBHMM_WERROR "Treat compiler warnings as errors (-Werror / /WX)" OFF)
 # too, with no portability trade-off left to make.
 option(LIBHMM_PORTABLE "Portable baseline ISA for LIBHMM_SIMD_SOURCES (for distributable wheels; OFF by default)" OFF)
 include(CheckCXXSourceCompiles)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/TargetProcessor.cmake")
 
 # Platform detection and setup
 if(APPLE)
@@ -170,20 +171,14 @@ endif()
 
 # Find required packages with platform-specific handling
 if(APPLE)
-    # Architecture-aware Homebrew prefix for macOS
-    execute_process(
-        COMMAND uname -m
-        OUTPUT_VARIABLE APPLE_ARCH
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-
-    if(APPLE_ARCH STREQUAL "arm64")
+    # Homebrew prefix for the target architecture (not the build host's: an x86_64 build on Apple
+    # Silicon must not pick up arm64 libraries from /opt/homebrew).
+    if(LIBHMM_TARGET_PROCESSOR STREQUAL "arm64")
         set(HOMEBREW_PREFIX "/opt/homebrew")
-        message(STATUS "Detected Apple Silicon (${APPLE_ARCH}) — Homebrew at ${HOMEBREW_PREFIX}")
     else()
         set(HOMEBREW_PREFIX "/usr/local")
-        message(STATUS "Detected Intel Mac (${APPLE_ARCH}) — Homebrew at ${HOMEBREW_PREFIX}")
     endif()
+    message(STATUS "Target ${LIBHMM_TARGET_PROCESSOR} — Homebrew at ${HOMEBREW_PREFIX}")
 
     set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX}" ${CMAKE_PREFIX_PATH})
 
