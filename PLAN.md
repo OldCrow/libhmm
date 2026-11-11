@@ -192,7 +192,11 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
     cross build selects the x86 kernels and fails loudly. Asks first
     whether the target is supported at all. Native verification is
     possible on the Windows 11 ARM VM (Parallels on the M1, about half the
-    M1's CPU and RAM). Same family as #96.
+    M1's CPU and RAM) and, in CI, on the hosted `windows-11-arm` runner
+    (standard tier; 4 cores / 16 GB for public repos, VS 2026 image —
+    confirmed against GitHub docs 2026-11-11; CMake and the MSVC ARM64
+    components on the image are unconfirmed). Bring it up on the VM first.
+    Same family as #96.
   - (The 2026-08-21 review issues #81, #83–#101 are all milestoned — see
     GitHub Milestones above.)
   - #77 CLOSED 2026-08-19 — resolved via option (b), doc correction, in the
