@@ -14,24 +14,28 @@ set(LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET "13.0")
 if(APPLE)
     if(DEFINED CMAKE_OSX_DEPLOYMENT_TARGET AND NOT "${CMAKE_OSX_DEPLOYMENT_TARGET}" STREQUAL "")
         if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET)
-            message(FATAL_ERROR
+            message(
+                FATAL_ERROR
                 "libhmm v4.x requires CMAKE_OSX_DEPLOYMENT_TARGET >= "
-                "${LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET}; got ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+                "${LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET}; got ${CMAKE_OSX_DEPLOYMENT_TARGET}"
+            )
         endif()
-        message(STATUS "macOS deployment target: ${CMAKE_OSX_DEPLOYMENT_TARGET} "
-                       "(minimum supported: ${LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET})")
+        message(
+            STATUS
+            "macOS deployment target: ${CMAKE_OSX_DEPLOYMENT_TARGET} "
+            "(minimum supported: ${LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET})"
+        )
     else()
-        message(STATUS "macOS deployment target: compiler default "
-                       "(minimum supported: ${LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET}; "
-                       "set -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 for Ventura-compatible binaries)")
+        message(
+            STATUS
+            "macOS deployment target: compiler default "
+            "(minimum supported: ${LIBHMM_MIN_MACOS_DEPLOYMENT_TARGET}; "
+            "set -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 for Ventura-compatible binaries)"
+        )
     endif()
 endif()
 
-project(libhmm
-    VERSION 4.4.1
-    DESCRIPTION "Modern C++20 Hidden Markov Model Library"
-    LANGUAGES CXX
-)
+project(libhmm VERSION 4.4.1 DESCRIPTION "Modern C++20 Hidden Markov Model Library" LANGUAGES CXX)
 
 # GNUInstallDirs gives platform-correct, packager-overridable destinations
 # (e.g. lib64 on some Linux distros) instead of hardcoded lib/bin/include.
@@ -59,7 +63,8 @@ endif()
 # =============================================================================
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14.0")
-        message(FATAL_ERROR
+        message(
+            FATAL_ERROR
             "libhmm v4.0.0 requires Apple Clang 14 (Xcode 14) or later.\n"
             "Detected: Apple Clang ${CMAKE_CXX_COMPILER_VERSION}.\n"
             "Install Xcode 14 or later from the App Store or developer.apple.com."
@@ -67,21 +72,24 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     endif()
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "12.0")
-        message(FATAL_ERROR
+        message(
+            FATAL_ERROR
             "libhmm v4.0.0 requires GCC 12 or later.\n"
             "Detected: GCC ${CMAKE_CXX_COMPILER_VERSION}."
         )
     endif()
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14.0")
-        message(FATAL_ERROR
+        message(
+            FATAL_ERROR
             "libhmm v4.0.0 requires Clang 14 or later.\n"
             "Detected: Clang ${CMAKE_CXX_COMPILER_VERSION}."
         )
     endif()
 elseif(MSVC)
     if(MSVC_VERSION LESS 1930)
-        message(FATAL_ERROR
+        message(
+            FATAL_ERROR
             "libhmm v4.0.0 requires MSVC 2022 (Visual Studio 2022 17.0, _MSC_VER >= 1930).\n"
             "Detected: _MSC_VER ${MSVC_VERSION}."
         )
@@ -107,12 +115,20 @@ endif()
 # ignored.
 # =============================================================================
 if(PROJECT_IS_TOP_LEVEL)
-    foreach(_libhmm_old_opt
-            BUILD_EXAMPLES BUILD_TESTS BUILD_TOOLS BUILD_BENCHMARKS ENABLE_CLANG_TIDY)
+    foreach(
+        _libhmm_old_opt
+        BUILD_EXAMPLES
+        BUILD_TESTS
+        BUILD_TOOLS
+        BUILD_BENCHMARKS
+        ENABLE_CLANG_TIDY
+    )
         if(DEFINED ${_libhmm_old_opt})
-            message(WARNING
+            message(
+                WARNING
                 "${_libhmm_old_opt} is no longer honoured (removed in v4.3.0) and is being "
-                "IGNORED; use LIBHMM_${_libhmm_old_opt} instead.")
+                "IGNORED; use LIBHMM_${_libhmm_old_opt} instead."
+            )
         endif()
     endforeach()
     unset(_libhmm_old_opt)
@@ -121,9 +137,11 @@ if(PROJECT_IS_TOP_LEVEL)
     # options, deleted rather than renamed, so they have no LIBHMM_ counterpart.
     foreach(_libhmm_dead_opt ENABLE_STATIC_ANALYSIS ENABLE_CPPCHECK)
         if(DEFINED ${_libhmm_dead_opt})
-            message(WARNING
+            message(
+                WARNING
                 "${_libhmm_dead_opt} was removed (never consumed); cppcheck runs from "
-                "CI/scripts.")
+                "CI/scripts."
+            )
         endif()
     endforeach()
     unset(_libhmm_dead_opt)
@@ -135,7 +153,11 @@ endif()
 # hmm_static target definitions below.
 option(LIBHMM_BUILD_EXAMPLES "Build example programs" ${PROJECT_IS_TOP_LEVEL})
 option(LIBHMM_BUILD_TESTS "Build test programs" ${PROJECT_IS_TOP_LEVEL})
-option(LIBHMM_BUILD_TOOLS "Build performance inspection and validation tools" ${PROJECT_IS_TOP_LEVEL})
+option(
+    LIBHMM_BUILD_TOOLS
+    "Build performance inspection and validation tools"
+    ${PROJECT_IS_TOP_LEVEL}
+)
 option(LIBHMM_BUILD_BENCHMARKS "Build comparison benchmarks (requires external HMM libraries)" OFF)
 option(LIBHMM_ENABLE_CLANG_TIDY "Enable clang-tidy analysis during build" OFF)
 option(LIBHMM_WERROR "Treat compiler warnings as errors (-Werror / /WX)" OFF)
@@ -147,7 +169,11 @@ option(LIBHMM_WERROR "Treat compiler warnings as errors (-Werror / /WX)" OFF)
 # FB/BW/transcendental recurrence path, so LIBHMM_SIMD_SOURCES' remaining scope
 # is the distribution batch-override TUs only — that path now runtime-dispatches
 # too, with no portability trade-off left to make.
-option(LIBHMM_PORTABLE "Portable baseline ISA for LIBHMM_SIMD_SOURCES (for distributable wheels; OFF by default)" OFF)
+option(
+    LIBHMM_PORTABLE
+    "Portable baseline ISA for LIBHMM_SIMD_SOURCES (for distributable wheels; OFF by default)"
+    OFF
+)
 include(CheckCXXSourceCompiles)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/TargetProcessor.cmake")
 
@@ -312,8 +338,10 @@ target_include_directories(hmm_objects PRIVATE include)
 # /external:anglebrackets /external:W0 suppresses warnings from system headers
 # (e.g. C4244 from <memory> template instantiations — MSVC limitation).
 if(MSVC)
-    target_compile_options(hmm_objects PRIVATE
-        /W4 /permissive- /external:anglebrackets /external:W0)
+    target_compile_options(
+        hmm_objects
+        PRIVATE /W4 /permissive- /external:anglebrackets /external:W0
+    )
     if(LIBHMM_WERROR)
         target_compile_options(hmm_objects PRIVATE /WX)
     endif()
@@ -373,10 +401,12 @@ add_library(libhmm::hmm ALIAS hmm)
 # The second BUILD_INTERFACE entry carries the generated libhmm/config.h; it
 # needs no INSTALL_INTERFACE counterpart because the install step copies that
 # header in beside the hand-written ones, under the same include root.
-target_include_directories(hmm PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+target_include_directories(
+    hmm
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 # Shared-library link flags — see LIBHMM_SHARED_LINK_OPTIONS definition above
 # (explicit --no-undefined on Linux so a missing symbol fails the link rather
@@ -405,10 +435,12 @@ else()
 endif()
 set_target_properties(hmm_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 add_library(libhmm::hmm_static ALIAS hmm_static)
-target_include_directories(hmm_static PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+target_include_directories(
+    hmm_static
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 # Enable clang-tidy if requested — applied to the OBJECT library so analysis
@@ -421,57 +453,54 @@ if(LIBHMM_ENABLE_CLANG_TIDY)
     find_program(CLANG_TIDY_EXE NAMES clang-tidy)
     if(CLANG_TIDY_EXE)
         message(STATUS "Found clang-tidy: ${CLANG_TIDY_EXE}")
-        set_target_properties(hmm_objects PROPERTIES
-            CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-quiet")
+        set_target_properties(hmm_objects PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-quiet")
     else()
         message(WARNING "clang-tidy requested but not found - skipping static analysis")
     endif()
 endif()
 
 # ── Shared library properties ─────────────────────────────────────────────────
-set_target_properties(hmm PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
-    PUBLIC_HEADER include/libhmm/libhmm.h
-    OUTPUT_NAME "hmm"
-    CLEAN_DIRECT_OUTPUT 1
+set_target_properties(
+    hmm
+    PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR}
+        PUBLIC_HEADER include/libhmm/libhmm.h
+        OUTPUT_NAME "hmm"
+        CLEAN_DIRECT_OUTPUT 1
 )
 
 if(APPLE)
-    set_target_properties(hmm PROPERTIES
-        MACOSX_RPATH TRUE
-        INSTALL_NAME_DIR "@rpath"
-    )
+    set_target_properties(hmm PROPERTIES MACOSX_RPATH TRUE INSTALL_NAME_DIR "@rpath")
 elseif(LINUX)
-    set_target_properties(hmm PROPERTIES
-        INSTALL_RPATH "$ORIGIN"
-        INSTALL_RPATH_USE_LINK_PATH TRUE
-    )
+    set_target_properties(hmm PROPERTIES INSTALL_RPATH "$ORIGIN" INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
 # ── Link dependencies ─────────────────────────────────────────────────────────
 # On Linux the math library is a separate DSO; link it into both targets.
 # On macOS and Windows math is part of the system/CRT — no explicit link needed.
 if(LINUX)
-    target_link_libraries(hmm        PUBLIC m)
-    target_link_libraries(hmm_static INTERFACE m)  # propagated to static consumers
+    target_link_libraries(hmm PUBLIC m)
+    target_link_libraries(hmm_static INTERFACE m) # propagated to static consumers
 elseif(UNIX AND NOT APPLE)
-    target_link_libraries(hmm        PUBLIC m)
+    target_link_libraries(hmm PUBLIC m)
     target_link_libraries(hmm_static INTERFACE m)
 endif()
 
 # ── Install targets ────────────────────────────────────────────────────────────
 # Install both library types. RUNTIME covers the .dll on Windows (placed in bin/
 # by convention so it is found at runtime without PATH manipulation).
-install(TARGETS hmm hmm_static
+install(
+    TARGETS hmm hmm_static
     EXPORT libhmm-targets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}          # .so / .dylib
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}          # .a / .lib (static archive + Windows import lib)
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}          # .dll (Windows)
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} # .so / .dylib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} # .a / .lib (static archive + Windows import lib)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} # .dll (Windows)
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libhmm
 )
 
-install(EXPORT libhmm-targets
+install(
+    EXPORT libhmm-targets
     NAMESPACE libhmm::
     FILE libhmm-targets.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libhmm
@@ -482,17 +511,22 @@ install(EXPORT libhmm-targets
 # macros that activate those sections do not imply, so an installed consumer at -mavx or
 # -mavx2 would hit an always-inline failure inside it. detail/log_utils.h IS public (the
 # calculator and trainer headers include it) and stays installed.
-install(DIRECTORY include/libhmm DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        PATTERN "simd_math_helpers.h" EXCLUDE
-        PATTERN "trig_cleanroom_data.inc" EXCLUDE)
+install(
+    DIRECTORY include/libhmm
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    PATTERN "simd_math_helpers.h" EXCLUDE
+    PATTERN "trig_cleanroom_data.inc" EXCLUDE
+)
 
 # The generated config header lands beside the hand-written ones, so an
 # installed consumer resolves `#include "libhmm/config.h"` from the same
 # include root and compiles the same Bessel tier the library was built with
 # (issue #75). Without this the installed tree is missing a header that
 # bessel.h includes unconditionally, and consumers fail to compile.
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/libhmm/config.h"
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libhmm)
+install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/include/libhmm/config.h"
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libhmm
+)
 
 # pkg-config support (UNIX, including APPLE — mirrors libstats).
 if(UNIX)
@@ -503,15 +537,20 @@ if(UNIX)
     endif()
     # Path from <prefix>/<libdir>/pkgconfig back to <prefix> (usually ../..;
     # handles multiarch libdirs too). Consumed by cmake/libhmm.pc.in.
-    file(RELATIVE_PATH LIBHMM_PC_PREFIX_REL
-         "${CMAKE_INSTALL_FULL_LIBDIR}/pkgconfig" "${CMAKE_INSTALL_PREFIX}")
+    file(
+        RELATIVE_PATH
+        LIBHMM_PC_PREFIX_REL
+        "${CMAKE_INSTALL_FULL_LIBDIR}/pkgconfig"
+        "${CMAKE_INSTALL_PREFIX}"
+    )
     string(REGEX REPLACE "/$" "" LIBHMM_PC_PREFIX_REL "${LIBHMM_PC_PREFIX_REL}")
     configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/libhmm.pc.in"
         "${CMAKE_CURRENT_BINARY_DIR}/libhmm.pc"
         @ONLY
     )
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libhmm.pc"
+    install(
+        FILES "${CMAKE_CURRENT_BINARY_DIR}/libhmm.pc"
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
     )
 endif()
@@ -555,9 +594,10 @@ configure_package_config_file(
     PATH_VARS INCLUDE_INSTALL_DIR
 )
 
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/libhmm-config.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/libhmm-config-version.cmake"
+install(
+    FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/libhmm-config.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/libhmm-config-version.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libhmm
 )
 

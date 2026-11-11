@@ -7,10 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 
 # Fetch libhmm from GitHub (or use a local path for development)
-FetchContent_Declare(
-    libhmm
-    GIT_REPOSITORY https://github.com/OldCrow/libhmm.git
-    GIT_TAG main)
+FetchContent_Declare(libhmm GIT_REPOSITORY https://github.com/OldCrow/libhmm.git GIT_TAG main)
 
 # To use a local checkout instead of fetching from GitHub, replace the FetchContent_Declare above
 # with: FetchContent_Declare(libhmm SOURCE_DIR /path/to/libhmm)

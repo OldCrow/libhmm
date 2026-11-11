@@ -143,7 +143,7 @@ when setting a machine up rather than in every session.
 
 The linting and pre-commit tools must be installed before use:
 - **clang-format**: part of LLVM (`brew install llvm`, `apt install clang-format`, `choco install llvm`)
-- **cmake-format**: `pip install cmake-format`
+- **gersemi**: `pip install gersemi`
 - **pre-commit**: `pip install pre-commit`
 - **cppcheck**: OS-package-managed (`brew install cppcheck`, `apt install cppcheck`, `choco install cppcheck`)
 - **mpmath** (`pip install mpmath`): only for regenerating the checked-in trig tables/references with `scripts/gen_trig_cleanroom_table.py` and `scripts/gen_trig_ulp_vectors.py`; not needed to build or test

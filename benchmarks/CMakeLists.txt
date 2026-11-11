@@ -1,4 +1,3 @@
-
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     cmake_minimum_required(VERSION 3.20)
     project(HMMBenchmarks LANGUAGES CXX)
@@ -16,7 +15,8 @@ set(LIBHMM_LINK_TARGET hmm)
 if(TARGET hmm)
     message(STATUS "benchmarks: linking against in-tree target 'hmm'")
 else()
-    find_library(LIBHMM_LIBRARY
+    find_library(
+        LIBHMM_LIBRARY
         NAMES hmm
         PATHS
             ${CMAKE_CURRENT_SOURCE_DIR}/../build
@@ -25,21 +25,36 @@ else()
         NO_DEFAULT_PATH
     )
     if(NOT LIBHMM_LIBRARY)
-        message(FATAL_ERROR "libhmm library not found. Build libhmm first or configure from repo root with -DBUILD_BENCHMARKS=ON.")
+        message(
+            FATAL_ERROR
+            "libhmm library not found. Build libhmm first or configure from repo root with -DBUILD_BENCHMARKS=ON."
+        )
     endif()
     set(LIBHMM_LINK_TARGET ${LIBHMM_LIBRARY})
     message(STATUS "benchmarks: linking against prebuilt libhmm: ${LIBHMM_LIBRARY}")
 endif()
 
-set(LIBHMM_BENCHMARK_DEPS_ROOT "$ENV{HOME}/Development" CACHE PATH "Root directory containing external benchmark dependencies")
+set(LIBHMM_BENCHMARK_DEPS_ROOT
+    "$ENV{HOME}/Development"
+    CACHE PATH
+    "Root directory containing external benchmark dependencies"
+)
 set(HMMLIB_DIR "${LIBHMM_BENCHMARK_DEPS_ROOT}/HMMLib" CACHE PATH "Path to HMMLib root directory")
 set(GHMM_DIR "${LIBHMM_BENCHMARK_DEPS_ROOT}/GHMM" CACHE PATH "Path to GHMM root directory")
-set(STOCHHMM_DIR "${LIBHMM_BENCHMARK_DEPS_ROOT}/StochHMM" CACHE PATH "Path to StochHMM root directory")
+set(STOCHHMM_DIR
+    "${LIBHMM_BENCHMARK_DEPS_ROOT}/StochHMM"
+    CACHE PATH
+    "Path to StochHMM root directory"
+)
 set(HTK_DIR "${LIBHMM_BENCHMARK_DEPS_ROOT}/HTK" CACHE PATH "Path to HTK root directory")
 set(JAHMM_DIR "${LIBHMM_BENCHMARK_DEPS_ROOT}/Jahmm" CACHE PATH "Path to Jahmm root directory")
 set(LAMP_DIR "${LIBHMM_BENCHMARK_DEPS_ROOT}/LAMP" CACHE PATH "Path to LAMP root directory")
 set(KALDI_DIR "${LIBHMM_BENCHMARK_DEPS_ROOT}/Kaldi" CACHE PATH "Path to Kaldi root directory")
-set(JAHMM_ANT_DIR "${JAHMM_DIR}/apache-ant-1.10.15" CACHE PATH "Path to Apache Ant used for Jahmm builds")
+set(JAHMM_ANT_DIR
+    "${JAHMM_DIR}/apache-ant-1.10.15"
+    CACHE PATH
+    "Path to Apache Ant used for Jahmm builds"
+)
 option(LIBHMM_BENCH_ENABLE_HMMLIB "Build HMMLib comparator benchmarks" ON)
 option(LIBHMM_BENCH_ENABLE_STOCHHMM "Build StochHMM comparator benchmarks" ON)
 option(LIBHMM_BENCH_ENABLE_GHMM "Build GHMM comparator benchmarks" ON)
@@ -73,46 +88,51 @@ if(EXISTS "${HMMLIB_DIR}/HMMlib/hmm.hpp")
     if(Boost_FOUND)
         set(HMMLIB_READY ON)
     else()
-        message(WARNING "HMMLib header found but Boost not available; HMMLib-dependent benchmarks will be skipped.")
+        message(
+            WARNING
+            "HMMLib header found but Boost not available; HMMLib-dependent benchmarks will be skipped."
+        )
     endif()
 elseif(EXISTS "${HMMLIB_DIR}")
-    message(WARNING "HMMLib directory found at ${HMMLIB_DIR} but hmm.hpp not found. HMMLib-dependent benchmarks will be skipped.")
+    message(
+        WARNING
+        "HMMLib directory found at ${HMMLIB_DIR} but hmm.hpp not found. HMMLib-dependent benchmarks will be skipped."
+    )
 else()
-    message(WARNING "HMMLib directory not found at ${HMMLIB_DIR}. HMMLib-dependent benchmarks will be skipped.")
+    message(
+        WARNING
+        "HMMLib directory not found at ${HMMLIB_DIR}. HMMLib-dependent benchmarks will be skipped."
+    )
 endif()
 
 set(STOCHHMM_INCLUDE_DIR "${STOCHHMM_DIR}/source/src")
 if(NOT EXISTS "${STOCHHMM_INCLUDE_DIR}")
     set(STOCHHMM_INCLUDE_DIR "")
 endif()
-find_library(STOCHHMM_LIBRARY
-    NAMES stochhmm
-    HINTS
-        ${STOCHHMM_DIR}/install/lib
-        ${STOCHHMM_DIR}/lib
-)
+find_library(STOCHHMM_LIBRARY NAMES stochhmm HINTS ${STOCHHMM_DIR}/install/lib ${STOCHHMM_DIR}/lib)
 set(STOCHHMM_READY OFF)
 if(STOCHHMM_INCLUDE_DIR AND STOCHHMM_LIBRARY)
     set(STOCHHMM_READY ON)
 else()
-    message(WARNING "StochHMM include/library not fully available from ${STOCHHMM_DIR}. StochHMM-dependent benchmarks will be skipped.")
+    message(
+        WARNING
+        "StochHMM include/library not fully available from ${STOCHHMM_DIR}. StochHMM-dependent benchmarks will be skipped."
+    )
 endif()
 
 set(GHMM_INCLUDE_DIR "${GHMM_DIR}/install/include")
 if(NOT EXISTS "${GHMM_INCLUDE_DIR}")
     set(GHMM_INCLUDE_DIR "")
 endif()
-find_library(GHMM_LIBRARY
-    NAMES ghmm
-    HINTS
-        ${GHMM_DIR}/install/lib
-        ${GHMM_DIR}/lib
-)
+find_library(GHMM_LIBRARY NAMES ghmm HINTS ${GHMM_DIR}/install/lib ${GHMM_DIR}/lib)
 set(GHMM_READY OFF)
 if(GHMM_INCLUDE_DIR AND GHMM_LIBRARY)
     set(GHMM_READY ON)
 else()
-    message(WARNING "GHMM include/library not fully available from ${GHMM_DIR}. GHMM-dependent benchmarks will be skipped.")
+    message(
+        WARNING
+        "GHMM include/library not fully available from ${GHMM_DIR}. GHMM-dependent benchmarks will be skipped."
+    )
 endif()
 
 # On macOS, GHMM builds often retain an absolute install_name from the build location
@@ -128,13 +148,18 @@ if(APPLE AND GHMM_READY)
             set(GHMM_DYLIB_ID_TARGET "${GHMM_DIR}/install/lib/libghmm.1.dylib")
         endif()
         execute_process(
-            COMMAND ${INSTALL_NAME_TOOL_EXECUTABLE} -id "${GHMM_DYLIB_ID_TARGET}" "${GHMM_DYLIB_ID_TARGET}"
+            COMMAND
+                ${INSTALL_NAME_TOOL_EXECUTABLE} -id "${GHMM_DYLIB_ID_TARGET}"
+                "${GHMM_DYLIB_ID_TARGET}"
             RESULT_VARIABLE GHMM_INSTALL_NAME_RESULT
             ERROR_VARIABLE GHMM_INSTALL_NAME_ERROR
             OUTPUT_QUIET
         )
         if(NOT GHMM_INSTALL_NAME_RESULT EQUAL 0)
-            message(WARNING "Could not normalize GHMM install_name for ${GHMM_DYLIB_ID_TARGET}: ${GHMM_INSTALL_NAME_ERROR}")
+            message(
+                WARNING
+                "Could not normalize GHMM install_name for ${GHMM_DYLIB_ID_TARGET}: ${GHMM_INSTALL_NAME_ERROR}"
+            )
         else()
             message(STATUS "Normalized GHMM install_name: ${GHMM_DYLIB_ID_TARGET}")
         endif()
@@ -145,10 +170,9 @@ endif()
 
 function(add_libhmm_benchmark target_name source_file)
     add_executable(${target_name} ${source_file})
-    target_include_directories(${target_name}
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}
-            ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    target_include_directories(
+        ${target_name}
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../include
     )
     target_link_libraries(${target_name} PRIVATE ${LIBHMM_LINK_TARGET})
     if(NOT APPLE AND NOT MSVC)
@@ -163,11 +187,7 @@ function(add_libhmm_benchmark target_name source_file)
 endfunction()
 
 function(enable_hmmlib target_name)
-    target_include_directories(${target_name}
-        SYSTEM PRIVATE
-            ${HMMLIB_DIR}
-            ${Boost_INCLUDE_DIRS}
-    )
+    target_include_directories(${target_name} SYSTEM PRIVATE ${HMMLIB_DIR} ${Boost_INCLUDE_DIRS})
 endfunction()
 
 function(enable_stochhmm target_name)
@@ -204,7 +224,10 @@ endif()
 if(LIBHMM_BENCH_ENABLE_HTK)
     if(HTK_READY)
         add_libhmm_benchmark(libhmm_vs_htk_benchmark src/libhmm_vs_htk_benchmark.cpp)
-        add_libhmm_benchmark(libhmm_vs_htk_continuous_benchmark src/libhmm_vs_htk_continuous_benchmark.cpp)
+        add_libhmm_benchmark(
+            libhmm_vs_htk_continuous_benchmark
+            src/libhmm_vs_htk_continuous_benchmark.cpp
+        )
     else()
         message(STATUS "Skipping HTK comparator benchmarks (HTK tools not found under ${HTK_DIR}).")
     endif()
@@ -215,9 +238,15 @@ endif()
 if(LIBHMM_BENCH_ENABLE_JAHMM)
     if(JAHMM_READY)
         add_libhmm_benchmark(libhmm_vs_jahmm_benchmark src/libhmm_vs_jahmm_benchmark.cpp)
-        target_compile_definitions(libhmm_vs_jahmm_benchmark PRIVATE LIBHMM_BENCH_JAHMM_DIR="${JAHMM_DIR}")
+        target_compile_definitions(
+            libhmm_vs_jahmm_benchmark
+            PRIVATE LIBHMM_BENCH_JAHMM_DIR="${JAHMM_DIR}"
+        )
     else()
-        message(STATUS "Skipping Jahmm comparator benchmark (Jahmm directory not found at ${JAHMM_DIR}).")
+        message(
+            STATUS
+            "Skipping Jahmm comparator benchmark (Jahmm directory not found at ${JAHMM_DIR})."
+        )
     endif()
 else()
     message(STATUS "Jahmm comparator benchmark explicitly disabled.")
@@ -226,7 +255,10 @@ endif()
 if(LIBHMM_BENCH_ENABLE_LAMP)
     if(LAMP_READY)
         add_libhmm_benchmark(libhmm_vs_lamp_benchmark src/libhmm_vs_lamp_benchmark.cpp)
-        target_compile_definitions(libhmm_vs_lamp_benchmark PRIVATE LIBHMM_BENCH_LAMP_DIR="${LAMP_DIR}")
+        target_compile_definitions(
+            libhmm_vs_lamp_benchmark
+            PRIVATE LIBHMM_BENCH_LAMP_DIR="${LAMP_DIR}"
+        )
     else()
         message(STATUS "Skipping LAMP comparator benchmark (hmmFind not found under ${LAMP_DIR}).")
     endif()
@@ -237,7 +269,10 @@ endif()
 # HMMLib-dependent benchmarks
 if(LIBHMM_BENCH_ENABLE_HMMLIB)
     if(HMMLIB_READY)
-        add_libhmm_benchmark(algorithm_performance_benchmark src/algorithm_performance_benchmark.cpp)
+        add_libhmm_benchmark(
+            algorithm_performance_benchmark
+            src/algorithm_performance_benchmark.cpp
+        )
         enable_hmmlib(algorithm_performance_benchmark)
 
         add_libhmm_benchmark(classic_problems_benchmark src/classic_problems_benchmark.cpp)
@@ -264,10 +299,16 @@ if(LIBHMM_BENCH_ENABLE_STOCHHMM)
         add_libhmm_benchmark(libhmm_vs_stochhmm_benchmark src/libhmm_vs_stochhmm_benchmark.cpp)
         enable_stochhmm(libhmm_vs_stochhmm_benchmark)
 
-        add_libhmm_benchmark(libhmm_vs_stochhmm_continuous_benchmark src/libhmm_vs_stochhmm_continuous_benchmark.cpp)
+        add_libhmm_benchmark(
+            libhmm_vs_stochhmm_continuous_benchmark
+            src/libhmm_vs_stochhmm_continuous_benchmark.cpp
+        )
         enable_stochhmm(libhmm_vs_stochhmm_continuous_benchmark)
 
-        add_libhmm_benchmark(libhmm_vs_stochhmm_distribution_suite src/libhmm_vs_stochhmm_distribution_suite.cpp)
+        add_libhmm_benchmark(
+            libhmm_vs_stochhmm_distribution_suite
+            src/libhmm_vs_stochhmm_distribution_suite.cpp
+        )
         enable_stochhmm(libhmm_vs_stochhmm_distribution_suite)
     else()
         message(STATUS "Skipping StochHMM-dependent benchmark targets.")
@@ -282,7 +323,10 @@ if(LIBHMM_BENCH_ENABLE_GHMM)
         add_libhmm_benchmark(libhmm_vs_ghmm_benchmark src/libhmm_vs_ghmm_benchmark.cpp)
         enable_ghmm(libhmm_vs_ghmm_benchmark)
 
-        add_libhmm_benchmark(libhmm_vs_ghmm_continuous_benchmark src/libhmm_vs_ghmm_continuous_benchmark.cpp)
+        add_libhmm_benchmark(
+            libhmm_vs_ghmm_continuous_benchmark
+            src/libhmm_vs_ghmm_continuous_benchmark.cpp
+        )
         enable_ghmm(libhmm_vs_ghmm_continuous_benchmark)
     else()
         message(STATUS "Skipping GHMM-dependent benchmark targets.")
@@ -293,7 +337,12 @@ endif()
 
 # Combined external-dependency benchmarks
 if(LIBHMM_BENCH_ENABLE_COMBINED)
-    if(LIBHMM_BENCH_ENABLE_HMMLIB AND LIBHMM_BENCH_ENABLE_STOCHHMM AND HMMLIB_READY AND STOCHHMM_READY)
+    if(
+        LIBHMM_BENCH_ENABLE_HMMLIB
+        AND LIBHMM_BENCH_ENABLE_STOCHHMM
+        AND HMMLIB_READY
+        AND STOCHHMM_READY
+    )
         add_libhmm_benchmark(threeway_benchmark src/threeway_benchmark.cpp)
         enable_hmmlib(threeway_benchmark)
         enable_stochhmm(threeway_benchmark)
@@ -302,7 +351,10 @@ if(LIBHMM_BENCH_ENABLE_COMBINED)
     endif()
 
     if(LIBHMM_BENCH_ENABLE_GHMM AND LIBHMM_BENCH_ENABLE_STOCHHMM AND GHMM_READY AND STOCHHMM_READY)
-        add_libhmm_benchmark(gaussian_distribution_comparison src/gaussian_distribution_comparison.cpp)
+        add_libhmm_benchmark(
+            gaussian_distribution_comparison
+            src/gaussian_distribution_comparison.cpp
+        )
         enable_ghmm(gaussian_distribution_comparison)
         enable_stochhmm(gaussian_distribution_comparison)
     else()
@@ -313,7 +365,8 @@ else()
 endif()
 
 if(TARGET algorithm_performance_benchmark)
-    add_custom_target(run_algorithm_benchmarks
+    add_custom_target(
+        run_algorithm_benchmarks
         COMMAND algorithm_performance_benchmark
         DEPENDS algorithm_performance_benchmark
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
@@ -322,7 +375,8 @@ if(TARGET algorithm_performance_benchmark)
 endif()
 
 if(TARGET classic_problems_benchmark)
-    add_custom_target(run_classic_benchmarks
+    add_custom_target(
+        run_classic_benchmarks
         COMMAND classic_problems_benchmark
         DEPENDS classic_problems_benchmark
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
@@ -339,7 +393,8 @@ if(TARGET run_classic_benchmarks)
 endif()
 
 if(_run_benchmark_targets)
-    add_custom_target(run_all_benchmarks
+    add_custom_target(
+        run_all_benchmarks
         DEPENDS ${_run_benchmark_targets}
         COMMENT "Running selected benchmark suites"
     )
@@ -347,11 +402,26 @@ endif()
 
 message(STATUS "Benchmark dependency configuration:")
 message(STATUS "  deps root: ${LIBHMM_BENCHMARK_DEPS_ROOT}")
-message(STATUS "  HMMLib dir: ${HMMLIB_DIR} (ready: ${HMMLIB_READY}, enabled: ${LIBHMM_BENCH_ENABLE_HMMLIB})")
-message(STATUS "  GHMM dir: ${GHMM_DIR} (ready: ${GHMM_READY}, enabled: ${LIBHMM_BENCH_ENABLE_GHMM})")
-message(STATUS "  StochHMM dir: ${STOCHHMM_DIR} (ready: ${STOCHHMM_READY}, enabled: ${LIBHMM_BENCH_ENABLE_STOCHHMM})")
+message(
+    STATUS
+    "  HMMLib dir: ${HMMLIB_DIR} (ready: ${HMMLIB_READY}, enabled: ${LIBHMM_BENCH_ENABLE_HMMLIB})"
+)
+message(
+    STATUS
+    "  GHMM dir: ${GHMM_DIR} (ready: ${GHMM_READY}, enabled: ${LIBHMM_BENCH_ENABLE_GHMM})"
+)
+message(
+    STATUS
+    "  StochHMM dir: ${STOCHHMM_DIR} (ready: ${STOCHHMM_READY}, enabled: ${LIBHMM_BENCH_ENABLE_STOCHHMM})"
+)
 message(STATUS "  HTK dir: ${HTK_DIR} (ready: ${HTK_READY}, enabled: ${LIBHMM_BENCH_ENABLE_HTK})")
-message(STATUS "  Jahmm dir: ${JAHMM_DIR} (ready: ${JAHMM_READY}, enabled: ${LIBHMM_BENCH_ENABLE_JAHMM})")
-message(STATUS "  LAMP dir: ${LAMP_DIR} (ready: ${LAMP_READY}, enabled: ${LIBHMM_BENCH_ENABLE_LAMP})")
+message(
+    STATUS
+    "  Jahmm dir: ${JAHMM_DIR} (ready: ${JAHMM_READY}, enabled: ${LIBHMM_BENCH_ENABLE_JAHMM})"
+)
+message(
+    STATUS
+    "  LAMP dir: ${LAMP_DIR} (ready: ${LAMP_READY}, enabled: ${LIBHMM_BENCH_ENABLE_LAMP})"
+)
 message(STATUS "  Kaldi dir: ${KALDI_DIR}")
 message(STATUS "  Jahmm Ant dir: ${JAHMM_ANT_DIR}")
