@@ -508,6 +508,41 @@ Dependency cost is the libstats record verbatim; pylibhmm's Windows wheel
 job fits (9 + ~11 min of 30). Fleet-half runbook on #106.
 
 ## Local Machine State [DERIVED]
+2026-11-11, fourth fleet machine, no libhmm run yet: MacBook Pro 9,1
+(i7-3820QM Ivy Bridge: AVX, no AVX2, no FMA), Linux Mint 22.3, glibc
+2.39, GCC 13.3 and clang 17/18 installed. Source: corvus #101 and corvus
+`PLAN.md`. This entry was written on the Zen 4 box from a source read;
+nothing below was built or run on the machine. It does not block #106 or
+the corvus v1.2.0 pin.
+
+Read from source [DERIVED]:
+- The runtime kernel TUs are SSE2, AVX2, AVX-512, NEON and scalar
+  (`src/performance/`). There is no AVX1 kernel, and
+  `simd_double_ops_avx2.cpp` is built `-mavx2 -mfma`.
+- GCC/Clang builds pass `-march=native` unless `LIBHMM_PORTABLE` is set
+  (`cmake/SimdDispatch.cmake`).
+- corvus dispatches its 128-bit `SSE4` target on this CPU and takes the
+  non-FMA Dekker path there (corvus #101).
+
+Inferred, verify on the Linux machine [OPEN]:
+- That this CPU dispatches the 2-wide SSE2 kernels. Confirm with
+  `simd_inspection` (compile time and runtime) before recording any
+  result.
+- That `-march=native` here yields AVX without FMA across the library,
+  making this the first fleet build with no fused accumulations.
+  AGENTS.md states fusion is accuracy-positive in those sums and claims
+  no bit-reproducibility, so the tolerance-based tests are expected to
+  pass, not shown to. Run ctest and the #74 ULP gates natively and
+  record the counts and the max/mean ULP as the entries below do.
+- That the #106 spike is lane-neutral here: libhmm SSE2 and corvus SSE4
+  are both 2-wide, so the comparison would isolate kernel cost from lane
+  count. An optional extra data point for the spike, not a requirement.
+- That a local GCC/clang build catches the Linux-only compile failures
+  that so far surface in CI (AGENTS.md records one that failed all four
+  Linux legs). Plausible; first use will show it.
+- [OPEN] Add the machine to the fleet tables once the first native run
+  is recorded.
+
 2026-09-28, Mac Mini M1 (macOS 27.0.1 Golden Gate, AppleClang 21.0.0
 clang-2100.3.34.2, Xcode/CLT 27.0, CMake 4.4.3): the M1 moved from Tahoe
 during travel [user]; entries below 2026-09-28 are Tahoe records. NEON
