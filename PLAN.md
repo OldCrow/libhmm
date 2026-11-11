@@ -690,15 +690,22 @@ IndependentComponents has no sumW-guard test (noted on #124).
 
 ## Next Steps
 - **Release carrying the target-architecture SIMD fix — unblocks pylibhmm's
-  macOS wheels [OPEN].** PR #149 (2026-11-11) makes CMake select SIMD by
-  target architecture (`cmake/TargetProcessor.cmake`) and adds a macOS
-  x86_64 cross-build CI leg. v4.4.1 lacks the fix, so pylibhmm still builds
-  x86_64 wheels on `macos-15-intel`, the last Intel image GitHub hosts
-  (pin and exit condition: pylibhmm `wheels.yml`, its PR 48; failing trial:
-  pylibhmm Actions run 43053531058). No release or tag is cut for this
-  alone. Once a release contains it, pylibhmm bumps its `GIT_TAG` and
-  replaces its two macOS wheel jobs with one `macos-latest` job
+  macOS wheels [OPEN].** The fix is on `main`, unreleased: PR #149, merged
+  2026-11-11 as `d531a5e`, makes CMake select SIMD by target architecture
+  (`cmake/TargetProcessor.cmake`) and adds a macOS x86_64 cross-build CI
+  leg, which failed on the unfixed CMake and passes with the fix (51/51
+  under Rosetta). CHANGELOG carries it under `[Unreleased]`. v4.4.1 lacks
+  the fix, so pylibhmm still builds x86_64 wheels on `macos-15-intel`, the
+  last Intel image GitHub hosts (pin and exit condition: pylibhmm
+  `wheels.yml`, its PR 48; failing trial: pylibhmm Actions run
+  43053531058). No release or tag is cut for this alone. Once a release
+  contains it, pylibhmm bumps its `GIT_TAG` and replaces its two macOS
+  wheel jobs with one `macos-latest` job
   (`CIBW_ARCHS_MACOS="x86_64 arm64"`).
+  Left open by #149: MSVC targeting ARM64 without a toolchain file still
+  reads `CMAKE_SYSTEM_PROCESSOR` (no CI leg can verify a change), and the
+  pre-commit CI job is pinned to Python 3.14 because cmakelang 0.6.13
+  crashes on 3.15 — raise the pin when the cmake-format hook is replaced.
 - **corvus v1.2.0 released 2026-11-02 — the spike's release [OPEN].**
   Signed tag `v1.2.0` on corvus `691db43`; release notes on corvus's
   GitHub release. It is the release the adoption spike (#106) judges its
