@@ -54,6 +54,19 @@ jobs:
             cxx: clang++
             msvc: false
 
+          # Cross-architecture guard: build x86_64 on the Apple Silicon
+          # runner and run the suite under Rosetta. CMAKE_SYSTEM_PROCESSOR
+          # names the build host here (arm64), so any SIMD selection keyed on
+          # it picks NEON sources and -march=armv8-a for an x86_64 target
+          # (pylibhmm Actions run 43053531058). pylibhmm's wheel build
+          # depends on this configuration working.
+          - name: macOS / AppleClang / x86_64 cross (Rosetta)
+            os: macos-latest
+            cc: clang
+            cxx: clang++
+            msvc: false
+            osx_arch: x86_64
+
           - name: Windows / MSVC / Release
             os: windows-latest
             msvc: true
@@ -109,6 +122,7 @@ jobs:
           -DLIBHMM_BUILD_EXAMPLES=OFF \
           -DLIBHMM_BUILD_TOOLS=OFF \
           -DLIBHMM_PORTABLE=ON \
+          ${{ matrix.osx_arch && format('-DCMAKE_OSX_ARCHITECTURES={0}', matrix.osx_arch) || '' }} \
           ${{ matrix.werror && '-DLIBHMM_WERROR=ON' || '' }}
 
     # -------------------------------------------------------------------------
@@ -133,6 +147,19 @@ jobs:
         fi
         echo "Parallel build jobs: ${JOBS}"
         cmake --build build --config Release --parallel "${JOBS}"
+
+    # A cross leg that silently built for the host would pass every test and
+    # guard nothing, so assert the architecture of the library it produced.
+    - name: Verify target architecture (cross leg)
+      if: matrix.osx_arch
+      env:
+        WANT_ARCH: ${{ matrix.osx_arch }}
+      run: |
+        lib=$(find build -name 'libhmm*.dylib' -type f | head -n 1)
+        test -n "$lib"
+        got=$(lipo -archs "$lib")
+        echo "${lib}: ${got}"
+        test "$got" = "$WANT_ARCH"
 
     # -------------------------------------------------------------------------
     # Test — 41/41 tests pass on all platforms
