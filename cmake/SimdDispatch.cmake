@@ -28,10 +28,14 @@
 # =============================================================================
 include(CheckCXXCompilerFlag)
 
+# Every architecture test below reads LIBHMM_TARGET_PROCESSOR (cmake/TargetProcessor.cmake), never
+# CMAKE_SYSTEM_PROCESSOR: on macOS the latter names the build host even when
+# CMAKE_OSX_ARCHITECTURES selects another architecture.
+
 # x86 ISA extension flags are only meaningful on x86/x86_64 targets. Running them on AArch64 (Apple
 # Silicon, ARM servers) produces misleading results because Clang silently accepts x86 flags without
 # enabling those ISAs.
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+if(LIBHMM_TARGET_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
     # AArch64: NEON is the mandatory ISA baseline — always present, no flag needed.
     set(COMPILER_SUPPORTS_NEON ON)
     message(STATUS "SIMD compiler support — NEON: ON (AArch64 baseline)")
@@ -114,21 +118,29 @@ if(MSVC)
         endif()
     endif()
 else()
-    if(LIBHMM_PORTABLE)
+    if(LIBHMM_PORTABLE OR LIBHMM_TARGET_IS_CROSS)
         # Portable mode: use a stable baseline ISA so the built TUs are safe to distribute.
-        # Runtime-dispatched tier-2 kernels are unaffected.
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+        # Runtime-dispatched tier-2 kernels are unaffected. A cross build takes the same baseline:
+        # -march=native describes the build machine's CPU, which is not the target's.
+        if(LIBHMM_PORTABLE)
+            set(_libhmm_baseline_reason "portable mode")
+        else()
+            set(_libhmm_baseline_reason "cross build, -march=native does not apply")
+        endif()
+        if(LIBHMM_TARGET_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
             set(LIBHMM_BEST_SIMD_FLAGS "-march=armv8-a")
-            message(STATUS "SIMD optimization: -march=armv8-a (AArch64 — portable mode)")
+            message(
+                STATUS "SIMD optimization: -march=armv8-a (AArch64 — ${_libhmm_baseline_reason})")
         else()
             set(LIBHMM_BEST_SIMD_FLAGS "-msse2")
-            message(STATUS "SIMD optimization: -msse2 (portable mode)")
+            message(STATUS "SIMD optimization: -msse2 (${_libhmm_baseline_reason})")
         endif()
+        unset(_libhmm_baseline_reason)
     else()
         # GCC/Clang: -march=native selects the best ISA for the build machine (NEON on AArch64;
         # AVX-512/AVX2/AVX/SSE2 on x86_64).
         set(LIBHMM_BEST_SIMD_FLAGS "-march=native")
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+        if(LIBHMM_TARGET_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
             message(STATUS "SIMD optimization: -march=native (AArch64/NEON)")
         else()
             message(STATUS "SIMD optimization: -march=native")
@@ -201,7 +213,7 @@ set(LIBHMM_DISPATCH_SOURCES
     src/platform/cpu_detection.cpp src/performance/simd_double_ops_scalar.cpp
     src/performance/simd_dispatch.cpp)
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+if(LIBHMM_TARGET_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
     # AArch64: NEON is the mandatory baseline — no extra compile flag needed.
     list(APPEND LIBHMM_DISPATCH_SOURCES src/performance/simd_double_ops_neon.cpp)
     list(APPEND LIBHMM_DISPATCH_DEFINES "LIBHMM_BUILD_NEON_KERNEL")

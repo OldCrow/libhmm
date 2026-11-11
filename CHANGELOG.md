@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- macOS cross-architecture builds select SIMD sources and flags by target
+  architecture. `cmake/SimdDispatch.cmake` branched on
+  `CMAKE_SYSTEM_PROCESSOR`, which names the build host when
+  `CMAKE_OSX_ARCHITECTURES` selects another architecture, so an x86_64
+  build on Apple Silicon got the NEON sources and `-march=armv8-a`
+  (`unknown target CPU 'armv8-a'`). The Homebrew prefix follows the target
+  too (was `uname -m`).
+
+### Changed
+- A cross build (`CMAKE_CROSSCOMPILING`, or an Apple target architecture
+  other than the host's) compiles `LIBHMM_SIMD_SOURCES` at the portable
+  baseline instead of `-march=native`, with or without `LIBHMM_PORTABLE`.
+- `CMAKE_OSX_ARCHITECTURES` naming more than one architecture fails at
+  configure with a message. Such a universal build never worked: one
+  slice always received the other's SIMD sources.
+
 ## [4.4.1] - 2026-08-26
 
 Correctness patch: the ten fix-now findings from the 2026-08-21 defensive

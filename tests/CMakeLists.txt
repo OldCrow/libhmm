@@ -3,13 +3,8 @@ cmake_minimum_required(VERSION 3.20)
 
 # Find required packages with architecture-aware paths
 if(APPLE)
-    execute_process(
-        COMMAND uname -m
-        OUTPUT_VARIABLE APPLE_ARCH
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-
-    if(APPLE_ARCH STREQUAL "arm64")
+    # Target architecture, not the build host's (cmake/TargetProcessor.cmake).
+    if(LIBHMM_TARGET_PROCESSOR STREQUAL "arm64")
         set(HOMEBREW_PREFIX "/opt/homebrew")
     else()
         set(HOMEBREW_PREFIX "/usr/local")

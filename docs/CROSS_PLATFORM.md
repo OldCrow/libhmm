@@ -36,8 +36,18 @@ ctest --test-dir build
 
 Notes:
 - Homebrew prefix: `/opt/homebrew` (Apple Silicon) or `/usr/local` (Intel)
-- CMake detects the architecture automatically via `uname -m`
+- The target architecture is `CMAKE_OSX_ARCHITECTURES` when it names one
+  architecture, otherwise the build host's (`cmake/TargetProcessor.cmake`).
+  The Homebrew prefix and the SIMD source set follow the target, not the host.
 - SIMD: `-march=native` — selects NEON on AArch64, AVX/AVX2 on Intel Macs
+- Cross-architecture build (x86_64 on Apple Silicon, or the reverse):
+  `-DCMAKE_OSX_ARCHITECTURES=x86_64`. `-march=native` describes the build
+  machine, so a cross build takes the portable baseline (`-msse2` or
+  `-march=armv8-a`) whether or not `LIBHMM_PORTABLE` is set; the
+  runtime-dispatched per-ISA kernels are built as usual.
+- Universal builds (`CMAKE_OSX_ARCHITECTURES="x86_64;arm64"`) fail at
+  configure: SIMD sources and flags are selected once per build tree. Build
+  one tree per architecture and join the libraries with `lipo`.
 
 ### Linux (GCC)
 
@@ -91,8 +101,8 @@ OBJECT library and link into both targets — no double compilation overhead.
 
 ## CI Matrix
 
-See `.github/workflows/ci.yml`. Four build jobs (Linux/GCC, Linux/Clang, macOS/AppleClang,
-Windows/MSVC) plus a lint job (clang-format + cppcheck). All 47 tests pass on every platform.
+See `.github/workflows/ci.yml`. Five build jobs (Linux/GCC, Linux/Clang, macOS/AppleClang,
+macOS x86_64 cross-build under Rosetta, Windows/MSVC) plus a lint job (clang-format + cppcheck). All 47 tests pass on every platform.
 
 ## CMake Standard
 
