@@ -49,6 +49,25 @@
   `.claude/skills/`. On Windows the symlink needs Developer Mode and
   `core.symlinks=true`, or git writes it as a text file [OPEN: check on
   Zen 4].
+- **CI and tooling [2026-11-11]** (rules and incidents: CI House Style §1,
+  §6, §8).
+  - Runner labels all float on `*-latest`.
+  - The canary runs weekly (Monday 03:15 UTC); a `canary-report` job opens
+    a "Canary failed" issue, or comments on the open one (#148).
+  - The `precommit` job runs every hook on all files, not on changed
+    files, on Python 3.12 (#151). Checking changed files only is how the
+    cmake-format crash on Python 3.15 stayed hidden until #149 touched
+    CMake, and how 9 of 10 CMake files drifted out of style.
+  - gersemi replaces cmake-format (cmakelang 0.6.13, unmaintained);
+    settings in `.gersemirc`. clang-format hook is v23.1.5, which formats
+    the tree identically to v19.1.7.
+  - The CMake reformat is squashed into `dea1645` (#151) and listed in
+    `.git-blame-ignore-revs`. That file's entries are now full commit
+    IDs: git rejects the whole file on an abbreviated one, so the two
+    older entries had never taken effect.
+  - `reviewdog/action-actionlint` stays at v1.83.0 or newer (#152); older
+    versions fail intermittently with a 404 that is not a lint finding.
+  - Dependabot updates the hook revs (`pre-commit` ecosystem).
 
 ## GitHub Synchronization [DERIVED]
 Last reconciled against live GitHub state: 2026-10-12 (defect-hunt filing:
