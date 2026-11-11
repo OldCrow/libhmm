@@ -446,7 +446,7 @@ breaking API change, check pylibhmm's pin and coordinate the bump.
 Option renames count as breaking for this purpose (pylibhmm stopped
 force-setting libhmm options at its v4.3.0 bump, but a rename still
 changes what a consumer may pass). Staleness of the pin itself is
-checked mechanically by pylibhmm's monthly CI canary (its issue #15),
+checked mechanically by pylibhmm's weekly CI canary (its issue #15),
 not by prose in either repo.
 
 [OPEN] **Whether libhmm adopts corvus as a dependency is undecided**, and the

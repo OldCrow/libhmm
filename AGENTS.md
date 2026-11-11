@@ -204,7 +204,7 @@ Fleet-wide workflow rules (runner budget, bounded parallelism, ISA hazards on
 hosted runners, action pinning):
 [CI House Style](https://github.com/OldCrow/standards/blob/main/CI-HOUSE-STYLE.md).
 
-CI triggers on pushes to `main`, PRs targeting `main`, `workflow_dispatch`, and a monthly cron — a push to a `dev/*` branch does NOT run CI; open the PR to get the matrix (the v4.4.x release flow relies on this).
+CI triggers on pushes to `main`, PRs targeting `main`, `workflow_dispatch`, and a weekly cron — a push to a `dev/*` branch does NOT run CI; open the PR to get the matrix (the v4.4.x release flow relies on this).
 
 Four parallel build-matrix jobs: Linux/GCC, Linux/Clang, macOS/AppleClang, Windows/MSVC (`windows-latest`, whichever VS the runner image ships). Additional jobs (ubuntu): ThreadSanitizer, AddressSanitizer, pre-commit, cppcheck, and clang-tidy — nine legs in total. Tests run with `-LE "known_broken|benchmark"`.
 
