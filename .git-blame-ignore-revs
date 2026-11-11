@@ -3,10 +3,8 @@
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 # style: bulk reformat all source files with clang-format (2026-04-23)
-7221753
-
+7221753612fefcbaf562d857b420c6ac4fcb0af7
 # style: apply clang-format 19.1.7 to all source files (2026-05-03)
-662c172
-
+662c172b13167b459d742dc6e1db4a6372e9d4d2
 # style: gersemi over the CMake files, squashed with the pre-commit setup in #151 (2026-11-11)
-dea1645
+dea1645680ab41776dbea10bd3b03ac21bdc1270
