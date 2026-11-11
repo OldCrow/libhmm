@@ -713,9 +713,8 @@ IndependentComponents has no sumW-guard test (noted on #124).
   contains it, pylibhmm bumps its `GIT_TAG` and replaces its two macOS
   wheel jobs with one `macos-latest` job
   (`CIBW_ARCHS_MACOS="x86_64 arm64"`).
-  Left open by #149: Windows ARM64 under MSVC (#150), and the
-  pre-commit CI job is pinned to Python 3.14 because cmakelang 0.6.13
-  crashes on 3.15 — raise the pin when the cmake-format hook is replaced.
+  Left open by #149: Windows ARM64 under MSVC (#150). The pre-commit CI job pin to Python 3.14
+  is gone: cmake-format was replaced by gersemi, job runs on 3.12.
 - **corvus v1.2.0 released 2026-11-02 — the spike's release [OPEN].**
   Signed tag `v1.2.0` on corvus `691db43`; release notes on corvus's
   GitHub release. It is the release the adoption spike (#106) judges its

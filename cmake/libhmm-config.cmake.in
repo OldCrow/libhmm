@@ -8,7 +8,7 @@ set(LIBHMM_INCLUDE_DIRS "@PACKAGE_INCLUDE_INSTALL_DIR@")
 
 # Our library dependencies (contains definitions for IMPORTED targets)
 if(NOT TARGET libhmm::hmm AND NOT libhmm_BINARY_DIR)
-  include("${LIBHMM_CMAKE_DIR}/libhmm-targets.cmake")
+    include("${LIBHMM_CMAKE_DIR}/libhmm-targets.cmake")
 endif()
 
 # Set library targets

@@ -3,7 +3,7 @@
 #
 # Style conventions:
 #   - 4-space indentation (no tabs)
-#   - 100-column limit (matches .cmake-format.yaml)
+#   - 100-column limit (matches .gersemirc)
 #   - K&R brace style (braces attach to preceding statement)
 #   - No spaces inside parentheses
 #   - Include order preserved (system includes before project includes)

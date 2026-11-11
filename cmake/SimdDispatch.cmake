@@ -52,7 +52,7 @@ elseif(NOT MSVC)
     check_cxx_compiler_flag("-msse4.2" COMPILER_SUPPORTS_SSE42)
     message(
         STATUS
-            "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}"
+        "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}"
     )
 else()
     # MSVC x86/x64: informational only — actual flag selected via check_cxx_source_runs below.
@@ -62,7 +62,7 @@ else()
     set(COMPILER_SUPPORTS_SSE42 ON) # SSE4.2 is guaranteed on x64 MSVC
     message(
         STATUS
-            "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}"
+        "SIMD compiler support — AVX-512: ${COMPILER_SUPPORTS_AVX512F}  AVX2: ${COMPILER_SUPPORTS_AVX2}  AVX: ${COMPILER_SUPPORTS_AVX}"
     )
 endif()
 
@@ -89,17 +89,20 @@ if(MSVC)
         set(CMAKE_REQUIRED_FLAGS "/arch:AVX512")
         check_cxx_source_runs(
             "#include <intrin.h>\nint main(){__m512d x=_mm512_setzero_pd();(void)x;return 0;}"
-            CPU_SUPPORTS_AVX512F)
+            CPU_SUPPORTS_AVX512F
+        )
 
         set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
         check_cxx_source_runs(
             "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
-            CPU_SUPPORTS_AVX2)
+            CPU_SUPPORTS_AVX2
+        )
 
         set(CMAKE_REQUIRED_FLAGS "/arch:AVX")
         check_cxx_source_runs(
             "#include <intrin.h>\nint main(){__m256d x=_mm256_setzero_pd();(void)x;return 0;}"
-            CPU_SUPPORTS_AVX)
+            CPU_SUPPORTS_AVX
+        )
 
         set(CMAKE_REQUIRED_FLAGS "${_saved_req_flags}")
 
@@ -130,7 +133,9 @@ else()
         if(LIBHMM_TARGET_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
             set(LIBHMM_BEST_SIMD_FLAGS "-march=armv8-a")
             message(
-                STATUS "SIMD optimization: -march=armv8-a (AArch64 — ${_libhmm_baseline_reason})")
+                STATUS
+                "SIMD optimization: -march=armv8-a (AArch64 — ${_libhmm_baseline_reason})"
+            )
         else()
             set(LIBHMM_BEST_SIMD_FLAGS "-msse2")
             message(STATUS "SIMD optimization: -msse2 (${_libhmm_baseline_reason})")
@@ -168,7 +173,8 @@ set(LIBHMM_SIMD_SOURCES
     src/distributions/student_t_distribution.cpp
     src/distributions/uniform_distribution.cpp
     src/distributions/weibull_distribution.cpp
-    src/distributions/von_mises_distribution.cpp)
+    src/distributions/von_mises_distribution.cpp
+)
 
 # NOTE: transcendental_kernels.cpp, the FB calculator TUs (scalar + MV), and the BW/MAP-BW trainer
 # TUs (scalar + MV) used to be appended here because they included transcendental_kernels.h and
@@ -181,15 +187,20 @@ set(LIBHMM_SIMD_SOURCES
 # Runtime-dispatched distribution wrappers no longer contain SIMD intrinsics; they call through the
 # DoubleVecOps table. Remove them from LIBHMM_SIMD_SOURCES so -march=native is not applied to those
 # wrapper TUs.
-list(REMOVE_ITEM LIBHMM_SIMD_SOURCES src/distributions/gaussian_distribution.cpp
-     src/distributions/exponential_distribution.cpp)
+list(
+    REMOVE_ITEM LIBHMM_SIMD_SOURCES
+    src/distributions/gaussian_distribution.cpp
+    src/distributions/exponential_distribution.cpp
+)
 
 if(LIBHMM_BEST_SIMD_FLAGS)
     foreach(simd_src ${LIBHMM_SIMD_SOURCES})
         # COMPILE_OPTIONS replaces the deprecated COMPILE_FLAGS property: it handles lists correctly
         # and supports generator expressions.
-        set_source_files_properties(${simd_src} PROPERTIES COMPILE_OPTIONS
-                                                           "${LIBHMM_BEST_SIMD_FLAGS}")
+        set_source_files_properties(
+            ${simd_src}
+            PROPERTIES COMPILE_OPTIONS "${LIBHMM_BEST_SIMD_FLAGS}"
+        )
     endforeach()
     message(STATUS "Applied SIMD flags to ${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
@@ -210,8 +221,10 @@ set(LIBHMM_DISPATCH_DEFINES "")
 # LIBHMM_DISPATCH_SOURCES accumulates new TUs here; appended to LIBHMM_SOURCES AFTER the
 # set(LIBHMM_SOURCES ...) block resets it below.
 set(LIBHMM_DISPATCH_SOURCES
-    src/platform/cpu_detection.cpp src/performance/simd_double_ops_scalar.cpp
-    src/performance/simd_dispatch.cpp)
+    src/platform/cpu_detection.cpp
+    src/performance/simd_double_ops_scalar.cpp
+    src/performance/simd_dispatch.cpp
+)
 
 if(LIBHMM_TARGET_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
     # AArch64: NEON is the mandatory baseline — no extra compile flag needed.
@@ -223,15 +236,18 @@ else()
     # always available.
     list(APPEND LIBHMM_DISPATCH_SOURCES src/performance/simd_double_ops_sse2.cpp)
     list(APPEND LIBHMM_DISPATCH_DEFINES "LIBHMM_BUILD_SSE2_KERNEL")
-    set_source_files_properties(src/performance/simd_double_ops_sse2.cpp
-                                PROPERTIES COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,,-msse2>")
+    set_source_files_properties(
+        src/performance/simd_double_ops_sse2.cpp
+        PROPERTIES COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,,-msse2>"
+    )
 
     if(COMPILER_SUPPORTS_AVX2)
         list(APPEND LIBHMM_DISPATCH_SOURCES src/performance/simd_double_ops_avx2.cpp)
         list(APPEND LIBHMM_DISPATCH_DEFINES "LIBHMM_BUILD_AVX2_KERNEL")
         set_source_files_properties(
             src/performance/simd_double_ops_avx2.cpp
-            PROPERTIES COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/arch:AVX2,-mavx2;-mfma>")
+            PROPERTIES COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/arch:AVX2,-mavx2;-mfma>"
+        )
     endif()
 
     if(COMPILER_SUPPORTS_AVX512F)
@@ -239,8 +255,9 @@ else()
         list(APPEND LIBHMM_DISPATCH_DEFINES "LIBHMM_BUILD_AVX512_KERNEL")
         set_source_files_properties(
             src/performance/simd_double_ops_avx512.cpp
-            PROPERTIES COMPILE_OPTIONS
-                       "$<IF:$<CXX_COMPILER_ID:MSVC>,/arch:AVX512,-mavx512f;-mavx512dq>")
+            PROPERTIES
+                COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/arch:AVX512,-mavx512f;-mavx512dq>"
+        )
     endif()
 
     message(STATUS "Runtime dispatch tiers: ${LIBHMM_DISPATCH_DEFINES}")
@@ -248,8 +265,10 @@ endif()
 
 # Communicate compiled-in tiers to simd_dispatch.cpp only (not globally).
 if(LIBHMM_DISPATCH_DEFINES)
-    set_source_files_properties(src/performance/simd_dispatch.cpp
-                                PROPERTIES COMPILE_DEFINITIONS "${LIBHMM_DISPATCH_DEFINES}")
+    set_source_files_properties(
+        src/performance/simd_dispatch.cpp
+        PROPERTIES COMPILE_DEFINITIONS "${LIBHMM_DISPATCH_DEFINES}"
+    )
 endif()
 # Note: MSVC with /arch:AVX512 emits 2 × C4244 from <memory> internal templates when AVX-512
 # register types are instantiated. /external:anglebrackets /external:W0 (already on the hmm target)

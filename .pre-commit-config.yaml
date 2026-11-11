@@ -1,8 +1,8 @@
 # Pre-commit hooks for libhmm.
-# Install: bash scripts/setup-pre-commit.sh
-# Or manually: pip install pre-commit && pre-commit install
+# Enable locally: python -m pre_commit install
+# The `precommit` CI job runs this same config on all files.
 #
-# Active hooks: file hygiene, #pragma once, clang-format, cmake-format.
+# Active hooks: file hygiene, #pragma once, clang-format, gersemi.
 
 default_language_version:
   python: python3
@@ -10,46 +10,32 @@ default_language_version:
 repos:
   # ─── General file hygiene ────────────────────────────────────────────────────
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
-        name: Remove trailing whitespace
       - id: end-of-file-fixer
-        name: Ensure files end with a newline
       - id: mixed-line-ending
-        name: Normalise line endings to LF
         args: ['--fix=lf']
       - id: check-yaml
-        name: Check YAML syntax
       - id: check-json
-        name: Check JSON syntax
-      - id: check-added-large-files
-        name: Block large files
-        args: ['--maxkb=500']
       - id: check-merge-conflict
-        name: Block merge conflict markers
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
 
   # ─── C/C++ formatting ────────────────────────────────────────────────────────
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v19.1.7
+    rev: v23.1.5
     hooks:
       - id: clang-format
-        name: clang-format
         types_or: [c++, c]
         args: ['--style=file']
 
-  # ─── CMake formatting ─────────────────────────────────────────────────────
-  - repo: https://github.com/cheshirekow/cmake-format-precommit
-    rev: v0.6.13
+  # ─── CMake formatting (settings in .gersemirc) ───────────────────────────────
+  - repo: https://github.com/BlankSpruce/gersemi-pre-commit
+    rev: 0.29.2
     hooks:
-      - id: cmake-format
-        name: cmake-format
-        args: ['--config-file=.cmake-format.yaml']
-        # cmakelang lazy-imports yaml in load_yaml() but does not declare
-        # pyyaml as a dependency. With Python 3.14 in the pre-commit env on
-        # Ubuntu CI, this surfaces as ModuleNotFoundError: No module named
-        # 'yaml'. Inject pyyaml into the hook venv to make load_yaml work.
-        additional_dependencies: ['pyyaml']
+      - id: gersemi
 
   # ─── libhmm-specific checks ──────────────────────────────────────────────────
   - repo: local
@@ -64,6 +50,7 @@ repos:
 # Exclude build artifacts and vendored content
 exclude: |
   (?x)^(
-    build/.*|
-    third_party/.*
+    build.*/.*|
+    third_party/.*|
+    .agents/skills
   )$

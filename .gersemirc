@@ -1,0 +1,3 @@
+line_length: 100
+indent: 4
+definitions: [benchmarks/CMakeLists.txt, examples/CMakeLists.txt, tests/CMakeLists.txt, tools/CMakeLists.txt]

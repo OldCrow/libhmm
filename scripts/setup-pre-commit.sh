@@ -4,7 +4,7 @@
 # Run this once after cloning to activate the git hooks.
 #
 # Requires: Python 3.7+, pip
-# Optional: clang-format (for formatting checks)
+# Optional: clang-format (formatting checks); gersemi runs inside pre-commit
 #
 # Usage: bash scripts/setup-pre-commit.sh
 

@@ -165,7 +165,7 @@ See `docs/STYLE_GUIDE.md` for the full guide. Key points:
 
 ### Tool prerequisites
 
-Install commands for clang-format, cmake-format, pre-commit, cppcheck and
+Install commands for clang-format, gersemi, pre-commit, cppcheck and
 mpmath (per OS): `docs/CROSS_PLATFORM.md`.
 
 ### Linting and formatting
@@ -174,8 +174,8 @@ mpmath (per OS): `docs/CROSS_PLATFORM.md`.
 # clang-format (enforced by pre-commit and CI)
 clang-format --style=file -i <file>
 
-# cmake-format
-cmake-format -i CMakeLists.txt
+# gersemi (CMake formatter; settings in .gersemirc)
+gersemi -i CMakeLists.txt
 
 # cppcheck (as run in CI)
 cppcheck --enable=warning,style,performance --error-exitcode=1 \
@@ -185,11 +185,11 @@ cppcheck --enable=warning,style,performance --error-exitcode=1 \
   --suppress=toomanyconfigs --suppress=functionStatic \
   --std=c++20 -I include src/
 
-# Install pre-commit hooks
-bash scripts/setup-pre-commit.sh
+# Enable the hooks locally
+python -m pre_commit install
 ```
 
-Active pre-commit hooks: trailing whitespace, end-of-file newline, LF line endings, YAML/JSON syntax, large-file guard, clang-format, cmake-format, and a project-specific `#pragma once` checker.
+Active pre-commit hooks: trailing whitespace, end-of-file newline, LF line endings, YAML/JSON syntax, merge-conflict markers, case conflicts, large-file guard, clang-format, gersemi, and a project-specific `#pragma once` checker. The `precommit` CI job runs the same config on all files (`.pre-commit-config.yaml`).
 
 ## Common Development Tasks
 

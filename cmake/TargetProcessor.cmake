@@ -25,11 +25,12 @@ if(APPLE AND CMAKE_OSX_ARCHITECTURES)
     if(_libhmm_osx_arch_count GREATER 1)
         message(
             FATAL_ERROR
-                "libhmm: CMAKE_OSX_ARCHITECTURES=\"${CMAKE_OSX_ARCHITECTURES}\" names more than "
-                "one architecture. Universal builds are not supported in a single build tree: "
-                "SIMD sources and flags are selected once per configure. Configure one tree per "
-                "architecture (e.g. -DCMAKE_OSX_ARCHITECTURES=arm64, then x86_64) and join the "
-                "libraries with lipo.")
+            "libhmm: CMAKE_OSX_ARCHITECTURES=\"${CMAKE_OSX_ARCHITECTURES}\" names more than "
+            "one architecture. Universal builds are not supported in a single build tree: "
+            "SIMD sources and flags are selected once per configure. Configure one tree per "
+            "architecture (e.g. -DCMAKE_OSX_ARCHITECTURES=arm64, then x86_64) and join the "
+            "libraries with lipo."
+        )
     endif()
     if(CMAKE_OSX_ARCHITECTURES MATCHES "^arm64e?$")
         set(LIBHMM_TARGET_PROCESSOR "arm64")
@@ -38,8 +39,9 @@ if(APPLE AND CMAKE_OSX_ARCHITECTURES)
     else()
         message(
             FATAL_ERROR
-                "libhmm: unrecognised CMAKE_OSX_ARCHITECTURES=\"${CMAKE_OSX_ARCHITECTURES}\". "
-                "Expected one of arm64, arm64e, x86_64, x86_64h.")
+            "libhmm: unrecognised CMAKE_OSX_ARCHITECTURES=\"${CMAKE_OSX_ARCHITECTURES}\". "
+            "Expected one of arm64, arm64e, x86_64, x86_64h."
+        )
     endif()
     if(NOT LIBHMM_TARGET_PROCESSOR STREQUAL CMAKE_HOST_SYSTEM_PROCESSOR)
         set(LIBHMM_TARGET_IS_CROSS ON)
