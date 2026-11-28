@@ -131,6 +131,12 @@ version. Milestone NUMBERS did not change, only titles — #1 is now v4.4.0.
   adopts.** That is corvus v1.2.0 since corvus split its next release:
   v1.1.0 ships correctness only, and the throughput work (#42 lever 1 and
   the rest) moved to v1.2.0. The spike's go/no-go is judged on v1.2.0.
+  **[2026-11-27] The release is now corvus v1.2.1** (signed tag on corvus
+  `77bd92b`): libstats v3.0.0 pins v1.2.1 [user], so by the rule above
+  the spike tests v1.2.1. It is a patch on v1.2.0 with no result, bound
+  or API change; a one-value call through a span no longer waits on the
+  call before it (large on Zen 4 under Windows, a few percent
+  elsewhere). Source: corvus `PLAN.md` and its release notes.
   #106's runbook pin (FetchContent `v1.0.0`) is the paper-half sizing,
   not the release under test. Fleet record: standards
   `records/CORVUS-ADOPTION-WORKPLAN.md`.
